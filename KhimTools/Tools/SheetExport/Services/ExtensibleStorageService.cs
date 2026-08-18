@@ -42,6 +42,7 @@ namespace KhimTools.SheetExport.Services
 
         public static bool SaveSnapshots(Document doc, List<RevisionSnapshot> snapshots)
         {
+            if (doc == null) return false;
             try
             {
                 Schema schema = GetOrCreateSchema(SnapshotSchemaGuid, "KhimTools_SheetExport_RevisionSnapshots", SnapshotFieldName);
@@ -49,10 +50,20 @@ namespace KhimTools.SheetExport.Services
                 if (projInfo == null) return false;
 
                 string json = JsonConvert.SerializeObject(snapshots, Formatting.None);
-
                 Entity entity = new Entity(schema);
                 entity.Set(schema.GetField(SnapshotFieldName), json);
-                projInfo.SetEntity(entity);
+
+                if (doc.IsModifiable)
+                {
+                    projInfo.SetEntity(entity);
+                }
+                else
+                {
+                    using var trans = new Transaction(doc, "Save KhimTools Revision Snapshots");
+                    trans.Start();
+                    projInfo.SetEntity(entity);
+                    trans.Commit();
+                }
 
                 return true;
             }
@@ -90,6 +101,7 @@ namespace KhimTools.SheetExport.Services
 
         public static bool SaveNamingTemplates(Document doc, List<NamingTemplate> templates)
         {
+            if (doc == null) return false;
             try
             {
                 Schema schema = GetOrCreateSchema(NamingSchemaGuid, "KhimTools_SheetExport_NamingTemplates", NamingFieldName);
@@ -97,10 +109,20 @@ namespace KhimTools.SheetExport.Services
                 if (projInfo == null) return false;
 
                 string json = JsonConvert.SerializeObject(templates, Formatting.None);
-
                 Entity entity = new Entity(schema);
                 entity.Set(schema.GetField(NamingFieldName), json);
-                projInfo.SetEntity(entity);
+
+                if (doc.IsModifiable)
+                {
+                    projInfo.SetEntity(entity);
+                }
+                else
+                {
+                    using var trans = new Transaction(doc, "Save KhimTools Naming Templates");
+                    trans.Start();
+                    projInfo.SetEntity(entity);
+                    trans.Commit();
+                }
 
                 return true;
             }

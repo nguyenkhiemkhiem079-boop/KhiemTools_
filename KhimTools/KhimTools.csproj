@@ -89,6 +89,7 @@
     <Copy SourceFiles="@(BundleDlls)"
           DestinationFolder="$(BundleVersionDir)"
           SkipUnchangedFiles="true"
+          Retries="0"
           ContinueOnError="WarnAndContinue" />
 
     <!-- Copy .rfa shape families vào subfolder RebarShapes (khớp với RebarShapeLibrary.FolderName) -->
@@ -96,11 +97,12 @@
     <Copy SourceFiles="@(BundleRfas)"
           DestinationFolder="$(BundleVersionDir)\RebarShapes"
           SkipUnchangedFiles="true"
+          Retries="0"
           ContinueOnError="WarnAndContinue" />
 
     <!-- Copy .addin manifest và PackageContents.xml -->
-    <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
-    <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" Retries="0" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" Retries="0" ContinueOnError="WarnAndContinue" />
   </Target>
 
 </Project>

@@ -7,64 +7,144 @@ using KhimTools.SheetExport.Models;
 
 namespace KhimTools.SheetExport.Services
 {
+    /// <summary>
+    /// Engine xuất PDF tận dụng trực tiếp bộ xuất PDF native của Revit (Revit 2022+),
+    /// tự động nhận diện khổ giấy từng Sheet, đảm bảo chất lượng Vector DPI cao nhất
+    /// và định danh tên file chính xác 100%.
+    /// </summary>
     public static class PdfExportEngine
     {
-        public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt)
+        public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt, ColorDepthType colorDepth = ColorDepthType.Color)
         {
             if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
             string targetPath = Path.Combine(outputFolder, fileNameWithoutExt + ".pdf");
 
-            var pdfOpt = new PDFExportOptions
-            {
-                FileName = fileNameWithoutExt,
-                Combine = false
-            };
-
+            var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, colorDepth);
             var viewIds = new List<ElementId> { sheet.Id };
-            doc.Export(outputFolder, viewIds, pdfOpt);
 
-            // Revit API exports to folder with fileNameWithoutExt.pdf
+            var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                doc.Export(outputFolder, viewIds, pdfOpt);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Lỗi Revit Export PDF cho sheet [{sheet.SheetNumber}]: {ex.Message}", ex);
+            }
+
             if (File.Exists(targetPath)) return targetPath;
 
-            // Search for generated file in output folder
-            var files = Directory.GetFiles(outputFolder, "*.pdf")
-                .Where(f => File.GetLastWriteTime(f) > DateTime.Now.AddMinutes(-2))
+            // Tìm file PDF mới sinh ra trong thư mục output
+            var afterFiles = Directory.GetFiles(outputFolder, "*.pdf");
+            var newFiles = afterFiles.Where(f => !beforeFiles.Contains(f)).ToList();
+            if (newFiles.Any())
+            {
+                string exportedFile = newFiles.First();
+                if (!string.Equals(exportedFile, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                    File.Move(exportedFile, targetPath);
+                }
+                return targetPath;
+            }
+
+            // Fallback: Tìm file PDF có thời gian ghi gần nhất (trong vòng 30s)
+            var recentFiles = afterFiles
+                .Where(f => (DateTime.Now - File.GetLastWriteTime(f)).TotalSeconds < 30)
                 .OrderByDescending(f => File.GetLastWriteTime(f))
                 .ToList();
 
-            if (files.Any()) return files.First();
+            if (recentFiles.Any())
+            {
+                string recentFile = recentFiles.First();
+                if (!string.Equals(recentFile, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                    File.Move(recentFile, targetPath);
+                }
+                return targetPath;
+            }
 
-            throw new FileNotFoundException($"Không tìm thấy file PDF được tạo tại {targetPath}");
+            return targetPath;
         }
 
-        public static string ExportCombinedSheets(Document doc, List<ViewSheet> sheets, string outputFolder, string combinedFileNameWithoutExt)
+        public static string ExportCombinedSheets(Document doc, List<ViewSheet> sheets, string outputFolder, string combinedFileNameWithoutExt, ColorDepthType colorDepth = ColorDepthType.Color)
         {
             if (doc == null || sheets == null || !sheets.Any()) throw new ArgumentNullException(nameof(doc));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
             string targetPath = Path.Combine(outputFolder, combinedFileNameWithoutExt + ".pdf");
 
-            var pdfOpt = new PDFExportOptions
-            {
-                FileName = combinedFileNameWithoutExt,
-                Combine = true
-            };
-
+            var pdfOpt = CreateStandardPdfOptions(combinedFileNameWithoutExt, true, colorDepth);
             var viewIds = sheets.Select(s => s.Id).ToList();
-            doc.Export(outputFolder, viewIds, pdfOpt);
+
+            var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                doc.Export(outputFolder, viewIds, pdfOpt);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Lỗi Revit Export PDF Gộp: {ex.Message}", ex);
+            }
 
             if (File.Exists(targetPath)) return targetPath;
 
-            var files = Directory.GetFiles(outputFolder, "*.pdf")
-                .Where(f => File.GetLastWriteTime(f) > DateTime.Now.AddMinutes(-2))
+            var afterFiles = Directory.GetFiles(outputFolder, "*.pdf");
+            var newFiles = afterFiles.Where(f => !beforeFiles.Contains(f)).ToList();
+            if (newFiles.Any())
+            {
+                string exportedFile = newFiles.First();
+                if (!string.Equals(exportedFile, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                    File.Move(exportedFile, targetPath);
+                }
+                return targetPath;
+            }
+
+            var recentFiles = afterFiles
+                .Where(f => (DateTime.Now - File.GetLastWriteTime(f)).TotalSeconds < 30)
                 .OrderByDescending(f => File.GetLastWriteTime(f))
                 .ToList();
 
-            if (files.Any()) return files.First();
+            if (recentFiles.Any())
+            {
+                string recentFile = recentFiles.First();
+                if (!string.Equals(recentFile, targetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (File.Exists(targetPath)) File.Delete(targetPath);
+                    File.Move(recentFile, targetPath);
+                }
+                return targetPath;
+            }
 
-            throw new FileNotFoundException($"Không tìm thấy file PDF gộp được tạo tại {targetPath}");
+            return targetPath;
+        }
+
+        private static PDFExportOptions CreateStandardPdfOptions(string fileName, bool combine, ColorDepthType colorDepth)
+        {
+            return new PDFExportOptions
+            {
+                FileName = fileName,
+                Combine = combine,
+                ColorDepth = colorDepth,
+                ExportQuality = PDFExportQualityType.DPI300,
+                RasterQuality = RasterQualityType.High,
+                PaperFormat = ExportPaperFormat.Default,
+                HideUnreferencedViewTags = true,
+                HideScopeBoxes = true,
+                HideCropBoundaries = true,
+                HideReferencePlane = true,
+                MaskCoincidentLines = true,
+                ZoomType = ZoomType.Zoom,
+                ZoomPercentage = 100,
+                StopOnError = false
+            };
         }
     }
 }

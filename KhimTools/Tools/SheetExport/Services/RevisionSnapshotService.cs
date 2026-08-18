@@ -31,7 +31,9 @@ namespace KhimTools.SheetExport.Services
                 return;
             }
 
-            var map = latestSnapshot.Items.ToDictionary(i => i.SheetUniqueId, StringComparer.OrdinalIgnoreCase);
+            var map = latestSnapshot.Items
+                .GroupBy(i => i.SheetUniqueId, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
             foreach (var sheet in currentSheets)
             {
