@@ -82,11 +82,11 @@ namespace KhimTools.SheetExport.Forms
         private void InitializeFormLayout()
         {
             Text = "📄 KHIM TOOLS — Xuất & In Bản Vẽ Hàng Loạt (Sheet Batch Exporter)";
-            Width = 1180;
-            Height = 780;
+            Width = 1360;
+            Height = 840;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
-            MinimumSize = new System.Drawing.Size(1000, 650);
+            MinimumSize = new System.Drawing.Size(1180, 700);
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
@@ -100,7 +100,9 @@ namespace KhimTools.SheetExport.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = System.Windows.Forms.Orientation.Vertical,
-                SplitterDistance = 600,
+                SplitterDistance = 640,
+                Panel1MinSize = 480,
+                Panel2MinSize = 520,
                 Padding = new Padding(8)
             };
 
@@ -110,18 +112,18 @@ namespace KhimTools.SheetExport.Forms
             {
                 Text = "📋 Danh Sách Sheet Bản Vẽ Trong Dự Án",
                 Dock = DockStyle.Top,
-                Height = 26,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                Height = 28,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
                 ForeColor = Color.DarkSlateBlue
             };
 
             // Search bar
             var pnlSearchBar = new System.Windows.Forms.Panel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(2) };
             var lblSearch = new Label { Text = "🔍 Tìm kiếm:", Left = 2, Top = 8, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _txtSearch = new TextBox { Left = 85, Top = 5, Width = 320, Font = new Font("Segoe UI", 9F) };
+            _txtSearch = new TextBox { Left = 85, Top = 5, Width = 340, Font = new Font("Segoe UI", 9F) };
             _txtSearch.TextChanged += (s, e) => ApplySearchFilter();
 
-            var btnClearSearch = new Button { Text = "✕", Left = 410, Top = 4, Width = 30, Height = 25, FlatStyle = FlatStyle.System };
+            var btnClearSearch = new Button { Text = "✕", Left = 430, Top = 4, Width = 30, Height = 25, FlatStyle = FlatStyle.System };
             btnClearSearch.Click += (s, e) => { _txtSearch.Clear(); };
 
             pnlSearchBar.Controls.Add(lblSearch);
@@ -143,7 +145,7 @@ namespace KhimTools.SheetExport.Forms
             _btnSelectChangedOnly = new Button
             {
                 Text = "⚡ Chỉ Sheet Đã Sửa / Mới",
-                Width = 175,
+                Width = 180,
                 Height = 28,
                 BackColor = Color.FromArgb(235, 245, 255),
                 FlatStyle = FlatStyle.Flat
@@ -205,20 +207,20 @@ namespace KhimTools.SheetExport.Forms
             // ── RIGHT PANEL: Tab Control + Preview + Log Output ─────────────
             var rightPanel = new System.Windows.Forms.Panel { Dock = DockStyle.Fill };
 
-            _tabSettings = new TabControl { Dock = DockStyle.Top, Height = 320 };
+            _tabSettings = new TabControl { Dock = DockStyle.Top, Height = 350, Font = new Font("Segoe UI", 9F) };
 
             // TAB 1: Naming & File Formats
-            var tabFormats = new TabPage { Text = "⚙️ Định Dạng & Khổ Giấy", Padding = new Padding(10) };
+            var tabFormats = new TabPage { Text = "⚙️ Định Dạng & Khổ Giấy", Padding = new Padding(12) };
             BuildTabFormats(tabFormats);
             _tabSettings.TabPages.Add(tabFormats);
 
             // TAB 2: Issue & Transmittal
-            var tabIssue = new TabPage { Text = "📋 Quản Lý Phát Hành (Issue)", Padding = new Padding(10) };
+            var tabIssue = new TabPage { Text = "📋 Quản Lý Phát Hành (Issue)", Padding = new Padding(12) };
             BuildTabIssue(tabIssue);
             _tabSettings.TabPages.Add(tabIssue);
 
             // TAB 3: Advanced PDF & Watermark
-            var tabAdvancedPdf = new TabPage { Text = "🎨 Nâng Cao & Đóng Dấu", Padding = new Padding(10) };
+            var tabAdvancedPdf = new TabPage { Text = "🎨 Nâng Cao & Đóng Dấu", Padding = new Padding(12) };
             BuildTabAdvancedPdf(tabAdvancedPdf);
             _tabSettings.TabPages.Add(tabAdvancedPdf);
 
@@ -227,17 +229,17 @@ namespace KhimTools.SheetExport.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = System.Windows.Forms.Orientation.Horizontal,
-                SplitterDistance = 150
+                SplitterDistance = 160
             };
 
-            var pnlPreviewBox = new GroupBox { Text = "🖼️ Xem Trước Sheet (Thumbnail)", Dock = DockStyle.Fill };
-            _lblThumbnailTitle = new Label { Text = "Chưa chọn sheet", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 8F, FontStyle.Italic) };
+            var pnlPreviewBox = new GroupBox { Text = "🖼️ Xem Trước Sheet (Thumbnail)", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _lblThumbnailTitle = new Label { Text = "Chưa chọn sheet", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Italic) };
             _picThumbnail = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.FromArgb(245, 246, 250) };
             pnlPreviewBox.Controls.Add(_picThumbnail);
             pnlPreviewBox.Controls.Add(_lblThumbnailTitle);
             previewSplit.Panel1.Controls.Add(pnlPreviewBox);
 
-            var pnlLogBox = new GroupBox { Text = "📜 Tiến Trình Xuất File (Real-time Log)", Dock = DockStyle.Fill };
+            var pnlLogBox = new GroupBox { Text = "📜 Tiến Trình Xuất File (Real-time Log)", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             _rtbLogOutput = new RichTextBox
             {
                 Dock = DockStyle.Fill,
@@ -260,16 +262,16 @@ namespace KhimTools.SheetExport.Forms
             // ── BOTTOM ACTION BAR ───────────────────────────────────────────
             var bottomBar = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 248) };
 
-            _btnPreflightCheck = new Button { Text = "🔍 Kiểm Tra Trước Khi Xuất", Left = 15, Top = 12, Width = 175, Height = 32, FlatStyle = FlatStyle.System };
+            _btnPreflightCheck = new Button { Text = "🔍 Kiểm Tra Trước Khi Xuất", Left = 15, Top = 12, Width = 185, Height = 32, FlatStyle = FlatStyle.System };
             _btnPreflightCheck.Click += BtnPreflightCheck_Click;
 
-            _btnOpenOutputDir = new Button { Text = "📂 Mở Thư Mục", Left = 200, Top = 12, Width = 120, Height = 32, FlatStyle = FlatStyle.System };
+            _btnOpenOutputDir = new Button { Text = "📂 Mở Thư Mục", Left = 210, Top = 12, Width = 120, Height = 32, FlatStyle = FlatStyle.System };
             _btnOpenOutputDir.Click += (s, e) => OpenOutputDirectory();
 
             _btnExportStart = new Button
             {
                 Text = "⚡ XUẤT BẢN VẼ (EXPORT NOW)",
-                Left = 680,
+                Left = 700,
                 Top = 10,
                 Width = 240,
                 Height = 36,
@@ -281,7 +283,7 @@ namespace KhimTools.SheetExport.Forms
             _btnExportStart.FlatAppearance.BorderSize = 0;
             _btnExportStart.Click += BtnExportStart_Click;
 
-            _btnClose = new Button { Text = "Đóng", Left = 935, Top = 10, Width = 85, Height = 36, FlatStyle = FlatStyle.System };
+            _btnClose = new Button { Text = "Đóng", Left = 955, Top = 10, Width = 85, Height = 36, FlatStyle = FlatStyle.System };
             _btnClose.Click += (s, e) => Close();
 
             bottomBar.Controls.Add(_btnPreflightCheck);
@@ -313,32 +315,39 @@ namespace KhimTools.SheetExport.Forms
 
             _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "StatusBadgeText", HeaderText = "Trạng Thái", Width = 90, ReadOnly = true });
             _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetNumber", HeaderText = "Số Sheet", Width = 95, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetName", HeaderText = "Tên Bản Vẽ", Width = 170, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetName", HeaderText = "Tên Bản Vẽ", Width = 180, ReadOnly = true });
             _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CurrentRevisionNumber", HeaderText = "Rev", Width = 45, ReadOnly = true });
             _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PaperSize", HeaderText = "Khổ Giấy", Width = 70, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ComputedFileName", HeaderText = "Tên File Xuất", Width = 180, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ComputedFileName", HeaderText = "Tên File Xuất", Width = 190, ReadOnly = true });
             _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ExportStatusText", HeaderText = "Kết Quả", Width = 90, ReadOnly = true });
         }
 
         private void BuildTabFormats(TabPage tab)
         {
-            var pnl = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(5) };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            var pnl = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 6,
+                Padding = new Padding(8),
+                AutoScroll = true
+            };
+            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            // Export Formats
+            // Row 0: Export Formats
             pnl.Controls.Add(new Label { Text = "Định Dạng Xuất:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }, 0, 0);
-            var pnlFormats = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            _chkExportPdf = new CheckBox { Text = "📄 PDF (Native Revit Engine)", Checked = true, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var pnlFormats = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _chkExportPdf = new CheckBox { Text = "📄 PDF (Native Revit Engine)", Checked = true, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Margin = new Padding(0, 0, 15, 0) };
             _chkExportDwg = new CheckBox { Text = "📐 AutoCAD DWG", Checked = false, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             pnlFormats.Controls.Add(_chkExportPdf);
             pnlFormats.Controls.Add(_chkExportDwg);
             pnl.Controls.Add(pnlFormats, 1, 0);
 
-            // Color Depth & Quality
-            pnl.Controls.Add(new Label { Text = "Chế Độ Màu & Chất Lượng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            var pnlQuality = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            _cmbColorDepth = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
+            // Row 1: Color Depth & Quality
+            pnl.Controls.Add(new Label { Text = "Màu Sắc & Độ Phân Giải:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            var pnlQuality = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _cmbColorDepth = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160, Margin = new Padding(0, 0, 10, 0) };
             _cmbColorDepth.Items.AddRange(new object[] { "Màu (Color)", "Mức Xám (Grayscale)", "Đen Trắng (Black & White)" });
             _cmbColorDepth.SelectedIndex = 0;
 
@@ -350,20 +359,20 @@ namespace KhimTools.SheetExport.Forms
             pnlQuality.Controls.Add(_cmbQualityDpi);
             pnl.Controls.Add(pnlQuality, 1, 1);
 
-            // Combine PDF
+            // Row 2: Combine PDF
             pnl.Controls.Add(new Label { Text = "Gộp File PDF (Combine):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            var pnlCombine = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            _chkCombinePdf = new CheckBox { Text = "Gộp tất cả bản vẽ vào 1 file PDF duy nhất", Checked = false, AutoSize = true };
-            _txtCombinedFileName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 220, Enabled = false };
+            var pnlCombine = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _chkCombinePdf = new CheckBox { Text = "Gộp các sheet vào 1 file:", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 10, 0) };
+            _txtCombinedFileName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 230, Enabled = false };
             _chkCombinePdf.CheckedChanged += (s, e) => _txtCombinedFileName.Enabled = _chkCombinePdf.Checked;
             pnlCombine.Controls.Add(_chkCombinePdf);
             pnlCombine.Controls.Add(_txtCombinedFileName);
             pnl.Controls.Add(pnlCombine, 1, 2);
 
-            // Naming Template
+            // Row 3: Naming Template
             pnl.Controls.Add(new Label { Text = "Quy Tắc Đặt Tên File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
-            var pnlTemplateChoice = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            _cmbNamingTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
+            var pnlTemplateChoice = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _cmbNamingTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 0, 10, 0) };
             _cmbNamingTemplate.SelectedIndexChanged += CmbNamingTemplate_SelectedIndexChanged;
 
             _btnEditNamingTemplate = new Button { Text = "⚙️ Sửa Template", Width = 110, Height = 26, FlatStyle = FlatStyle.System };
@@ -373,17 +382,17 @@ namespace KhimTools.SheetExport.Forms
             pnlTemplateChoice.Controls.Add(_btnEditNamingTemplate);
             pnl.Controls.Add(pnlTemplateChoice, 1, 3);
 
-            // Project Code
+            // Row 4: Project Code
             pnl.Controls.Add(new Label { Text = "Mã Dự Án (Project Code):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
-            _txtProjectCode = new TextBox { Text = "PROJ", Width = 150, Anchor = AnchorStyles.Left };
+            _txtProjectCode = new TextBox { Text = "PROJ", Width = 160, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
             _txtProjectCode.TextChanged += (s, e) => RecalculateFileNames();
             pnl.Controls.Add(_txtProjectCode, 1, 4);
 
-            // Output Directory
+            // Row 5: Output Directory
             pnl.Controls.Add(new Label { Text = "Thư Mục Lưu File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 5);
-            var pnlDir = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+            var pnlDir = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
             string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
-            _txtOutputDir = new TextBox { Text = defaultDir, Width = 270 };
+            _txtOutputDir = new TextBox { Text = defaultDir, Width = 260, Margin = new Padding(0, 0, 8, 0) };
             _btnBrowseOutputDir = new Button { Text = "Chọn...", Width = 70, Height = 25, FlatStyle = FlatStyle.System };
             _btnBrowseOutputDir.Click += BtnBrowseOutputDir_Click;
             pnlDir.Controls.Add(_txtOutputDir);
@@ -395,28 +404,35 @@ namespace KhimTools.SheetExport.Forms
 
         private void BuildTabIssue(TabPage tab)
         {
-            var pnl = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(5) };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            var pnl = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 4,
+                Padding = new Padding(8),
+                AutoScroll = true
+            };
+            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             // Issue Set Name
             pnl.Controls.Add(new Label { Text = "Tên Đợt Phát Hành:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            _txtIssueSetName = new TextBox { Text = "IFC - Issued For Construction", Width = 280, Anchor = AnchorStyles.Left };
+            _txtIssueSetName = new TextBox { Text = "IFC - Issued For Construction", Width = 300, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_txtIssueSetName, 1, 0);
 
             // Transmittal Register
             pnl.Controls.Add(new Label { Text = "Bảng Kê Bản Vẽ (Excel):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            _chkGenerateTransmittal = new CheckBox { Text = "Tự động tạo file Excel Bảng kê phát hành (Drawing Transmittal Register)", Checked = true, AutoSize = true };
+            _chkGenerateTransmittal = new CheckBox { Text = "Tự động tạo file Excel Bảng kê phát hành (Drawing Transmittal Register)", Checked = true, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_chkGenerateTransmittal, 1, 1);
 
             // Technical QA Report
             pnl.Controls.Add(new Label { Text = "Báo Cáo Kỹ Thuật (QA):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            _chkGenerateQaReport = new CheckBox { Text = "Tự động tạo file Excel Nhật ký kiểm định QA (thời gian, dung lượng, lỗi)", Checked = false, AutoSize = true };
+            _chkGenerateQaReport = new CheckBox { Text = "Tự động tạo file Excel Nhật ký kiểm định QA (thời gian, dung lượng, lỗi)", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_chkGenerateQaReport, 1, 2);
 
             // Max Retries
             pnl.Controls.Add(new Label { Text = "Tự Động Thử Lại (Retry):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
-            _numMaxRetries = new NumericUpDown { Minimum = 0, Maximum = 5, Value = 2, Width = 65, Anchor = AnchorStyles.Left };
+            _numMaxRetries = new NumericUpDown { Minimum = 0, Maximum = 5, Value = 2, Width = 65, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_numMaxRetries, 1, 3);
 
             tab.Controls.Add(pnl);
@@ -424,24 +440,31 @@ namespace KhimTools.SheetExport.Forms
 
         private void BuildTabAdvancedPdf(TabPage tab)
         {
-            var pnl = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(5) };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            var pnl = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 3,
+                Padding = new Padding(8),
+                AutoScroll = true
+            };
+            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
             // PDF Bookmarks
             pnl.Controls.Add(new Label { Text = "Bookmarks Điều Hướng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            _chkAddBookmarks = new CheckBox { Text = "Tự động tạo Bookmark cây điều hướng theo Sheet No. & Tên Sheet (khi gộp PDF)", Checked = true, AutoSize = true };
+            _chkAddBookmarks = new CheckBox { Text = "Tự động tạo Bookmark cây điều hướng theo Sheet No. & Tên Sheet (khi gộp PDF)", Checked = true, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_chkAddBookmarks, 1, 0);
 
             // Cover Sheet
             pnl.Controls.Add(new Label { Text = "Trang Bìa Mục Lục:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            _chkAutoCoverPage = new CheckBox { Text = "Tự động chèn Trang Bìa Mục Lục Bản Vẽ vào trang đầu tiên (khi gộp PDF)", Checked = false, AutoSize = true };
+            _chkAutoCoverPage = new CheckBox { Text = "Tự động chèn Trang Bìa Mục Lục Bản Vẽ vào trang đầu tiên (khi gộp PDF)", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
             pnl.Controls.Add(_chkAutoCoverPage, 1, 1);
 
             // Watermark / Stamp
             pnl.Controls.Add(new Label { Text = "Đóng Dấu Watermark:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            var pnlWatermark = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-            _chkWatermark = new CheckBox { Text = "Đóng dấu chéo", Checked = false, AutoSize = true };
+            var pnlWatermark = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _chkWatermark = new CheckBox { Text = "Đóng dấu chéo", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 10, 0) };
             _cmbWatermarkPreset = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 240, Enabled = false };
             _cmbWatermarkPreset.Items.AddRange(new object[] {
                 "IFC - ISSUED FOR CONSTRUCTION",
