@@ -880,32 +880,186 @@ namespace KhimTools.RebarTool.Forms
         #endregion
 
         #region View 6: Anti Bulge (Side Bar)
+        private TextBox _txtAntiShrinkageH;
+        private ComboBox _cmbAntiBulgeOffset;
+        private ComboBox _cmbAntiBulgeTieDia;
+        private TextBox _txtAntiBulgeSpacing;
+        private TextBox _txtAntiBulgeAnchor;
+
         private void BuildViewAntiBulge()
         {
-            _pnlViewAntiBulge = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            _pnlViewAntiBulge = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(15, 10, 15, 10) };
 
-            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _lstAntiBulge = new ListBox { Left = 10, Top = 25, Width = 130, Height = 350, Font = new Font("Segoe UI", 8.5F) };
-            _lstAntiBulge.Items.Add("Count:2-D12-S:0-E:1");
-            _lstAntiBulge.SelectedIndex = 0;
-            grpList.Controls.Add(_lstAntiBulge);
+            // Header line: Anti-Shinkage reinforcement When H > : [ 700 ] (mm)
+            var lblTitle = new Label { Text = "Anti-Shinkage reinforcement When H > :", Left = 15, Top = 15, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            _txtAntiShrinkageH = new TextBox { Text = "700", Left = 280, Top = 12, Width = 60, Font = new Font("Segoe UI", 9F) };
+            var lblMm = new Label { Text = "(mm)", Left = 345, Top = 15, AutoSize = true, Font = new Font("Segoe UI", 9F) };
 
-            var grpInfo = new GroupBox { Text = "Anti Bulge Rebar Information", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            // Left Section Drawing Area (Width ~ 420, Height ~ 320)
+            var pnlSectionDiag = new Panel { Left = 15, Top = 45, Width = 230, Height = 300, BackColor = Color.White };
+            pnlSectionDiag.Paint += DrawAntiBulgeSectionDiagram;
+
+            // Parameter Controls linked to Left Diagram via arrows
             _cmbAntiBulgeDia = CreateDiameterComboBox();
-            _cmbAntiBulgeDia.Left = 120; _cmbAntiBulgeDia.Top = 27; _cmbAntiBulgeDia.Width = 90;
+            _cmbAntiBulgeDia.Left = 265; _cmbAntiBulgeDia.Top = 100; _cmbAntiBulgeDia.Width = 65;
+            _cmbAntiBulgeDia.SelectedItem = "D14";
 
-            var lblNum = new Label { Text = "Number:", Left = 230, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numAntiBulgeQty = new NumericUpDown { Left = 310, Top = 28, Width = 70, Minimum = 2, Maximum = 10, Value = 2 };
+            _cmbAntiBulgeOffset = new ComboBox { Left = 265, Top = 145, Width = 65, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbAntiBulgeOffset.Items.AddRange(new object[] { "0", "50", "100" }); _cmbAntiBulgeOffset.SelectedIndex = 0;
 
-            var lblNote = new Label { Text = "Thép chống phình (thép cấu tạo sườn) đặt đối xứng 2 bên thành dầm khi H ≥ 700mm.", Left = 15, Top = 80, Width = 390, Height = 50, Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), ForeColor = Color.DarkSlateBlue };
+            _cmbAntiBulgeTieDia = CreateDiameterComboBox();
+            _cmbAntiBulgeTieDia.Left = 265; _cmbAntiBulgeTieDia.Top = 190; _cmbAntiBulgeTieDia.Width = 65;
+            _cmbAntiBulgeTieDia.SelectedItem = "D8";
 
-            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbAntiBulgeDia);
-            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAntiBulgeQty);
-            grpInfo.Controls.Add(lblNote);
+            var lblAt = new Label { Text = "@", Left = 245, Top = 238, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _txtAntiBulgeSpacing = new TextBox { Text = "400", Left = 265, Top = 235, Width = 65, Font = new Font("Segoe UI", 9F) };
+            var lblMmSpacing = new Label { Text = "(mm)", Left = 335, Top = 238, AutoSize = true, Font = new Font("Segoe UI", 9F) };
 
-            _pnlViewAntiBulge.Controls.Add(grpInfo);
-            _pnlViewAntiBulge.Controls.Add(grpList);
+            _numAntiBulgeQty = new NumericUpDown { Value = 2, Visible = false };
+
+            // Right Elevation Drawing Area (Width ~ 480, Height ~ 300)
+            _txtAntiBulgeAnchor = new TextBox { Text = "100", Left = 605, Top = 90, Width = 55, Font = new Font("Segoe UI", 9F) };
+            var lblMmAnchor = new Label { Text = "(mm)", Left = 665, Top = 93, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+
+            var pnlElevDiag = new Panel { Left = 680, Top = 90, Width = 380, Height = 250, BackColor = Color.White };
+            pnlElevDiag.Paint += DrawAntiBulgeElevationDiagram;
+
+            _pnlViewAntiBulge.Controls.Add(lblTitle);
+            _pnlViewAntiBulge.Controls.Add(_txtAntiShrinkageH);
+            _pnlViewAntiBulge.Controls.Add(lblMm);
+            _pnlViewAntiBulge.Controls.Add(pnlSectionDiag);
+            _pnlViewAntiBulge.Controls.Add(_cmbAntiBulgeDia);
+            _pnlViewAntiBulge.Controls.Add(_cmbAntiBulgeOffset);
+            _pnlViewAntiBulge.Controls.Add(_cmbAntiBulgeTieDia);
+            _pnlViewAntiBulge.Controls.Add(lblAt);
+            _pnlViewAntiBulge.Controls.Add(_txtAntiBulgeSpacing);
+            _pnlViewAntiBulge.Controls.Add(lblMmSpacing);
+            _pnlViewAntiBulge.Controls.Add(_txtAntiBulgeAnchor);
+            _pnlViewAntiBulge.Controls.Add(lblMmAnchor);
+            _pnlViewAntiBulge.Controls.Add(pnlElevDiag);
+        }
+
+        private void DrawAntiBulgeSectionDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
+
+            int secX = 40, secY = 20, secW = 140, secH = 220;
+
+            // Concrete body
+            using var brushConc = new SolidBrush(Color.FromArgb(220, 224, 230));
+            using var penConc = new Pen(Color.FromArgb(50, 50, 60), 2);
+            g.FillRectangle(brushConc, secX, secY, secW, secH);
+            g.DrawRectangle(penConc, secX, secY, secW, secH);
+
+            // Red Stirrup loop
+            using var penStirrup = new Pen(Color.Red, 2.5f);
+            int pad = 12;
+            g.DrawRectangle(penStirrup, secX + pad, secY + pad, secW - 2 * pad, secH - 2 * pad);
+
+            // Main Rebar dots (Red: 3 top, 3 bot)
+            using var brushRed = new SolidBrush(Color.Red);
+            int dotR = 10;
+
+            // 3 Top dots
+            g.FillEllipse(brushRed, (float)(secX + pad + 5), (float)(secY + pad + 5), (float)dotR, (float)dotR);
+            g.FillEllipse(brushRed, (float)(secX + secW / 2 - dotR / 2), (float)(secY + pad + 5), (float)dotR, (float)dotR);
+            g.FillEllipse(brushRed, (float)(secX + secW - pad - dotR - 5), (float)(secY + pad + 5), (float)dotR, (float)dotR);
+
+            // 3 Bot dots
+            g.FillEllipse(brushRed, (float)(secX + pad + 5), (float)(secY + secH - pad - dotR - 5), (float)dotR, (float)dotR);
+            g.FillEllipse(brushRed, (float)(secX + secW / 2 - dotR / 2), (float)(secY + secH - pad - dotR - 5), (float)dotR, (float)dotR);
+            g.FillEllipse(brushRed, (float)(secX + secW - pad - dotR - 5), (float)(secY + secH - pad - dotR - 5), (float)dotR, (float)dotR);
+
+            // Side Bars (2 Pairs of Blue dots with hooks & C-ties)
+            using var brushBlue = new SolidBrush(Color.DarkBlue);
+            using var penBlueTie = new Pen(Color.DarkBlue, 2);
+
+            int sideY1 = secY + 75;
+            int sideY2 = secY + 135;
+
+            // Pair 1 (Top side bar)
+            g.FillEllipse(brushBlue, (float)(secX + pad + 5), (float)sideY1, (float)dotR, (float)dotR);
+            g.FillEllipse(brushBlue, (float)(secX + secW - pad - dotR - 5), (float)sideY1, (float)dotR, (float)dotR);
+            g.DrawLine(penBlueTie, secX + pad + 10, sideY1 + 5, secX + secW - pad - 10, sideY1 + 5);
+            g.DrawLine(penBlueTie, secX + secW / 2, sideY1 + 5, secX + secW / 2, sideY2 + 5);
+
+            // Pair 2 (Bot side bar)
+            g.FillEllipse(brushBlue, (float)(secX + pad + 5), (float)sideY2, (float)dotR, (float)dotR);
+            g.FillEllipse(brushBlue, (float)(secX + secW - pad - dotR - 5), (float)sideY2, (float)dotR, (float)dotR);
+            g.DrawLine(penBlueTie, secX + pad + 10, sideY2 + 5, secX + secW - pad - 10, sideY2 + 5);
+
+            // Leader arrows pointing to the dropdowns
+            using var penArrow = new Pen(Color.Black, 1.2f);
+            // Arrow 1 to D14
+            g.DrawLine(penArrow, secX + secW - pad - 5, sideY1 + 5, secX + secW + 65, sideY1 + 5);
+            DrawArrowHead(g, secX + secW + 65, sideY1 + 5, true);
+
+            // Arrow 2 to 0
+            g.DrawLine(penArrow, secX + secW / 2, (sideY1 + sideY2) / 2 + 5, secX + secW + 65, (sideY1 + sideY2) / 2 + 5);
+            DrawArrowHead(g, secX + secW + 65, (sideY1 + sideY2) / 2 + 5, true);
+
+            // Arrow 3 to D8
+            g.DrawLine(penArrow, secX + secW - pad - 5, sideY2 + 5, secX + secW + 65, sideY2 + 5);
+            DrawArrowHead(g, secX + secW + 65, sideY2 + 5, true);
+
+            // Left height dimension arrow
+            DrawDimensionArrow(g, secX - 18, secY, secX - 18, secY + secH);
+            g.DrawLine(penArrow, secX - 25, secY, secX - 5, secY);
+            g.DrawLine(penArrow, secX - 25, secY + secH, secX - 5, secY + secH);
+        }
+
+        private void DrawAntiBulgeElevationDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
+
+            int colW = 50;
+            int beamY = 40;
+            int beamH = 65;
+            int colH = 130;
+            int beamSpan = 220;
+
+            int leftColX = 10;
+            int rightColX = leftColX + colW + beamSpan;
+
+            using var brushConc = new SolidBrush(Color.FromArgb(220, 224, 230));
+            using var penConc = new Pen(Color.FromArgb(50, 50, 60), 2);
+
+            // Concrete body with 2 columns
+            g.FillRectangle(brushConc, leftColX, beamY - 20, colW, colH);
+            g.DrawRectangle(penConc, leftColX, beamY - 20, colW, colH);
+
+            g.FillRectangle(brushConc, rightColX, beamY - 20, colW, colH);
+            g.DrawRectangle(penConc, rightColX, beamY - 20, colW, colH);
+
+            g.FillRectangle(brushConc, leftColX + colW, beamY, beamSpan, beamH);
+            g.DrawRectangle(penConc, leftColX + colW, beamY, beamSpan, beamH);
+
+            // 2 Horizontal Blue Bars anchored into columns
+            using var penBlueBar = new Pen(Color.DarkBlue, 3);
+            int barY1 = beamY + 20;
+            int barY2 = beamY + 45;
+            int ancLen = 35;
+
+            g.DrawLine(penBlueBar, leftColX + colW - ancLen, barY1, rightColX + ancLen, barY1);
+            g.DrawLine(penBlueBar, leftColX + colW - ancLen, barY2, rightColX + ancLen, barY2);
+
+            // Anchor dimension arrow on columns
+            using var penArrow = new Pen(Color.Black, 1.2f);
+            DrawDimensionArrow(g, leftColX + colW - ancLen, beamY - 8, leftColX + colW, beamY - 8);
+            DrawDimensionArrow(g, rightColX, beamY - 8, rightColX + ancLen, beamY - 8);
+        }
+
+        private void DrawArrowHead(Graphics g, int x, int y, bool pointingRight)
+        {
+            using var brush = new SolidBrush(Color.Black);
+            if (pointingRight)
+                g.FillPolygon(brush, new PointF[] { new PointF(x - 6, y - 4), new PointF(x, y), new PointF(x - 6, y + 4) });
+            else
+                g.FillPolygon(brush, new PointF[] { new PointF(x + 6, y - 4), new PointF(x, y), new PointF(x + 6, y + 4) });
         }
         #endregion
 
@@ -1434,6 +1588,16 @@ namespace KhimTools.RebarTool.Forms
                 // Zone 2
                 DrawDimensionArrow(g, end2X, dimY, rightColX, dimY, Color.DodgerBlue);
                 g.DrawString("1800\nD8@100", fontStirrup, Brushes.DodgerBlue, end2X + 25, dimY - 25);
+            }
+
+            // Anti Bulge Side Bars (2 Blue lines when Anti Bulge active)
+            if (_activeSettingIndex == 5)
+            {
+                using var penSideBar = new Pen(Color.DarkBlue, 2.5f);
+                int sideY1 = beamY + beamH / 3;
+                int sideY2 = beamY + (2 * beamH) / 3;
+                g.DrawLine(penSideBar, leftColX + 15, sideY1, rightColX + colW - 15, sideY1);
+                g.DrawLine(penSideBar, leftColX + 15, sideY2, rightColX + colW - 15, sideY2);
             }
 
             // 5. Dimension Strings (Clear span, Total length, Column widths, Span 0)
