@@ -116,8 +116,6 @@ namespace KhimTools.RebarTool.Forms
         private ComboBox _cmbAddBotDia;
         private ComboBox _cmbAddBotStartPoint;
         private ComboBox _cmbAddBotEndPoint;
-        private ComboBox _cmbAddBotStartType;
-        private ComboBox _cmbAddBotEndType;
         private TextBox _txtAddBotLeftRatio;
         private TextBox _txtAddBotRightRatio;
         private TextBox _txtAddBotLeftLen;
@@ -141,14 +139,11 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtStirrupFirstDistance;
 
         // ── Anti Bulge (Side Bar) Controls ──
-        private ListBox _lstAntiBulge;
         private ComboBox _cmbAntiBulgeDia;
         private NumericUpDown _numAntiBulgeQty;
 
         // ── Canvas Panels for GDI+ ──
-        private Panel _pnlTopDiagram;
         private Panel _pnlElevationCanvas;
-        private Panel _pnlSectionGroup;
 
         // ── Footer Buttons ──
         private Button _btnToggleSection;
