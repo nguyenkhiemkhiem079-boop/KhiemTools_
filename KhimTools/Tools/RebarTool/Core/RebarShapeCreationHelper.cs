@@ -43,9 +43,19 @@ namespace KhimTools.RebarTool.Core
             else
                 norm = norm.Normalize();
 
+            // Nếu đường curve là vòng kín (Closed Loop), Revit không cho phép gắn hook ở 2 đầu vì trùng tọa độ điểm
+            bool isClosedLoop = curves.Count >= 3 &&
+                curves[0].GetEndPoint(0).DistanceTo(curves[curves.Count - 1].GetEndPoint(1)) < 0.005;
+
+            if (isClosedLoop)
+            {
+                hook0 = null;
+                hook1 = null;
+            }
+
             Rebar rebar = null;
 
-            // Cấp 1: Tạo không bắt buộc khớp RebarShape có sẵn (useExistingShape: false, createNewShape: true)
+            // Cấp 1: Tạo với useExistingShape: false, createNewShape: true
             try
             {
                 rebar = Rebar.CreateFromCurves(

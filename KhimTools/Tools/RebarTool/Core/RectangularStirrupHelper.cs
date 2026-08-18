@@ -36,9 +36,8 @@ namespace KhimTools.RebarTool.Core
             XYZ calcNormal = v1.CrossProduct(v2).Normalize();
             if (calcNormal.GetLength() < 0.01) calcNormal = normal ?? XYZ.BasisZ;
 
-            RebarHookType hook135 = RebarHookHelper.GetHookType(doc, 135, RebarStyle.StirrupTie);
             return RebarShapeCreationHelper.CreateFromCurvesSafe(
-                doc, RebarStyle.StirrupTie, barType, hook135, hook135, hostColumn,
+                doc, RebarStyle.StirrupTie, barType, null, null, hostColumn,
                 calcNormal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 
@@ -66,9 +65,8 @@ namespace KhimTools.RebarTool.Core
             XYZ calcNormal = v1.CrossProduct(v2).Normalize();
             if (calcNormal.GetLength() < 0.01) calcNormal = normal ?? XYZ.BasisZ;
 
-            RebarHookType hook135 = RebarHookHelper.GetHookType(doc, 135, RebarStyle.StirrupTie);
             return RebarShapeCreationHelper.CreateFromCurvesSafe(
-                doc, RebarStyle.StirrupTie, barType, hook135, hook135, hostColumn,
+                doc, RebarStyle.StirrupTie, barType, null, null, hostColumn,
                 calcNormal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 

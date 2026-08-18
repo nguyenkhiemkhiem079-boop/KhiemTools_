@@ -36,6 +36,14 @@ namespace KhimTools.SlabJoin.Utilities
                         {
                             failuresAccessor.ResolveFailure(failMessage);
                         }
+                        else
+                        {
+                            var failingIds = failMessage.GetFailingElementIds();
+                            if (failingIds != null && failingIds.Count > 0)
+                            {
+                                failuresAccessor.DeleteElements(failingIds.ToList());
+                            }
+                        }
                     }
                     catch { }
                 }

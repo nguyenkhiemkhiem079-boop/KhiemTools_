@@ -417,9 +417,8 @@ namespace KhimTools.RebarTool.Core
                 Line.CreateBound(p4, p1)
             };
 
-            RebarHookType hook135 = RebarHookHelper.GetHookType(_doc, 135, RebarStyle.StirrupTie);
             return RebarShapeCreationHelper.CreateFromCurvesSafe(
-                _doc, RebarStyle.StirrupTie, input.StirrupBarType, hook135, hook135, input.Beam,
+                _doc, RebarStyle.StirrupTie, input.StirrupBarType, null, null, input.Beam,
                 profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 
