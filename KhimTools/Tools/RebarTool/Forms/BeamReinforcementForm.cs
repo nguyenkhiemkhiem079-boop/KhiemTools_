@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
@@ -12,1071 +13,1571 @@ using Panel = System.Windows.Forms.Panel;
 using Control = System.Windows.Forms.Control;
 using Color = System.Drawing.Color;
 using Point = System.Drawing.Point;
+using Rectangle = System.Drawing.Rectangle;
+using Brush = System.Drawing.Brush;
+using SolidBrush = System.Drawing.SolidBrush;
+using Pen = System.Drawing.Pen;
+using Pens = System.Drawing.Pens;
+using Brushes = System.Drawing.Brushes;
+using Font = System.Drawing.Font;
 using FontStyle = System.Drawing.FontStyle;
 using Button = System.Windows.Forms.Button;
 using GroupBox = System.Windows.Forms.GroupBox;
 using Label = System.Windows.Forms.Label;
 using CheckBox = System.Windows.Forms.CheckBox;
+using RadioButton = System.Windows.Forms.RadioButton;
 using ComboBox = System.Windows.Forms.ComboBox;
 using ListBox = System.Windows.Forms.ListBox;
+using TabControl = System.Windows.Forms.TabControl;
+using TabPage = System.Windows.Forms.TabPage;
+using TextBox = System.Windows.Forms.TextBox;
+using NumericUpDown = System.Windows.Forms.NumericUpDown;
 
 namespace KhimTools.RebarTool.Forms
 {
     /// <summary>
-    /// Form "Beam Reinforcement Layout" cao cấp cho Dầm (Structural Framing) v2.0.
-    /// Tích hợp Live Preview GDI+ cho cả 3 Tab: Tiết diện dầm (Tab 1), Mặt cắt dọc thép tăng cường (Tab 2), Phân vùng đai (Tab 3).
-    /// Hỗ trợ song ngữ Tiếng Việt 🇻🇳 / English 🇬🇧.
+    /// Form Bố Trí Thép Dầm (Beam Rebar) Chuyên Nghiệp v2.5 chuẩn theo mẫu thiết kế
+    /// với Sidebar 6 chế độ: Main Top Bar, Main Bot Bar, Add. Top Bar, Add. Bot Bar, Stirrup, Anti bulge rebar.
+    /// Tích hợp sơ đồ trực quan GDI+ (Mặt cắt dọc nhịp dầm và 3 mặt cắt tiết diện 1-1, 2-2, 3-3).
     /// </summary>
     public class BeamReinforcementForm : Form
     {
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableBeams;
-        private readonly List<FamilyInstance> _preSelectedBeams;
+        private readonly List<FamilyInstance> _selectedBeams;
+        private FamilyInstance _currentBeam;
+        private BeamGeometryHelper.BeamProfile _currentProfile;
 
-        // Selection & UI Controls
-        private ListBox _beamListBox;
-        private Label _lblSelectedCount;
-        private Label _lblBeamTitle;
-        private Button _btnSelectAll;
-        private Button _btnDeselectAll;
-        private ComboBox _cmbLanguage;
+        private List<RebarBarType> _barTypes = new List<RebarBarType>();
 
-        // Configuration Templates
-        private Label _lblTemplate;
-        private ComboBox _cmbTemplate;
-        private Button _btnSaveTemplate;
-        private Button _btnApplyTemplate;
-        private Button _btnDeleteTemplate;
+        // ── Active Setting Tab (0: Main Top, 1: Main Bot, 2: Add Top, 3: Add Bot, 4: Stirrup, 5: Anti Bulge) ──
+        private int _activeSettingIndex = 0;
 
-        // Tabs
-        private TabPage _tabMain;
-        private TabPage _tabExtra;
-        private TabPage _tabStirrup;
-        private TabPage _tabViews;
+        // ── Left Sidebar Setting Buttons ──
+        private Button _btnSettingMainTop;
+        private Button _btnSettingMainBot;
+        private Button _btnSettingAddTop;
+        private Button _btnSettingAddBot;
+        private Button _btnSettingStirrup;
+        private Button _btnSettingAntiBulge;
 
-        // GDI+ Preview Panels
-        private Panel _previewPanelMain;
-        private Panel _previewPanelExtra;
-        private Panel _previewPanelStirrup;
+        // ── Dynamic Middle Views ──
+        private Panel _pnlViewMainTop;
+        private Panel _pnlViewMainBot;
+        private Panel _pnlViewAddTop;
+        private Panel _pnlViewAddBot;
+        private Panel _pnlViewStirrup;
+        private Panel _pnlViewAntiBulge;
 
-        // Tab 1: Thép Chủ Chạy Suốt & Cover & Thép Sườn
-        private GroupBox _grpMainSec;
-        private Label _lblTopBars;
-        private Label _lblBotBars;
-        private Label _lblSideBars;
+        // ── Main Top Bar Controls ──
+        private ListBox _lstMainTop;
+        private ComboBox _cmbMainTopDia;
+        private NumericUpDown _numMainTopQty;
+        private ComboBox _cmbMainTopStartPoint;
+        private ComboBox _cmbMainTopEndPoint;
+        private TextBox _txtMainTopAnchorLeft;
+        private TextBox _txtMainTopAnchorRight;
+        private TextBox _txtMainTopAnchorXLeft;
+        private TextBox _txtMainTopAnchorXRight;
+        private TextBox _txtMainTopPos;
 
-        private NumericUpDown _numTopQty;
-        private ComboBox _cmbTopDia;
-        private NumericUpDown _numBotQty;
-        private ComboBox _cmbBotDia;
+        // ── Main Bot Bar Controls ──
+        private ListBox _lstMainBot;
+        private ComboBox _cmbMainBotDia;
+        private NumericUpDown _numMainBotQty;
+        private ComboBox _cmbMainBotStartPoint;
+        private ComboBox _cmbMainBotEndPoint;
+        private TextBox _txtMainBotAnchorLeft;
+        private TextBox _txtMainBotAnchorRight;
+        private TextBox _txtMainBotAnchorXLeft;
+        private TextBox _txtMainBotAnchorXRight;
+        private TextBox _txtMainBotPos;
 
-        private CheckBox _chkAutoSide;
-        private NumericUpDown _numSideQty;
-        private ComboBox _cmbSideDia;
+        // ── Add Top Bar Controls ──
+        private ListBox _lstAddTop;
+        private ComboBox _cmbAddTopLayer;
+        private ComboBox _cmbAddTopDia;
+        private ComboBox _cmbAddTopStartPoint;
+        private ComboBox _cmbAddTopEndPoint;
+        private ComboBox _cmbAddTopStartType;
+        private ComboBox _cmbAddTopEndType;
+        private TextBox _txtAddTopLeftRatio;
+        private TextBox _txtAddTopRightRatio;
+        private TextBox _txtAddTopLeftLen;
+        private TextBox _txtAddTopRightLen;
+        private TextBox _txtAddTopDLeft;
+        private TextBox _txtAddTopDRight;
+        private NumericUpDown _numAddTopQty;
+        private TextBox _txtAddTopPos;
 
-        private GroupBox _grpCover;
-        private Label _lblCustomCover;
-        private CheckBox _chkCustomCover;
-        private NumericUpDown _numCustomCover;
-        private Button _btnProjectCover;
+        // ── Add Bot Bar Controls ──
+        private ListBox _lstAddBot;
+        private ComboBox _cmbAddBotLayer;
+        private ComboBox _cmbAddBotDia;
+        private ComboBox _cmbAddBotStartPoint;
+        private ComboBox _cmbAddBotEndPoint;
+        private ComboBox _cmbAddBotStartType;
+        private ComboBox _cmbAddBotEndType;
+        private TextBox _txtAddBotLeftRatio;
+        private TextBox _txtAddBotRightRatio;
+        private TextBox _txtAddBotLeftLen;
+        private TextBox _txtAddBotRightLen;
+        private TextBox _txtAddBotAnchorLeft;
+        private TextBox _txtAddBotAnchorRight;
+        private TextBox _txtAddBotTotal;
+        private NumericUpDown _numAddBotQty;
+        private TextBox _txtAddBotPos;
 
-        // Tab 2: Thép Tăng Cường
-        private GroupBox _grpExtra;
-        private Label _lblTopLeftExtra;
-        private Label _lblTopRightExtra;
-        private Label _lblBotMidExtra;
-
-        private NumericUpDown _numTopLeftExtra;
-        private ComboBox _cmbTopLeftDia;
-
-        private NumericUpDown _numTopRightExtra;
-        private ComboBox _cmbTopRightDia;
-        private NumericUpDown _numBotMidExtra;
-        private ComboBox _cmbBotMidDia;
-
-        private GroupBox _grpJointSettings;
-        private Label _lblLdMultiplier;
-        private Label _lblHookTailMultiplier;
-        private NumericUpDown _numLdMultiplier;
-        private NumericUpDown _numHookTailMultiplier;
-        // Tab 3: Thép Đai
-        private GroupBox _grpStirrup;
-        private Label _lblStirrupDia;
-        private Label _lblStirrupA1;
-        private Label _lblStirrupA2;
-        private Label _lblZoneA1Len;
-
+        // ── Stirrup Controls ──
+        private ComboBox _cmbStirrupSpan;
         private ComboBox _cmbStirrupDia;
-        private NumericUpDown _numStirrupSpacingA1;
-        private NumericUpDown _numStirrupSpacingA2;
-        private NumericUpDown _numZoneA1Length;
+        private RadioButton _rbStirrupUniform;
+        private TextBox _txtStirrupA1Uniform;
+        private RadioButton _rbStirrup2Ends;
+        private TextBox _txtStirrupA1Ends;
+        private TextBox _txtStirrupA2Ends;
+        private TextBox _txtStirrupEnd1Len;
+        private TextBox _txtStirrupEnd2Len;
+        private TextBox _txtStirrupFirstDistance;
 
-        // Tab 4: View & Bản vẽ
-        private GroupBox _grpViews;
-        private CheckBox _chkAutoDrawing;
-        private CheckBox _chkAutoSection3D;
+        // ── Anti Bulge (Side Bar) Controls ──
+        private ListBox _lstAntiBulge;
+        private ComboBox _cmbAntiBulgeDia;
+        private NumericUpDown _numAntiBulgeQty;
 
-        private Button _btnCreateRebar;
+        // ── Canvas Panels for GDI+ ──
+        private Panel _pnlTopDiagram;
+        private Panel _pnlElevationCanvas;
+        private Panel _pnlSectionGroup;
+
+        // ── Footer Buttons ──
+        private Button _btnToggleSection;
+        private Button _btnBack;
+        private Button _btnOk;
         private Button _btnClose;
 
-        // Design Standard Controls
-        private ComboBox _cmbDesignStandard;
-        private ComboBox _cmbConcreteGrade;
-        private ComboBox _cmbSteelGrade;
-        private Label _lblDesignWarning;
-        private GroupBox _grpDesignStandard;
+        // Dimensions (mm)
+        private double _colWidthLeft = 600;
+        private double _colWidthRight = 600;
+        private double _clearSpan = 7100;
+        private double _beamHeight = 600;
+        private double _beamWidth = 300;
 
         public BeamReinforcementForm(Document doc, List<FamilyInstance> availableBeams, List<FamilyInstance> preSelectedBeams = null)
         {
-            _doc = doc;
+            _doc = doc ?? throw new ArgumentNullException(nameof(doc));
             _availableBeams = availableBeams ?? new List<FamilyInstance>();
-            _preSelectedBeams = preSelectedBeams ?? new List<FamilyInstance>();
+            _selectedBeams = (preSelectedBeams != null && preSelectedBeams.Any()) ? preSelectedBeams : _availableBeams.Take(1).ToList();
+            _currentBeam = _selectedBeams.FirstOrDefault() ?? _availableBeams.FirstOrDefault();
+
             KhimUiStyle.ApplyFormTheme(this);
-            BuildUi();
-            PopulateBeamList();
-            PopulateBarTypeCombos();
-            LoadTemplateList();
-            ApplyLanguage();
+            LoadRebarTypes();
+            ExtractBeamDimensions();
+            InitializeLayoutCustom();
+            SwitchSettingTab(0);
         }
 
-        private void BuildUi()
+        private void LoadRebarTypes()
         {
-            Text = "📏 KHIM TOOLS — Bố trí Thép Dầm Kết Cấu";
-            Width = 900;
-            Height = 700;
+            _barTypes = new FilteredElementCollector(_doc)
+                .OfClass(typeof(RebarBarType))
+                .Cast<RebarBarType>()
+                .OrderBy(b => b.BarNominalDiameter)
+                .ToList();
+        }
+
+        private void ExtractBeamDimensions()
+        {
+            if (_currentBeam != null)
+            {
+                _currentProfile = BeamGeometryHelper.GetBeamProfile(_currentBeam);
+                if (_currentProfile != null)
+                {
+                    _clearSpan = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.Length, UnitTypeId.Millimeters));
+                    _beamWidth = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.B, UnitTypeId.Millimeters));
+                    _beamHeight = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.H, UnitTypeId.Millimeters));
+                }
+            }
+            if (_clearSpan <= 0) _clearSpan = 7100;
+            if (_beamWidth <= 0) _beamWidth = 300;
+            if (_beamHeight <= 0) _beamHeight = 600;
+        }
+
+        private void InitializeLayoutCustom()
+        {
+            Text = "Beam Rebar";
+            Width = 1260;
+            Height = 840;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
-            MinimizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new System.Drawing.Size(1150, 720);
+            BackColor = Color.White;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Structural Beam Detailing",
-                "Automated Beam Reinforcement Engine & Joint Anchorage Detailing",
-                "v2.5 Pro");
-            Controls.Add(header);
-
-            // 1. Bottom Control Panel
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14, Font = new Font("Segoe UI", 8.5F) };
-            _cmbLanguage.Items.Add("🇻🇳 Tiếng Việt");
-            _cmbLanguage.Items.Add("🇬🇧 English");
-            _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
-            _cmbLanguage.SelectedIndexChanged += (s, e) =>
-            {
-                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1 ? AppLanguage.English : AppLanguage.Vietnamese;
-                ApplyLanguage();
-            };
-
-            _btnCreateRebar = new Button
-            {
-                Text = "⚡ Create Rebar",
-                Width = 130,
-                Height = 36,
-                Top = 10,
-                BackColor = Color.FromArgb(0, 122, 255),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
-            };
-            _btnCreateRebar.FlatAppearance.BorderSize = 0;
-
-            _btnClose = new Button
-            {
-                Text = "Close",
-                Width = 90,
-                Height = 36,
-                Top = 10,
-                BackColor = Color.FromArgb(225, 225, 230),
-                FlatStyle = FlatStyle.Flat
-            };
-            _btnClose.FlatAppearance.BorderSize = 0;
-
-            _btnCreateRebar.Click += BtnCreateRebar_Click;
-            _btnClose.Click += (s, e) => Close();
-
-            bottomPanel.Controls.Add(lblLang);
-            bottomPanel.Controls.Add(_cmbLanguage);
-            bottomPanel.Controls.Add(_btnCreateRebar);
-            bottomPanel.Controls.Add(_btnClose);
-            bottomPanel.Resize += (s, e) =>
-            {
-                _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
-                _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
-            };
-            Controls.Add(bottomPanel);
-
-            // 2. Right Selection Panel
-            var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            _lblBeamTitle = new Label { Text = "📋 Danh Sách Dầm", Dock = DockStyle.Top, Height = 25, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
-
-            _lblSelectedCount = new Label { Text = "Đã chọn: 0 dầm", Dock = DockStyle.Bottom, Height = 25, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-
-            var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 32 };
-            _btnSelectAll = new Button { Text = "Select All", Width = 95, Height = 26, Top = 3, Left = 0, FlatStyle = FlatStyle.System };
-            _btnDeselectAll = new Button { Text = "Clear", Width = 70, Height = 26, Top = 3, Left = 102, FlatStyle = FlatStyle.System };
-
-            _btnSelectAll.Click += (s, e) => SetAllBeamsSelected(true);
-            _btnDeselectAll.Click += (s, e) => SetAllBeamsSelected(false);
-
-            selectButtonsPanel.Controls.Add(_btnSelectAll);
-            selectButtonsPanel.Controls.Add(_btnDeselectAll);
-
-            _beamListBox = new ListBox
+            // ── Splitter: Top Controls (Height ~ 380) vs Bottom Canvas (Elevation) ──
+            var mainSplit = new SplitContainer
             {
                 Dock = DockStyle.Fill,
-                SelectionMode = SelectionMode.MultiExtended
-            };
-            _beamListBox.SelectedIndexChanged += (s, e) => UpdateSelectedCount();
-
-            rightPanel.Controls.Add(_beamListBox);
-            rightPanel.Controls.Add(selectButtonsPanel);
-            rightPanel.Controls.Add(_lblSelectedCount);
-            rightPanel.Controls.Add(_lblBeamTitle);
-            Controls.Add(rightPanel);
-
-            // 2.5 Top Template Configuration Panel
-            var templatePanel = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.FromArgb(240, 240, 243), Padding = new Padding(6) };
-            _lblTemplate = new Label { Text = "📋 Mẫu Thiết Lập:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Left = 140, Top = 10 };
-            
-            _btnSaveTemplate = new Button { Text = "Save As...", Width = 90, Height = 26, Left = 350, Top = 9, FlatStyle = FlatStyle.System };
-            _btnApplyTemplate = new Button { Text = "Apply", Width = 75, Height = 26, Left = 445, Top = 9, FlatStyle = FlatStyle.System };
-            _btnDeleteTemplate = new Button { Text = "Delete", Width = 75, Height = 26, Left = 525, Top = 9, FlatStyle = FlatStyle.System };
-
-            _btnSaveTemplate.Click += (s, e) => SaveTemplate();
-            _btnApplyTemplate.Click += (s, e) => ApplyTemplate();
-            _btnDeleteTemplate.Click += (s, e) => DeleteTemplate();
-
-            templatePanel.Controls.Add(_lblTemplate);
-            templatePanel.Controls.Add(_cmbTemplate);
-            templatePanel.Controls.Add(_btnSaveTemplate);
-            templatePanel.Controls.Add(_btnApplyTemplate);
-            templatePanel.Controls.Add(_btnDeleteTemplate);
-            Controls.Add(templatePanel);
-
-            // 3. TabControl Trung tâm
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
-
-            // --- TAB 1: THÉP CHỦ & COVER ---
-            _tabMain = new TabPage { Text = "📌 Thép Chủ & Cover", Padding = new Padding(10), BackColor = Color.White };
-            var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
-
-            _grpMainSec = new GroupBox { Text = "Thép Chủ Chạy Suốt Dầm", Dock = DockStyle.Top, Height = 170, Padding = new Padding(8) };
-            var layoutMainSec = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-            layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-
-            _numTopQty = new NumericUpDown { Minimum = 2, Maximum = 10, Value = 2, Width = 55 };
-            _numTopQty.ValueChanged += (s, e) => _previewPanelMain?.Invalidate();
-            _cmbTopDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbTopDia.SelectedIndexChanged += (s, e) => _previewPanelMain?.Invalidate();
-
-            _numBotQty = new NumericUpDown { Minimum = 2, Maximum = 10, Value = 2, Width = 55 };
-            _numBotQty.ValueChanged += (s, e) => _previewPanelMain?.Invalidate();
-            _cmbBotDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbBotDia.SelectedIndexChanged += (s, e) => _previewPanelMain?.Invalidate();
-
-            _chkAutoSide = new CheckBox { Text = "Tự thêm thép sườn (khi H ≥ 700mm)", Checked = true, AutoSize = true };
-            _chkAutoSide.CheckedChanged += (s, e) => _previewPanelMain?.Invalidate();
-            _numSideQty = new NumericUpDown { Minimum = 0, Maximum = 8, Value = 2, Increment = 2, Width = 55 };
-            _numSideQty.ValueChanged += (s, e) => _previewPanelMain?.Invalidate();
-            _cmbSideDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbSideDia.SelectedIndexChanged += (s, e) => _previewPanelMain?.Invalidate();
-
-            _lblTopBars = AddRow2Control(layoutMainSec, "Số thanh Lớp Trên:", _numTopQty, _cmbTopDia);
-            _lblBotBars = AddRow2Control(layoutMainSec, "Số thanh Lớp Dưới:", _numBotQty, _cmbBotDia);
-            _lblSideBars = AddRow2Control(layoutMainSec, "Thép sườn dầm (Skin):", _numSideQty, _cmbSideDia);
-            layoutMainSec.Controls.Add(_chkAutoSide);
-            _grpMainSec.Controls.Add(layoutMainSec);
-
-            _grpCover = new GroupBox { Text = "🛡️ Lớp Bê Tông Bảo Vệ (Cover)", Dock = DockStyle.Top, Height = 95, Padding = new Padding(8) };
-            var layoutCover = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
-            layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-
-            _chkCustomCover = new CheckBox { Text = "Nhập tay Cover (bỏ chọn = tự động từ Revit)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 3, 4) };
-            _numCustomCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 70, Enabled = false };
-            _chkCustomCover.CheckedChanged += (s, e) => _numCustomCover.Enabled = _chkCustomCover.Checked;
-
-            _btnProjectCover = new Button { Text = "⚙️ Cover Dự Án", Width = 95, Height = 25, FlatStyle = FlatStyle.System };
-            _btnProjectCover.Click += (s, e) => new ProjectCoverSetupForm(_doc).ShowDialog();
-
-            _lblCustomCover = AddRowToLayout(layoutCover, "Cover tùy chỉnh (mm):", _numCustomCover);
-            layoutCover.Controls.Add(_chkCustomCover);
-            layoutCover.Controls.Add(_btnProjectCover);
-            _grpCover.Controls.Add(layoutCover);
-
-            pnlMainLeft.Controls.Add(_grpCover);
-            pnlMainLeft.Controls.Add(_grpMainSec);
-            _tabMain.Controls.Add(pnlMainLeft);
-
-            // Preview Panel GDI+ Tab 1 (Cross Section)
-            _previewPanelMain = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
-            _previewPanelMain.Paint += PreviewPanelMain_Paint;
-            _tabMain.Controls.Add(_previewPanelMain);
-            _previewPanelMain.BringToFront();
-
-            tabControl.TabPages.Add(_tabMain);
-
-            // --- TAB 2: THÉP TĂNG CƯỜNG ---
-            _tabExtra = new TabPage { Text = "➕ Thép Tăng Cường", Padding = new Padding(10), BackColor = Color.White };
-            var pnlExtraLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
-
-            _grpExtra = new GroupBox { Text = "Thép Gia Cường Gối & Bụng Dầm", Dock = DockStyle.Top, Height = 170, Padding = new Padding(10) };
-            var layoutExtra = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutExtra.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-            layoutExtra.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-
-            _numTopLeftExtra = new NumericUpDown { Minimum = 0, Maximum = 6, Value = 1, Width = 55 };
-            _numTopLeftExtra.ValueChanged += (s, e) => _previewPanelExtra?.Invalidate();
-            _cmbTopLeftDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbTopLeftDia.SelectedIndexChanged += (s, e) => _previewPanelExtra?.Invalidate();
-
-            _numTopRightExtra = new NumericUpDown { Minimum = 0, Maximum = 6, Value = 1, Width = 55 };
-            _numTopRightExtra.ValueChanged += (s, e) => _previewPanelExtra?.Invalidate();
-            _cmbTopRightDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbTopRightDia.SelectedIndexChanged += (s, e) => _previewPanelExtra?.Invalidate();
-
-            _numBotMidExtra = new NumericUpDown { Minimum = 0, Maximum = 6, Value = 1, Width = 55 };
-            _numBotMidExtra.ValueChanged += (s, e) => _previewPanelExtra?.Invalidate();
-            _cmbBotMidDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 };
-            _cmbBotMidDia.SelectedIndexChanged += (s, e) => _previewPanelExtra?.Invalidate();
-
-            _lblTopLeftExtra = AddRow2Control(layoutExtra, "Gối Trái (lớp 2, cắt L/3):", _numTopLeftExtra, _cmbTopLeftDia);
-            _lblTopRightExtra = AddRow2Control(layoutExtra, "Gối Phải (lớp 2, cắt L/3):", _numTopRightExtra, _cmbTopRightDia);
-            _lblBotMidExtra = AddRow2Control(layoutExtra, "Bụng Dầm (cắt lùi L/6):", _numBotMidExtra, _cmbBotMidDia);
-            _grpExtra.Controls.Add(layoutExtra);
-
-            pnlExtraLeft.Controls.Add(_grpExtra);
-
-            // Joint Settings GroupBox
-            _grpJointSettings = new GroupBox { Text = "🔗 Liên kết Dầm Cột & Neo Thép (TCVN 5574)", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
-            var layoutJoint = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutJoint.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
-            layoutJoint.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-
-            _numLdMultiplier = new NumericUpDown { Minimum = 20, Maximum = 60, Value = 35, Width = 80 };
-            _numHookTailMultiplier = new NumericUpDown { Minimum = 8, Maximum = 30, Value = 12, Width = 80 };
-
-            _lblLdMultiplier = AddRowToLayout(layoutJoint, "Hệ số neo Ld (x d):", _numLdMultiplier);
-            _lblHookTailMultiplier = AddRowToLayout(layoutJoint, "Đoạn bẻ móc uốn (x d):", _numHookTailMultiplier);
-            _grpJointSettings.Controls.Add(layoutJoint);
-
-            pnlExtraLeft.Controls.Add(_grpJointSettings);
-
-            // ── Design Standard GroupBox ──────────────────────────────────────────
-            _grpDesignStandard = new GroupBox
-            {
-                Text = "📐 Tiêu Chuẩn Thiết Kế (Anchorage Ld)",
-                Dock = DockStyle.Top,
-                Height = 148,
-                Padding = new Padding(10, 14, 10, 6),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
-            };
-            var layoutDesignBeam = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3 };
-            layoutDesignBeam.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            layoutDesignBeam.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            layoutDesignBeam.Font = new Font("Segoe UI", 8.5F);
-
-            _cmbDesignStandard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };
-            _cmbDesignStandard.Items.AddRange(new object[] { "TCVN 5574:2018", "Eurocode 2" });
-            _cmbDesignStandard.SelectedIndex = 0;
-
-            _cmbConcreteGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };
-            _cmbConcreteGrade.Items.AddRange(new object[] { "Auto (35d)", "B15", "B20", "B22.5", "B25", "B30", "B35", "B40", "B45", "B50",
-                "C20/25", "C25/30", "C28/35", "C30/37", "C32/40", "C35/45", "C40/50" });
-            _cmbConcreteGrade.SelectedIndex = 0;
-
-            _cmbSteelGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 140 };
-            _cmbSteelGrade.Items.AddRange(new object[] { "Auto (30d)", "CB240-T", "CB300-V", "CB400-V", "CB500-V", "B400", "B500" });
-            _cmbSteelGrade.SelectedIndex = 0;
-
-            _lblDesignWarning = new Label
-            {
-                Text = "",
-                ForeColor = Color.OrangeRed,
-                Font = new Font("Segoe UI", 8F, FontStyle.Italic),
-                AutoSize = false,
-                Dock = DockStyle.Bottom,
-                Height = 28,
-                TextAlign = ContentAlignment.MiddleLeft
+                Orientation = System.Windows.Forms.Orientation.Horizontal,
+                SplitterDistance = 420,
+                Panel1MinSize = 350,
+                Panel2MinSize = 250,
+                BackColor = Color.FromArgb(235, 238, 245)
             };
 
-            EventHandler updateBeamDesignWarning = (s, ev) =>
-            {
-                bool tcvnMode = _cmbDesignStandard.SelectedIndex == 0;
-                bool autoGrade = _cmbConcreteGrade.SelectedIndex == 0 || _cmbSteelGrade.SelectedIndex == 0;
-                _lblDesignWarning.Text = autoGrade
-                    ? "⚠ Chọn mác BT & thép để tính Ld chính xác"
-                    : $"✔ Ld tính theo {(tcvnMode ? "TCVN 5574:2018" : "Eurocode 2")}";
-                _lblDesignWarning.ForeColor = autoGrade ? Color.OrangeRed : Color.DarkGreen;
-            };
-            _cmbDesignStandard.SelectedIndexChanged += updateBeamDesignWarning;
-            _cmbConcreteGrade.SelectedIndexChanged += updateBeamDesignWarning;
-            _cmbSteelGrade.SelectedIndexChanged += updateBeamDesignWarning;
+            // ── TOP PANEL ──
+            var topPanel = mainSplit.Panel1;
+            topPanel.BackColor = Color.White;
 
-            AddRowToLayout(layoutDesignBeam, "Tiêu chuẩn:", _cmbDesignStandard);
-            AddRowToLayout(layoutDesignBeam, "Mác bê tông:", _cmbConcreteGrade);
-            AddRowToLayout(layoutDesignBeam, "Mác thép:", _cmbSteelGrade);
-            _grpDesignStandard.Controls.Add(layoutDesignBeam);
-            _grpDesignStandard.Controls.Add(_lblDesignWarning);
-            pnlExtraLeft.Controls.Add(_grpDesignStandard);
-            // ─────────────────────────────────────────────────────────────────────
+            // 1. Sidebar "Setting" (Width = 135)
+            var grpSetting = BuildSidebarSetting();
 
-            _tabExtra.Controls.Add(pnlExtraLeft);
+            // 2. Middle Dynamic Container (Rebar List + Rebar Info + Diagram/Sections)
+            var pnlMiddle = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
 
-            // Preview Panel GDI+ Tab 2 (Beam Elevation with Extra Bars)
-            _previewPanelExtra = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
-            _previewPanelExtra.Paint += PreviewPanelExtra_Paint;
-            _tabExtra.Controls.Add(_previewPanelExtra);
-            _previewPanelExtra.BringToFront();
+            BuildViewMainTop();
+            BuildViewMainBot();
+            BuildViewAddTop();
+            BuildViewAddBot();
+            BuildViewStirrup();
+            BuildViewAntiBulge();
 
-            tabControl.TabPages.Add(_tabExtra);
+            pnlMiddle.Controls.Add(_pnlViewMainTop);
+            pnlMiddle.Controls.Add(_pnlViewMainBot);
+            pnlMiddle.Controls.Add(_pnlViewAddTop);
+            pnlMiddle.Controls.Add(_pnlViewAddBot);
+            pnlMiddle.Controls.Add(_pnlViewStirrup);
+            pnlMiddle.Controls.Add(_pnlViewAntiBulge);
 
-            // --- TAB 3: THÉP ĐAI ---
-            _tabStirrup = new TabPage { Text = "🌀 Thép Đai (Stirrups)", Padding = new Padding(10), BackColor = Color.White };
-            var pnlStirrupLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
+            topPanel.Controls.Add(pnlMiddle);
+            topPanel.Controls.Add(grpSetting);
 
-            _grpStirrup = new GroupBox { Text = "Phân Vùng Đai A1 / A2 / A1 Dầm", Dock = DockStyle.Top, Height = 175, Padding = new Padding(10) };
-            var layoutStirrup = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
-            layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
+            // ── BOTTOM PANEL: Longitudinal Elevation Canvas + Footer Bar ──
+            var botPanel = mainSplit.Panel2;
+            botPanel.BackColor = Color.White;
 
-            _cmbStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
-            _cmbStirrupDia.SelectedIndexChanged += (s, e) => _previewPanelStirrup?.Invalidate();
+            _pnlElevationCanvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            _pnlElevationCanvas.Paint += DrawElevationCanvas;
+            _pnlElevationCanvas.Resize += (s, e) => _pnlElevationCanvas.Invalidate();
 
-            _numStirrupSpacingA1 = new NumericUpDown { Minimum = 50, Maximum = 300, Value = 100, Increment = 10, Width = 80 };
-            _numStirrupSpacingA1.ValueChanged += (s, e) => _previewPanelStirrup?.Invalidate();
+            var footerBar = BuildFooterBar();
 
-            _numStirrupSpacingA2 = new NumericUpDown { Minimum = 100, Maximum = 500, Value = 200, Increment = 10, Width = 80 };
-            _numStirrupSpacingA2.ValueChanged += (s, e) => _previewPanelStirrup?.Invalidate();
+            botPanel.Controls.Add(_pnlElevationCanvas);
+            botPanel.Controls.Add(footerBar);
 
-            _numZoneA1Length = new NumericUpDown { Minimum = 0, Maximum = 3000, Value = 0, Increment = 100, Width = 80 };
-            _numZoneA1Length.ValueChanged += (s, e) => _previewPanelStirrup?.Invalidate();
-
-            _lblStirrupDia = AddRowToLayout(layoutStirrup, "Đường kính thép đai:", _cmbStirrupDia);
-            _lblStirrupA1 = AddRowToLayout(layoutStirrup, "Khoảng cách đai gối A1 (mm):", _numStirrupSpacingA1);
-            _lblStirrupA2 = AddRowToLayout(layoutStirrup, "Khoảng cách đai bụng A2 (mm):", _numStirrupSpacingA2);
-            _lblZoneA1Len = AddRowToLayout(layoutStirrup, "Chiều dài vùng gối A1 (mm, 0 = L/4):", _numZoneA1Length);
-            _grpStirrup.Controls.Add(layoutStirrup);
-
-            pnlStirrupLeft.Controls.Add(_grpStirrup);
-            _tabStirrup.Controls.Add(pnlStirrupLeft);
-
-            // Preview Panel GDI+ Tab 3 (Stirrup Distribution Elevation)
-            _previewPanelStirrup = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
-            _previewPanelStirrup.Paint += PreviewPanelStirrup_Paint;
-            _tabStirrup.Controls.Add(_previewPanelStirrup);
-            _previewPanelStirrup.BringToFront();
-
-            tabControl.TabPages.Add(_tabStirrup);
-
-            // --- TAB 4: BẢN VẼ & VIEW 3D ---
-            _tabViews = new TabPage { Text = "🖼️ Bản Vẽ & View 3D", Padding = new Padding(12), BackColor = Color.White };
-            _grpViews = new GroupBox { Text = "Tự động Tạo View & Triển khai Bản vẽ Dầm", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
-            var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
-            _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
-            _chkAutoSection3D = new CheckBox { Text = "Tự động tạo View xem thép 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
-            pnlViews.Controls.Add(_chkAutoDrawing);
-            pnlViews.Controls.Add(_chkAutoSection3D);
-            _grpViews.Controls.Add(pnlViews);
-            _tabViews.Controls.Add(_grpViews);
-            tabControl.TabPages.Add(_tabViews);
-
-            Controls.Add(tabControl);
-            tabControl.BringToFront();
+            Controls.Add(mainSplit);
         }
 
-        private static Label AddRowToLayout(TableLayoutPanel table, string labelText, Control inputControl)
+        #region Sidebar Setting
+        private GroupBox BuildSidebarSetting()
         {
-            var lbl = new Label { Text = labelText, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 5, 3, 3) };
-            table.Controls.Add(lbl);
-            table.Controls.Add(inputControl);
-            return lbl;
-        }
-
-        private static Label AddRow2Control(TableLayoutPanel table, string labelText, Control input1, Control input2)
-        {
-            var lbl = new Label { Text = labelText, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 5, 3, 3) };
-            var pnl = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0) };
-            pnl.Controls.Add(input1);
-            pnl.Controls.Add(input2);
-            table.Controls.Add(lbl);
-            table.Controls.Add(pnl);
-            return lbl;
-        }
-
-        private void SetAllBeamsSelected(bool selectAll)
-        {
-            for (int i = 0; i < _beamListBox.Items.Count; i++)
+            var grp = new GroupBox
             {
-                _beamListBox.SetSelected(i, selectAll);
+                Text = "Setting",
+                Dock = DockStyle.Left,
+                Width = 140,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Padding = new Padding(4)
+            };
+
+            _btnSettingMainTop = CreateSettingButton("Main Top Bar", 0);
+            _btnSettingMainBot = CreateSettingButton("Main Bot Bar", 1);
+            _btnSettingAddTop = CreateSettingButton("Add. Top Bar", 2);
+            _btnSettingAddBot = CreateSettingButton("Add. Bot Bar", 3);
+            _btnSettingStirrup = CreateSettingButton("Stirrup", 4);
+            _btnSettingAntiBulge = CreateSettingButton("Anti bulge rebar", 5);
+
+            _btnSettingMainTop.Top = 22;
+            _btnSettingMainBot.Top = 75;
+            _btnSettingAddTop.Top = 128;
+            _btnSettingAddBot.Top = 181;
+            _btnSettingStirrup.Top = 234;
+            _btnSettingAntiBulge.Top = 287;
+
+            grp.Controls.Add(_btnSettingMainTop);
+            grp.Controls.Add(_btnSettingMainBot);
+            grp.Controls.Add(_btnSettingAddTop);
+            grp.Controls.Add(_btnSettingAddBot);
+            grp.Controls.Add(_btnSettingStirrup);
+            grp.Controls.Add(_btnSettingAntiBulge);
+
+            return grp;
+        }
+
+        private Button CreateSettingButton(string text, int index)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                Left = 6,
+                Width = 125,
+                Height = 48,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                BackColor = (index == 0) ? Color.FromArgb(215, 235, 215) : Color.FromArgb(245, 245, 245),
+                TextAlign = ContentAlignment.MiddleRight,
+                Cursor = Cursors.Hand
+            };
+            btn.FlatAppearance.BorderColor = (index == 0) ? Color.FromArgb(100, 180, 100) : Color.LightGray;
+
+            // Mini icon on the left
+            btn.Paint += (s, e) =>
+            {
+                var g = e.Graphics;
+                g.SmoothingMode = SmoothingMode.AntiAlias;
+                var rect = new Rectangle(8, 10, 28, 28);
+                g.FillRectangle(Brushes.Gainsboro, rect);
+                g.DrawRectangle(Pens.Gray, rect);
+
+                if (index == 0) // Main Top
+                {
+                    g.FillEllipse(Brushes.Blue, 11, 13, 5, 5);
+                    g.FillEllipse(Brushes.Blue, 20, 13, 5, 5);
+                    g.FillEllipse(Brushes.Blue, 28, 13, 5, 5);
+                }
+                else if (index == 1) // Main Bot
+                {
+                    g.FillEllipse(Brushes.Blue, 11, 29, 5, 5);
+                    g.FillEllipse(Brushes.Blue, 20, 29, 5, 5);
+                    g.FillEllipse(Brushes.Blue, 28, 29, 5, 5);
+                }
+                else if (index == 2) // Add Top
+                {
+                    g.FillEllipse(Brushes.Red, 11, 13, 5, 5);
+                    g.FillEllipse(Brushes.Red, 28, 13, 5, 5);
+                }
+                else if (index == 3) // Add Bot
+                {
+                    g.FillEllipse(Brushes.Red, 11, 29, 5, 5);
+                    g.FillEllipse(Brushes.Red, 28, 29, 5, 5);
+                }
+                else if (index == 4) // Stirrup
+                {
+                    g.DrawRectangle(new Pen(Color.DarkBlue, 2), 11, 13, 22, 22);
+                    g.DrawLine(Pens.SteelBlue, 18, 13, 18, 35);
+                    g.DrawLine(Pens.SteelBlue, 26, 13, 26, 35);
+                }
+                else if (index == 5) // Anti Bulge
+                {
+                    g.FillEllipse(Brushes.Red, 11, 21, 5, 5);
+                    g.FillEllipse(Brushes.Red, 28, 21, 5, 5);
+                    g.DrawLine(new Pen(Color.DarkSlateBlue, 1.5f), 13, 23, 30, 23);
+                }
+            };
+
+            btn.Click += (s, e) => SwitchSettingTab(index);
+            return btn;
+        }
+
+        private void SwitchSettingTab(int index)
+        {
+            _activeSettingIndex = index;
+
+            Button[] btns = { _btnSettingMainTop, _btnSettingMainBot, _btnSettingAddTop, _btnSettingAddBot, _btnSettingStirrup, _btnSettingAntiBulge };
+            Panel[] views = { _pnlViewMainTop, _pnlViewMainBot, _pnlViewAddTop, _pnlViewAddBot, _pnlViewStirrup, _pnlViewAntiBulge };
+
+            for (int i = 0; i < btns.Length; i++)
+            {
+                bool active = (i == index);
+                btns[i].BackColor = active ? Color.FromArgb(215, 235, 215) : Color.FromArgb(245, 245, 245);
+                btns[i].FlatAppearance.BorderColor = active ? Color.FromArgb(100, 180, 100) : Color.LightGray;
+                views[i].Visible = active;
             }
-            UpdateSelectedCount();
+
+            _pnlElevationCanvas?.Invalidate();
+        }
+        #endregion
+
+        #region View 1: Main Top Bar
+        private void BuildViewMainTop()
+        {
+            _pnlViewMainTop = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Left: Rebar List
+            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblRebarName = new Label { Text = "Rebar Name", Left = 10, Top = 20, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _lstMainTop = new ListBox { Left = 10, Top = 40, Width = 130, Height = 330, Font = new Font("Segoe UI", 8.5F) };
+            _lstMainTop.Items.Add("Count:2-D20-S:0-E:1");
+            _lstMainTop.SelectedIndex = 0;
+            grpList.Controls.Add(lblRebarName);
+            grpList.Controls.Add(_lstMainTop);
+
+            // Middle: Rebar Information
+            var grpInfo = new GroupBox { Text = "Rebar Information", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+
+            var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainTopDia = CreateDiameterComboBox();
+            _cmbMainTopDia.Left = 120; _cmbMainTopDia.Top = 25; _cmbMainTopDia.Width = 90;
+
+            var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numMainTopQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+
+            var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainTopStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbMainTopStartPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbMainTopStartPoint.SelectedIndex = 0;
+
+            var lblEnd = new Label { Text = "End Point:", Left = 230, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainTopEndPoint = new ComboBox { Left = 310, Top = 65, Width = 70, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbMainTopEndPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbMainTopEndPoint.SelectedIndex = 1;
+
+            var lblAncLeft = new Label { Text = "Anchor Left:", Left = 15, Top = 108, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainTopAnchorLeft = new TextBox { Text = "35", Left = 120, Top = 105, Width = 90 };
+
+            var lblAncRight = new Label { Text = "Anchor Right:", Left = 230, Top = 108, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainTopAnchorRight = new TextBox { Text = "35", Left = 310, Top = 105, Width = 90 };
+
+            var lblAncXLeft = new Label { Text = "Anchor X Left:", Left = 15, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainTopAnchorXLeft = new TextBox { Text = "565", Left = 120, Top = 145, Width = 90 };
+
+            var lblAncXRight = new Label { Text = "Anchor X Right:", Left = 230, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainTopAnchorXRight = new TextBox { Text = "565", Left = 310, Top = 145, Width = 90 };
+
+            var lblPos = new Label { Text = "Position In Section:", Left = 15, Top = 190, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainTopPos = new TextBox { Text = "0, 3", Left = 140, Top = 187, Width = 90, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
+
+            // Buttons: Add, Next, Delete, Delete All
+            var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+
+            btnAdd.Click += (s, e) =>
+            {
+                _lstMainTop.Items.Add($"Count:{_numMainTopQty.Value}-{_cmbMainTopDia.Text}-S:{_cmbMainTopStartPoint.Text}-E:{_cmbMainTopEndPoint.Text}");
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDelete.Click += (s, e) =>
+            {
+                if (_lstMainTop.SelectedIndex >= 0) _lstMainTop.Items.RemoveAt(_lstMainTop.SelectedIndex);
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDeleteAll.Click += (s, e) => { _lstMainTop.Items.Clear(); _pnlElevationCanvas?.Invalidate(); };
+
+            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbMainTopDia);
+            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numMainTopQty);
+            grpInfo.Controls.Add(lblStart); grpInfo.Controls.Add(_cmbMainTopStartPoint);
+            grpInfo.Controls.Add(lblEnd); grpInfo.Controls.Add(_cmbMainTopEndPoint);
+            grpInfo.Controls.Add(lblAncLeft); grpInfo.Controls.Add(_txtMainTopAnchorLeft);
+            grpInfo.Controls.Add(lblAncRight); grpInfo.Controls.Add(_txtMainTopAnchorRight);
+            grpInfo.Controls.Add(lblAncXLeft); grpInfo.Controls.Add(_txtMainTopAnchorXLeft);
+            grpInfo.Controls.Add(lblAncXRight); grpInfo.Controls.Add(_txtMainTopAnchorXRight);
+            grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtMainTopPos);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+
+            // Right: Diagram Image
+            var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var pnlDiag = new Panel { Dock = DockStyle.Fill };
+            pnlDiag.Paint += DrawMainTopDiagram;
+            grpImage.Controls.Add(pnlDiag);
+
+            _pnlViewMainTop.Controls.Add(grpImage);
+            _pnlViewMainTop.Controls.Add(grpInfo);
+            _pnlViewMainTop.Controls.Add(grpList);
+        }
+        #endregion
+
+        #region View 2: Main Bot Bar
+        private void BuildViewMainBot()
+        {
+            _pnlViewMainBot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Left: Rebar List
+            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblRebarName = new Label { Text = "Rebar Name", Left = 10, Top = 20, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _lstMainBot = new ListBox { Left = 10, Top = 40, Width = 130, Height = 330, Font = new Font("Segoe UI", 8.5F) };
+            _lstMainBot.Items.Add("Count:2-D20-S:0-E:1");
+            _lstMainBot.SelectedIndex = 0;
+            grpList.Controls.Add(lblRebarName);
+            grpList.Controls.Add(_lstMainBot);
+
+            // Middle: Rebar Info
+            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+
+            var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainBotDia = CreateDiameterComboBox();
+            _cmbMainBotDia.Left = 120; _cmbMainBotDia.Top = 25; _cmbMainBotDia.Width = 90;
+
+            var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numMainBotQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+
+            var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainBotStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbMainBotStartPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbMainBotStartPoint.SelectedIndex = 0;
+
+            var lblEnd = new Label { Text = "End Point:", Left = 230, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbMainBotEndPoint = new ComboBox { Left = 310, Top = 65, Width = 70, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbMainBotEndPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbMainBotEndPoint.SelectedIndex = 1;
+
+            var lblAncLeft = new Label { Text = "Anchor Left:", Left = 15, Top = 108, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainBotAnchorLeft = new TextBox { Text = "35", Left = 120, Top = 105, Width = 90 };
+
+            var lblAncRight = new Label { Text = "Anchor Right:", Left = 230, Top = 108, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainBotAnchorRight = new TextBox { Text = "35", Left = 310, Top = 105, Width = 90 };
+
+            var lblAncXLeft = new Label { Text = "Anchor X Left:", Left = 15, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainBotAnchorXLeft = new TextBox { Text = "565", Left = 120, Top = 145, Width = 90 };
+
+            var lblAncXRight = new Label { Text = "Anchor X Right:", Left = 230, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainBotAnchorXRight = new TextBox { Text = "565", Left = 310, Top = 145, Width = 90 };
+
+            var lblPos = new Label { Text = "Position In Section:", Left = 15, Top = 190, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtMainBotPos = new TextBox { Text = "0, 3", Left = 140, Top = 187, Width = 90, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
+
+            var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+
+            btnAdd.Click += (s, e) =>
+            {
+                _lstMainBot.Items.Add($"Count:{_numMainBotQty.Value}-{_cmbMainBotDia.Text}-S:{_cmbMainBotStartPoint.Text}-E:{_cmbMainBotEndPoint.Text}");
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDelete.Click += (s, e) =>
+            {
+                if (_lstMainBot.SelectedIndex >= 0) _lstMainBot.Items.RemoveAt(_lstMainBot.SelectedIndex);
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDeleteAll.Click += (s, e) => { _lstMainBot.Items.Clear(); _pnlElevationCanvas?.Invalidate(); };
+
+            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbMainBotDia);
+            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numMainBotQty);
+            grpInfo.Controls.Add(lblStart); grpInfo.Controls.Add(_cmbMainBotStartPoint);
+            grpInfo.Controls.Add(lblEnd); grpInfo.Controls.Add(_cmbMainBotEndPoint);
+            grpInfo.Controls.Add(lblAncLeft); grpInfo.Controls.Add(_txtMainBotAnchorLeft);
+            grpInfo.Controls.Add(lblAncRight); grpInfo.Controls.Add(_txtMainBotAnchorRight);
+            grpInfo.Controls.Add(lblAncXLeft); grpInfo.Controls.Add(_txtMainBotAnchorXLeft);
+            grpInfo.Controls.Add(lblAncXRight); grpInfo.Controls.Add(_txtMainBotAnchorXRight);
+            grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtMainBotPos);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+
+            // Right: Diagram Image
+            var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var pnlDiag = new Panel { Dock = DockStyle.Fill };
+            pnlDiag.Paint += DrawMainBotDiagram;
+            grpImage.Controls.Add(pnlDiag);
+
+            _pnlViewMainBot.Controls.Add(grpImage);
+            _pnlViewMainBot.Controls.Add(grpInfo);
+            _pnlViewMainBot.Controls.Add(grpList);
+        }
+        #endregion
+
+        #region View 3: Add. Top Bar
+        private void BuildViewAddTop()
+        {
+            _pnlViewAddTop = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Left: Rebar List
+            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _lstAddTop = new ListBox { Left = 10, Top = 25, Width = 130, Height = 350, Font = new Font("Segoe UI", 8F) };
+            _lstAddTop.Items.Add("Count:2-D18-S:0-E:0");
+            _lstAddTop.Items.Add("Count:2-D18-S:1-E:1");
+            _lstAddTop.SelectedIndex = 0;
+            grpList.Controls.Add(_lstAddTop);
+
+            // Middle: Rebar Info
+            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+
+            var lblLayer = new Label { Text = "Layer:", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddTopLayer.Items.AddRange(new object[] { "Layer 1", "Layer 2" }); _cmbAddTopLayer.SelectedIndex = 0;
+
+            var lblDia = new Label { Text = "Diameter:", Left = 220, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopDia = CreateDiameterComboBox();
+            _cmbAddTopDia.Left = 295; _cmbAddTopDia.Top = 22; _cmbAddTopDia.Width = 90;
+
+            var lblStart = new Label { Text = "Start Point", Left = 15, Top = 62, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopStartPoint = new ComboBox { Left = 110, Top = 59, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddTopStartPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbAddTopStartPoint.SelectedIndex = 0;
+
+            var lblEnd = new Label { Text = "End Point:", Left = 220, Top = 62, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopEndPoint = new ComboBox { Left = 295, Top = 59, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddTopEndPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbAddTopEndPoint.SelectedIndex = 0;
+
+            var lblStartType = new Label { Text = "Start Type:", Left = 15, Top = 100, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopStartType = new ComboBox { Left = 110, Top = 97, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddTopStartType.Items.AddRange(new object[] { "Attached", "Through" }); _cmbAddTopStartType.SelectedIndex = 0;
+
+            var lblEndType = new Label { Text = "End Type:", Left = 220, Top = 100, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddTopEndType = new ComboBox { Left = 295, Top = 97, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddTopEndType.Items.AddRange(new object[] { "Attached", "Through" }); _cmbAddTopEndType.SelectedIndex = 0;
+
+            var lblLeftRatio = new Label { Text = "Left Ratio:", Left = 15, Top = 138, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopLeftRatio = new TextBox { Text = "0.25", Left = 110, Top = 135, Width = 95 };
+
+            var lblRightRatio = new Label { Text = "Right Ratio:", Left = 220, Top = 138, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopRightRatio = new TextBox { Text = "0.25", Left = 295, Top = 135, Width = 90 };
+
+            var lblLeftLen = new Label { Text = "Left Length:", Left = 15, Top = 175, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopLeftLen = new TextBox { Text = "1800", Left = 110, Top = 172, Width = 95 };
+
+            var lblRightLen = new Label { Text = "Right Length:", Left = 220, Top = 175, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopRightLen = new TextBox { Text = "1800", Left = 295, Top = 172, Width = 90 };
+
+            var lblDLeft = new Label { Text = "D Left:", Left = 15, Top = 212, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopDLeft = new TextBox { Text = "500", Left = 110, Top = 209, Width = 95 };
+
+            var lblDRight = new Label { Text = "D Right:", Left = 220, Top = 212, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopDRight = new TextBox { Text = "500", Left = 295, Top = 209, Width = 90 };
+
+            var lblNum = new Label { Text = "Number:", Left = 15, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numAddTopQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 1, Maximum = 20, Value = 2 };
+
+            var lblPos = new Label { Text = "Position In Section:", Left = 220, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddTopPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
+
+            var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+
+            btnAdd.Click += (s, e) =>
+            {
+                _lstAddTop.Items.Add($"Count:{_numAddTopQty.Value}-{_cmbAddTopDia.Text}-S:{_cmbAddTopStartPoint.Text}-E:{_cmbAddTopEndPoint.Text}");
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDelete.Click += (s, e) =>
+            {
+                if (_lstAddTop.SelectedIndex >= 0) _lstAddTop.Items.RemoveAt(_lstAddTop.SelectedIndex);
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDeleteAll.Click += (s, e) => { _lstAddTop.Items.Clear(); _pnlElevationCanvas?.Invalidate(); };
+
+            grpInfo.Controls.Add(lblLayer); grpInfo.Controls.Add(_cmbAddTopLayer);
+            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbAddTopDia);
+            grpInfo.Controls.Add(lblStart); grpInfo.Controls.Add(_cmbAddTopStartPoint);
+            grpInfo.Controls.Add(lblEnd); grpInfo.Controls.Add(_cmbAddTopEndPoint);
+            grpInfo.Controls.Add(lblStartType); grpInfo.Controls.Add(_cmbAddTopStartType);
+            grpInfo.Controls.Add(lblEndType); grpInfo.Controls.Add(_cmbAddTopEndType);
+            grpInfo.Controls.Add(lblLeftRatio); grpInfo.Controls.Add(_txtAddTopLeftRatio);
+            grpInfo.Controls.Add(lblRightRatio); grpInfo.Controls.Add(_txtAddTopRightRatio);
+            grpInfo.Controls.Add(lblLeftLen); grpInfo.Controls.Add(_txtAddTopLeftLen);
+            grpInfo.Controls.Add(lblRightLen); grpInfo.Controls.Add(_txtAddTopRightLen);
+            grpInfo.Controls.Add(lblDLeft); grpInfo.Controls.Add(_txtAddTopDLeft);
+            grpInfo.Controls.Add(lblDRight); grpInfo.Controls.Add(_txtAddTopDRight);
+            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAddTopQty);
+            grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtAddTopPos);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+
+            // Right: Diagram Image
+            var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var pnlDiag = new Panel { Dock = DockStyle.Fill };
+            pnlDiag.Paint += DrawAddTopDiagram;
+            grpImage.Controls.Add(pnlDiag);
+
+            _pnlViewAddTop.Controls.Add(grpImage);
+            _pnlViewAddTop.Controls.Add(grpInfo);
+            _pnlViewAddTop.Controls.Add(grpList);
+        }
+        #endregion
+
+        #region View 4: Add. Bot Bar
+        private void BuildViewAddBot()
+        {
+            _pnlViewAddBot = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Left: Rebar List
+            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblLayerHeader = new Label { Text = "Layer", Left = 10, Top = 20, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _lstAddBot = new ListBox { Left = 10, Top = 40, Width = 130, Height = 330, Font = new Font("Segoe UI", 8F) };
+            _lstAddBot.Items.Add("Count:2-D18-S:0-E:1");
+            _lstAddBot.SelectedIndex = 0;
+            grpList.Controls.Add(lblLayerHeader);
+            grpList.Controls.Add(_lstAddBot);
+
+            // Middle: Rebar Info
+            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+
+            var lblLayer = new Label { Text = "LAYER", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddBotLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddBotLayer.Items.AddRange(new object[] { "Layer 1", "Layer 2" }); _cmbAddBotLayer.SelectedIndex = 0;
+
+            var lblDia = new Label { Text = "Diameter", Left = 220, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddBotDia = CreateDiameterComboBox();
+            _cmbAddBotDia.Left = 295; _cmbAddBotDia.Top = 22; _cmbAddBotDia.Width = 90;
+
+            var lblStart = new Label { Text = "Start Point", Left = 15, Top = 62, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddBotStartPoint = new ComboBox { Left = 110, Top = 59, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddBotStartPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbAddBotStartPoint.SelectedIndex = 0;
+
+            var lblEnd = new Label { Text = "End Point", Left = 220, Top = 62, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAddBotEndPoint = new ComboBox { Left = 295, Top = 59, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAddBotEndPoint.Items.AddRange(new object[] { "0", "1", "2" }); _cmbAddBotEndPoint.SelectedIndex = 1;
+
+            var lblLeftRatio = new Label { Text = "Left Ratio", Left = 15, Top = 100, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotLeftRatio = new TextBox { Text = "0.15", Left = 110, Top = 97, Width = 95 };
+
+            var lblRightRatio = new Label { Text = "Right Ratio", Left = 220, Top = 100, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotRightRatio = new TextBox { Text = "0.15", Left = 295, Top = 97, Width = 90 };
+
+            var lblLeftLen = new Label { Text = "Left Length", Left = 15, Top = 138, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotLeftLen = new TextBox { Text = "1000", Left = 110, Top = 135, Width = 95 };
+
+            var lblRightLen = new Label { Text = "Right Length", Left = 220, Top = 138, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotRightLen = new TextBox { Text = "1000", Left = 295, Top = 135, Width = 90 };
+
+            var lblAncLeft = new Label { Text = "Anchor Left", Left = 15, Top = 175, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotAnchorLeft = new TextBox { Text = "35", Left = 110, Top = 172, Width = 95 };
+
+            var lblAncRight = new Label { Text = "Anchor Right:", Left = 220, Top = 175, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotAnchorRight = new TextBox { Text = "35", Left = 295, Top = 172, Width = 90 };
+
+            var lblTotal = new Label { Text = "Total:", Left = 15, Top = 212, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotTotal = new TextBox { Text = "5100", Left = 110, Top = 209, Width = 95 };
+
+            var lblNum = new Label { Text = "Number", Left = 15, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numAddBotQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 1, Maximum = 20, Value = 2 };
+
+            var lblPos = new Label { Text = "Position In section", Left = 220, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtAddBotPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
+
+            var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+
+            btnAdd.Click += (s, e) =>
+            {
+                _lstAddBot.Items.Add($"Count:{_numAddBotQty.Value}-{_cmbAddBotDia.Text}-S:{_cmbAddBotStartPoint.Text}-E:{_cmbAddBotEndPoint.Text}");
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDelete.Click += (s, e) =>
+            {
+                if (_lstAddBot.SelectedIndex >= 0) _lstAddBot.Items.RemoveAt(_lstAddBot.SelectedIndex);
+                _pnlElevationCanvas?.Invalidate();
+            };
+            btnDeleteAll.Click += (s, e) => { _lstAddBot.Items.Clear(); _pnlElevationCanvas?.Invalidate(); };
+
+            grpInfo.Controls.Add(lblLayer); grpInfo.Controls.Add(_cmbAddBotLayer);
+            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbAddBotDia);
+            grpInfo.Controls.Add(lblStart); grpInfo.Controls.Add(_cmbAddBotStartPoint);
+            grpInfo.Controls.Add(lblEnd); grpInfo.Controls.Add(_cmbAddBotEndPoint);
+            grpInfo.Controls.Add(lblLeftRatio); grpInfo.Controls.Add(_txtAddBotLeftRatio);
+            grpInfo.Controls.Add(lblRightRatio); grpInfo.Controls.Add(_txtAddBotRightRatio);
+            grpInfo.Controls.Add(lblLeftLen); grpInfo.Controls.Add(_txtAddBotLeftLen);
+            grpInfo.Controls.Add(lblRightLen); grpInfo.Controls.Add(_txtAddBotRightLen);
+            grpInfo.Controls.Add(lblAncLeft); grpInfo.Controls.Add(_txtAddBotAnchorLeft);
+            grpInfo.Controls.Add(lblAncRight); grpInfo.Controls.Add(_txtAddBotAnchorRight);
+            grpInfo.Controls.Add(lblTotal); grpInfo.Controls.Add(_txtAddBotTotal);
+            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAddBotQty);
+            grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtAddBotPos);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+
+            // Right: Diagram Image
+            var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var pnlDiag = new Panel { Dock = DockStyle.Fill };
+            pnlDiag.Paint += DrawAddBotDiagram;
+            grpImage.Controls.Add(pnlDiag);
+
+            _pnlViewAddBot.Controls.Add(grpImage);
+            _pnlViewAddBot.Controls.Add(grpInfo);
+            _pnlViewAddBot.Controls.Add(grpList);
+        }
+        #endregion
+
+        #region View 5: Stirrup
+        private void BuildViewStirrup()
+        {
+            _pnlViewStirrup = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            // Middle: TabControl with Stirrup Distribution, Additional Stirrup, etc.
+            var tabStirrup = new TabControl { Left = 5, Top = 5, Width = 590, Height = 390, Font = new Font("Segoe UI", 8.5F) };
+
+            var tabDist = new TabPage { Text = "Stirrup Distribution", BackColor = Color.White, Padding = new Padding(8) };
+            BuildStirrupDistributionTab(tabDist);
+            tabStirrup.TabPages.Add(tabDist);
+
+            var tabAddStirrup = new TabPage { Text = "Additional Stirrup", BackColor = Color.White };
+            tabStirrup.TabPages.Add(tabAddStirrup);
+
+            var tabHanger = new TabPage { Text = "Hanger bar For 2nd Beam", BackColor = Color.White };
+            tabStirrup.TabPages.Add(tabHanger);
+
+            var tabShape = new TabPage { Text = "Stirrup Shape", BackColor = Color.White };
+            tabStirrup.TabPages.Add(tabShape);
+
+            // Right: Section Group (3 Cross-sections 1-1, 2-2, 3-3)
+            var grpSection = new GroupBox { Text = "Section", Left = 600, Top = 5, Width = 485, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var cmbSectionSpan = new ComboBox { Left = 160, Top = 18, Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            cmbSectionSpan.Items.AddRange(new object[] { "0", "1" }); cmbSectionSpan.SelectedIndex = 0;
+
+            var pnlSectionCanvas = new Panel { Left = 10, Top = 45, Width = 465, Height = 335, BackColor = Color.White };
+            pnlSectionCanvas.Paint += DrawThreeSectionsCanvas;
+
+            grpSection.Controls.Add(cmbSectionSpan);
+            grpSection.Controls.Add(pnlSectionCanvas);
+
+            _pnlViewStirrup.Controls.Add(grpSection);
+            _pnlViewStirrup.Controls.Add(tabStirrup);
         }
 
-        private void UpdateSelectedCount()
+        private void BuildStirrupDistributionTab(TabPage tab)
         {
-            int count = _beamListBox.SelectedItems.Count;
-            if (_preSelectedBeams.Any())
+            // 1. Choose Span - Diameter
+            var lbl1 = new Label { Text = "1. Choose Span - Diameter", Left = 10, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblBeamSpan = new Label { Text = "Beam Span:", Left = 175, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbStirrupSpan = new ComboBox { Left = 250, Top = 7, Width = 55, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbStirrupSpan.Items.AddRange(new object[] { "0", "1" }); _cmbStirrupSpan.SelectedIndex = 0;
+
+            var lblMainDia = new Label { Text = "Main Diameter:", Left = 320, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbStirrupDia = CreateDiameterComboBox();
+            _cmbStirrupDia.Left = 415; _cmbStirrupDia.Top = 7; _cmbStirrupDia.Width = 70;
+
+            // 2. Stirrup distributed uniform
+            var lbl2 = new Label { Text = "2. Stirrup distributed uniform", Left = 10, Top = 45, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _rbStirrupUniform = new RadioButton { Left = 10, Top = 70, Width = 20, AutoSize = true };
+            var pnlIconUniform = new Panel { Left = 35, Top = 65, Width = 60, Height = 40, BackColor = Color.FromArgb(235, 235, 235) };
+            pnlIconUniform.Paint += (s, e) => DrawStirrupIcon(e.Graphics, pnlIconUniform.ClientRectangle, false);
+            var lblA1Uni = new Label { Text = "A1 :", Left = 105, Top = 75, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupA1Uniform = new TextBox { Text = "100", Left = 135, Top = 72, Width = 60 };
+
+            // 3. Stirrup distributed 2 ends
+            var lbl3 = new Label { Text = "3. Stirrup distributed 2 ends", Left = 220, Top = 45, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _rbStirrup2Ends = new RadioButton { Left = 220, Top = 70, Width = 20, AutoSize = true, Checked = true };
+            var pnlIconEnds = new Panel { Left = 245, Top = 65, Width = 60, Height = 40, BackColor = Color.FromArgb(235, 235, 235) };
+            pnlIconEnds.Paint += (s, e) => DrawStirrupIcon(e.Graphics, pnlIconEnds.ClientRectangle, true);
+            var lblA1Ends = new Label { Text = "A1:", Left = 315, Top = 75, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupA1Ends = new TextBox { Text = "100", Left = 345, Top = 72, Width = 55 };
+            var lblA2Ends = new Label { Text = "A2:", Left = 410, Top = 75, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupA2Ends = new TextBox { Text = "200", Left = 440, Top = 72, Width = 55 };
+
+            // 3.1. Length of End1 + End2
+            var lbl31 = new Label { Text = "3.1. Length of End1 + End2", Left = 220, Top = 120, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblEnd1 = new Label { Text = "End 1 :", Left = 220, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupEnd1Len = new TextBox { Text = "1800", Left = 270, Top = 145, Width = 60 };
+            var lblMm1 = new Label { Text = "(mm)", Left = 335, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
+
+            var lblEnd2 = new Label { Text = "End 2 :", Left = 380, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupEnd2Len = new TextBox { Text = "1800", Left = 430, Top = 145, Width = 60 };
+            var lblMm2 = new Label { Text = "(mm)", Left = 495, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
+
+            // 4. Distance of first stirrup to the column
+            var lbl4 = new Label { Text = "4. Distance of first stirrup to the column", Left = 10, Top = 190, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblDist = new Label { Text = "Distance :", Left = 10, Top = 220, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtStirrupFirstDistance = new TextBox { Text = "50", Left = 75, Top = 217, Width = 55 };
+            var lblMmDist = new Label { Text = "(mm)", Left = 135, Top = 220, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
+
+            var pnlDistIcon = new Panel { Left = 180, Top = 210, Width = 150, Height = 45, BackColor = Color.FromArgb(235, 235, 235) };
+            pnlDistIcon.Paint += DrawFirstStirrupDistanceIcon;
+
+            // Buttons: All Span, Renaming Span, Delete
+            var btnAllSpan = new Button { Text = "All Span", Left = 310, Top = 295, Width = 80, Height = 28, FlatStyle = FlatStyle.System };
+            var btnRename = new Button { Text = "Renaming Span", Left = 395, Top = 295, Width = 105, Height = 28, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 505, Top = 295, Width = 65, Height = 28, FlatStyle = FlatStyle.System };
+
+            _txtStirrupA1Ends.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
+            _txtStirrupA2Ends.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
+            _txtStirrupEnd1Len.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
+            _txtStirrupEnd2Len.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
+
+            tab.Controls.Add(lbl1); tab.Controls.Add(lblBeamSpan); tab.Controls.Add(_cmbStirrupSpan); tab.Controls.Add(lblMainDia); tab.Controls.Add(_cmbStirrupDia);
+            tab.Controls.Add(lbl2); tab.Controls.Add(_rbStirrupUniform); tab.Controls.Add(pnlIconUniform); tab.Controls.Add(lblA1Uni); tab.Controls.Add(_txtStirrupA1Uniform);
+            tab.Controls.Add(lbl3); tab.Controls.Add(_rbStirrup2Ends); tab.Controls.Add(pnlIconEnds); tab.Controls.Add(lblA1Ends); tab.Controls.Add(_txtStirrupA1Ends); tab.Controls.Add(lblA2Ends); tab.Controls.Add(_txtStirrupA2Ends);
+            tab.Controls.Add(lbl31); tab.Controls.Add(lblEnd1); tab.Controls.Add(_txtStirrupEnd1Len); tab.Controls.Add(lblMm1); tab.Controls.Add(lblEnd2); tab.Controls.Add(_txtStirrupEnd2Len); tab.Controls.Add(lblMm2);
+            tab.Controls.Add(lbl4); tab.Controls.Add(lblDist); tab.Controls.Add(_txtStirrupFirstDistance); tab.Controls.Add(lblMmDist); tab.Controls.Add(pnlDistIcon);
+            tab.Controls.Add(btnAllSpan); tab.Controls.Add(btnRename); tab.Controls.Add(btnDelete);
+        }
+        #endregion
+
+        #region View 6: Anti Bulge (Side Bar)
+        private void BuildViewAntiBulge()
+        {
+            _pnlViewAntiBulge = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+
+            var grpList = new GroupBox { Text = "Rebar List", Left = 10, Top = 5, Width = 150, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _lstAntiBulge = new ListBox { Left = 10, Top = 25, Width = 130, Height = 350, Font = new Font("Segoe UI", 8.5F) };
+            _lstAntiBulge.Items.Add("Count:2-D12-S:0-E:1");
+            _lstAntiBulge.SelectedIndex = 0;
+            grpList.Controls.Add(_lstAntiBulge);
+
+            var grpInfo = new GroupBox { Text = "Anti Bulge Rebar Information", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAntiBulgeDia = CreateDiameterComboBox();
+            _cmbAntiBulgeDia.Left = 120; _cmbAntiBulgeDia.Top = 27; _cmbAntiBulgeDia.Width = 90;
+
+            var lblNum = new Label { Text = "Number:", Left = 230, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numAntiBulgeQty = new NumericUpDown { Left = 310, Top = 28, Width = 70, Minimum = 2, Maximum = 10, Value = 2 };
+
+            var lblNote = new Label { Text = "Thép chống phình (thép cấu tạo sườn) đặt đối xứng 2 bên thành dầm khi H ≥ 700mm.", Left = 15, Top = 80, Width = 390, Height = 50, Font = new Font("Segoe UI", 8.5F, FontStyle.Italic), ForeColor = Color.DarkSlateBlue };
+
+            grpInfo.Controls.Add(lblDia); grpInfo.Controls.Add(_cmbAntiBulgeDia);
+            grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAntiBulgeQty);
+            grpInfo.Controls.Add(lblNote);
+
+            _pnlViewAntiBulge.Controls.Add(grpInfo);
+            _pnlViewAntiBulge.Controls.Add(grpList);
+        }
+        #endregion
+
+        #region Bottom Footer Bar
+        private Panel BuildFooterBar()
+        {
+            var pnl = new Panel { Dock = DockStyle.Bottom, Height = 48, BackColor = Color.FromArgb(245, 246, 250), Padding = new Padding(10, 8, 15, 8) };
+
+            _btnToggleSection = new Button { Text = "Toggle Section Image", Left = 680, Top = 8, Width = 150, Height = 32, FlatStyle = FlatStyle.System };
+            _btnBack = new Button { Text = "Back", Left = 840, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
+
+            _btnOk = new Button
             {
-                _lblSelectedCount.Text = $"🟢 Đã chọn sẵn: {count} dầm từ Revit";
-                _lblSelectedCount.ForeColor = Color.DarkGreen;
+                Text = "Ok",
+                Left = 930,
+                Top = 8,
+                Width = 80,
+                Height = 32,
+                BackColor = Color.FromArgb(30, 30, 40),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.System,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            _btnOk.Click += BtnOk_Click;
+
+            _btnClose = new Button { Text = "Close", Left = 1020, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
+            _btnClose.Click += (s, e) => Close();
+
+            pnl.Controls.Add(_btnToggleSection);
+            pnl.Controls.Add(_btnBack);
+            pnl.Controls.Add(_btnOk);
+            pnl.Controls.Add(_btnClose);
+
+            pnl.Resize += (s, e) =>
+            {
+                _btnClose.Left = pnl.Width - _btnClose.Width - 15;
+                _btnOk.Left = _btnClose.Left - _btnOk.Width - 10;
+                _btnBack.Left = _btnOk.Left - _btnBack.Width - 10;
+                _btnToggleSection.Left = _btnBack.Left - _btnToggleSection.Width - 10;
+            };
+
+            return pnl;
+        }
+        #endregion
+
+        #region GDI+ Custom Diagrams
+        private void DrawMainTopDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var w = ((Control)sender).Width;
+            var h = ((Control)sender).Height;
+
+            g.Clear(Color.White);
+
+            // Beam outline with columns on both sides
+            int colW = 60;
+            int beamY = 80;
+            int beamH = 60;
+            int colH = 120;
+            int beamSpan = w - 160;
+
+            int leftColX = 50;
+            int rightColX = leftColX + beamSpan - colW;
+
+            // Draw concrete body
+            using var brushConc = new SolidBrush(Color.FromArgb(220, 224, 230));
+            using var penConc = new Pen(Color.FromArgb(50, 50, 60), 2);
+
+            var path = new GraphicsPath();
+            path.AddPolygon(new PointF[]
+            {
+                new PointF(leftColX, beamY),
+                new PointF(rightColX + colW, beamY),
+                new PointF(rightColX + colW, beamY + colH),
+                new PointF(rightColX, beamY + colH),
+                new PointF(rightColX, beamY + beamH),
+                new PointF(leftColX + colW, beamY + beamH),
+                new PointF(leftColX + colW, beamY + colH),
+                new PointF(leftColX, beamY + colH)
+            });
+
+            g.FillPath(brushConc, path);
+            g.DrawPath(penConc, path);
+
+            // Draw Red Main Top Bar bent down into columns
+            using var penRebar = new Pen(Color.Red, 3);
+            int rebarY = beamY + 14;
+            int hookLen = 75;
+            int rebarLeftX = leftColX + 15;
+            int rebarRightX = rightColX + colW - 15;
+
+            g.DrawLine(penRebar, rebarLeftX, rebarY + hookLen, rebarLeftX, rebarY);
+            g.DrawLine(penRebar, rebarLeftX, rebarY, rebarRightX, rebarY);
+            g.DrawLine(penRebar, rebarRightX, rebarY, rebarRightX, rebarY + hookLen);
+
+            // Draw Labels: Lx Left, Ly Left, Lx Right, Ly Right
+            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            using var brushText = new SolidBrush(Color.Black);
+
+            g.DrawString("Lx Left", font, brushText, leftColX + 8, beamY - 25);
+            DrawDimensionArrow(g, leftColX, beamY - 10, leftColX + colW, beamY - 10);
+
+            g.DrawString("Lx Right", font, brushText, rightColX + 8, beamY - 25);
+            DrawDimensionArrow(g, rightColX, beamY - 10, rightColX + colW, beamY - 10);
+
+            g.DrawString("Ly Left", font, brushText, leftColX - 45, beamY + 40);
+            g.DrawString("Ly Right", font, brushText, rightColX + colW + 10, beamY + 40);
+        }
+
+        private void DrawMainBotDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var w = ((Control)sender).Width;
+            var h = ((Control)sender).Height;
+
+            g.Clear(Color.White);
+
+            int colW = 60;
+            int beamY = 80;
+            int beamH = 60;
+            int colH = 120;
+            int beamSpan = w - 160;
+
+            int leftColX = 50;
+            int rightColX = leftColX + beamSpan - colW;
+
+            using var brushConc = new SolidBrush(Color.FromArgb(220, 224, 230));
+            using var penConc = new Pen(Color.FromArgb(50, 50, 60), 2);
+
+            var path = new GraphicsPath();
+            path.AddPolygon(new PointF[]
+            {
+                new PointF(leftColX, beamY),
+                new PointF(rightColX + colW, beamY),
+                new PointF(rightColX + colW, beamY + colH),
+                new PointF(rightColX, beamY + colH),
+                new PointF(rightColX, beamY + beamH),
+                new PointF(leftColX + colW, beamY + beamH),
+                new PointF(leftColX + colW, beamY + colH),
+                new PointF(leftColX, beamY + colH)
+            });
+
+            g.FillPath(brushConc, path);
+            g.DrawPath(penConc, path);
+
+            // Draw Red Main Bot Bar bent UP into columns
+            using var penRebar = new Pen(Color.Red, 3);
+            int rebarY = beamY + beamH - 14;
+            int hookLen = 50;
+            int rebarLeftX = leftColX + 15;
+            int rebarRightX = rightColX + colW - 15;
+
+            g.DrawLine(penRebar, rebarLeftX, rebarY - hookLen, rebarLeftX, rebarY);
+            g.DrawLine(penRebar, rebarLeftX, rebarY, rebarRightX, rebarY);
+            g.DrawLine(penRebar, rebarRightX, rebarY, rebarRightX, rebarY - hookLen);
+
+            using var font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            using var brushText = new SolidBrush(Color.Black);
+
+            g.DrawString("Lx Left", font, brushText, leftColX + 8, beamY - 25);
+            DrawDimensionArrow(g, leftColX, beamY - 10, leftColX + colW, beamY - 10);
+
+            g.DrawString("Lx Right", font, brushText, rightColX + 8, beamY - 25);
+            DrawDimensionArrow(g, rightColX, beamY - 10, rightColX + colW, beamY - 10);
+
+            g.DrawString("Ly Left", font, brushText, leftColX - 45, beamY + 30);
+            g.DrawString("Ly Right", font, brushText, rightColX + colW + 10, beamY + 30);
+        }
+
+        private void DrawAddTopDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var w = ((Control)sender).Width;
+            g.Clear(Color.White);
+
+            using var fontTitle = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            using var fontSub = new Font("Segoe UI", 8F, FontStyle.Bold);
+            using var brush = new SolidBrush(Color.Black);
+            using var penFrame = new Pen(Color.FromArgb(80, 80, 90), 2);
+            using var penRebar = new Pen(Color.Red, 3);
+
+            // TYPE 1: ATTACHED TO COLUMN (Top half)
+            int midX = w / 2;
+            int y1 = 40;
+
+            // Column/Beam joint outline
+            g.DrawLine(penFrame, midX - 60, y1 - 25, midX - 60, y1 + 55);
+            g.DrawLine(penFrame, midX - 60, y1 + 55, midX - 100, y1 + 55);
+            g.DrawLine(penFrame, midX + 60, y1 - 25, midX + 60, y1 + 55);
+            g.DrawLine(penFrame, midX + 60, y1 + 55, midX + 100, y1 + 55);
+            g.DrawLine(penFrame, midX - 100, y1 + 15, midX - 60, y1 + 15);
+            g.DrawLine(penFrame, midX + 60, y1 + 15, midX + 100, y1 + 15);
+
+            // Red bent bar
+            g.DrawLine(penRebar, midX - 45, y1 + 50, midX - 45, y1 + 25);
+            g.DrawLine(penRebar, midX - 45, y1 + 25, midX + 70, y1 + 25);
+
+            g.DrawString("LEFT LENGTH", fontSub, brush, midX - 85, y1 - 5);
+            g.DrawString("RIGHT LENGTH", fontSub, brush, midX + 15, y1 - 25);
+            g.DrawString("TYPE 1 : ATTACHED TO COLUMN", fontTitle, Brushes.DarkSlateBlue, midX - 95, y1 + 75);
+
+            // Separator
+            using var penSep = new Pen(Color.IndianRed, 1) { DashStyle = DashStyle.Dash };
+            g.DrawLine(penSep, 30, y1 + 100, w - 30, y1 + 100);
+
+            // TYPE 2: GO THROUGH THE SPAN (Bottom half)
+            int y2 = y1 + 130;
+            g.DrawLine(penFrame, midX - 60, y2 - 25, midX - 60, y2 + 55);
+            g.DrawLine(penFrame, midX - 60, y2 + 55, midX - 100, y2 + 55);
+            g.DrawLine(penFrame, midX + 60, y2 - 25, midX + 60, y2 + 55);
+            g.DrawLine(penFrame, midX + 60, y2 + 55, midX + 100, y2 + 55);
+
+            // Straight red bar through
+            g.DrawLine(penRebar, midX - 75, y2 + 25, midX + 75, y2 + 25);
+
+            g.DrawString("LEFT LENGTH", fontSub, brush, midX - 85, y2 - 10);
+            g.DrawString("RIGHT LENGTH", fontSub, brush, midX + 15, y2 - 10);
+            g.DrawString("TYPE 2 : GO THROUGH THE SPAN", fontTitle, Brushes.DarkSlateBlue, midX - 95, y2 + 75);
+        }
+
+        private void DrawAddBotDiagram(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var w = ((Control)sender).Width;
+            g.Clear(Color.White);
+
+            int colW = 50;
+            int beamY = 100;
+            int beamH = 60;
+            int colH = 110;
+            int beamSpan = w - 140;
+
+            int leftColX = 40;
+            int rightColX = leftColX + beamSpan - colW;
+
+            using var brushConc = new SolidBrush(Color.FromArgb(220, 224, 230));
+            using var penConc = new Pen(Color.FromArgb(50, 50, 60), 2);
+
+            var path = new GraphicsPath();
+            path.AddPolygon(new PointF[]
+            {
+                new PointF(leftColX, beamY),
+                new PointF(rightColX + colW, beamY),
+                new PointF(rightColX + colW, beamY + colH),
+                new PointF(rightColX, beamY + colH),
+                new PointF(rightColX, beamY + beamH),
+                new PointF(leftColX + colW, beamY + beamH),
+                new PointF(leftColX + colW, beamY + colH),
+                new PointF(leftColX, beamY + colH)
+            });
+
+            g.FillPath(brushConc, path);
+            g.DrawPath(penConc, path);
+
+            // Midspan red bar
+            using var penRebar = new Pen(Color.Red, 3);
+            int barY = beamY + beamH - 22;
+            int barStartX = leftColX + colW + 40;
+            int barEndX = rightColX - 40;
+            g.DrawLine(penRebar, barStartX, barY, barEndX, barY);
+
+            // Dimensions
+            using var font = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var brush = new SolidBrush(Color.Black);
+
+            g.DrawString("ANCHOR LEFT", font, brush, leftColX + 5, beamY - 45);
+            g.DrawString("LEFT LENGTH", font, brush, barStartX - 15, beamY - 45);
+            g.DrawString("RIGHT LENGTH", font, brush, barEndX - 35, beamY - 45);
+            g.DrawString("ANCHOR RIGHT", font, brush, rightColX - 5, beamY - 45);
+
+            DrawDimensionArrow(g, leftColX + colW, beamY - 20, rightColX, beamY - 20);
+            g.DrawString("SPAN LENGTH", font, brush, (leftColX + rightColX) / 2 - 25, beamY + beamH + 35);
+            DrawDimensionArrow(g, leftColX + colW, beamY + beamH + 20, rightColX, beamY + beamH + 20);
+        }
+
+        private void DrawStirrupIcon(Graphics g, Rectangle rect, bool is2Ends)
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(Color.SteelBlue, 1.5f);
+            int yTop = rect.Top + 6;
+            int yBot = rect.Bottom - 6;
+
+            if (is2Ends)
+            {
+                // Denser at ends, wider at mid
+                int[] xs = { rect.Left + 6, rect.Left + 12, rect.Left + 18, rect.Left + 28, rect.Left + 38, rect.Right - 18, rect.Right - 12, rect.Right - 6 };
+                foreach (var x in xs) g.DrawLine(pen, x, yTop, x, yBot);
             }
             else
             {
-                _lblSelectedCount.Text = $"🔵 Đã chọn: {count} / {_beamListBox.Items.Count} dầm";
-                _lblSelectedCount.ForeColor = Color.DarkBlue;
-            }
-        }
-
-        private void PopulateBeamList()
-        {
-            _beamListBox.Items.Clear();
-            var preSelectedIds = new HashSet<ElementId>(_preSelectedBeams.Select(b => b.Id));
-
-            for (int i = 0; i < _availableBeams.Count; i++)
-            {
-                var bm = _availableBeams[i];
-                ElementId lvlId = (bm.LevelId != ElementId.InvalidElementId)
-                    ? bm.LevelId
-                    : (bm.get_Parameter(BuiltInParameter.INSTANCE_REFERENCE_LEVEL_PARAM)?.AsElementId() ?? ElementId.InvalidElementId);
-
-                string levelName = (lvlId != ElementId.InvalidElementId ? _doc.GetElement(lvlId)?.Name : null)
-                    ?? bm.LookupParameter("Reference Level")?.AsString()
-                    ?? "Level N/A";
-
-                string mark = bm.LookupParameter("Mark")?.AsString() ?? bm.Id.ToLongValue().ToString();
-                var item = new BeamListItem(bm, $"{levelName} - {mark}");
-                _beamListBox.Items.Add(item);
-
-                if (preSelectedIds.Contains(bm.Id))
+                for (int x = rect.Left + 8; x < rect.Right - 5; x += 7)
                 {
-                    _beamListBox.SetSelected(i, true);
+                    g.DrawLine(pen, x, yTop, x, yBot);
                 }
             }
-
-            UpdateSelectedCount();
         }
 
-        private void PopulateBarTypeCombos()
-        {
-            var names = new FilteredElementCollector(_doc)
-                .OfClass(typeof(RebarBarType))
-                .Cast<RebarBarType>()
-                .Select(t => t.Name)
-                .OrderBy(n => n)
-                .ToArray();
-
-            _cmbTopDia.Items.AddRange(names);
-            _cmbBotDia.Items.AddRange(names);
-            _cmbSideDia.Items.AddRange(names);
-            _cmbStirrupDia.Items.AddRange(names);
-            _cmbTopLeftDia.Items.AddRange(names);
-            _cmbTopRightDia.Items.AddRange(names);
-            _cmbBotMidDia.Items.AddRange(names);
-
-            if (names.Any())
-            {
-                _cmbTopDia.SelectedIndex = 0;
-                _cmbBotDia.SelectedIndex = 0;
-                _cmbSideDia.SelectedIndex = 0;
-                _cmbStirrupDia.SelectedIndex = 0;
-                _cmbTopLeftDia.SelectedIndex = 0;
-                _cmbTopRightDia.SelectedIndex = 0;
-                _cmbBotMidDia.SelectedIndex = 0;
-            }
-        }
-
-        // ─── GDI+ PAINT HANDLERS ───────────────────────────────────────────
-
-        private void PreviewPanelMain_Paint(object sender, PaintEventArgs e)
+        private void DrawFirstStirrupDistanceIcon(object sender, PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            var w = ((Control)sender).Width;
+            var h = ((Control)sender).Height;
 
-            int panelW = _previewPanelMain.Width;
-            int panelH = _previewPanelMain.Height;
-            int w = 120, h = 180;
-            int x0 = (panelW - w) / 2;
-            int y0 = (panelH - h) / 2 - 15;
+            g.Clear(Color.FromArgb(235, 235, 235));
+            using var pen = new Pen(Color.SteelBlue, 1.5f);
+            using var font = new Font("Segoe UI", 7.5F, FontStyle.Bold);
 
-            using var penRect = new Pen(Color.FromArgb(80, 80, 80), 2);
-            using var brushCover = new SolidBrush(Color.FromArgb(248, 248, 250));
-            g.FillRectangle(brushCover, x0, y0, w, h);
-            g.DrawRectangle(penRect, x0, y0, w, h);
+            int yTop = 6, yBot = h - 6;
+            int[] xs = { 15, 30, 45, 60, 75, 90, 105, 120 };
+            foreach (var x in xs) g.DrawLine(pen, x, yTop, x, yBot);
 
-            int margin = 10;
-            using var penStirrup = new Pen(Color.FromArgb(0, 122, 255), 1.5f);
-            g.DrawRectangle(penStirrup, x0 + margin, y0 + margin, w - 2 * margin, h - 2 * margin);
+            g.DrawString("◀ D1", font, Brushes.Black, 8, h - 14);
+            g.DrawString("D1 ▶", font, Brushes.Black, 115, h - 14);
+        }
 
-            int topQty = (int)_numTopQty.Value;
-            int botQty = (int)_numBotQty.Value;
-            int sideQty = (int)_numSideQty.Value;
+        private void DrawThreeSectionsCanvas(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
 
-            using var brushRed = new SolidBrush(Color.Firebrick);
-            using var brushBlue = new SolidBrush(Color.FromArgb(0, 102, 204));
+            int w = ((Control)sender).Width;
+            int h = ((Control)sender).Height;
+
+            int secW = 90;
+            int secH = 220;
+            int y = 20;
+
+            int sec1X = 25;
+            int sec2X = 180;
+            int sec3X = 335;
+
+            DrawSingleSection(g, sec1X, y, secW, secH, "1", 4, 4); // Section 1-1: 4 top, 4 bot
+            DrawSingleSection(g, sec2X, y, secW, secH, "2", 2, 4); // Section 2-2: 2 top, 4 bot
+            DrawSingleSection(g, sec3X, y, secW, secH, "3", 4, 4); // Section 3-3: 4 top, 4 bot
+        }
+
+        private void DrawSingleSection(Graphics g, int x, int y, int w, int h, string secNum, int topBars, int botBars)
+        {
+            using var penConc = new Pen(Color.FromArgb(60, 60, 70), 1.5f);
+            using var brushConc = new SolidBrush(Color.FromArgb(248, 248, 250));
+            using var penStirrup = new Pen(Color.Red, 2.5f);
+            using var fontNum = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            using var fontBlue = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+
+            // Concrete body
+            g.FillRectangle(brushConc, x, y, w, h);
+            g.DrawRectangle(penConc, x, y, w, h);
+
+            // Red Stirrup hoop
+            int pad = 10;
+            g.DrawRectangle(penStirrup, x + pad, y + pad, w - 2 * pad, h - 2 * pad);
+
+            // Rebar dots (Green/Brown dots)
+            using var brushDot = new SolidBrush(Color.DarkGreen);
+            int dotR = 6;
 
             // Top bars
-            for (int i = 0; i < topQty; i++)
+            int topY = y + pad + 3;
+            if (topBars == 2)
             {
-                float bx = x0 + margin + 6 + i * (w - 2 * margin - 12f) / Math.Max(topQty - 1, 1);
-                float by = y0 + margin + 6;
-                g.FillEllipse(brushRed, bx - 4, by - 4, 8, 8);
+                g.FillEllipse(brushDot, (float)(x + pad + 3), (float)topY, (float)dotR, (float)dotR);
+                g.FillEllipse(brushDot, (float)(x + w - pad - dotR - 3), (float)topY, (float)dotR, (float)dotR);
+            }
+            else
+            {
+                int step = (w - 2 * pad - dotR - 6) / 3;
+                for (int i = 0; i < 4; i++)
+                    g.FillEllipse(brushDot, (float)(x + pad + 3 + i * step), (float)topY, (float)dotR, (float)dotR);
             }
 
-            // Bottom bars
-            for (int i = 0; i < botQty; i++)
+            // Bottom bars (4 dots)
+            int botY = y + h - pad - dotR - 3;
+            int botStep = (w - 2 * pad - dotR - 6) / 3;
+            for (int i = 0; i < 4; i++)
+                g.FillEllipse(brushDot, (float)(x + pad + 3 + i * botStep), (float)botY, (float)dotR, (float)dotR);
+
+            // Position Numbers 1, 2, 3, 4 at bottom
+            for (int i = 0; i < 4; i++)
             {
-                float bx = x0 + margin + 6 + i * (w - 2 * margin - 12f) / Math.Max(botQty - 1, 1);
-                float by = y0 + h - margin - 6;
-                g.FillEllipse(brushRed, bx - 4, by - 4, 8, 8);
+                g.DrawString((i + 1).ToString(), fontNum, Brushes.Black, x + pad + i * botStep, y + h + 8);
             }
 
-            // Side bars
-            if (sideQty > 0)
+            // Blue arrows & labels on the side
+            g.DrawString("1", fontBlue, Brushes.Blue, x - 18, y + 10);
+            g.DrawString("2", fontBlue, Brushes.Blue, x - 18, y + h - 20);
+        }
+        #endregion
+
+        #region Bottom Elevation Canvas
+        private void DrawElevationCanvas(object sender, PaintEventArgs e)
+        {
+            var g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.White);
+
+            int w = _pnlElevationCanvas.Width;
+            int h = _pnlElevationCanvas.Height;
+
+            if (w < 400 || h < 150) return;
+
+            int beamY = 50;
+            int beamH = 70;
+            int colW = 60;
+            int colH = 130;
+
+            int padX = 80;
+            int spanW = w - 2 * padX;
+            int leftColX = padX;
+            int rightColX = padX + spanW - colW;
+
+            // 1. Draw Columns & Beam Concrete Geometry
+            using var brushConc = new SolidBrush(Color.FromArgb(245, 247, 250));
+            using var penConc = new Pen(Color.FromArgb(60, 60, 70), 1.5f);
+
+            var path = new GraphicsPath();
+            path.AddPolygon(new PointF[]
             {
-                int pairs = Math.Max(sideQty / 2, 1);
-                for (int i = 1; i <= pairs; i++)
+                new PointF(leftColX, beamY),
+                new PointF(rightColX + colW, beamY),
+                new PointF(rightColX + colW, beamY + colH),
+                new PointF(rightColX, beamY + colH),
+                new PointF(rightColX, beamY + beamH),
+                new PointF(leftColX + colW, beamY + beamH),
+                new PointF(leftColX + colW, beamY + colH),
+                new PointF(leftColX, beamY + colH)
+            });
+
+            g.FillPath(brushConc, path);
+            g.DrawPath(penConc, path);
+
+            // 2. Centerline Axis Grid lines (Blue circles with (0), (1))
+            using var penGrid = new Pen(Color.Blue, 1) { DashStyle = DashStyle.Dash };
+            int leftGridX = leftColX + colW / 2;
+            int rightGridX = rightColX + colW / 2;
+
+            g.DrawLine(penGrid, leftGridX, 15, leftGridX, beamY + colH + 30);
+            g.DrawLine(penGrid, rightGridX, 15, rightGridX, beamY + colH + 30);
+
+            DrawGridBubble(g, leftGridX, 15, "0");
+            DrawGridBubble(g, rightGridX, 15, "1");
+
+            // 3. Section indicators 1, 2, 3 (Dashed purple lines)
+            using var penSec = new Pen(Color.DarkMagenta, 1) { DashStyle = DashStyle.Dot };
+            using var fontSec = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+
+            int sec1X = leftColX + colW + 40;
+            int sec2X = (leftColX + rightColX) / 2;
+            int sec3X = rightColX - 40;
+
+            g.DrawLine(penSec, sec1X, beamY, sec1X, beamY + beamH);
+            g.DrawString("1", fontSec, Brushes.DarkMagenta, sec1X - 8, beamY + 4);
+            g.DrawString("1'", fontSec, Brushes.DarkMagenta, sec1X - 8, beamY + beamH - 16);
+
+            g.DrawLine(penSec, sec2X, beamY, sec2X, beamY + beamH);
+            g.DrawString("2", fontSec, Brushes.DarkMagenta, sec2X - 4, beamY + 4);
+            g.DrawString("2'", fontSec, Brushes.DarkMagenta, sec2X - 4, beamY + beamH - 16);
+
+            g.DrawLine(penSec, sec3X, beamY, sec3X, beamY + beamH);
+            g.DrawString("3", fontSec, Brushes.DarkMagenta, sec3X + 2, beamY + 4);
+            g.DrawString("3'", fontSec, Brushes.DarkMagenta, sec3X + 2, beamY + beamH - 16);
+
+            // 4. Draw Active Rebar Geometry
+            using var penMainRebar = new Pen(Color.Red, 2.5f);
+            using var penDarkRebar = new Pen(Color.FromArgb(40, 40, 50), 2.5f);
+
+            // Main Top Bar (Red if active, else dark)
+            var penTop = (_activeSettingIndex == 0) ? penMainRebar : penDarkRebar;
+            int topY = beamY + 12;
+            g.DrawLine(penTop, leftColX + 12, topY + 45, leftColX + 12, topY);
+            g.DrawLine(penTop, leftColX + 12, topY, rightColX + colW - 12, topY);
+            g.DrawLine(penTop, rightColX + colW - 12, topY, rightColX + colW - 12, topY + 45);
+
+            // Main Bot Bar (Red if active, else dark)
+            var penBot = (_activeSettingIndex == 1) ? penMainRebar : penDarkRebar;
+            int botY = beamY + beamH - 12;
+            g.DrawLine(penBot, leftColX + 12, botY - 35, leftColX + 12, botY);
+            g.DrawLine(penBot, leftColX + 12, botY, rightColX + colW - 12, botY);
+            g.DrawLine(penBot, rightColX + colW - 12, botY, rightColX + colW - 12, botY - 35);
+
+            // Add. Top Bar (Red if active)
+            if (_activeSettingIndex == 2 || _lstAddTop.Items.Count > 0)
+            {
+                var penAddTop = (_activeSettingIndex == 2) ? penMainRebar : penDarkRebar;
+                int addTopY = beamY + 20;
+                // Left support extra
+                g.DrawLine(penAddTop, leftColX + 15, addTopY + 35, leftColX + 15, addTopY);
+                g.DrawLine(penAddTop, leftColX + 15, addTopY, leftColX + colW + 120, addTopY);
+                // Right support extra
+                g.DrawLine(penAddTop, rightColX - 120, addTopY, rightColX + colW - 15, addTopY);
+                g.DrawLine(penAddTop, rightColX + colW - 15, addTopY, rightColX + colW - 15, addTopY + 35);
+            }
+
+            // Add. Bot Bar (Red if active)
+            if (_activeSettingIndex == 3 || _lstAddBot.Items.Count > 0)
+            {
+                var penAddBot = (_activeSettingIndex == 3) ? penMainRebar : penDarkRebar;
+                int addBotY = beamY + beamH - 20;
+                g.DrawLine(penAddBot, sec1X + 20, addBotY, sec3X - 20, addBotY);
+            }
+
+            // Stirrup Dimension Zones on Top of Beam (When Stirrup active)
+            if (_activeSettingIndex == 4)
+            {
+                using var fontStirrup = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+                using var penDimStirrup = new Pen(Color.DodgerBlue, 1.5f);
+
+                int dimY = beamY - 15;
+                int end1X = leftColX + colW + 110;
+                int end2X = rightColX - 110;
+
+                // Zone 1
+                DrawDimensionArrow(g, leftColX + colW, dimY, end1X, dimY, Color.DodgerBlue);
+                g.DrawString("1800\nD8@100", fontStirrup, Brushes.DodgerBlue, leftColX + colW + 25, dimY - 25);
+
+                // Mid Zone
+                DrawDimensionArrow(g, end1X, dimY, end2X, dimY, Color.DodgerBlue);
+                g.DrawString("3500\nD8@200", fontStirrup, Brushes.DodgerBlue, (end1X + end2X) / 2 - 20, dimY - 25);
+
+                // Zone 2
+                DrawDimensionArrow(g, end2X, dimY, rightColX, dimY, Color.DodgerBlue);
+                g.DrawString("1800\nD8@100", fontStirrup, Brushes.DodgerBlue, end2X + 25, dimY - 25);
+            }
+
+            // 5. Dimension Strings (Clear span, Total length, Column widths, Span 0)
+            using var fontDim = new Font("Segoe UI", 8F);
+            using var brushDim = new SolidBrush(Color.Black);
+
+            int dim1Y = beamY + colH + 20;
+            int dim2Y = dim1Y + 18;
+
+            DrawDimensionArrow(g, leftColX, dim1Y, leftColX + colW, dim1Y);
+            g.DrawString(_colWidthLeft.ToString(), fontDim, brushDim, leftColX + 15, dim1Y - 14);
+
+            DrawDimensionArrow(g, leftColX + colW, dim1Y, rightColX, dim1Y);
+            g.DrawString(_clearSpan.ToString(), fontDim, brushDim, (leftColX + colW + rightColX) / 2 - 15, dim1Y - 14);
+
+            DrawDimensionArrow(g, rightColX, dim1Y, rightColX + colW, dim1Y);
+            g.DrawString(_colWidthRight.ToString(), fontDim, brushDim, rightColX + 15, dim1Y - 14);
+
+            // Total Span Dimension
+            DrawDimensionArrow(g, leftColX, dim2Y, rightColX + colW, dim2Y);
+            g.DrawString((_clearSpan + _colWidthLeft).ToString(), fontDim, brushDim, (leftColX + rightColX) / 2 - 15, dim2Y - 14);
+
+            // "Span 0" Text in Red
+            using var fontSpan = new Font("Segoe UI", 10F, FontStyle.Bold);
+            g.DrawString("Span 0", fontSpan, Brushes.IndianRed, (leftColX + rightColX) / 2 - 20, dim2Y + 18);
+        }
+
+        private void DrawGridBubble(Graphics g, int x, int y, string label)
+        {
+            int r = 9;
+            using var brush = new SolidBrush(Color.White);
+            using var pen = new Pen(Color.Blue, 1.2f);
+            using var font = new Font("Segoe UI", 8F, FontStyle.Bold);
+
+            g.FillEllipse(brush, x - r, y - r, 2 * r, 2 * r);
+            g.DrawEllipse(pen, x - r, y - r, 2 * r, 2 * r);
+            g.DrawString(label, font, Brushes.Blue, x - 5, y - 6);
+        }
+
+        private void DrawDimensionArrow(Graphics g, int x1, int y1, int x2, int y2, Color? color = null)
+        {
+            using var pen = new Pen(color ?? Color.FromArgb(70, 70, 80), 1.2f);
+            g.DrawLine(pen, x1, y1, x2, y2);
+            g.DrawLine(pen, x1, y1 - 4, x1, y1 + 4);
+            g.DrawLine(pen, x2, y2 - 4, x2, y2 + 4);
+        }
+        #endregion
+
+        #region Helpers & Generation
+        private ComboBox CreateDiameterComboBox()
+        {
+            var cmb = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            if (_barTypes.Any())
+            {
+                foreach (var bt in _barTypes)
                 {
-                    float by = y0 + margin + 6 + i * (h - 2 * margin - 12f) / (pairs + 1);
-                    float bxLeft = x0 + margin + 6;
-                    float bxRight = x0 + w - margin - 6;
-
-                    g.FillEllipse(brushBlue, bxLeft - 4, by - 4, 8, 8);
-                    g.FillEllipse(brushBlue, bxRight - 4, by - 4, 8, 8);
+                    double dMm = Math.Round(UnitUtils.ConvertFromInternalUnits(bt.BarNominalDiameter, UnitTypeId.Millimeters));
+                    cmb.Items.Add($"D{dMm}");
                 }
             }
-
-            var font = new Font("Segoe UI", 7.5F);
-            var fontBold = new Font("Segoe UI", 7.5F, FontStyle.Bold);
-            g.DrawString($"BxH = 300x500", font, Brushes.Black, 6, y0 + h + 10);
-            g.DrawString($"Top: {topQty}Φ{_cmbTopDia.Text}", fontBold, Brushes.Firebrick, 6, y0 + h + 25);
-            g.DrawString($"Bot: {botQty}Φ{_cmbBotDia.Text}", fontBold, Brushes.Firebrick, 6, y0 + h + 40);
-            if (sideQty > 0)
+            else
             {
-                g.DrawString($"Side: {sideQty}Φ{_cmbSideDia.Text}", fontBold, Brushes.Navy, 6, y0 + h + 55);
+                cmb.Items.AddRange(new object[] { "D8", "D10", "D12", "D14", "D16", "D18", "D20", "D22", "D25", "D28", "D32" });
             }
+            cmb.SelectedIndex = Math.Min(5, cmb.Items.Count - 1);
+            return cmb;
         }
 
-        private void PreviewPanelExtra_Paint(object sender, PaintEventArgs e)
+        private RebarBarType GetSelectedBarType(ComboBox cmb)
         {
-            var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            int panelW = _previewPanelExtra.Width;
-            int panelH = _previewPanelExtra.Height;
-
-            int beamW = panelW - 60;
-            int beamH = 50;
-            int x0 = 30;
-            int y0 = panelH / 2 - beamH / 2;
-
-            // Support Columns (Gray blocks)
-            using var brushCol = new SolidBrush(Color.FromArgb(210, 215, 220));
-            g.FillRectangle(brushCol, x0 - 15, y0 - 30, 20, beamH + 60);
-            g.FillRectangle(brushCol, x0 + beamW - 5, y0 - 30, 20, beamH + 60);
-            g.DrawRectangle(Pens.Gray, x0 - 15, y0 - 30, 20, beamH + 60);
-            g.DrawRectangle(Pens.Gray, x0 + beamW - 5, y0 - 30, 20, beamH + 60);
-
-            // Beam outline
-            using var penBeam = new Pen(Color.DimGray, 2);
-            g.DrawRectangle(penBeam, x0, y0, beamW, beamH);
-
-            // Continuous Main Top & Bottom Bars
-            using var penMain = new Pen(Color.Firebrick, 2);
-            g.DrawLine(penMain, x0 - 10, y0 + 6, x0 + beamW + 10, y0 + 6);
-            g.DrawLine(penMain, x0 - 10, y0 + beamH - 6, x0 + beamW + 10, y0 + beamH - 6);
-
-            int topLeftExtra = (int)_numTopLeftExtra.Value;
-            int topRightExtra = (int)_numTopRightExtra.Value;
-            int botMidExtra = (int)_numBotMidExtra.Value;
-
-            using var penExtraTop = new Pen(Color.Crimson, 2.5f);
-            using var penExtraBot = new Pen(Color.MediumBlue, 2.5f);
-            var fontSmall = new Font("Segoe UI", 7.5F, FontStyle.Bold);
-
-            // Top Left Extra (L/3)
-            if (topLeftExtra > 0)
-            {
-                int lenL3 = beamW / 3;
-                g.DrawLine(penExtraTop, x0 - 10, y0 + 14, x0 + lenL3, y0 + 14);
-                g.DrawString($"Top Left: {topLeftExtra}Φ{_cmbTopLeftDia.Text} (L/3)", fontSmall, Brushes.Crimson, x0 + 5, y0 - 18);
-            }
-
-            // Top Right Extra (L/3)
-            if (topRightExtra > 0)
-            {
-                int lenL3 = beamW / 3;
-                g.DrawLine(penExtraTop, x0 + beamW - lenL3, y0 + 14, x0 + beamW + 10, y0 + 14);
-                g.DrawString($"Top Right: {topRightExtra}Φ{_cmbTopRightDia.Text} (L/3)", fontSmall, Brushes.Crimson, x0 + beamW - lenL3, y0 - 18);
-            }
-
-            // Bottom Mid Extra (L/6 cut-off)
-            if (botMidExtra > 0)
-            {
-                int cutL6 = beamW / 6;
-                g.DrawLine(penExtraBot, x0 + cutL6, y0 + beamH - 14, x0 + beamW - cutL6, y0 + beamH - 14);
-                g.DrawString($"Bot Mid: {botMidExtra}Φ{_cmbBotMidDia.Text} (L/6 cut)", fontSmall, Brushes.MediumBlue, x0 + beamW / 2 - 45, y0 + beamH + 5);
-            }
+            string txt = cmb?.SelectedItem?.ToString() ?? "";
+            if (string.IsNullOrEmpty(txt)) return _barTypes.FirstOrDefault();
+            return _barTypes.FirstOrDefault(b => btMatch(b, txt)) ?? _barTypes.FirstOrDefault();
         }
 
-        private void PreviewPanelStirrup_Paint(object sender, PaintEventArgs e)
+        private bool btMatch(RebarBarType bt, string txt)
         {
-            var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
-            int panelW = _previewPanelStirrup.Width;
-            int panelH = _previewPanelStirrup.Height;
-
-            int beamW = panelW - 60;
-            int beamH = 60;
-            int x0 = 30;
-            int y0 = panelH / 2 - beamH / 2;
-
-            // Support Columns
-            using var brushCol = new SolidBrush(Color.FromArgb(210, 215, 220));
-            g.FillRectangle(brushCol, x0 - 15, y0 - 15, 20, beamH + 30);
-            g.FillRectangle(brushCol, x0 + beamW - 5, y0 - 15, 20, beamH + 30);
-
-            // Beam outline
-            g.DrawRectangle(Pens.DimGray, x0, y0, beamW, beamH);
-
-            int a1Len = beamW / 4;
-            double s1 = (double)_numStirrupSpacingA1.Value;
-            double s2 = (double)_numStirrupSpacingA2.Value;
-
-            using var penStirrup = new Pen(Color.FromArgb(0, 122, 255), 1.5f);
-
-            // Left A1 Dense Zone
-            for (int x = x0 + 5; x <= x0 + a1Len; x += 10)
-            {
-                g.DrawLine(penStirrup, x, y0 + 3, x, y0 + beamH - 3);
-            }
-
-            // Mid A2 Sparse Zone
-            for (int x = x0 + a1Len + 20; x <= x0 + beamW - a1Len - 10; x += 20)
-            {
-                g.DrawLine(penStirrup, x, y0 + 3, x, y0 + beamH - 3);
-            }
-
-            // Right A1 Dense Zone
-            for (int x = x0 + beamW - a1Len; x <= x0 + beamW - 5; x += 10)
-            {
-                g.DrawLine(penStirrup, x, y0 + 3, x, y0 + beamH - 3);
-            }
-
-            var fontSmall = new Font("Segoe UI", 7.5F, FontStyle.Bold);
-            g.DrawString($"A1: a={s1}mm", fontSmall, Brushes.DarkBlue, x0 + 5, y0 + beamH + 5);
-            g.DrawString($"A2: a={s2}mm", fontSmall, Brushes.DarkBlue, x0 + beamW / 2 - 25, y0 + beamH + 5);
-            g.DrawString($"A1: a={s1}mm", fontSmall, Brushes.DarkBlue, x0 + beamW - a1Len, y0 + beamH + 5);
+            double dMm = Math.Round(UnitUtils.ConvertFromInternalUnits(bt.BarNominalDiameter, UnitTypeId.Millimeters));
+            return txt.Contains(dMm.ToString()) || bt.Name.Contains(txt);
         }
 
-        private void ApplyLanguage()
+        private void BtnOk_Click(object sender, EventArgs e)
         {
-            bool isEn = LanguageManager.IsEnglish;
-
-            Text = isEn ? "📏 KHIM TOOLS — Beam Reinforcement Layout (v2.0)" : "📏 KHIM TOOLS — Bố trí Thép Dầm (v2.0)";
-
-            if (_tabMain != null) _tabMain.Text = isEn ? "📌 Main Rebar & Cover" : "📌 Thép Chủ & Cover";
-            if (_tabExtra != null) _tabExtra.Text = isEn ? "➕ Additional Rebar" : "➕ Thép Tăng Cường";
-            if (_tabStirrup != null) _tabStirrup.Text = isEn ? "🌀 Stirrups" : "🌀 Thép Đai (Stirrups)";
-            if (_tabViews != null) _tabViews.Text = isEn ? "🖼️ Drawing & Views" : "🖼️ Bản Vẽ & Views";
-
-            // Tab 1
-            if (_grpMainSec != null) _grpMainSec.Text = isEn ? "Continuous Main & Skin Rebar" : "Thép Chủ Chạy Suốt & Thép Sườn Dầm";
-            if (_lblTopBars != null) _lblTopBars.Text = isEn ? "Top continuous bars:" : "Số thanh Lớp Trên:";
-            if (_lblBotBars != null) _lblBotBars.Text = isEn ? "Bottom continuous bars:" : "Số thanh Lớp Dưới:";
-            if (_lblSideBars != null) _lblSideBars.Text = isEn ? "Skin / Side bars (total):" : "Thép sườn dầm (Skin):";
-            if (_chkAutoSide != null) _chkAutoSide.Text = isEn ? "Auto add side bars when H ≥ 700mm" : "Tự thêm thép sườn (khi H ≥ 700mm)";
-
-            if (_grpCover != null) _grpCover.Text = isEn ? "Concrete Cover" : "Lớp Bê Tông Bảo Vệ (Cover)";
-            if (_chkCustomCover != null) _chkCustomCover.Text = isEn ? "Custom Cover (mm)" : "Nhập tay Cover (mm)";
-            if (_lblCustomCover != null) _lblCustomCover.Text = isEn ? "Custom Cover (mm):" : "Cover tùy chỉnh (mm):";
-            if (_btnProjectCover != null) _btnProjectCover.Text = isEn ? "⚙️ Project Cover" : "⚙️ Cover Dự Án";
-
-            // Tab 2
-            if (_grpExtra != null) _grpExtra.Text = isEn ? "Top Support & Bottom Mid Extra Bars" : "Thép Gia Cường Gối & Bụng Dầm";
-            if (_lblTopLeftExtra != null) _lblTopLeftExtra.Text = isEn ? "Top Left Extra (Layer 2, L/3):" : "Gối Trái (lớp 2, cắt L/3):";
-            if (_lblTopRightExtra != null) _lblTopRightExtra.Text = isEn ? "Top Right Extra (Layer 2, L/3):" : "Gối Phải (lớp 2, cắt L/3):";
-            if (_lblBotMidExtra != null) _lblBotMidExtra.Text = isEn ? "Bottom Mid Extra (Cutoff L/6):" : "Bụng Dầm (cắt lùi L/6):";
-
-            if (_grpJointSettings != null) _grpJointSettings.Text = isEn ? "🔗 Joint Connections & Anchorage (TCVN 5574)" : "🔗 Liên kết Dầm Cột & Neo Thép (TCVN 5574)";
-            if (_lblLdMultiplier != null) _lblLdMultiplier.Text = isEn ? "Ld multiplier (x dia):" : "Hệ số neo Ld (x d):";
-            if (_lblHookTailMultiplier != null) _lblHookTailMultiplier.Text = isEn ? "Hook tail (x dia):" : "Đoạn bẻ móc uốn (x d):";
-
-            // Tab 3
-            if (_grpStirrup != null) _grpStirrup.Text = isEn ? "Beam Stirrup Zones A1 / A2 / A1" : "Phân Vùng Đai A1 / A2 / A1 Dầm";
-            if (_lblStirrupDia != null) _lblStirrupDia.Text = isEn ? "Stirrup bar diameter:" : "Đường kính thép đai:";
-            if (_lblStirrupA1 != null) _lblStirrupA1.Text = isEn ? "Support A1 stirrup spacing (mm):" : "Khoảng cách đai gối A1 (mm):";
-            if (_lblStirrupA2 != null) _lblStirrupA2.Text = isEn ? "Mid-span A2 stirrup spacing (mm):" : "Khoảng cách đai bụng A2 (mm):";
-            if (_lblZoneA1Len != null) _lblZoneA1Len.Text = isEn ? "Support A1 zone length (mm, 0=L/4):" : "Chiều dài vùng gối A1 (mm, 0 = L/4):";
-
-            // Tab 4
-            if (_grpViews != null) _grpViews.Text = isEn ? "Drawing & View Options" : "Tự Động Tạo View & Triển Khai Bản Vẽ Dầm";
-            if (_chkAutoDrawing != null) _chkAutoDrawing.Text = isEn ? "Automatically generate section drawing sheets" : "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)";
-            if (_chkAutoSection3D != null) _chkAutoSection3D.Text = isEn ? "Create 3D Rebar View for beams" : "Tự động tạo View xem thép 3D (Plan View + 3D View)";
-
-            // Right & Bottom Panels
-            if (_lblBeamTitle != null) _lblBeamTitle.Text = isEn ? "📋 Beam List" : "📋 Danh Sách Dầm";
-            if (_lblTemplate != null) _lblTemplate.Text = isEn ? "📋 Configuration Template:" : "📋 Mẫu Thiết Lập:";
-            if (_btnSaveTemplate != null) _btnSaveTemplate.Text = isEn ? "Save As..." : "Lưu mẫu...";
-            if (_btnApplyTemplate != null) _btnApplyTemplate.Text = isEn ? "Apply" : "Áp dụng";
-            if (_btnDeleteTemplate != null) _btnDeleteTemplate.Text = isEn ? "Delete" : "Xóa mẫu";
-            if (_btnSelectAll != null) _btnSelectAll.Text = isEn ? "Select All" : "Chọn Tất Cả";
-            if (_btnDeselectAll != null) _btnDeselectAll.Text = isEn ? "Clear" : "Bỏ Chọn";
-
-            if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "⚡ Create Rebar" : "⚡ Tạo Thép";
-            if (_btnClose != null) _btnClose.Text = isEn ? "Close" : "Đóng";
-
-            UpdateSelectedCount();
-            _previewPanelMain?.Invalidate();
-            _previewPanelExtra?.Invalidate();
-            _previewPanelStirrup?.Invalidate();
-        }
-
-        private void BtnCreateRebar_Click(object sender, EventArgs e)
-        {
-            var selectedItems = _beamListBox.SelectedItems.Cast<BeamListItem>().ToList();
-            if (!selectedItems.Any())
+            if (!_selectedBeams.Any())
             {
-                string warnTitle = LanguageManager.IsEnglish ? "Selection Missing" : "Thiếu Thông Tin";
-                string warnMsg = LanguageManager.IsEnglish ? "Please select at least 1 beam from the right list." : "Vui lòng chọn ít nhất 1 dầm trong danh sách bên phải.";
-                KhimDialogHelper.ShowWarning(warnTitle, warnMsg);
+                KhimDialogHelper.ShowWarning("Thiếu Dầm", "Không có dầm nào được chọn để bố trí cốt thép.");
                 return;
             }
 
-            RebarBarType topType = FindBarType(_cmbTopDia.Text);
-            RebarBarType botType = FindBarType(_cmbBotDia.Text);
-            RebarBarType stirrupType = FindBarType(_cmbStirrupDia.Text);
-            RebarBarType sideType = FindBarType(_cmbSideDia.Text) ?? stirrupType;
+            _btnOk.Enabled = false;
+            _btnOk.Text = "Generating...";
 
-            RebarBarType topLeftExtraType = FindBarType(_cmbTopLeftDia.Text) ?? topType;
-            RebarBarType topRightExtraType = FindBarType(_cmbTopRightDia.Text) ?? topType;
-            RebarBarType botMidExtraType = FindBarType(_cmbBotMidDia.Text) ?? botType;
-
-            if (topType == null || botType == null || stirrupType == null)
-            {
-                string warnTitle = LanguageManager.IsEnglish ? "Selection Missing" : "Thiếu Thông Tin";
-                string warnMsg = LanguageManager.IsEnglish ? "Please select bar diameters for top, bottom, and stirrups." : "Chưa chọn đủ đường kính thép.";
-                KhimDialogHelper.ShowWarning(warnTitle, warnMsg);
-                return;
-            }
-
-            double? customCoverFeet = _chkCustomCover.Checked
-                ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
-                : null;
-
-            using var tx = new Transaction(_doc, "Create Beam Rebar");
-            tx.Start();
-            FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-            failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
-            tx.SetFailureHandlingOptions(failOptions);
             try
             {
-                var generator = new BeamRebarGenerator(_doc);
-                var report = new RebarGenerationReport();
+                int successCount = 0;
+                using var transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
+                transGroup.Start();
 
-                foreach (var item in selectedItems)
+                foreach (var beam in _selectedBeams)
                 {
                     var input = new BeamRebarInput
                     {
-                        Beam = item.Beam,
-                        MainTopBarType = topType,
-                        MainBottomBarType = botType,
-                        StirrupBarType = stirrupType,
-                        SideBarType = sideType,
-                        TopLeftExtraBarType = topLeftExtraType,
-                        TopRightExtraBarType = topRightExtraType,
-                        BottomMidExtraBarType = botMidExtraType,
-                        TopContinuousQty = (int)_numTopQty.Value,
-                        BottomContinuousQty = (int)_numBotQty.Value,
-                        TopLeftExtraQty = (int)_numTopLeftExtra.Value,
-                        TopRightExtraQty = (int)_numTopRightExtra.Value,
-                        BottomMidExtraQty = (int)_numBotMidExtra.Value,
-                        AutoSideBars = _chkAutoSide.Checked,
-                        SideBarQty = (int)_numSideQty.Value,
-                        StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA1.Value, UnitTypeId.Millimeters),
-                        StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA2.Value, UnitTypeId.Millimeters),
-                        ZoneA1Length = UnitUtils.ConvertToInternalUnits((double)_numZoneA1Length.Value, UnitTypeId.Millimeters),
-                        CustomCoverFeet = customCoverFeet,
-                        LdMultiplier = (double)_numLdMultiplier.Value,
-                        HookTailMultiplier = (double)_numHookTailMultiplier.Value,
-                        DesignStandard = GetSelectedDesignStandard(),
-                        ConcreteGrade = GetSelectedConcreteGrade(),
-                        SteelGrade = GetSelectedSteelGrade()
+                        Beam = beam,
+                        MainTopBarType = GetSelectedBarType(_cmbMainTopDia),
+                        MainBottomBarType = GetSelectedBarType(_cmbMainBotDia),
+                        StirrupBarType = GetSelectedBarType(_cmbStirrupDia),
+                        SideBarType = GetSelectedBarType(_cmbAntiBulgeDia),
+                        TopContinuousQty = (int)_numMainTopQty.Value,
+                        BottomContinuousQty = (int)_numMainBotQty.Value,
+                        TopLeftExtraQty = (int)_numAddTopQty.Value,
+                        TopLeftExtraBarType = GetSelectedBarType(_cmbAddTopDia),
+                        TopRightExtraQty = (int)_numAddTopQty.Value,
+                        TopRightExtraBarType = GetSelectedBarType(_cmbAddTopDia),
+                        BottomMidExtraQty = (int)_numAddBotQty.Value,
+                        BottomMidExtraBarType = GetSelectedBarType(_cmbAddBotDia),
+                        SideBarQty = (int)_numAntiBulgeQty.Value,
+                        AutoSideBars = true
                     };
 
-                    generator.Generate(input, report);
+                    // Stirrup Spacing
+                    if (double.TryParse(_txtStirrupA1Ends.Text, out double a1)) input.StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits(a1, UnitTypeId.Millimeters);
+                    if (double.TryParse(_txtStirrupA2Ends.Text, out double a2)) input.StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits(a2, UnitTypeId.Millimeters);
+                    if (double.TryParse(_txtStirrupEnd1Len.Text, out double zLen)) input.ZoneA1Length = UnitUtils.ConvertToInternalUnits(zLen, UnitTypeId.Millimeters);
+
+                    var generator = new BeamRebarGenerator(_doc);
+                    var rebars = generator.Generate(input);
+                    if (rebars != null && rebars.Any()) successCount++;
                 }
 
-                tx.Commit();
-                KhimDialogHelper.ShowRebarGenerationReport(report, "Dầm (Beam)", selectedItems.Count);
+                transGroup.Assimilate();
+
+                KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
+                Close();
             }
             catch (Exception ex)
             {
-                tx.RollBack();
-                string errTitle = LanguageManager.IsEnglish ? "Error Creating Beam Rebar" : "Lỗi Tạo Thép Dầm";
-                KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message, ex.StackTrace);
+            }
+            finally
+            {
+                _btnOk.Enabled = true;
+                _btnOk.Text = "Ok";
             }
         }
-
-        private RebarBarType FindBarType(string label) =>
-            new FilteredElementCollector(_doc)
-                .OfClass(typeof(RebarBarType))
-                .Cast<RebarBarType>()
-                .FirstOrDefault(t => t.Name.Equals(label, StringComparison.OrdinalIgnoreCase));
-
-        private void LoadTemplateList()
-        {
-            _cmbTemplate.Items.Clear();
-            var names = RebarTemplateManager.ListBeamTemplates();
-            _cmbTemplate.Items.AddRange(names.ToArray());
-            if (names.Any()) _cmbTemplate.SelectedIndex = 0;
-        }
-
-        private void SaveTemplate()
-        {
-            string name = KhimTools.Core.KhimPrompt.ShowDialog(
-                LanguageManager.IsEnglish ? "Enter template name:" : "Nhập tên mẫu thiết lập:",
-                LanguageManager.IsEnglish ? "Save Template" : "Lưu Mẫu Thiết Lập",
-                "New_Template");
-
-            if (string.IsNullOrWhiteSpace(name)) return;
-
-             var settings = new BeamRebarSettings
-            {
-                Name = name.Trim(),
-                DesignStandard = GetSelectedDesignStandard() == DesignCode.Eurocode2 ? "Eurocode2" : "TCVN5574_2018",
-                ConcreteGrade = _cmbConcreteGrade.Text,
-                SteelGrade = _cmbSteelGrade.Text,
-                MainTopBarType = _cmbTopDia.Text,
-                MainBottomBarType = _cmbBotDia.Text,
-                StirrupBarType = _cmbStirrupDia.Text,
-                SideBarType = _cmbSideDia.Text,
-                TopContinuousQty = (int)_numTopQty.Value,
-                BottomContinuousQty = (int)_numBotQty.Value,
-                TopLeftExtraQty = (int)_numTopLeftExtra.Value,
-                TopLeftExtraBarType = _cmbTopLeftDia.Text,
-                TopRightExtraQty = (int)_numTopRightExtra.Value,
-                TopRightExtraBarType = _cmbTopRightDia.Text,
-                BottomMidExtraQty = (int)_numBotMidExtra.Value,
-                BottomMidExtraBarType = _cmbBotMidDia.Text,
-                AutoSideBars = _chkAutoSide.Checked,
-                SideBarQty = (int)_numSideQty.Value,
-                StirrupSpacingA1 = (double)_numStirrupSpacingA1.Value,
-                StirrupSpacingA2 = (double)_numStirrupSpacingA2.Value,
-                ZoneA1Length = (double)_numZoneA1Length.Value,
-                IsCustomCover = _chkCustomCover.Checked,
-                CustomCover = (double)_numCustomCover.Value,
-                LdMultiplier = (double)_numLdMultiplier.Value,
-                HookTailMultiplier = (double)_numHookTailMultiplier.Value
-            };
-
-            RebarTemplateManager.SaveBeamTemplate(settings);
-            LoadTemplateList();
-            _cmbTemplate.Text = settings.Name;
-        }
-
-        private void ApplyTemplate()
-        {
-            string name = _cmbTemplate.Text;
-            if (string.IsNullOrWhiteSpace(name)) return;
-
-            var settings = RebarTemplateManager.LoadBeamTemplate(name);
-            if (settings == null) return;
-
-            SetComboValue(_cmbDesignStandard, settings.DesignStandard?.Contains("Eurocode") == true ? "Eurocode 2" : "TCVN 5574:2018");
-            SetComboValue(_cmbConcreteGrade, settings.ConcreteGrade ?? "Auto (35d)");
-            SetComboValue(_cmbSteelGrade, settings.SteelGrade ?? "Auto (30d)");
-            SetComboValue(_cmbTopDia, settings.MainTopBarType);
-            SetComboValue(_cmbBotDia, settings.MainBottomBarType);
-            SetComboValue(_cmbStirrupDia, settings.StirrupBarType);
-            SetComboValue(_cmbSideDia, settings.SideBarType);
-
-            SetComboValue(_cmbTopLeftDia, settings.TopLeftExtraBarType);
-            SetComboValue(_cmbTopRightDia, settings.TopRightExtraBarType);
-            SetComboValue(_cmbBotMidDia, settings.BottomMidExtraBarType);
-
-            _numTopQty.Value = Math.Max(_numTopQty.Minimum, Math.Min(_numTopQty.Maximum, settings.TopContinuousQty));
-            _numBotQty.Value = Math.Max(_numBotQty.Minimum, Math.Min(_numBotQty.Maximum, settings.BottomContinuousQty));
-
-            _numTopLeftExtra.Value = Math.Max(_numTopLeftExtra.Minimum, Math.Min(_numTopLeftExtra.Maximum, settings.TopLeftExtraQty));
-            _numTopRightExtra.Value = Math.Max(_numTopRightExtra.Minimum, Math.Min(_numTopRightExtra.Maximum, settings.TopRightExtraQty));
-            _numBotMidExtra.Value = Math.Max(_numBotMidExtra.Minimum, Math.Min(_numBotMidExtra.Maximum, settings.BottomMidExtraQty));
-
-            _chkAutoSide.Checked = settings.AutoSideBars;
-            _numSideQty.Value = Math.Max(_numSideQty.Minimum, Math.Min(_numSideQty.Maximum, settings.SideBarQty));
-
-            _numStirrupSpacingA1.Value = (decimal)settings.StirrupSpacingA1;
-            _numStirrupSpacingA2.Value = (decimal)settings.StirrupSpacingA2;
-            _numZoneA1Length.Value = (decimal)settings.ZoneA1Length;
-
-            _chkCustomCover.Checked = settings.IsCustomCover;
-            _numCustomCover.Value = (decimal)settings.CustomCover;
-
-            _numLdMultiplier.Value = (decimal)settings.LdMultiplier;
-            _numHookTailMultiplier.Value = (decimal)settings.HookTailMultiplier;
-
-            _previewPanelMain?.Invalidate();
-            _previewPanelExtra?.Invalidate();
-            _previewPanelStirrup?.Invalidate();
-        }
-
-        private void DeleteTemplate()
-        {
-            string name = _cmbTemplate.Text;
-            if (string.IsNullOrWhiteSpace(name)) return;
-
-            RebarTemplateManager.DeleteBeamTemplate(name);
-            LoadTemplateList();
-        }
-
-        private DesignCode GetSelectedDesignStandard()
-        {
-            if (_cmbDesignStandard.SelectedIndex == 1) return DesignCode.Eurocode2;
-            return DesignCode.TCVN5574_2018;
-        }
-
-        private ConcreteGrade GetSelectedConcreteGrade()
-        {
-            string txt = _cmbConcreteGrade.Text;
-            if (txt.StartsWith("Auto")) return ConcreteGrade.Auto;
-            string clean = txt.Replace("/", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out ConcreteGrade res)) return res;
-            return ConcreteGrade.Auto;
-        }
-
-        private SteelGrade GetSelectedSteelGrade()
-        {
-            string txt = _cmbSteelGrade.Text;
-            if (txt.StartsWith("Auto")) return SteelGrade.Auto;
-            string clean = txt.Replace("-", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out SteelGrade res)) return res;
-            return SteelGrade.Auto;
-        }
-
-        private void SetComboValue(ComboBox combo, string val)
-        {
-            if (string.IsNullOrEmpty(val)) return;
-            for (int i = 0; i < combo.Items.Count; i++)
-            {
-                if (combo.Items[i].ToString().Equals(val, StringComparison.OrdinalIgnoreCase))
-                {
-                    combo.SelectedIndex = i;
-                    return;
-                }
-            }
-        }
-
-        private class BeamListItem
-        {
-            public FamilyInstance Beam { get; }
-            private readonly string _label;
-            public BeamListItem(FamilyInstance bm, string label) { Beam = bm; _label = label; }
-            public override string ToString() => _label;
-        }
+        #endregion
     }
 }
