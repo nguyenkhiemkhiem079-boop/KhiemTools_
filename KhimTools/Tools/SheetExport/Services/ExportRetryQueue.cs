@@ -114,9 +114,11 @@ namespace KhimTools.SheetExport.Services
                         PdfPostProcessService.ApplyWatermark(outPath, options.WatermarkText);
                     }
                 }
-                else if (options.ExportDwg)
+
+                if (options.ExportDwg)
                 {
-                    outPath = DwgExportEngine.ExportSingleSheet(doc, item.Sheet, options.OutputDirectory, item.ComputedFileName);
+                    string dwgPath = DwgExportEngine.ExportSingleSheet(doc, item.Sheet, options.OutputDirectory, item.ComputedFileName, options.DwgExportSetupName);
+                    if (string.IsNullOrEmpty(outPath)) outPath = dwgPath;
                 }
 
                 sw.Stop();

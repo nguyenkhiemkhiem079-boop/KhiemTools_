@@ -36,9 +36,10 @@ namespace KhimTools.SheetExport.Forms
         private TextBox _txtProjectCode;
         private Button _btnEditNamingTemplate;
 
-        // Format & PDF Options
+        // Format & PDF / DWG Options
         private CheckBox _chkExportPdf;
         private CheckBox _chkExportDwg;
+        private ComboBox _cmbDwgSetup;
         private ComboBox _cmbColorDepth;
         private ComboBox _cmbQualityDpi;
         private CheckBox _chkCombinePdf;
@@ -328,24 +329,33 @@ namespace KhimTools.SheetExport.Forms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 6,
+                RowCount = 7,
                 Padding = new Padding(8),
                 AutoScroll = true
             };
             pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            // Row 0: Export Formats
-            pnl.Controls.Add(new Label { Text = "Định Dạng Xuất:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }, 0, 0);
+            // Row 0: Export Formats (PDF / CAD DWG)
+            pnl.Controls.Add(new Label { Text = "Định Dạng Cần Xuất:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }, 0, 0);
             var pnlFormats = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _chkExportPdf = new CheckBox { Text = "📄 PDF (Native Revit Engine)", Checked = true, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Margin = new Padding(0, 0, 15, 0) };
-            _chkExportDwg = new CheckBox { Text = "📐 AutoCAD DWG", Checked = false, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _chkExportPdf = new CheckBox { Text = "📄 Xuất File PDF (Revit Native)", Checked = true, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(0, 0, 15, 0) };
+            _chkExportDwg = new CheckBox { Text = "📐 Xuất File CAD (AutoCAD DWG)", Checked = false, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
             pnlFormats.Controls.Add(_chkExportPdf);
             pnlFormats.Controls.Add(_chkExportDwg);
             pnl.Controls.Add(pnlFormats, 1, 0);
 
-            // Row 1: Color Depth & Quality
-            pnl.Controls.Add(new Label { Text = "Màu Sắc & Độ Phân Giải:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            // Row 1: CAD Export Setup
+            pnl.Controls.Add(new Label { Text = "Cấu Hình Xuất CAD (DWG):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            var pnlDwgSetup = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
+            _cmbDwgSetup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 0, 10, 0) };
+            _cmbDwgSetup.Items.Add("In-Session Setup (Mặc định)");
+            _cmbDwgSetup.SelectedIndex = 0;
+            pnlDwgSetup.Controls.Add(_cmbDwgSetup);
+            pnl.Controls.Add(pnlDwgSetup, 1, 1);
+
+            // Row 2: Color Depth & Quality (PDF)
+            pnl.Controls.Add(new Label { Text = "Màu Sắc & Độ Phân Giải:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
             var pnlQuality = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
             _cmbColorDepth = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160, Margin = new Padding(0, 0, 10, 0) };
             _cmbColorDepth.Items.AddRange(new object[] { "Màu (Color)", "Mức Xám (Grayscale)", "Đen Trắng (Black & White)" });
@@ -357,20 +367,20 @@ namespace KhimTools.SheetExport.Forms
 
             pnlQuality.Controls.Add(_cmbColorDepth);
             pnlQuality.Controls.Add(_cmbQualityDpi);
-            pnl.Controls.Add(pnlQuality, 1, 1);
+            pnl.Controls.Add(pnlQuality, 1, 2);
 
-            // Row 2: Combine PDF
-            pnl.Controls.Add(new Label { Text = "Gộp File PDF (Combine):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
+            // Row 3: Combine PDF
+            pnl.Controls.Add(new Label { Text = "Gộp File PDF (Combine):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
             var pnlCombine = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
             _chkCombinePdf = new CheckBox { Text = "Gộp các sheet vào 1 file:", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 10, 0) };
             _txtCombinedFileName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 230, Enabled = false };
             _chkCombinePdf.CheckedChanged += (s, e) => _txtCombinedFileName.Enabled = _chkCombinePdf.Checked;
             pnlCombine.Controls.Add(_chkCombinePdf);
             pnlCombine.Controls.Add(_txtCombinedFileName);
-            pnl.Controls.Add(pnlCombine, 1, 2);
+            pnl.Controls.Add(pnlCombine, 1, 3);
 
-            // Row 3: Naming Template
-            pnl.Controls.Add(new Label { Text = "Quy Tắc Đặt Tên File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
+            // Row 4: Naming Template
+            pnl.Controls.Add(new Label { Text = "Quy Tắc Đặt Tên File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
             var pnlTemplateChoice = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
             _cmbNamingTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 0, 10, 0) };
             _cmbNamingTemplate.SelectedIndexChanged += CmbNamingTemplate_SelectedIndexChanged;
@@ -380,16 +390,16 @@ namespace KhimTools.SheetExport.Forms
 
             pnlTemplateChoice.Controls.Add(_cmbNamingTemplate);
             pnlTemplateChoice.Controls.Add(_btnEditNamingTemplate);
-            pnl.Controls.Add(pnlTemplateChoice, 1, 3);
+            pnl.Controls.Add(pnlTemplateChoice, 1, 4);
 
-            // Row 4: Project Code
-            pnl.Controls.Add(new Label { Text = "Mã Dự Án (Project Code):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
+            // Row 5: Project Code
+            pnl.Controls.Add(new Label { Text = "Mã Dự Án (Project Code):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 5);
             _txtProjectCode = new TextBox { Text = "PROJ", Width = 160, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
             _txtProjectCode.TextChanged += (s, e) => RecalculateFileNames();
-            pnl.Controls.Add(_txtProjectCode, 1, 4);
+            pnl.Controls.Add(_txtProjectCode, 1, 5);
 
-            // Row 5: Output Directory
-            pnl.Controls.Add(new Label { Text = "Thư Mục Lưu File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 5);
+            // Row 6: Output Directory
+            pnl.Controls.Add(new Label { Text = "Thư Mục Lưu File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 6);
             var pnlDir = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
             string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
             _txtOutputDir = new TextBox { Text = defaultDir, Width = 260, Margin = new Padding(0, 0, 8, 0) };
@@ -397,7 +407,7 @@ namespace KhimTools.SheetExport.Forms
             _btnBrowseOutputDir.Click += BtnBrowseOutputDir_Click;
             pnlDir.Controls.Add(_txtOutputDir);
             pnlDir.Controls.Add(_btnBrowseOutputDir);
-            pnl.Controls.Add(pnlDir, 1, 5);
+            pnl.Controls.Add(pnlDir, 1, 6);
 
             tab.Controls.Add(pnl);
         }
@@ -498,6 +508,22 @@ namespace KhimTools.SheetExport.Forms
                     _cmbNamingTemplate.Items.Add(t.Name);
                 }
                 if (_namingTemplates.Any()) _cmbNamingTemplate.SelectedIndex = 0;
+
+                try
+                {
+                    var dwgSetups = BaseExportOptions.GetPredefinedSetupNames(_doc);
+                    _cmbDwgSetup.Items.Clear();
+                    _cmbDwgSetup.Items.Add("In-Session Setup (Mặc định)");
+                    if (dwgSetups != null)
+                    {
+                        foreach (var s in dwgSetups)
+                        {
+                            _cmbDwgSetup.Items.Add(s);
+                        }
+                    }
+                    _cmbDwgSetup.SelectedIndex = 0;
+                }
+                catch { }
 
                 string projName = _doc.ProjectInformation?.Name ?? _doc.Title ?? "PROJ";
                 if (!string.IsNullOrWhiteSpace(projName))
@@ -691,6 +717,12 @@ namespace KhimTools.SheetExport.Forms
                 return;
             }
 
+            if (!_chkExportPdf.Checked && !_chkExportDwg.Checked)
+            {
+                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng chọn ít nhất 1 định dạng xuất (PDF hoặc AutoCAD DWG).");
+                return;
+            }
+
             string outDir = _txtOutputDir.Text.Trim();
             if (string.IsNullOrWhiteSpace(outDir))
             {
@@ -712,6 +744,7 @@ namespace KhimTools.SheetExport.Forms
             {
                 ExportPdf = _chkExportPdf.Checked,
                 ExportDwg = _chkExportDwg.Checked,
+                DwgExportSetupName = _cmbDwgSetup.Text.Trim(),
                 OutputDirectory = outDir,
                 ProjectCode = _txtProjectCode.Text.Trim(),
                 CombinePdf = _chkCombinePdf.Checked,

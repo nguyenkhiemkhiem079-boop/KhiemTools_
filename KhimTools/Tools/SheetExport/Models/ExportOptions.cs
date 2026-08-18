@@ -7,6 +7,7 @@ namespace KhimTools.SheetExport.Models
         // Target Formats
         public bool ExportPdf { get; set; } = true;
         public bool ExportDwg { get; set; } = false;
+        public string DwgExportSetupName { get; set; } = "In-Session Setup";
 
         // General Destination
         public string OutputDirectory { get; set; } = "";
