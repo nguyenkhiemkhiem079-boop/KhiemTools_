@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -29,19 +30,16 @@ namespace KhimTools.RebarTool.Core
                 Line.CreateBound(p4, p1)
             };
 
-            Rebar rebar = null;
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc, RebarStyle.StirrupTie, barType, null, null, hostColumn,
-                    normal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-            }
-            catch (System.Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RectangularStirrupHelper] CreateHoop failed: {ex.Message}");
-            }
+            // Tính normal chính xác từ mặt phẳng của 4 điểm
+            XYZ v1 = (p2 - p1).Normalize();
+            XYZ v2 = (p3 - p2).Normalize();
+            XYZ calcNormal = v1.CrossProduct(v2).Normalize();
+            if (calcNormal.GetLength() < 0.01) calcNormal = normal ?? XYZ.BasisZ;
 
-            return rebar;
+            RebarHookType hook135 = RebarHookHelper.GetHookType(doc, 135, RebarStyle.StirrupTie);
+            return RebarShapeCreationHelper.CreateFromCurvesSafe(
+                doc, RebarStyle.StirrupTie, barType, hook135, hook135, hostColumn,
+                calcNormal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 
         /// <summary>Tạo đai thoi / đai lồng nối các thanh giữa của 4 cạnh.</summary>
@@ -63,19 +61,15 @@ namespace KhimTools.RebarTool.Core
                 Line.CreateBound(d4, d1)
             };
 
-            Rebar rebar = null;
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc, RebarStyle.StirrupTie, barType, null, null, hostColumn,
-                    normal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-            }
-            catch (System.Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RectangularStirrupHelper] CreateDiamondHoop failed: {ex.Message}");
-            }
+            XYZ v1 = (d2 - d1).Normalize();
+            XYZ v2 = (d3 - d2).Normalize();
+            XYZ calcNormal = v1.CrossProduct(v2).Normalize();
+            if (calcNormal.GetLength() < 0.01) calcNormal = normal ?? XYZ.BasisZ;
 
-            return rebar;
+            RebarHookType hook135 = RebarHookHelper.GetHookType(doc, 135, RebarStyle.StirrupTie);
+            return RebarShapeCreationHelper.CreateFromCurvesSafe(
+                doc, RebarStyle.StirrupTie, barType, hook135, hook135, hostColumn,
+                calcNormal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 
         /// <summary>
@@ -94,28 +88,10 @@ namespace KhimTools.RebarTool.Core
             var loop = new List<Curve> { Line.CreateBound(c1, c2) };
             RebarHookType hook180 = RebarHookHelper.GetHookType(doc, 180, RebarStyle.StirrupTie);
 
-            Rebar rebar = null;
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc, RebarStyle.StirrupTie, barType, hook180, hook180, hostColumn,
-                    normal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-            }
-            catch
-            {
-                try
-                {
-                    rebar = Rebar.CreateFromCurves(
-                        doc, RebarStyle.StirrupTie, barType, null, null, hostColumn,
-                        normal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-                }
-                catch (System.Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[RectangularStirrupHelper] CreateCrossLink failed: {ex.Message}");
-                }
-            }
-
-            return rebar;
+            XYZ calcNormal = normal ?? XYZ.BasisZ;
+            return RebarShapeCreationHelper.CreateFromCurvesSafe(
+                doc, RebarStyle.StirrupTie, barType, hook180, hook180, hostColumn,
+                calcNormal, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
     }
 }

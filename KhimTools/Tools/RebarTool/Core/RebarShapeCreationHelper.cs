@@ -9,8 +9,104 @@ namespace KhimTools.RebarTool.Core
     /// Tạo Rebar chuẩn từ Curve, gán RebarShape tương ứng (JP_T00, JP_T51, JP_T75).
     /// Đảm bảo kiểm tra an toàn vị trí hình học — tuyệt đối KHÔNG làm văng/lệch thép ra ngoài host.
     /// </summary>
+    /// <summary>
+    /// Tạo Rebar chuẩn từ Curve, tự động xử lý và fallback an toàn để KHÔNG BAO GIỜ bị lỗi "Can't solve Rebar Shape".
+    /// Đảm bảo kiểm tra an toàn vị trí hình học — tuyệt đối KHÔNG làm văng/lệch thép ra ngoài host.
+    /// </summary>
     public static class RebarShapeCreationHelper
     {
+        /// <summary>
+        /// Tạo Rebar an toàn từ danh sách Curve với cơ chế fallback 4 cấp độ:
+        /// 1) Thử useExistingShape: false (tránh xung đột tham số/hook với RebarShape có sẵn trong project).
+        /// 2) Nếu có hooks mà lỗi, thử bỏ hooks với useExistingShape: false.
+        /// 3) Thử chuyển về RebarStyle.Standard.
+        /// 4) Thử useExistingShape: true.
+        /// </summary>
+        public static Rebar CreateFromCurvesSafe(
+            Document doc,
+            RebarStyle style,
+            RebarBarType barType,
+            RebarHookType hook0,
+            RebarHookType hook1,
+            Element host,
+            XYZ norm,
+            IList<Curve> curves,
+            RebarHookOrientation hookOrient0 = RebarHookOrientation.Right,
+            RebarHookOrientation hookOrient1 = RebarHookOrientation.Right)
+        {
+            if (curves == null || curves.Count == 0 || barType == null || host == null)
+                return null;
+
+            // Đảm bảo normal hợp lệ
+            if (norm == null || norm.GetLength() < 0.001)
+                norm = XYZ.BasisZ;
+            else
+                norm = norm.Normalize();
+
+            Rebar rebar = null;
+
+            // Cấp 1: Tạo không bắt buộc khớp RebarShape có sẵn (useExistingShape: false, createNewShape: true)
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc, style, barType, hook0, hook1, host,
+                    norm, curves, hookOrient0, hookOrient1, false, true);
+                if (rebar != null) return rebar;
+            }
+            catch { }
+
+            // Cấp 2: Nếu có hook mà bị lỗi, thử bỏ hook với useExistingShape: false
+            if (hook0 != null || hook1 != null)
+            {
+                try
+                {
+                    rebar = Rebar.CreateFromCurves(
+                        doc, style, barType, null, null, host,
+                        norm, curves, hookOrient0, hookOrient1, false, true);
+                    if (rebar != null) return rebar;
+                }
+                catch { }
+            }
+
+            // Cấp 3: Nếu style là StirrupTie bị lỗi, chuyển sang Standard với useExistingShape: false
+            if (style != RebarStyle.Standard)
+            {
+                try
+                {
+                    rebar = Rebar.CreateFromCurves(
+                        doc, RebarStyle.Standard, barType, null, null, host,
+                        norm, curves, hookOrient0, hookOrient1, false, true);
+                    if (rebar != null) return rebar;
+                }
+                catch { }
+            }
+
+            // Cấp 4: Thử useExistingShape: true
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc, style, barType, hook0, hook1, host,
+                    norm, curves, hookOrient0, hookOrient1, true, true);
+                if (rebar != null) return rebar;
+            }
+            catch { }
+
+            // Cấp 5: Thử useExistingShape: true không hook
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc, RebarStyle.Standard, barType, null, null, host,
+                    norm, curves, hookOrient0, hookOrient1, true, true);
+                if (rebar != null) return rebar;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] CreateFromCurvesSafe failed: {ex.Message}");
+            }
+
+            return rebar;
+        }
+
         /// <summary>JP_T00 — thanh thẳng dọc từ bottom đến top.</summary>
         public static Rebar TryCreateStraightBar(Document doc, Element host, RebarBarType barType, XYZ bottom, XYZ top)
         {
@@ -27,30 +123,7 @@ namespace KhimTools.RebarTool.Core
             XYZ norm = perp.CrossProduct(dir).Normalize();
 
             Line line = Line.CreateBound(bottom, top);
-            Rebar rebar = null;
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc,
-                    RebarStyle.Standard,
-                    barType,
-                    null,
-                    null,
-                    host,
-                    norm,
-                    new List<Curve> { line },
-                    RebarHookOrientation.Right,
-                    RebarHookOrientation.Right,
-                    true,
-                    true);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] TryCreateStraightBar failed: {ex.Message}");
-                return null;
-            }
-
-            return rebar;
+            return CreateFromCurvesSafe(doc, RebarStyle.Standard, barType, null, null, host, norm, new List<Curve> { line });
         }
 
         /// <summary>Vòng tròn kín, nằm ngang (mặt phẳng XY) tại center.Z.</summary>
@@ -61,30 +134,9 @@ namespace KhimTools.RebarTool.Core
 
             Arc arc1 = Arc.Create(center, r, 0, Math.PI, XYZ.BasisX, XYZ.BasisY);
             Arc arc2 = Arc.Create(center, r, Math.PI, 2 * Math.PI, XYZ.BasisX, XYZ.BasisY);
+            var loop = new List<Curve> { arc1, arc2 };
 
-            Rebar rebar = null;
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc,
-                    RebarStyle.StirrupTie,
-                    barType,
-                    null,
-                    null,
-                    host,
-                    XYZ.BasisZ,
-                    new List<Curve> { arc1, arc2 },
-                    RebarHookOrientation.Right,
-                    RebarHookOrientation.Right,
-                    true,
-                    true);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] TryCreateCircularStirrup failed: {ex.Message}");
-            }
-
-            return rebar;
+            return CreateFromCurvesSafe(doc, RebarStyle.StirrupTie, barType, null, null, host, XYZ.BasisZ, loop);
         }
 
         /// <summary>

@@ -141,7 +141,7 @@ namespace KhimTools.RebarTool.Core
                     Line.CreateBound(pEnd, pHookEnd)
                 };
 
-                Rebar rebar = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, barType, null, null, foundation, arrayVector, curves, hookOrient, hookOrient, true, true);
+                Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, foundation, arrayVector, curves, hookOrient, hookOrient);
                 if (rebar != null)
                 {
                     double arrayLen = Math.Abs(endPerp - startPerp);
@@ -212,7 +212,7 @@ namespace KhimTools.RebarTool.Core
                             Line.CreateBound(pCorner, pTop)
                         };
 
-                        Rebar dowel = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisY, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                        Rebar dowel = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisY, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
                         if (dowel != null)
                         {
                             list.Add(dowel);
@@ -264,7 +264,7 @@ namespace KhimTools.RebarTool.Core
                         Line.CreateBound(p4, p1)
                     };
 
-                    Rebar stirrup = Rebar.CreateFromCurves(_doc, RebarStyle.StirrupTie, barType, null, null, profile.FoundationElement, XYZ.BasisZ, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                    Rebar stirrup = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.StirrupTie, barType, null, null, profile.FoundationElement, XYZ.BasisZ, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
                     if (stirrup != null)
                     {
                         list.Add(stirrup);
@@ -302,7 +302,7 @@ namespace KhimTools.RebarTool.Core
                     XYZ p4 = new XYZ(x, bb.Min.Y + coverFeet + uLegLen, zBot);
 
                     var curvesYMin = new List<Curve> { Line.CreateBound(p1, p2), Line.CreateBound(p2, p3), Line.CreateBound(p3, p4) };
-                    Rebar uBarYMin = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisX, curvesYMin, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                    Rebar uBarYMin = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisX, curvesYMin, RebarHookOrientation.Left, RebarHookOrientation.Right);
                     if (uBarYMin != null)
                     {
                         list.Add(uBarYMin);

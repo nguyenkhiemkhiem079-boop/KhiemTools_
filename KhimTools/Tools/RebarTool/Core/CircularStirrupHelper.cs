@@ -29,19 +29,17 @@ namespace KhimTools.RebarTool.Core
             Arc arc2 = Arc.Create(center, radius, System.Math.PI, 2 * System.Math.PI, XYZ.BasisX, XYZ.BasisY);
             var loop = new List<Curve> { arc1, arc2 };
 
-            return Rebar.CreateFromCurves(
+            return RebarShapeCreationHelper.CreateFromCurvesSafe(
                 doc,
                 RebarStyle.StirrupTie,
                 barType,
                 null,
                 null,
                 hostColumn,
-                normal,
+                normal ?? XYZ.BasisZ,
                 loop,
                 RebarHookOrientation.Right,
-                RebarHookOrientation.Right,
-                true,
-                true);
+                RebarHookOrientation.Right);
         }
     }
 }

@@ -1,12 +1,14 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.DB;
 
 namespace KhimTools.SlabJoin.Utilities
 {
     /// <summary>
-    /// Swallows/suppresses all non-fatal geometry warnings during Transaction commit,
-    /// preventing Revit from showing warning popups or freezing/crashing on minor
-    /// geometry overlaps.
+    /// Swallows/suppresses all non-fatal geometry warnings and resolves errors during Transaction commit,
+    /// preventing Revit from showing warning popups, error modals, or freezing/crashing on minor
+    /// geometry overlaps or shape solver mismatch.
     /// </summary>
     public class SwallowWarningsPreprocessor : IFailuresPreprocessor
     {
@@ -25,6 +27,17 @@ namespace KhimTools.SlabJoin.Utilities
                 {
                     // Suppress warning without user interaction to prevent freezes
                     failuresAccessor.DeleteWarning(failMessage);
+                }
+                else if (severity == FailureSeverity.Error)
+                {
+                    try
+                    {
+                        if (failuresAccessor.IsFailureResolutionPermitted(failMessage))
+                        {
+                            failuresAccessor.ResolveFailure(failMessage);
+                        }
+                    }
+                    catch { }
                 }
             }
 

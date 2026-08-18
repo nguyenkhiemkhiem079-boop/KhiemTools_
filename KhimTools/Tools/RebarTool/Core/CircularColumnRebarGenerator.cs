@@ -205,12 +205,15 @@ namespace KhimTools.RebarTool.Core
                         if (cross.GetLength() > 0.01) norm = cross.Normalize();
                     }
 
-                    try
+                    Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                        _doc, RebarStyle.Standard, input.MainBarType, null, null, input.Column,
+                        norm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
+
+                    if (bar != null)
                     {
-                        Rebar bar = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, input.MainBarType, null, null, input.Column, norm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
-                        if (bar != null) bars.Add(bar);
+                        bars.Add(bar);
                     }
-                    catch (Exception ex)
+                    else
                     {
                         XYZ pt1 = new XYZ(x, y, baseZBottom);
                         XYZ pt2 = new XYZ(x, y, zTop);
@@ -221,7 +224,7 @@ namespace KhimTools.RebarTool.Core
                         }
                         else
                         {
-                            report?.AddError(input.Column, "Thép chủ cột tròn (Main Rebar)", ex);
+                            report?.AddError(input.Column, "Thép chủ cột tròn (Main Rebar)", new InvalidOperationException("Không thể khởi tạo thanh thép chủ."));
                         }
                     }
                 }

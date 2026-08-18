@@ -141,28 +141,22 @@ namespace KhimTools.RebarTool.Core
 
                 List<Curve> curves = BuildMainBarCurves(profile, x, yTop, startAnch, endAnch, true);
 
-                try
-                {
-                    Rebar bar = Rebar.CreateFromCurves(
-                        _doc,
-                        RebarStyle.Standard,
-                        input.MainTopBarType,
-                        null,
-                        null,
-                        input.Beam,
-                        profile.RightVector, // Normal of the vertical bending plane
-                        curves,
-                        RebarHookOrientation.Right,
-                        RebarHookOrientation.Right,
-                        true,
-                        true);
+                Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                    _doc,
+                    RebarStyle.Standard,
+                    input.MainTopBarType,
+                    null,
+                    null,
+                    input.Beam,
+                    profile.RightVector, // Normal of the vertical bending plane
+                    curves,
+                    RebarHookOrientation.Right,
+                    RebarHookOrientation.Right);
 
-                    if (bar != null)
-                    {
-                        bars.Add(bar);
-                    }
+                if (bar != null)
+                {
+                    bars.Add(bar);
                 }
-                catch
                 {
                     // Fallback to straight bar if bend fails
                     XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, -startAnch.Extension);
@@ -194,28 +188,22 @@ namespace KhimTools.RebarTool.Core
 
                 List<Curve> curves = BuildMainBarCurves(profile, x, yBot, startAnch, endAnch, false);
 
-                try
-                {
-                    Rebar bar = Rebar.CreateFromCurves(
-                        _doc,
-                        RebarStyle.Standard,
-                        input.MainBottomBarType,
-                        null,
-                        null,
-                        input.Beam,
-                        profile.RightVector,
-                        curves,
-                        RebarHookOrientation.Right,
-                        RebarHookOrientation.Right,
-                        true,
-                        true);
+                Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                    _doc,
+                    RebarStyle.Standard,
+                    input.MainBottomBarType,
+                    null,
+                    null,
+                    input.Beam,
+                    profile.RightVector,
+                    curves,
+                    RebarHookOrientation.Right,
+                    RebarHookOrientation.Right);
 
-                    if (bar != null)
-                    {
-                        bars.Add(bar);
-                    }
+                if (bar != null)
+                {
+                    bars.Add(bar);
                 }
-                catch
                 {
                     XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, -startAnch.Extension);
                     XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, profile.Length + endAnch.Extension);
@@ -430,29 +418,9 @@ namespace KhimTools.RebarTool.Core
             };
 
             RebarHookType hook135 = RebarHookHelper.GetHookType(_doc, 135, RebarStyle.StirrupTie);
-            Rebar hoop = null;
-
-            try
-            {
-                hoop = Rebar.CreateFromCurves(
-                    _doc, RebarStyle.StirrupTie, input.StirrupBarType, hook135, hook135, input.Beam,
-                    profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-            }
-            catch
-            {
-                try
-                {
-                    hoop = Rebar.CreateFromCurves(
-                        _doc, RebarStyle.StirrupTie, input.StirrupBarType, null, null, input.Beam,
-                        profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right, true, true);
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[BeamRebarGenerator] CreateStirrupAtZ failed: {ex.Message}");
-                }
-            }
-
-            return hoop;
+            return RebarShapeCreationHelper.CreateFromCurvesSafe(
+                _doc, RebarStyle.StirrupTie, input.StirrupBarType, hook135, hook135, input.Beam,
+                profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
         }
 
         private static List<double> CalculateBeamStirrupZ(double totalLength, double l1, double s1, double s2)

@@ -299,7 +299,7 @@ namespace KhimTools.RebarTool.Core
                     ? arrayVector.Normalize()
                     : (dirVector == XYZ.BasisX ? XYZ.BasisY : XYZ.BasisX);
 
-                Rebar rebar = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, barType, null, null, floor, normal, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, floor, normal, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
                 if (rebar != null)
                 {
                     double arrayLen = Math.Abs(endPerp - startPerp);
@@ -349,7 +349,7 @@ namespace KhimTools.RebarTool.Core
                             Line.CreateBound(p3, p4)
                         };
 
-                        Rebar chair = Rebar.CreateFromCurves(_doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisY, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, true, true);
+                        Rebar chair = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisY, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
                         if (chair != null)
                         {
                             list.Add(chair);
