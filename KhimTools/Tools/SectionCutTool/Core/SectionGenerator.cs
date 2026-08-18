@@ -97,7 +97,29 @@ namespace KhimTools.SectionCutTool.Core
 
                             try
                             {
-                                ViewSection view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
+                                ViewSection view = null;
+                                try
+                                {
+                                    view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
+                                }
+                                catch
+                                {
+                                    // Fallback sang Detail ViewFamilyType nếu loại Section hiện tại không hỗ trợ góc cắt
+                                    var fallbackVft = new FilteredElementCollector(_doc)
+                                        .OfClass(typeof(ViewFamilyType))
+                                        .Cast<ViewFamilyType>()
+                                        .FirstOrDefault(t => (t.ViewFamily == ViewFamily.Detail || t.ViewFamily == ViewFamily.Section) && t.Id != vft.Id);
+
+                                    if (fallbackVft != null)
+                                    {
+                                        view = ViewSection.CreateSection(_doc, fallbackVft.Id, placement.SectionBox);
+                                    }
+                                    else
+                                    {
+                                        throw;
+                                    }
+                                }
+
                                 if (view != null)
                                 {
                                     view.Name = uniqueName;

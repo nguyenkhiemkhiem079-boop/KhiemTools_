@@ -182,20 +182,31 @@ namespace KhimTools.SectionCutTool.Core
             double colDepth = Math.Max(bb.Max.Y - bb.Min.Y, ToFeet(300));
             double colHeight = Math.Max(bb.Max.Z - bb.Min.Z, ToFeet(2000));
 
+            // Xác định hệ trục cục bộ của Cột theo hướng quay thực tế trong dự án
+            XYZ colDirX = col.FacingOrientation;
+            if (colDirX == null || colDirX.IsZeroLength() || Math.Abs(colDirX.Z) > 0.9) colDirX = XYZ.BasisX;
+            colDirX = new XYZ(colDirX.X, colDirX.Y, 0).Normalize();
+
+            XYZ colDirY = col.HandOrientation;
+            if (colDirY == null || colDirY.IsZeroLength() || Math.Abs(colDirY.Z) > 0.9) colDirY = XYZ.BasisY;
+            colDirY = new XYZ(colDirY.X, colDirY.Y, 0).Normalize();
+
+            XYZ upZ = XYZ.BasisZ;
+
             double offL = ToFeet(settings.CropOffsetLeftMm);
             double offR = ToFeet(settings.CropOffsetRightMm);
             double offT = ToFeet(settings.CropOffsetTopMm);
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // A. Mặt cắt đứng cột (Vertical Elevation Section)
+            // A. Mặt cắt đứng cột (Vertical Elevation Section - Nhìn trực diện)
             if (settings.CreateLongitudinal)
             {
                 var transform = Transform.Identity;
                 transform.Origin = center;
-                transform.BasisX = XYZ.BasisX;
-                transform.BasisY = XYZ.BasisZ;
-                transform.BasisZ = XYZ.BasisY;
+                transform.BasisX = colDirX;
+                transform.BasisY = upZ;
+                transform.BasisZ = colDirX.CrossProduct(upZ).Normalize(); // Right-handed!
 
                 var box = new BoundingBoxXYZ
                 {
@@ -225,15 +236,15 @@ namespace KhimTools.SectionCutTool.Core
 
                     var transform = Transform.Identity;
                     transform.Origin = cutPt;
-                    transform.BasisX = XYZ.BasisX;
-                    transform.BasisY = XYZ.BasisY;
-                    transform.BasisZ = -XYZ.BasisZ; // Nhìn từ trên xuống dưới
+                    transform.BasisX = colDirX;
+                    transform.BasisY = colDirY;
+                    transform.BasisZ = colDirX.CrossProduct(colDirY).Normalize(); // Right-handed! (BasisZ = +Z)
 
                     var box = new BoundingBoxXYZ
                     {
                         Transform = transform,
                         Min = new XYZ(-colWidth / 2.0 - offL, -colDepth / 2.0 - offB, -farClip),
-                        Max = new XYZ(colWidth / 2.0 + offR, colDepth / 2.0 + offT, 0)
+                        Max = new XYZ(colWidth / 2.0 + offR, colDepth / 2.0 + offT, farClip)
                     };
 
                     list.Add(new SectionCutPlacement
@@ -290,7 +301,7 @@ namespace KhimTools.SectionCutTool.Core
                 transform.Origin = center;
                 transform.BasisX = dir;
                 transform.BasisY = up;
-                transform.BasisZ = right;
+                transform.BasisZ = dir.CrossProduct(up).Normalize(); // Right-handed!
 
                 var box = new BoundingBoxXYZ
                 {
@@ -323,7 +334,7 @@ namespace KhimTools.SectionCutTool.Core
                     transform.Origin = center;
                     transform.BasisX = right;
                     transform.BasisY = up;
-                    transform.BasisZ = -dir;
+                    transform.BasisZ = right.CrossProduct(up).Normalize(); // Right-handed!
 
                     var box = new BoundingBoxXYZ
                     {
@@ -373,13 +384,13 @@ namespace KhimTools.SectionCutTool.Core
                 transformX.Origin = center;
                 transformX.BasisX = XYZ.BasisX;
                 transformX.BasisY = XYZ.BasisZ;
-                transformX.BasisZ = XYZ.BasisY;
+                transformX.BasisZ = XYZ.BasisX.CrossProduct(XYZ.BasisZ).Normalize(); // Right-handed!
 
                 var boxX = new BoundingBoxXYZ
                 {
                     Transform = transformX,
-                    Min = new XYZ(-sizeX / 2.0 - offL, -thick / 2.0 - offB, -farClip),
-                    Max = new XYZ(sizeX / 2.0 + offR, thick / 2.0 + offT, 0)
+                    Min = new XYZ(-sizeX / 2.0 - offL, -thick / 2.0 - offB, -sizeY / 2.0 - farClip),
+                    Max = new XYZ(sizeX / 2.0 + offR, thick / 2.0 + offT, sizeY / 2.0 + farClip)
                 };
 
                 list.Add(new SectionCutPlacement
@@ -398,13 +409,13 @@ namespace KhimTools.SectionCutTool.Core
                 transformY.Origin = center;
                 transformY.BasisX = XYZ.BasisY;
                 transformY.BasisY = XYZ.BasisZ;
-                transformY.BasisZ = -XYZ.BasisX;
+                transformY.BasisZ = XYZ.BasisY.CrossProduct(XYZ.BasisZ).Normalize(); // Right-handed!
 
                 var boxY = new BoundingBoxXYZ
                 {
                     Transform = transformY,
-                    Min = new XYZ(-sizeY / 2.0 - offL, -thick / 2.0 - offB, -farClip),
-                    Max = new XYZ(sizeY / 2.0 + offR, thick / 2.0 + offT, 0)
+                    Min = new XYZ(-sizeY / 2.0 - offL, -thick / 2.0 - offB, -sizeX / 2.0 - farClip),
+                    Max = new XYZ(sizeY / 2.0 + offR, thick / 2.0 + offT, sizeX / 2.0 + farClip)
                 };
 
                 list.Add(new SectionCutPlacement
@@ -447,7 +458,7 @@ namespace KhimTools.SectionCutTool.Core
                 transform1.Origin = center;
                 transform1.BasisX = XYZ.BasisX;
                 transform1.BasisY = XYZ.BasisZ;
-                transform1.BasisZ = XYZ.BasisY;
+                transform1.BasisZ = XYZ.BasisX.CrossProduct(XYZ.BasisZ).Normalize(); // Right-handed!
 
                 var box1 = new BoundingBoxXYZ
                 {
@@ -472,7 +483,7 @@ namespace KhimTools.SectionCutTool.Core
                 transform2.Origin = center;
                 transform2.BasisX = XYZ.BasisY;
                 transform2.BasisY = XYZ.BasisZ;
-                transform2.BasisZ = -XYZ.BasisX;
+                transform2.BasisZ = XYZ.BasisY.CrossProduct(XYZ.BasisZ).Normalize(); // Right-handed!
 
                 var box2 = new BoundingBoxXYZ
                 {
@@ -515,7 +526,7 @@ namespace KhimTools.SectionCutTool.Core
                 transform.Origin = center;
                 transform.BasisX = XYZ.BasisX;
                 transform.BasisY = XYZ.BasisZ;
-                transform.BasisZ = XYZ.BasisY;
+                transform.BasisZ = XYZ.BasisX.CrossProduct(XYZ.BasisZ).Normalize(); // Right-handed!
 
                 var box = new BoundingBoxXYZ
                 {

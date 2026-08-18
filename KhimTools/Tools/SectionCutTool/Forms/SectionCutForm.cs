@@ -1027,7 +1027,20 @@ namespace KhimTools.SectionCutTool.Forms
                     ? $"Section Generation Finished!\n\n• Success: {report.SuccessCount} views\n• Failures: {report.FailureCount}\n• Total Processed Elements: {selected.Count}"
                     : $"Hoàn tất quá trình tạo mặt cắt tự động!\n\n• Tạo thành công: {report.SuccessCount} ViewSection\n• Gặp lỗi: {report.FailureCount}\n• Số cấu kiện xử lý: {selected.Count}";
 
-                KhimDialogHelper.ShowInfo(summaryMsg);
+                if (report.FailureCount > 0 && report.Items.Any(x => !x.Success))
+                {
+                    var errs = string.Join("\n", report.Items.Where(x => !x.Success).Select(x => $"• {x.ViewName}: {x.ErrorMessage}").Take(5));
+                    summaryMsg += LanguageManager.IsEnglish ? $"\n\nError details:\n{errs}" : $"\n\nChi tiết lỗi:\n{errs}";
+                }
+
+                if (report.FailureCount > 0 && report.SuccessCount == 0)
+                {
+                    KhimDialogHelper.ShowWarning(summaryMsg);
+                }
+                else
+                {
+                    KhimDialogHelper.ShowInfo(summaryMsg);
+                }
 
                 if (report.SuccessCount > 0)
                 {
