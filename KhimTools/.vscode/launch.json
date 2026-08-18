@@ -1,0 +1,28 @@
+{
+    // Debug Revit Add-in từ VS Code
+    // Yêu cầu: Extension "C# Dev Kit" hoặc ".NET Core Debugger" đã cài
+    //
+    // CÁCH DÙNG:
+    //   1. Mở Revit trước
+    //   2. Ctrl+Shift+D → chọn config phù hợp → F5
+    //   3. Nếu có nhiều process Revit → config "${command:pickProcess}" sẽ hỏi chọn cái nào
+    "version": "0.2.0",
+    "configurations": [
+        {
+            // === Revit 2025/2027 (net8.0-windows) — chọn process khi attach ===
+            "name": "🔷 Attach to Revit 2025/2027 (net8)",
+            "type": "coreclr",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": false
+        },
+        {
+            // === Revit 2022-2024 (net48 / .NET Framework) — chọn process khi attach ===
+            "name": "🔶 Attach to Revit 2022-2024 (net48)",
+            "type": "clr",
+            "request": "attach",
+            "processId": "${command:pickProcess}",
+            "justMyCode": false
+        }
+    ]
+}

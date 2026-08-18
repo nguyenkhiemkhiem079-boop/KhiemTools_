@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="1.0.0"
+                    Name="KhimTools"
+                    AppNameSpace="KhimTools"
+                    AutodeskProduct="Revit"
+                    ProductType="Application"
+                    ProductCode="{4F1B2C3D-5E6F-4A7B-8C9D-0E1F2A3B4C5D}"
+                    Description="KhimTools - Slab Join, Column Rebar, Drawing Tools">
+  <CompanyDetails Name="KhimTools" />
+  <RuntimeRequirements OS="Win64" Platform="Revit" />
+
+  <!-- Revit 2022 (.NET Framework 4.8) -->
+  <Components Description="KhimTools Revit 2022">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2022" SeriesMax="R2022" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Legacy/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2022" />
+  </Components>
+
+  <!-- Revit 2023 (.NET Framework 4.8) -->
+  <Components Description="KhimTools Revit 2023">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2023" SeriesMax="R2023" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Legacy/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2023" />
+  </Components>
+
+  <!-- Revit 2024 (.NET Framework 4.8) -->
+  <Components Description="KhimTools Revit 2024">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2024" SeriesMax="R2024" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Legacy/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2024" />
+  </Components>
+
+  <!-- Revit 2025 (.NET 8.0) -->
+  <Components Description="KhimTools Revit 2025">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2025" SeriesMax="R2025" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Modern/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2025" />
+  </Components>
+
+  <!-- Revit 2026 (.NET 8.0) -->
+  <Components Description="KhimTools Revit 2026">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2026" SeriesMax="R2026" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Modern/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2026" />
+  </Components>
+
+  <!-- Revit 2027 (.NET 8.0) -->
+  <Components Description="KhimTools Revit 2027">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2027" SeriesMax="R2027" />
+    <ComponentEntry AppName="KhimTools"
+                    ModuleName="./Contents/Modern/KhimTools.addin"
+                    AppDescription="KhimTools for Revit 2027" />
+  </Components>
+
+</ApplicationPackage>

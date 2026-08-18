@@ -1,0 +1,106 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net48  -> Revit 2022-2024 (.NET Framework)
+         net8.0-windows -> Revit 2025-2026 (.NET 8) -->
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>KhimTools</RootNamespace>
+    <AssemblyName>KhimTools</AssemblyName>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- ==== Đường dẫn RevitAPI theo từng TFM ====
+       net48 build tham chiếu RevitAPI của 1 bản 2022-2024 (API ổn định, dùng chung được).
+       net8.0-windows build tham chiếu 1 bản 2025-2026.
+       ĐỔI RevitVersionForReference nếu máy bạn cài Revit ở path/năm khác. -->
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
+    <RevitVersionForReference>2024</RevitVersionForReference>
+    <VersionFolder>Legacy</VersionFolder>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <RevitVersionForReference>2026</RevitVersionForReference>
+    <VersionFolder>Modern</VersionFolder>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="ClosedXML" Version="0.102.2" />
+    <PackageReference Include="PdfSharp" Version="6.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\*.png" />
+  </ItemGroup>
+
+  <!-- Rebar Shape families (toàn bộ bộ JP_T##) — copy vào RebarShapes\ subfolder trong output
+       để RebarShapeLibrary.ResolveRfaPath() tìm đúng đường dẫn lúc runtime trong Revit. -->
+  <ItemGroup>
+    <None Include="Tools\RebarTool\RebarShapes\*.rfa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>RebarShapes\%(Filename)%(Extension)</TargetPath>
+    </None>
+  </ItemGroup>
+
+  <!-- ==== Post-build: đóng gói .bundle và copy vào ApplicationPlugins (auto-load, không cần copy tay) ====
+       CẦN VERIFY: PackageContents.xml schema đã viết theo cấu trúc bundle phổ biến của Autodesk
+       nhưng chưa test thật; nếu Revit không nhận bundle, kiểm tra lại theo tài liệu Autodesk
+       "Add-In Manager / ApplicationPlugins bundle format" mới nhất. -->
+  <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+    <PropertyGroup>
+      <BundleRoot>$(ProgramData)\Autodesk\ApplicationPlugins\KhimTools.bundle</BundleRoot>
+      <VersionFolder Condition="'$(TargetFramework)'=='net48'">Legacy</VersionFolder>
+      <VersionFolder Condition="'$(TargetFramework)'=='net8.0-windows'">Modern</VersionFolder>
+      <BundleVersionDir>$(BundleRoot)\Contents\$(VersionFolder)</BundleVersionDir>
+    </PropertyGroup>
+
+    <!-- Copy FLAT (không dùng %(RecursiveDir)) — Revit tìm KhimTools.dll cùng cấp với .addin -->
+    <ItemGroup>
+      <BundleDlls Include="$(OutDir)*.dll" />
+      <!-- .rfa được copy vào $(OutDir)RebarShapes\ nhờ TargetPath trong ItemGroup bên trên -->
+      <BundleRfas Include="$(OutDir)RebarShapes\*.rfa" />
+      <AddinManifest Include="Deploy\$(VersionFolder)\KhimTools.addin" />
+      <PackageManifest Include="Deploy\PackageContents.xml" />
+    </ItemGroup>
+
+    <MakeDir Directories="$(BundleVersionDir)" />
+
+    <!-- Copy tất cả DLL phẳng vào thư mục version (nếu Revit đang mở, cảnh báo thay vì làm treo build) -->
+    <Copy SourceFiles="@(BundleDlls)"
+          DestinationFolder="$(BundleVersionDir)"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+
+    <!-- Copy .rfa shape families vào subfolder RebarShapes (khớp với RebarShapeLibrary.FolderName) -->
+    <MakeDir Directories="$(BundleVersionDir)\RebarShapes" />
+    <Copy SourceFiles="@(BundleRfas)"
+          DestinationFolder="$(BundleVersionDir)\RebarShapes"
+          SkipUnchangedFiles="true"
+          ContinueOnError="WarnAndContinue" />
+
+    <!-- Copy .addin manifest và PackageContents.xml -->
+    <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" ContinueOnError="WarnAndContinue" />
+  </Target>
+
+</Project>

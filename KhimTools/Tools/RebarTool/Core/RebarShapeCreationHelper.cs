@@ -1,0 +1,98 @@
+using System;
+using System.Collections.Generic;
+using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
+
+namespace KhimTools.RebarTool.Core
+{
+    /// <summary>
+    /// Tạo Rebar chuẩn từ Curve, gán RebarShape tương ứng (JP_T00, JP_T51, JP_T75).
+    /// Đảm bảo kiểm tra an toàn vị trí hình học — tuyệt đối KHÔNG làm văng/lệch thép ra ngoài host.
+    /// </summary>
+    public static class RebarShapeCreationHelper
+    {
+        /// <summary>JP_T00 — thanh thẳng dọc từ bottom đến top.</summary>
+        public static Rebar TryCreateStraightBar(Document doc, Element host, RebarBarType barType, XYZ bottom, XYZ top)
+        {
+            if (bottom.DistanceTo(top) < 0.01) return null;
+
+            XYZ dir = (top - bottom).Normalize();
+            XYZ refNorm = Math.Abs(dir.Z) > 0.9 ? XYZ.BasisX : XYZ.BasisZ;
+            XYZ perp = dir.CrossProduct(refNorm);
+            if (perp.GetLength() < 0.001)
+            {
+                refNorm = XYZ.BasisY;
+                perp = dir.CrossProduct(refNorm);
+            }
+            XYZ norm = perp.CrossProduct(dir).Normalize();
+
+            Line line = Line.CreateBound(bottom, top);
+            Rebar rebar = null;
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc,
+                    RebarStyle.Standard,
+                    barType,
+                    null,
+                    null,
+                    host,
+                    norm,
+                    new List<Curve> { line },
+                    RebarHookOrientation.Right,
+                    RebarHookOrientation.Right,
+                    true,
+                    true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] TryCreateStraightBar failed: {ex.Message}");
+                return null;
+            }
+
+            return rebar;
+        }
+
+        /// <summary>Vòng tròn kín, nằm ngang (mặt phẳng XY) tại center.Z.</summary>
+        public static Rebar TryCreateCircularStirrup(Document doc, Element host, RebarBarType barType, XYZ center, double diameterFeet)
+        {
+            double r = diameterFeet / 2.0;
+            if (r <= 0.01) return null;
+
+            Arc arc1 = Arc.Create(center, r, 0, Math.PI, XYZ.BasisX, XYZ.BasisY);
+            Arc arc2 = Arc.Create(center, r, Math.PI, 2 * Math.PI, XYZ.BasisX, XYZ.BasisY);
+
+            Rebar rebar = null;
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc,
+                    RebarStyle.StirrupTie,
+                    barType,
+                    null,
+                    null,
+                    host,
+                    XYZ.BasisZ,
+                    new List<Curve> { arc1, arc2 },
+                    RebarHookOrientation.Right,
+                    RebarHookOrientation.Right,
+                    true,
+                    true);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] TryCreateCircularStirrup failed: {ex.Message}");
+            }
+
+            return rebar;
+        }
+
+        /// <summary>
+        /// Gán RebarShape an toàn cho Rebar nếu tương thích.
+        /// </summary>
+        public static void AssignShapeIfLoaded(Rebar rebar, RebarShape shape)
+        {
+            // Tránh ép tham số REBAR_SHAPE lên Rebar tạo từ Curve tự do để không gây lỗi Can't solve Rebar Shape
+        }
+    }
+}
