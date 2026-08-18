@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.SheetExport.Models;
@@ -105,9 +106,12 @@ namespace KhimTools.SheetExport.Services
                 item.ExportStatusText = "Đang xuất...";
 
                 string outPath = "";
+                string pdfFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "PDF") : options.OutputDirectory;
+                string dwgFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "DWG") : options.OutputDirectory;
+
                 if (options.ExportPdf)
                 {
-                    outPath = PdfExportEngine.ExportSingleSheet(doc, item.Sheet, options.OutputDirectory, item.ComputedFileName);
+                    outPath = PdfExportEngine.ExportSingleSheet(doc, item.Sheet, pdfFolder, item.ComputedFileName, options);
 
                     if (options.ApplyWatermark && !string.IsNullOrWhiteSpace(options.WatermarkText))
                     {
@@ -117,7 +121,7 @@ namespace KhimTools.SheetExport.Services
 
                 if (options.ExportDwg)
                 {
-                    string dwgPath = DwgExportEngine.ExportSingleSheet(doc, item.Sheet, options.OutputDirectory, item.ComputedFileName, options.DwgExportSetupName);
+                    string dwgPath = DwgExportEngine.ExportSingleSheet(doc, item.Sheet, dwgFolder, item.ComputedFileName, options.DwgExportSetupName);
                     if (string.IsNullOrEmpty(outPath)) outPath = dwgPath;
                 }
 

@@ -14,14 +14,14 @@ namespace KhimTools.SheetExport.Services
     /// </summary>
     public static class PdfExportEngine
     {
-        public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt, ColorDepthType colorDepth = ColorDepthType.Color)
+        public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt, ExportOptions options = null)
         {
             if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
             string targetPath = Path.Combine(outputFolder, fileNameWithoutExt + ".pdf");
 
-            var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, colorDepth);
+            var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, options);
             var viewIds = new List<ElementId> { sheet.Id };
 
             var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
@@ -71,14 +71,14 @@ namespace KhimTools.SheetExport.Services
             return targetPath;
         }
 
-        public static string ExportCombinedSheets(Document doc, List<ViewSheet> sheets, string outputFolder, string combinedFileNameWithoutExt, ColorDepthType colorDepth = ColorDepthType.Color)
+        public static string ExportCombinedSheets(Document doc, List<ViewSheet> sheets, string outputFolder, string combinedFileNameWithoutExt, ExportOptions options = null)
         {
-            if (doc == null || sheets == null || !sheets.Any()) throw new ArgumentNullException(nameof(doc));
+            if (doc == null || sheets == null || !sheets.Any()) throw new ArgumentNullException(nameof(sheets));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
             string targetPath = Path.Combine(outputFolder, combinedFileNameWithoutExt + ".pdf");
 
-            var pdfOpt = CreateStandardPdfOptions(combinedFileNameWithoutExt, true, colorDepth);
+            var pdfOpt = CreateStandardPdfOptions(combinedFileNameWithoutExt, true, options);
             var viewIds = sheets.Select(s => s.Id).ToList();
 
             var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
@@ -126,25 +126,64 @@ namespace KhimTools.SheetExport.Services
             return targetPath;
         }
 
-        private static PDFExportOptions CreateStandardPdfOptions(string fileName, bool combine, ColorDepthType colorDepth)
+        private static PDFExportOptions CreateStandardPdfOptions(string fileName, bool combine, ExportOptions options)
         {
-            return new PDFExportOptions
+            var opt = new PDFExportOptions
             {
                 FileName = fileName,
                 Combine = combine,
-                ColorDepth = colorDepth,
-                ExportQuality = PDFExportQualityType.DPI300,
-                RasterQuality = RasterQualityType.High,
                 PaperFormat = ExportPaperFormat.Default,
-                HideUnreferencedViewTags = true,
-                HideScopeBoxes = true,
-                HideCropBoundaries = true,
-                HideReferencePlane = true,
-                MaskCoincidentLines = true,
-                ZoomType = ZoomType.Zoom,
-                ZoomPercentage = 100,
+                ExportQuality = PDFExportQualityType.DPI300,
                 StopOnError = false
             };
+
+            if (options != null)
+            {
+                opt.ColorDepth = options.ColorMode switch
+                {
+                    "Grayscale" => ColorDepthType.GrayScale,
+                    "Black & White" => ColorDepthType.BlackLine,
+                    _ => ColorDepthType.Color
+                };
+
+                opt.RasterQuality = options.RasterQuality switch
+                {
+                    "Presentation" => RasterQualityType.Presentation,
+                    "Medium" => RasterQualityType.Medium,
+                    "Low" => RasterQualityType.Low,
+                    _ => RasterQualityType.High
+                };
+
+                opt.HideUnreferencedViewTags = options.HideUnreferencedViewTags;
+                opt.HideScopeBoxes = options.HideScopeBoxes;
+                opt.HideCropBoundaries = options.HideCropBoundaries;
+                opt.HideReferencePlane = options.HideRefPlanes;
+                opt.MaskCoincidentLines = options.MaskCoincidentLines;
+                opt.ReplaceHalftoneWithThinLines = options.ReplaceHalftoneWithThinLines;
+                opt.ViewLinksInBlue = options.ViewLinksInBlue;
+
+                opt.ZoomType = options.ZoomFitToPage ? ZoomType.FitToPage : ZoomType.Zoom;
+                opt.ZoomPercentage = options.ZoomPercentage > 0 ? options.ZoomPercentage : 100;
+                opt.PaperPlacement = options.PaperPlacementCenter ? PaperPlacementType.Center : PaperPlacementType.LowerLeft;
+
+                if (options.MarginOffsetX != 0) opt.OriginOffsetX = options.MarginOffsetX / 304.8;
+                if (options.MarginOffsetY != 0) opt.OriginOffsetY = options.MarginOffsetY / 304.8;
+            }
+            else
+            {
+                opt.ColorDepth = ColorDepthType.Color;
+                opt.RasterQuality = RasterQualityType.High;
+                opt.HideUnreferencedViewTags = true;
+                opt.HideScopeBoxes = true;
+                opt.HideCropBoundaries = true;
+                opt.HideReferencePlane = true;
+                opt.MaskCoincidentLines = true;
+                opt.ZoomType = ZoomType.Zoom;
+                opt.ZoomPercentage = 100;
+                opt.PaperPlacement = PaperPlacementType.LowerLeft;
+            }
+
+            return opt;
         }
     }
 }

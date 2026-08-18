@@ -13,155 +13,354 @@ using Color = System.Drawing.Color;
 
 namespace KhimTools.SheetExport.Forms
 {
+    /// <summary>
+    /// Giao diện Quản Lý Xuất & In Bản Vẽ Chuyên Nghiệp (Sheet Batch Exporter / Print Manager)
+    /// chuẩn ProSheets / Xporter với thanh Sidebar (Select, Settings, Filter),
+    /// tùy biến quy tắc đặt tên Naming Convention, cài đặt in Vector/Raster DPI, gộp/tách file PDF/DWG.
+    /// </summary>
     public class SheetExportForm : System.Windows.Forms.Form
     {
         private readonly Document _doc;
         private List<SheetExportItem> _allSheetItems = new List<SheetExportItem>();
         private List<SheetExportItem> _filteredSheetItems = new List<SheetExportItem>();
-        private List<NamingTemplate> _namingTemplates = new List<NamingTemplate>();
-        private NamingTemplate _selectedTemplate;
+        private readonly ExportOptions _options = new ExportOptions();
 
-        // UI Controls - Left Panel (Sheet List & Filter)
-        private TextBox _txtSearch;
-        private DataGridView _gridSheets;
-        private Label _lblSelectionCount;
-        private Button _btnSelectAll;
-        private Button _btnSelectNone;
-        private Button _btnInvertSelection;
-        private Button _btnSelectChangedOnly;
+        // ── Navigation Sidebar ───────────────────────────────────────────────
+        private System.Windows.Forms.Panel _sidebar;
+        private Button _btnNavSelect;
+        private Button _btnNavSettings;
+        private Button _btnNavFilter;
+        private System.Windows.Forms.Panel _contentContainer;
 
-        // UI Controls - Center/Right Settings (Tabs)
-        private TabControl _tabSettings;
-        private ComboBox _cmbNamingTemplate;
-        private TextBox _txtProjectCode;
-        private Button _btnEditNamingTemplate;
+        // ── Main Views ───────────────────────────────────────────────────────
+        private System.Windows.Forms.Panel _viewSelect;
+        private System.Windows.Forms.Panel _viewSettings;
+        private System.Windows.Forms.Panel _viewFilter;
 
-        // Format & PDF / DWG Options
+        // ── View 1: Select UI Elements ───────────────────────────────────────
+        // Left sub-panel
+        private ComboBox _cmbSheetSet;
+        private Button _btnUpdateSet;
+        private Button _btnSaveSet;
+        private TextBox _txtSheetSetName;
+        private RadioButton _rbAllSheets;
+        private RadioButton _rbAllViews;
+        private ComboBox _cmbDisciplineFilter;
+        private TextBox _txtSearchSheet;
+        private Button _btnRefreshList;
+        private CheckedListBox _chkListSheets;
+
+        // Right sub-panel (File Settings & DataGrid)
+        private RadioButton _rbSeparateFiles;
+        private RadioButton _rbCombineFiles;
+        private CheckBox _chkUseNamingConvention;
+        private TextBox _txtNaming1;
+        private TextBox _txtNaming2;
+        private TextBox _txtNaming3;
+        private TextBox _txtFileCombineName;
         private CheckBox _chkExportPdf;
         private CheckBox _chkExportDwg;
-        private ComboBox _cmbDwgSetup;
+        private DataGridView _gridSheets;
+
+        // ── View 2: Settings UI Elements ─────────────────────────────────────
+        private TabControl _tabSettings;
+        // PDF Settings
+        private RadioButton _rbPlacementCenter;
+        private RadioButton _rbPlacementOffset;
+        private RadioButton _rbMarginNoMargin;
+        private RadioButton _rbMarginPrinterLimit;
+        private RadioButton _rbMarginUserDefined;
+        private NumericUpDown _numMarginX;
+        private NumericUpDown _numMarginY;
+        private RadioButton _rbZoomFitToPage;
+        private RadioButton _rbZoomPercent;
+        private NumericUpDown _numZoomPercent;
+        private ComboBox _cmbPrinter;
+        private RadioButton _rbVectorProcessing;
+        private RadioButton _rbRasterProcessing;
+        private ComboBox _cmbRasterQuality;
         private ComboBox _cmbColorDepth;
-        private ComboBox _cmbQualityDpi;
-        private CheckBox _chkCombinePdf;
-        private TextBox _txtCombinedFileName;
-        private CheckBox _chkAddBookmarks;
-        private CheckBox _chkWatermark;
-        private ComboBox _cmbWatermarkPreset;
-        private CheckBox _chkAutoCoverPage;
+        private CheckBox _chkViewLinksInBlue;
+        private CheckBox _chkHideRefPlanes;
+        private CheckBox _chkHideUnreferencedTags;
+        private CheckBox _chkHideScopeBoxes;
+        private CheckBox _chkHideCropBoundaries;
+        private CheckBox _chkReplaceHalftone;
+        private CheckBox _chkMaskCoincidentLines;
 
-        // Issue & Reports
-        private TextBox _txtIssueSetName;
-        private CheckBox _chkGenerateTransmittal;
-        private CheckBox _chkGenerateQaReport;
-        private NumericUpDown _numMaxRetries;
+        // DWG Settings
+        private ComboBox _cmbDwgSetup;
+        private ComboBox _cmbAutoCadVersion;
+        private CheckBox _chkDwgMergedViews;
 
-        // Destination Folder
-        private TextBox _txtOutputDir;
-        private Button _btnBrowseOutputDir;
-        private Button _btnOpenOutputDir;
+        // ── View 3: Filter UI Elements ───────────────────────────────────────
+        private CheckBox _chkFilterStructure;
+        private CheckBox _chkFilterArchitecture;
+        private CheckBox _chkFilterMep;
+        private CheckBox _chkFilterModifiedOnly;
 
-        // Right Preview & Log Panels
-        private PictureBox _picThumbnail;
-        private Label _lblThumbnailTitle;
-        private RichTextBox _rtbLogOutput;
-        private ProgressBar _progressBar;
-
-        // Action Buttons
-        private Button _btnPreflightCheck;
-        private Button _btnExportStart;
-        private Button _btnClose;
+        // ── Bottom Bar UI Elements (Print Bar) ───────────────────────────────
+        private RadioButton _rbSaveSameFolder;
+        private RadioButton _rbSplitFoldersByFormat;
+        private NumericUpDown _numTimeoutSeconds;
+        private Button _btnOpenFolderSelection;
+        private TextBox _txtOutputDirectory;
+        private Button _btnBrowseFolder;
+        private Label _lblTotalSummary;
+        private Button _btnPrint;
 
         public SheetExportForm(Document doc)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
 
             KhimUiStyle.ApplyFormTheme(this);
-            InitializeFormLayout();
+            InitializeComponentsCustom();
             LoadDataFromRevit();
         }
 
-        private void InitializeFormLayout()
+        private void InitializeComponentsCustom()
         {
-            Text = "📄 KHIM TOOLS — Xuất & In Bản Vẽ Hàng Loạt (Sheet Batch Exporter)";
-            Width = 1360;
-            Height = 840;
+            Text = "📄 KHIM TOOLS — Sheet Batch Export & Print Manager";
+            Width = 1400;
+            Height = 880;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
-            MinimumSize = new System.Drawing.Size(1180, 700);
+            MinimumSize = new System.Drawing.Size(1200, 720);
+            BackColor = Color.FromArgb(248, 249, 252);
 
-            // 0. TOP HEADER BANNER
+            // 0. Top Banner Header
             var header = KhimUiStyle.CreateHeaderBanner(
                 "KHIM TOOLS — Sheet Batch Export & Print Manager",
-                "Bộ công cụ xuất in PDF/DWG hàng loạt, tự động nhận diện khổ giấy và quản lý phát hành bản vẽ",
+                "Bộ công cụ xuất in PDF & AutoCAD DWG hàng loạt, tự động nhận diện khổ giấy và quản lý bộ bản vẽ",
                 "v2.5 Pro");
             Controls.Add(header);
 
-            // Main Splitter (Left: Sheet List, Right: Options + Preview + Log)
-            var mainSplit = new SplitContainer
+            // 1. Sidebar Navigation (Left)
+            BuildSidebar();
+
+            // 2. Content Container (Center)
+            _contentContainer = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White
+            };
+
+            // Build Views
+            BuildViewSelect();
+            BuildViewSettings();
+            BuildViewFilter();
+
+            _contentContainer.Controls.Add(_viewSelect);
+            _contentContainer.Controls.Add(_viewSettings);
+            _contentContainer.Controls.Add(_viewFilter);
+
+            // 3. Bottom Print Bar (Footer)
+            var bottomBar = BuildBottomPrintBar();
+
+            Controls.Add(_contentContainer);
+            Controls.Add(_sidebar);
+            Controls.Add(bottomBar);
+
+            // Switch to default Select view
+            SwitchView(0);
+        }
+
+        #region Sidebar Navigation
+        private void BuildSidebar()
+        {
+            _sidebar = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 72,
+                BackColor = Color.FromArgb(242, 244, 248),
+                Padding = new Padding(4, 10, 4, 10)
+            };
+
+            _btnNavSelect = CreateSidebarButton("☑\nSelect", 0);
+            _btnNavSettings = CreateSidebarButton("⚙\nSettings", 1);
+            _btnNavFilter = CreateSidebarButton("🍸\nFilter", 2);
+
+            _btnNavSelect.Top = 15;
+            _btnNavSettings.Top = 85;
+            _btnNavFilter.Top = 155;
+
+            _sidebar.Controls.Add(_btnNavSelect);
+            _sidebar.Controls.Add(_btnNavSettings);
+            _sidebar.Controls.Add(_btnNavFilter);
+        }
+
+        private Button CreateSidebarButton(string text, int viewIndex)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                Width = 62,
+                Height = 62,
+                Left = 5,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(60, 64, 75),
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            btn.Click += (s, e) => SwitchView(viewIndex);
+            return btn;
+        }
+
+        private void SwitchView(int viewIndex)
+        {
+            _viewSelect.Visible = (viewIndex == 0);
+            _viewSettings.Visible = (viewIndex == 1);
+            _viewFilter.Visible = (viewIndex == 2);
+
+            _btnNavSelect.BackColor = (viewIndex == 0) ? Color.White : Color.Transparent;
+            _btnNavSettings.BackColor = (viewIndex == 1) ? Color.White : Color.Transparent;
+            _btnNavFilter.BackColor = (viewIndex == 2) ? Color.White : Color.Transparent;
+
+            _btnNavSelect.ForeColor = (viewIndex == 0) ? Color.FromArgb(0, 122, 255) : Color.FromArgb(60, 64, 75);
+            _btnNavSettings.ForeColor = (viewIndex == 1) ? Color.FromArgb(0, 122, 255) : Color.FromArgb(60, 64, 75);
+            _btnNavFilter.ForeColor = (viewIndex == 2) ? Color.FromArgb(0, 122, 255) : Color.FromArgb(60, 64, 75);
+        }
+        #endregion
+
+        #region View 1: Select Tab
+        private void BuildViewSelect()
+        {
+            _viewSelect = new System.Windows.Forms.Panel { Dock = DockStyle.Fill };
+
+            var split = new SplitContainer
             {
                 Dock = DockStyle.Fill,
                 Orientation = System.Windows.Forms.Orientation.Vertical,
-                SplitterDistance = 640,
-                Panel1MinSize = 480,
-                Panel2MinSize = 520,
+                SplitterDistance = 380,
+                Panel1MinSize = 320,
+                Panel2MinSize = 500,
+                Padding = new Padding(6)
+            };
+
+            // ── LEFT PANE: Sheet Sets & Sheet Checklist ──────────────────────
+            var leftPane = split.Panel1;
+
+            // GroupBox: Select by (ViewSheetSets)
+            var grpSelectBy = new GroupBox
+            {
+                Text = "Select by",
+                Dock = DockStyle.Top,
+                Height = 100,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Padding = new Padding(8)
             };
 
-            // ── LEFT PANEL: Sheet List & Selection Controls ──────────────────
-            var leftPanel = new System.Windows.Forms.Panel { Dock = DockStyle.Fill };
-            var lblSheetListTitle = new Label
+            _cmbSheetSet = new ComboBox { Left = 10, Top = 22, Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _btnUpdateSet = new Button { Text = "Update Set", Left = 248, Top = 20, Width = 95, Height = 27, FlatStyle = FlatStyle.System };
+
+            _btnSaveSet = new Button { Text = "Save ViewSheetSet", Left = 10, Top = 58, Width = 135, Height = 27, FlatStyle = FlatStyle.System, BackColor = Color.Black, ForeColor = Color.White };
+            _txtSheetSetName = new TextBox { Text = "ViewSheetSet Name", Left = 152, Top = 60, Width = 190, Font = new Font("Segoe UI", 9F), ForeColor = Color.Gray };
+
+            grpSelectBy.Controls.Add(_cmbSheetSet);
+            grpSelectBy.Controls.Add(_btnUpdateSet);
+            grpSelectBy.Controls.Add(_btnSaveSet);
+            grpSelectBy.Controls.Add(_txtSheetSetName);
+
+            // Filter Bar (All Sheets / All Views / Search)
+            var pnlFilterBar = new System.Windows.Forms.Panel { Dock = DockStyle.Top, Height = 70, Padding = new Padding(4) };
+
+            _rbAllSheets = new RadioButton { Text = "All Sheets", Left = 10, Top = 8, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _rbAllViews = new RadioButton { Text = "All Views", Left = 110, Top = 8, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+
+            _cmbDisciplineFilter = new ComboBox { Left = 10, Top = 35, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbDisciplineFilter.Items.AddRange(new object[] { "(All)", "Structure (KC)", "Architecture (KT)", "MEP" });
+            _cmbDisciplineFilter.SelectedIndex = 0;
+            _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => ApplySearchAndFilter();
+
+            _txtSearchSheet = new TextBox { Left = 138, Top = 35, Width = 165, Font = new Font("Segoe UI", 9F) };
+            _txtSearchSheet.TextChanged += (s, e) => ApplySearchAndFilter();
+
+            _btnRefreshList = new Button { Text = "🔄", Left = 308, Top = 34, Width = 35, Height = 26, FlatStyle = FlatStyle.System };
+            _btnRefreshList.Click += (s, e) => LoadDataFromRevit();
+
+            pnlFilterBar.Controls.Add(_rbAllSheets);
+            pnlFilterBar.Controls.Add(_rbAllViews);
+            pnlFilterBar.Controls.Add(_cmbDisciplineFilter);
+            pnlFilterBar.Controls.Add(_txtSearchSheet);
+            pnlFilterBar.Controls.Add(_btnRefreshList);
+
+            // Sheet Checklist
+            _chkListSheets = new CheckedListBox
             {
-                Text = "📋 Danh Sách Sheet Bản Vẽ Trong Dự Án",
+                Dock = DockStyle.Fill,
+                CheckOnClick = true,
+                Font = new Font("Segoe UI", 9F),
+                IntegralHeight = false
+            };
+            _chkListSheets.ItemCheck += ChkListSheets_ItemCheck;
+
+            // Quick select buttons below checklist
+            var pnlQuickButtons = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 32, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(2) };
+            var btnSelectAll = new Button { Text = "Select All", Width = 80, Height = 26, FlatStyle = FlatStyle.System };
+            var btnClearAll = new Button { Text = "Clear All", Width = 80, Height = 26, FlatStyle = FlatStyle.System };
+            var btnInvert = new Button { Text = "Invert", Width = 80, Height = 26, FlatStyle = FlatStyle.System };
+            btnSelectAll.Click += (s, e) => SetAllChecklistItems(true);
+            btnClearAll.Click += (s, e) => SetAllChecklistItems(false);
+            btnInvert.Click += (s, e) => InvertChecklistItems();
+            pnlQuickButtons.Controls.Add(btnSelectAll);
+            pnlQuickButtons.Controls.Add(btnClearAll);
+            pnlQuickButtons.Controls.Add(btnInvert);
+
+            leftPane.Controls.Add(_chkListSheets);
+            leftPane.Controls.Add(pnlQuickButtons);
+            leftPane.Controls.Add(pnlFilterBar);
+            leftPane.Controls.Add(grpSelectBy);
+
+            // ── RIGHT PANE: File Settings & DataGridView ─────────────────────
+            var rightPane = split.Panel2;
+
+            // GroupBox: File (Separate/Combine & Naming Convention & Formats)
+            var grpFile = new GroupBox
+            {
+                Text = "File",
                 Dock = DockStyle.Top,
-                Height = 28,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = Color.DarkSlateBlue
+                Height = 135,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Padding = new Padding(8)
             };
 
-            // Search bar
-            var pnlSearchBar = new System.Windows.Forms.Panel { Dock = DockStyle.Top, Height = 34, Padding = new Padding(2) };
-            var lblSearch = new Label { Text = "🔍 Tìm kiếm:", Left = 2, Top = 8, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _txtSearch = new TextBox { Left = 85, Top = 5, Width = 340, Font = new Font("Segoe UI", 9F) };
-            _txtSearch.TextChanged += (s, e) => ApplySearchFilter();
+            _rbSeparateFiles = new RadioButton { Text = "Create separate files", Left = 15, Top = 20, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbCombineFiles = new RadioButton { Text = "Combine multiple views/sheets into a single file", Left = 220, Top = 20, AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F) };
 
-            var btnClearSearch = new Button { Text = "✕", Left = 430, Top = 4, Width = 30, Height = 25, FlatStyle = FlatStyle.System };
-            btnClearSearch.Click += (s, e) => { _txtSearch.Clear(); };
+            _chkUseNamingConvention = new CheckBox { Text = "Use naming convention:", Left = 15, Top = 48, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _txtNaming1 = new TextBox { Text = DateTime.Now.ToString("yyMMdd"), Left = 190, Top = 46, Width = 80, Font = new Font("Segoe UI", 9F) };
+            var lblSep1 = new Label { Text = "—", Left = 275, Top = 48, Width = 20, AutoSize = true };
+            _txtNaming2 = new TextBox { Text = "SPRINGVALE", Left = 295, Top = 46, Width = 110, Font = new Font("Segoe UI", 9F) };
+            var lblSep2 = new Label { Text = "—", Left = 410, Top = 48, Width = 20, AutoSize = true };
+            _txtNaming3 = new TextBox { Text = "FOUNDATION SECTIONS", Left = 430, Top = 46, Width = 220, Font = new Font("Segoe UI", 9F) };
 
-            pnlSearchBar.Controls.Add(lblSearch);
-            pnlSearchBar.Controls.Add(_txtSearch);
-            pnlSearchBar.Controls.Add(btnClearSearch);
+            _txtNaming1.TextChanged += (s, e) => UpdateCombineFileName();
+            _txtNaming2.TextChanged += (s, e) => UpdateCombineFileName();
+            _txtNaming3.TextChanged += (s, e) => UpdateCombineFileName();
 
-            // Quick Selection bar
-            var pnlSelectionBar = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                Height = 36,
-                FlowDirection = FlowDirection.LeftToRight,
-                Padding = new Padding(2)
-            };
+            var lblCombine = new Label { Text = "File Combine Name :", Left = 15, Top = 78, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _txtFileCombineName = new TextBox { Text = "Combined_Sheets.pdf", Left = 190, Top = 75, Width = 460, Font = new Font("Segoe UI", 9F) };
 
-            _btnSelectAll = new Button { Text = "Chọn Tất Cả", Width = 90, Height = 28, FlatStyle = FlatStyle.System };
-            _btnSelectNone = new Button { Text = "Bỏ Chọn", Width = 75, Height = 28, FlatStyle = FlatStyle.System };
-            _btnInvertSelection = new Button { Text = "Đảo Lựa Chọn", Width = 95, Height = 28, FlatStyle = FlatStyle.System };
-            _btnSelectChangedOnly = new Button
-            {
-                Text = "⚡ Chỉ Sheet Đã Sửa / Mới",
-                Width = 180,
-                Height = 28,
-                BackColor = Color.FromArgb(235, 245, 255),
-                FlatStyle = FlatStyle.Flat
-            };
+            _chkExportPdf = new CheckBox { Text = "PDF", Left = 15, Top = 106, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkBlue };
+            _chkExportDwg = new CheckBox { Text = "DWG", Left = 75, Top = 106, AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
 
-            _btnSelectAll.Click += (s, e) => SetSelectionAll(true);
-            _btnSelectNone.Click += (s, e) => SetSelectionAll(false);
-            _btnInvertSelection.Click += (s, e) => InvertSelection();
-            _btnSelectChangedOnly.Click += (s, e) => SelectChangedSheetsOnly();
+            grpFile.Controls.Add(_rbSeparateFiles);
+            grpFile.Controls.Add(_rbCombineFiles);
+            grpFile.Controls.Add(_chkUseNamingConvention);
+            grpFile.Controls.Add(_txtNaming1);
+            grpFile.Controls.Add(lblSep1);
+            grpFile.Controls.Add(_txtNaming2);
+            grpFile.Controls.Add(lblSep2);
+            grpFile.Controls.Add(_txtNaming3);
+            grpFile.Controls.Add(lblCombine);
+            grpFile.Controls.Add(_txtFileCombineName);
+            grpFile.Controls.Add(_chkExportPdf);
+            grpFile.Controls.Add(_chkExportDwg);
 
-            pnlSelectionBar.Controls.Add(_btnSelectAll);
-            pnlSelectionBar.Controls.Add(_btnSelectNone);
-            pnlSelectionBar.Controls.Add(_btnInvertSelection);
-            pnlSelectionBar.Controls.Add(_btnSelectChangedOnly);
-
+            // DataGridView: Main Sheet Table
             _gridSheets = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -173,382 +372,311 @@ namespace KhimTools.SheetExport.Forms
                 RowHeadersVisible = false,
                 BackgroundColor = Color.White
             };
-
             BuildGridColumns();
 
-            _gridSheets.SelectionChanged += GridSheets_SelectionChanged;
-            _gridSheets.CurrentCellDirtyStateChanged += (s, e) =>
-            {
-                if (_gridSheets.IsCurrentCellDirty)
-                {
-                    _gridSheets.CommitEdit(DataGridViewDataErrorContexts.Commit);
-                }
-            };
-            _gridSheets.CellValueChanged += (s, e) =>
-            {
-                UpdateSelectionCount();
-            };
+            rightPane.Controls.Add(_gridSheets);
+            rightPane.Controls.Add(grpFile);
 
-            _lblSelectionCount = new Label
-            {
-                Text = "Đã chọn: 0 / 0 sheets",
-                Dock = DockStyle.Bottom,
-                Height = 24,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                ForeColor = Color.DarkGreen
-            };
-
-            leftPanel.Controls.Add(_gridSheets);
-            leftPanel.Controls.Add(pnlSelectionBar);
-            leftPanel.Controls.Add(pnlSearchBar);
-            leftPanel.Controls.Add(_lblSelectionCount);
-            leftPanel.Controls.Add(lblSheetListTitle);
-            mainSplit.Panel1.Controls.Add(leftPanel);
-
-            // ── RIGHT PANEL: Tab Control + Preview + Log Output ─────────────
-            var rightPanel = new System.Windows.Forms.Panel { Dock = DockStyle.Fill };
-
-            _tabSettings = new TabControl { Dock = DockStyle.Top, Height = 350, Font = new Font("Segoe UI", 9F) };
-
-            // TAB 1: Naming & File Formats
-            var tabFormats = new TabPage { Text = "⚙️ Định Dạng & Khổ Giấy", Padding = new Padding(12) };
-            BuildTabFormats(tabFormats);
-            _tabSettings.TabPages.Add(tabFormats);
-
-            // TAB 2: Issue & Transmittal
-            var tabIssue = new TabPage { Text = "📋 Quản Lý Phát Hành (Issue)", Padding = new Padding(12) };
-            BuildTabIssue(tabIssue);
-            _tabSettings.TabPages.Add(tabIssue);
-
-            // TAB 3: Advanced PDF & Watermark
-            var tabAdvancedPdf = new TabPage { Text = "🎨 Nâng Cao & Đóng Dấu", Padding = new Padding(12) };
-            BuildTabAdvancedPdf(tabAdvancedPdf);
-            _tabSettings.TabPages.Add(tabAdvancedPdf);
-
-            // Preview Thumbnail & Log Splitter
-            var previewSplit = new SplitContainer
-            {
-                Dock = DockStyle.Fill,
-                Orientation = System.Windows.Forms.Orientation.Horizontal,
-                SplitterDistance = 160
-            };
-
-            var pnlPreviewBox = new GroupBox { Text = "🖼️ Xem Trước Sheet (Thumbnail)", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _lblThumbnailTitle = new Label { Text = "Chưa chọn sheet", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Italic) };
-            _picThumbnail = new PictureBox { Dock = DockStyle.Fill, SizeMode = PictureBoxSizeMode.Zoom, BackColor = Color.FromArgb(245, 246, 250) };
-            pnlPreviewBox.Controls.Add(_picThumbnail);
-            pnlPreviewBox.Controls.Add(_lblThumbnailTitle);
-            previewSplit.Panel1.Controls.Add(pnlPreviewBox);
-
-            var pnlLogBox = new GroupBox { Text = "📜 Tiến Trình Xuất File (Real-time Log)", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _rtbLogOutput = new RichTextBox
-            {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                BackColor = Color.FromArgb(30, 30, 36),
-                ForeColor = Color.FromArgb(220, 220, 220),
-                Font = new Font("Consolas", 8.5F)
-            };
-
-            _progressBar = new ProgressBar { Dock = DockStyle.Bottom, Height = 12, Visible = false };
-
-            pnlLogBox.Controls.Add(_rtbLogOutput);
-            pnlLogBox.Controls.Add(_progressBar);
-            previewSplit.Panel2.Controls.Add(pnlLogBox);
-
-            rightPanel.Controls.Add(previewSplit);
-            rightPanel.Controls.Add(_tabSettings);
-            mainSplit.Panel2.Controls.Add(rightPanel);
-
-            // ── BOTTOM CONTAINER: Destination Folder & Action Bar ────────────
-            var pnlBottomContainer = new System.Windows.Forms.Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 98,
-                BackColor = Color.FromArgb(242, 244, 248),
-                Padding = new Padding(12, 6, 12, 6)
-            };
-
-            // Row 1: Output Directory Picker
-            var pnlOutputDirBar = new System.Windows.Forms.Panel { Dock = DockStyle.Top, Height = 38 };
-            var lblDest = new Label
-            {
-                Text = "📁 Thư Mục Lưu File:",
-                Left = 0,
-                Top = 8,
-                AutoSize = true,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
-                ForeColor = Color.DarkSlateBlue
-            };
-
-            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
-            _txtOutputDir = new TextBox
-            {
-                Left = 150,
-                Top = 5,
-                Width = 720,
-                Font = new Font("Segoe UI", 9.5F),
-                Text = defaultDir
-            };
-
-            _btnBrowseOutputDir = new Button
-            {
-                Text = "📂 Chọn Thư Mục...",
-                Left = 880,
-                Top = 4,
-                Width = 145,
-                Height = 29,
-                FlatStyle = FlatStyle.System,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
-            };
-            _btnBrowseOutputDir.Click += BtnBrowseOutputDir_Click;
-
-            _btnOpenOutputDir = new Button
-            {
-                Text = "📁 Mở Folder",
-                Left = 1035,
-                Top = 4,
-                Width = 105,
-                Height = 29,
-                FlatStyle = FlatStyle.System
-            };
-            _btnOpenOutputDir.Click += (s, e) => OpenOutputDirectory();
-
-            pnlOutputDirBar.Controls.Add(lblDest);
-            pnlOutputDirBar.Controls.Add(_txtOutputDir);
-            pnlOutputDirBar.Controls.Add(_btnBrowseOutputDir);
-            pnlOutputDirBar.Controls.Add(_btnOpenOutputDir);
-
-            pnlOutputDirBar.Resize += (s, e) =>
-            {
-                int rightControlsWidth = _btnBrowseOutputDir.Width + _btnOpenOutputDir.Width + 25;
-                _txtOutputDir.Width = Math.Max(200, pnlOutputDirBar.Width - _txtOutputDir.Left - rightControlsWidth);
-                _btnBrowseOutputDir.Left = _txtOutputDir.Left + _txtOutputDir.Width + 8;
-                _btnOpenOutputDir.Left = _btnBrowseOutputDir.Left + _btnBrowseOutputDir.Width + 8;
-            };
-
-            // Row 2: Action Buttons
-            var bottomBar = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 44 };
-
-            _btnPreflightCheck = new Button { Text = "🔍 Kiểm Tra Trước Khi Xuất", Left = 0, Top = 5, Width = 195, Height = 34, FlatStyle = FlatStyle.System };
-            _btnPreflightCheck.Click += BtnPreflightCheck_Click;
-
-            _btnExportStart = new Button
-            {
-                Text = "⚡ XUẤT BẢN VẼ (EXPORT NOW)",
-                Left = 700,
-                Top = 3,
-                Width = 250,
-                Height = 38,
-                BackColor = Color.FromArgb(0, 122, 255),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                FlatStyle = FlatStyle.Flat
-            };
-            _btnExportStart.FlatAppearance.BorderSize = 0;
-            _btnExportStart.Click += BtnExportStart_Click;
-
-            _btnClose = new Button { Text = "Đóng", Left = 960, Top = 3, Width = 90, Height = 38, FlatStyle = FlatStyle.System };
-            _btnClose.Click += (s, e) => Close();
-
-            bottomBar.Controls.Add(_btnPreflightCheck);
-            bottomBar.Controls.Add(_btnExportStart);
-            bottomBar.Controls.Add(_btnClose);
-
-            bottomBar.Resize += (s, e) =>
-            {
-                _btnClose.Left = bottomBar.Width - _btnClose.Width;
-                _btnExportStart.Left = _btnClose.Left - _btnExportStart.Width - 10;
-            };
-
-            pnlBottomContainer.Controls.Add(pnlOutputDirBar);
-            pnlBottomContainer.Controls.Add(bottomBar);
-
-            Controls.Add(mainSplit);
-            Controls.Add(pnlBottomContainer);
+            _viewSelect.Controls.Add(split);
         }
 
         private void BuildGridColumns()
         {
             _gridSheets.Columns.Clear();
 
-            var chkCol = new DataGridViewCheckBoxColumn
-            {
-                DataPropertyName = "IsSelected",
-                HeaderText = "In",
-                Width = 45
-            };
-            _gridSheets.Columns.Add(chkCol);
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Index", Width = 55, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetNumber", HeaderText = "Number/Id", Width = 110, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetName", HeaderText = "Sheet Name/View Name", Width = 230, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CurrentRevisionNumber", HeaderText = "Revision", Width = 65, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CurrentRevisionDate", HeaderText = "RevisionDate", Width = 95, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PaperSize", HeaderText = "Size", Width = 70, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Format", Width = 75, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Orientation", Width = 90, ReadOnly = true });
+            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ExportStatusText", HeaderText = "Progress", Width = 110, ReadOnly = true });
+        }
+        #endregion
 
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "StatusBadgeText", HeaderText = "Trạng Thái", Width = 90, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetNumber", HeaderText = "Số Sheet", Width = 95, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "SheetName", HeaderText = "Tên Bản Vẽ", Width = 180, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "CurrentRevisionNumber", HeaderText = "Rev", Width = 45, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PaperSize", HeaderText = "Khổ Giấy", Width = 70, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ComputedFileName", HeaderText = "Tên File Xuất", Width = 190, ReadOnly = true });
-            _gridSheets.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ExportStatusText", HeaderText = "Kết Quả", Width = 90, ReadOnly = true });
+        #region View 2: Settings Tab (PDF & DWG)
+        private void BuildViewSettings()
+        {
+            _viewSettings = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, Padding = new Padding(12) };
+
+            _tabSettings = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5F) };
+
+            // Subtab PDF
+            var tabPdf = new TabPage { Text = "    PDF    ", Padding = new Padding(12), BackColor = Color.White };
+            BuildPdfSettingsTab(tabPdf);
+            _tabSettings.TabPages.Add(tabPdf);
+
+            // Subtab DWG
+            var tabDwg = new TabPage { Text = "    DWG    ", Padding = new Padding(12), BackColor = Color.White };
+            BuildDwgSettingsTab(tabDwg);
+            _tabSettings.TabPages.Add(tabDwg);
+
+            _viewSettings.Controls.Add(_tabSettings);
         }
 
-        private void BuildTabFormats(TabPage tab)
+        private void BuildPdfSettingsTab(TabPage tab)
         {
-            var pnl = new TableLayoutPanel
+            var pnlContainer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 6,
-                Padding = new Padding(8),
+                ColumnCount = 3,
+                RowCount = 3,
                 AutoScroll = true
             };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
 
-            // Row 0: Export Formats (PDF / CAD DWG)
-            pnl.Controls.Add(new Label { Text = "Định Dạng Cần Xuất:", AutoSize = true, Anchor = AnchorStyles.Left, Font = new Font("Segoe UI", 9F, FontStyle.Bold) }, 0, 0);
-            var pnlFormats = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _chkExportPdf = new CheckBox { Text = "📄 Xuất File PDF (Revit Native)", Checked = true, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(0, 0, 15, 0) };
-            _chkExportDwg = new CheckBox { Text = "📐 Xuất File CAD (AutoCAD DWG)", Checked = false, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
-            pnlFormats.Controls.Add(_chkExportPdf);
-            pnlFormats.Controls.Add(_chkExportDwg);
-            pnl.Controls.Add(pnlFormats, 1, 0);
+            // 1. GroupBox: Paper Placement
+            var grpPlacement = new GroupBox { Text = "Paper Placement", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            _rbPlacementCenter = new RadioButton { Text = "Center", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbPlacementOffset = new RadioButton { Text = "Offset from corner", Left = 15, Top = 50, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
 
-            // Row 1: CAD Export Setup
-            pnl.Controls.Add(new Label { Text = "Cấu Hình Xuất CAD (DWG):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            var pnlDwgSetup = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _cmbDwgSetup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 0, 10, 0) };
-            _cmbDwgSetup.Items.Add("In-Session Setup (Mặc định)");
-            _cmbDwgSetup.SelectedIndex = 0;
-            pnlDwgSetup.Controls.Add(_cmbDwgSetup);
-            pnl.Controls.Add(pnlDwgSetup, 1, 1);
+            _rbMarginNoMargin = new RadioButton { Text = "No Margin", Left = 35, Top = 75, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _rbMarginPrinterLimit = new RadioButton { Text = "Printer limit", Left = 130, Top = 75, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbMarginUserDefined = new RadioButton { Text = "User Defined", Left = 225, Top = 75, AutoSize = true, Font = new Font("Segoe UI", 9F) };
 
-            // Row 2: Color Depth & Quality (PDF)
-            pnl.Controls.Add(new Label { Text = "Màu Sắc & Độ Phân Giải:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            var pnlQuality = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _cmbColorDepth = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160, Margin = new Padding(0, 0, 10, 0) };
-            _cmbColorDepth.Items.AddRange(new object[] { "Màu (Color)", "Mức Xám (Grayscale)", "Đen Trắng (Black & White)" });
+            var lblX = new Label { Text = "X (mm) -", Left = 15, Top = 110, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numMarginX = new NumericUpDown { Left = 75, Top = 108, Width = 65, Value = 0 };
+            var lblY = new Label { Text = "Y (mm) -", Left = 155, Top = 110, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numMarginY = new NumericUpDown { Left = 215, Top = 108, Width = 65, Value = 0 };
+
+            grpPlacement.Controls.Add(_rbPlacementCenter);
+            grpPlacement.Controls.Add(_rbPlacementOffset);
+            grpPlacement.Controls.Add(_rbMarginNoMargin);
+            grpPlacement.Controls.Add(_rbMarginPrinterLimit);
+            grpPlacement.Controls.Add(_rbMarginUserDefined);
+            grpPlacement.Controls.Add(lblX);
+            grpPlacement.Controls.Add(_numMarginX);
+            grpPlacement.Controls.Add(lblY);
+            grpPlacement.Controls.Add(_numMarginY);
+
+            // 2. GroupBox: Zoom
+            var grpZoom = new GroupBox { Text = "Zoom", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            _rbZoomFitToPage = new RadioButton { Text = "Fit to Page", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbZoomPercent = new RadioButton { Text = "Zoom", Left = 15, Top = 55, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _numZoomPercent = new NumericUpDown { Left = 80, Top = 53, Width = 60, Minimum = 10, Maximum = 500, Value = 100 };
+            var lblPercent = new Label { Text = "% Size", Left = 150, Top = 55, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            grpZoom.Controls.Add(_rbZoomFitToPage);
+            grpZoom.Controls.Add(_rbZoomPercent);
+            grpZoom.Controls.Add(_numZoomPercent);
+            grpZoom.Controls.Add(lblPercent);
+
+            // 3. GroupBox: Printer
+            var grpPrinter = new GroupBox { Text = "Printer", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            var lblPrinter = new Label { Text = "Printer", Left = 15, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbPrinter = new ComboBox { Left = 75, Top = 27, Width = 220, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbPrinter.Items.Add("Revit PDF Native (Vector DPI300)");
+            _cmbPrinter.SelectedIndex = 0;
+            grpPrinter.Controls.Add(lblPrinter);
+            grpPrinter.Controls.Add(_cmbPrinter);
+
+            // 4. GroupBox: Hidden Line Views
+            var grpHiddenLines = new GroupBox { Text = "Hidden Line Views", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            var lblRemoveLines = new Label { Text = "Remove Lines Using", Left = 15, Top = 22, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbVectorProcessing = new RadioButton { Text = "Vector Processing", Left = 15, Top = 45, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _rbRasterProcessing = new RadioButton { Text = "Raster Processing", Left = 15, Top = 72, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            grpHiddenLines.Controls.Add(lblRemoveLines);
+            grpHiddenLines.Controls.Add(_rbVectorProcessing);
+            grpHiddenLines.Controls.Add(_rbRasterProcessing);
+
+            // 5. GroupBox: Appearance
+            var grpAppearance = new GroupBox { Text = "Appearance", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            var lblRasterQ = new Label { Text = "Raster Quality", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbRasterQuality = new ComboBox { Left = 120, Top = 25, Width = 170, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbRasterQuality.Items.AddRange(new object[] { "Presentation", "High", "Medium", "Low" });
+            _cmbRasterQuality.SelectedIndex = 0;
+
+            var lblColors = new Label { Text = "Colors", Left = 15, Top = 62, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbColorDepth = new ComboBox { Left = 120, Top = 59, Width = 170, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbColorDepth.Items.AddRange(new object[] { "Color", "Grayscale", "Black Lines" });
             _cmbColorDepth.SelectedIndex = 0;
 
-            _cmbQualityDpi = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 170 };
-            _cmbQualityDpi.Items.AddRange(new object[] { "300 DPI (Chuẩn In Ấn)", "600 DPI (Chất Lượng Cao)", "150 DPI (Bản Nháp)" });
-            _cmbQualityDpi.SelectedIndex = 0;
+            grpAppearance.Controls.Add(lblRasterQ);
+            grpAppearance.Controls.Add(_cmbRasterQuality);
+            grpAppearance.Controls.Add(lblColors);
+            grpAppearance.Controls.Add(_cmbColorDepth);
 
-            pnlQuality.Controls.Add(_cmbColorDepth);
-            pnlQuality.Controls.Add(_cmbQualityDpi);
-            pnl.Controls.Add(pnlQuality, 1, 2);
+            // 6. GroupBox: Options
+            var grpOptions = new GroupBox { Text = "Options", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(10) };
+            _chkViewLinksInBlue = new CheckBox { Text = "View links in blue (Color prints only)", Left = 15, Top = 25, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkHideRefPlanes = new CheckBox { Text = "Hide ref/work planes", Left = 15, Top = 50, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkHideUnreferencedTags = new CheckBox { Text = "Hide unreferenced view tags", Left = 15, Top = 75, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkHideScopeBoxes = new CheckBox { Text = "Hide scope boxes", Left = 15, Top = 100, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkHideCropBoundaries = new CheckBox { Text = "Hide crop boundaries", Left = 15, Top = 125, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkReplaceHalftone = new CheckBox { Text = "Replace halftone with thin lines", Left = 15, Top = 150, AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F) };
+            _chkMaskCoincidentLines = new CheckBox { Text = "Region edges mask coincident lines", Left = 15, Top = 175, AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F) };
 
-            // Row 3: Combine PDF
-            pnl.Controls.Add(new Label { Text = "Gộp File PDF (Combine):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
-            var pnlCombine = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _chkCombinePdf = new CheckBox { Text = "Gộp các sheet vào 1 file:", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 10, 0) };
-            _txtCombinedFileName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 230, Enabled = false };
-            _chkCombinePdf.CheckedChanged += (s, e) => _txtCombinedFileName.Enabled = _chkCombinePdf.Checked;
-            pnlCombine.Controls.Add(_chkCombinePdf);
-            pnlCombine.Controls.Add(_txtCombinedFileName);
-            pnl.Controls.Add(pnlCombine, 1, 3);
+            grpOptions.Controls.Add(_chkViewLinksInBlue);
+            grpOptions.Controls.Add(_chkHideRefPlanes);
+            grpOptions.Controls.Add(_chkHideUnreferencedTags);
+            grpOptions.Controls.Add(_chkHideScopeBoxes);
+            grpOptions.Controls.Add(_chkHideCropBoundaries);
+            grpOptions.Controls.Add(_chkReplaceHalftone);
+            grpOptions.Controls.Add(_chkMaskCoincidentLines);
 
-            // Row 4: Naming Template
-            pnl.Controls.Add(new Label { Text = "Quy Tắc Đặt Tên File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 4);
-            var pnlTemplateChoice = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _cmbNamingTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 230, Margin = new Padding(0, 0, 10, 0) };
-            _cmbNamingTemplate.SelectedIndexChanged += CmbNamingTemplate_SelectedIndexChanged;
+            // Add to TableLayoutPanel grid
+            pnlContainer.Controls.Add(grpPlacement, 0, 0);
+            pnlContainer.Controls.Add(grpZoom, 0, 1);
+            pnlContainer.Controls.Add(grpPrinter, 0, 2);
 
-            _btnEditNamingTemplate = new Button { Text = "⚙️ Sửa Template", Width = 110, Height = 26, FlatStyle = FlatStyle.System };
-            _btnEditNamingTemplate.Click += BtnEditNamingTemplate_Click;
+            pnlContainer.Controls.Add(grpHiddenLines, 1, 0);
+            pnlContainer.Controls.Add(grpAppearance, 1, 1);
 
-            pnlTemplateChoice.Controls.Add(_cmbNamingTemplate);
-            pnlTemplateChoice.Controls.Add(_btnEditNamingTemplate);
-            pnl.Controls.Add(pnlTemplateChoice, 1, 4);
+            pnlContainer.Controls.Add(grpOptions, 2, 0);
+            pnlContainer.SetRowSpan(grpOptions, 3);
 
-            // Row 5: Project Code
-            pnl.Controls.Add(new Label { Text = "Mã Dự Án (Project Code):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 5);
-            _txtProjectCode = new TextBox { Text = "PROJ", Width = 160, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
-            _txtProjectCode.TextChanged += (s, e) => RecalculateFileNames();
-            pnl.Controls.Add(_txtProjectCode, 1, 5);
-
-            tab.Controls.Add(pnl);
+            tab.Controls.Add(pnlContainer);
         }
 
-        private void BuildTabIssue(TabPage tab)
+        private void BuildDwgSettingsTab(TabPage tab)
         {
-            var pnl = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 4,
-                Padding = new Padding(8),
-                AutoScroll = true
-            };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var pnlDwg = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, Padding = new Padding(15) };
 
-            // Issue Set Name
-            pnl.Controls.Add(new Label { Text = "Tên Đợt Phát Hành:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            _txtIssueSetName = new TextBox { Text = "IFC - Issued For Construction", Width = 300, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_txtIssueSetName, 1, 0);
+            var grpDwgSetup = new GroupBox { Text = "AutoCAD DWG Export Options", Left = 15, Top = 15, Width = 550, Height = 220, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Padding(12) };
 
-            // Transmittal Register
-            pnl.Controls.Add(new Label { Text = "Bảng Kê Bản Vẽ (Excel):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            _chkGenerateTransmittal = new CheckBox { Text = "Tự động tạo file Excel Bảng kê phát hành (Drawing Transmittal Register)", Checked = true, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_chkGenerateTransmittal, 1, 1);
+            var lblSetup = new Label { Text = "DWG Export Setup (Layer Mapping):", Left = 15, Top = 30, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbDwgSetup = new ComboBox { Left = 15, Top = 55, Width = 380, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbDwgSetup.Items.Add("In-Session Setup (Mặc định)");
+            _cmbDwgSetup.SelectedIndex = 0;
 
-            // Technical QA Report
-            pnl.Controls.Add(new Label { Text = "Báo Cáo Kỹ Thuật (QA):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            _chkGenerateQaReport = new CheckBox { Text = "Tự động tạo file Excel Nhật ký kiểm định QA (thời gian, dung lượng, lỗi)", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_chkGenerateQaReport, 1, 2);
+            var lblVersion = new Label { Text = "AutoCAD Version Format:", Left = 15, Top = 95, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _cmbAutoCadVersion = new ComboBox { Left = 15, Top = 120, Width = 250, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            _cmbAutoCadVersion.Items.AddRange(new object[] { "AutoCAD 2018 DWG (*.dwg)", "AutoCAD 2013 DWG (*.dwg)", "AutoCAD 2010 DWG (*.dwg)" });
+            _cmbAutoCadVersion.SelectedIndex = 0;
 
-            // Max Retries
-            pnl.Controls.Add(new Label { Text = "Tự Động Thử Lại (Retry):", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 3);
-            _numMaxRetries = new NumericUpDown { Minimum = 0, Maximum = 5, Value = 2, Width = 65, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_numMaxRetries, 1, 3);
+            _chkDwgMergedViews = new CheckBox { Text = "Merge all views and links into single DWG file (No external Xrefs)", Left = 15, Top = 165, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
 
-            tab.Controls.Add(pnl);
+            grpDwgSetup.Controls.Add(lblSetup);
+            grpDwgSetup.Controls.Add(_cmbDwgSetup);
+            grpDwgSetup.Controls.Add(lblVersion);
+            grpDwgSetup.Controls.Add(_cmbAutoCadVersion);
+            grpDwgSetup.Controls.Add(_chkDwgMergedViews);
+
+            pnlDwg.Controls.Add(grpDwgSetup);
+            tab.Controls.Add(pnlDwg);
         }
+        #endregion
 
-        private void BuildTabAdvancedPdf(TabPage tab)
+        #region View 3: Filter Tab
+        private void BuildViewFilter()
         {
-            var pnl = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 3,
-                Padding = new Padding(8),
-                AutoScroll = true
-            };
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
-            pnl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            _viewFilter = new System.Windows.Forms.Panel { Dock = DockStyle.Fill, Padding = new Padding(20) };
 
-            // PDF Bookmarks
-            pnl.Controls.Add(new Label { Text = "Bookmarks Điều Hướng:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            _chkAddBookmarks = new CheckBox { Text = "Tự động tạo Bookmark cây điều hướng theo Sheet No. & Tên Sheet (khi gộp PDF)", Checked = true, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_chkAddBookmarks, 1, 0);
+            var grpFilter = new GroupBox { Text = "Bộ Lọc Nhanh Bản Vẽ (Quick Sheet Filter)", Left = 20, Top = 20, Width = 600, Height = 250, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Padding = new Padding(15) };
 
-            // Cover Sheet
-            pnl.Controls.Add(new Label { Text = "Trang Bìa Mục Lục:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
-            _chkAutoCoverPage = new CheckBox { Text = "Tự động chèn Trang Bìa Mục Lục Bản Vẽ vào trang đầu tiên (khi gộp PDF)", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 0, 8) };
-            pnl.Controls.Add(_chkAutoCoverPage, 1, 1);
+            _chkFilterStructure = new CheckBox { Text = "Kết cấu (Structure - KC/ST)", Left = 20, Top = 35, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkFilterArchitecture = new CheckBox { Text = "Kiến trúc (Architecture - KT/AR)", Left = 20, Top = 70, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkFilterMep = new CheckBox { Text = "Cơ điện (MEP - ME/EL/PL)", Left = 20, Top = 105, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+            _chkFilterModifiedOnly = new CheckBox { Text = "Chỉ lọc các sheet Có Thay Đổi / Mới (Modified/New Sheets)", Left = 20, Top = 150, AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkSlateBlue };
 
-            // Watermark / Stamp
-            pnl.Controls.Add(new Label { Text = "Đóng Dấu Watermark:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2);
-            var pnlWatermark = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            _chkWatermark = new CheckBox { Text = "Đóng dấu chéo", Checked = false, AutoSize = true, Margin = new Padding(0, 3, 10, 0) };
-            _cmbWatermarkPreset = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 240, Enabled = false };
-            _cmbWatermarkPreset.Items.AddRange(new object[] {
-                "IFC - ISSUED FOR CONSTRUCTION",
-                "S0 - PRELIMINARY DESIGN",
-                "TENDER DOCUMENTS",
-                "FOR APPROVAL",
-                "AS-BUILT DRAWING",
-                "CONFIDENTIAL"
-            });
-            _cmbWatermarkPreset.SelectedIndex = 0;
-            _chkWatermark.CheckedChanged += (s, e) => _cmbWatermarkPreset.Enabled = _chkWatermark.Checked;
+            _chkFilterStructure.CheckedChanged += (s, e) => ApplySearchAndFilter();
+            _chkFilterArchitecture.CheckedChanged += (s, e) => ApplySearchAndFilter();
+            _chkFilterMep.CheckedChanged += (s, e) => ApplySearchAndFilter();
+            _chkFilterModifiedOnly.CheckedChanged += (s, e) => ApplySearchAndFilter();
 
-            pnlWatermark.Controls.Add(_chkWatermark);
-            pnlWatermark.Controls.Add(_cmbWatermarkPreset);
-            pnl.Controls.Add(pnlWatermark, 1, 2);
+            grpFilter.Controls.Add(_chkFilterStructure);
+            grpFilter.Controls.Add(_chkFilterArchitecture);
+            grpFilter.Controls.Add(_chkFilterMep);
+            grpFilter.Controls.Add(_chkFilterModifiedOnly);
 
-            tab.Controls.Add(pnl);
+            _viewFilter.Controls.Add(grpFilter);
         }
+        #endregion
 
+        #region Bottom Print Bar
+        private System.Windows.Forms.Control BuildBottomPrintBar()
+        {
+            var grpPrint = new GroupBox
+            {
+                Text = "Print",
+                Dock = DockStyle.Bottom,
+                Height = 115,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Padding = new Padding(10, 4, 10, 6),
+                BackColor = Color.FromArgb(248, 249, 252)
+            };
+
+            // Line 1: Split options & Timeout
+            _rbSaveSameFolder = new RadioButton { Text = "Save all files in the same folder location", Left = 15, Top = 18, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _rbSplitFoldersByFormat = new RadioButton { Text = "Save and split files by file format", Left = 360, Top = 18, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
+
+            var lblTimeout = new Label { Text = "Print timeout (s) :", Left = 860, Top = 20, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _numTimeoutSeconds = new NumericUpDown { Left = 970, Top = 17, Width = 60, Minimum = 10, Maximum = 600, Value = 120 };
+
+            // Line 2: Folder selector + Summary + Print button
+            _btnOpenFolderSelection = new Button
+            {
+                Text = "Open Folder Selection",
+                Left = 15,
+                Top = 45,
+                Width = 160,
+                Height = 30,
+                BackColor = Color.Black,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+            _btnOpenFolderSelection.Click += (s, e) => OpenOutputDirectory();
+
+            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
+            _txtOutputDirectory = new TextBox { Text = defaultDir, Left = 185, Top = 47, Width = 660, Font = new Font("Segoe UI", 9F) };
+
+            _btnBrowseFolder = new Button { Text = "..", Left = 852, Top = 46, Width = 35, Height = 26, FlatStyle = FlatStyle.System, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _btnBrowseFolder.Click += BtnBrowseFolder_Click;
+
+            _lblTotalSummary = new Label
+            {
+                Text = "0 / 0 Sheets and 0 / 0 Views selected. Total: 0",
+                Left = 185,
+                Top = 82,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = Color.DimGray
+            };
+
+            _btnPrint = new Button
+            {
+                Text = "Print",
+                Left = 910,
+                Top = 42,
+                Width = 120,
+                Height = 35,
+                BackColor = Color.Black,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            _btnPrint.FlatAppearance.BorderSize = 0;
+            _btnPrint.Click += BtnPrint_Click;
+
+            grpPrint.Controls.Add(_rbSaveSameFolder);
+            grpPrint.Controls.Add(_rbSplitFoldersByFormat);
+            grpPrint.Controls.Add(lblTimeout);
+            grpPrint.Controls.Add(_numTimeoutSeconds);
+            grpPrint.Controls.Add(_btnOpenFolderSelection);
+            grpPrint.Controls.Add(_txtOutputDirectory);
+            grpPrint.Controls.Add(_btnBrowseFolder);
+            grpPrint.Controls.Add(_lblTotalSummary);
+            grpPrint.Controls.Add(_btnPrint);
+
+            grpPrint.Resize += (s, e) =>
+            {
+                _btnPrint.Left = grpPrint.Width - _btnPrint.Width - 25;
+                _numTimeoutSeconds.Left = _btnPrint.Left;
+                lblTimeout.Left = _numTimeoutSeconds.Left - lblTimeout.Width - 10;
+                _btnBrowseFolder.Left = _btnPrint.Left - _btnBrowseFolder.Width - 15;
+                _txtOutputDirectory.Width = Math.Max(200, _btnBrowseFolder.Left - _txtOutputDirectory.Left - 8);
+            };
+
+            return grpPrint;
+        }
+        #endregion
+
+        #region Data Loading & Synchronization
         private void LoadDataFromRevit()
         {
             try
@@ -556,14 +684,17 @@ namespace KhimTools.SheetExport.Forms
                 _allSheetItems = SheetCollectorService.GetAllSheets(_doc) ?? new List<SheetExportItem>();
                 RevisionSnapshotService.CompareAndUpdateStatus(_doc, _allSheetItems);
 
-                _namingTemplates = ExtensibleStorageService.LoadNamingTemplates(_doc) ?? NamingTemplate.GetBuiltInTemplates();
-                _cmbNamingTemplate.Items.Clear();
-                foreach (var t in _namingTemplates)
+                // Populate ViewSheetSets
+                _cmbSheetSet.Items.Clear();
+                _cmbSheetSet.Items.Add("<In-Session Scheme>");
+                var sets = new FilteredElementCollector(_doc).OfClass(typeof(ViewSheetSet)).Cast<ViewSheetSet>().ToList();
+                foreach (var s in sets)
                 {
-                    _cmbNamingTemplate.Items.Add(t.Name);
+                    _cmbSheetSet.Items.Add(s.Name);
                 }
-                if (_namingTemplates.Any()) _cmbNamingTemplate.SelectedIndex = 0;
+                _cmbSheetSet.SelectedIndex = 0;
 
+                // Populate DWG Setups
                 try
                 {
                     var dwgSetups = BaseExportOptions.GetPredefinedSetupNames(_doc);
@@ -571,25 +702,21 @@ namespace KhimTools.SheetExport.Forms
                     _cmbDwgSetup.Items.Add("In-Session Setup (Mặc định)");
                     if (dwgSetups != null)
                     {
-                        foreach (var s in dwgSetups)
-                        {
-                            _cmbDwgSetup.Items.Add(s);
-                        }
+                        foreach (var s in dwgSetups) _cmbDwgSetup.Items.Add(s);
                     }
                     _cmbDwgSetup.SelectedIndex = 0;
                 }
                 catch { }
 
-                string projName = _doc.ProjectInformation?.Name ?? _doc.Title ?? "PROJ";
+                // Populate Project Code for Naming
+                string projName = _doc.ProjectInformation?.Name ?? _doc.Title ?? "PROJECT";
                 if (!string.IsNullOrWhiteSpace(projName))
                 {
-                    _txtProjectCode.Text = projName.Replace(" ", "_");
+                    _txtNaming2.Text = projName.Replace(" ", "_").ToUpper();
                 }
 
-                _filteredSheetItems = new List<SheetExportItem>(_allSheetItems);
-                _gridSheets.DataSource = _filteredSheetItems;
-                RecalculateFileNames();
-                UpdateSelectionCount();
+                ApplySearchAndFilter();
+                UpdateCombineFileName();
             }
             catch (Exception ex)
             {
@@ -597,336 +724,256 @@ namespace KhimTools.SheetExport.Forms
             }
         }
 
-        private void ApplySearchFilter()
+        private void ApplySearchAndFilter()
         {
-            string query = _txtSearch.Text.Trim();
-            if (string.IsNullOrEmpty(query))
+            string query = _txtSearchSheet.Text.Trim();
+            string discipline = _cmbDisciplineFilter.SelectedItem?.ToString() ?? "(All)";
+
+            var list = _allSheetItems.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(query))
             {
-                _filteredSheetItems = new List<SheetExportItem>(_allSheetItems);
-            }
-            else
-            {
-                _filteredSheetItems = _allSheetItems
-                    .Where(s => (s.SheetNumber != null && s.SheetNumber.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                                (s.SheetName != null && s.SheetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0))
-                    .ToList();
+                list = list.Where(s => (s.SheetNumber != null && s.SheetNumber.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                                       (s.SheetName != null && s.SheetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0));
             }
 
-            _gridSheets.DataSource = null;
-            _gridSheets.DataSource = _filteredSheetItems;
-            UpdateSelectionCount();
-        }
-
-        private void RecalculateFileNames()
-        {
-            if (_selectedTemplate == null || _allSheetItems == null) return;
-
-            string prjCode = _txtProjectCode.Text.Trim();
-            foreach (var item in _allSheetItems)
+            if (discipline.StartsWith("Structure"))
             {
-                string computed = NamingTemplateManager.ComputeFileName(item, _selectedTemplate, prjCode);
-                item.ComputedFileName = computed;
-                item.IsRegexValid = NamingTemplateManager.ValidateFileNameRegex(computed, _selectedTemplate, out _);
+                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KC") || s.SheetNumber.StartsWith("ST") || s.SheetNumber.StartsWith("S-")));
             }
-            _gridSheets.Refresh();
-        }
-
-        private void SetSelectionAll(bool select)
-        {
-            foreach (var item in _filteredSheetItems) item.IsSelected = select;
-            _gridSheets.Refresh();
-            UpdateSelectionCount();
-        }
-
-        private void InvertSelection()
-        {
-            foreach (var item in _filteredSheetItems) item.IsSelected = !item.IsSelected;
-            _gridSheets.Refresh();
-            UpdateSelectionCount();
-        }
-
-        private void SelectChangedSheetsOnly()
-        {
-            foreach (var item in _allSheetItems)
+            else if (discipline.StartsWith("Architecture"))
             {
-                item.IsSelected = (item.IssueStatus == SheetIssueStatus.New || item.IssueStatus == SheetIssueStatus.Modified);
+                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KT") || s.SheetNumber.StartsWith("AR") || s.SheetNumber.StartsWith("A-")));
             }
-            _gridSheets.Refresh();
-            UpdateSelectionCount();
-        }
 
-        private void UpdateSelectionCount()
-        {
-            int selectedCount = _allSheetItems.Count(s => s.IsSelected);
-            _lblSelectionCount.Text = $"Đã chọn: {selectedCount} / {_allSheetItems.Count} sheets";
-        }
-
-        private void CmbNamingTemplate_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            int idx = _cmbNamingTemplate.SelectedIndex;
-            if (idx >= 0 && idx < _namingTemplates.Count)
+            if (_chkFilterModifiedOnly.Checked)
             {
-                _selectedTemplate = _namingTemplates[idx];
-                RecalculateFileNames();
+                list = list.Where(s => s.IssueStatus == SheetIssueStatus.New || s.IssueStatus == SheetIssueStatus.Modified);
             }
-        }
 
-        private void BtnEditNamingTemplate_Click(object sender, EventArgs e)
-        {
-            using var editForm = new NamingTemplateEditForm(_selectedTemplate);
-            if (editForm.ShowDialog(this) == DialogResult.OK)
+            _filteredSheetItems = list.ToList();
+
+            // Populate CheckedListBox
+            _chkListSheets.Items.Clear();
+            for (int i = 0; i < _filteredSheetItems.Count; i++)
             {
-                _selectedTemplate = editForm.Template;
-                ExtensibleStorageService.SaveNamingTemplates(_doc, _namingTemplates);
-                RecalculateFileNames();
+                var item = _filteredSheetItems[i];
+                string display = $"{item.SheetNumber} - {item.SheetName}";
+                _chkListSheets.Items.Add(display, item.IsSelected);
             }
+
+            RefreshGridRows();
+            UpdateSummaryLabel();
         }
 
-        private void GridSheets_SelectionChanged(object sender, EventArgs e)
+        private void ChkListSheets_ItemCheck(object sender, ItemCheckEventArgs e)
         {
-            if (_gridSheets.CurrentRow?.DataBoundItem is SheetExportItem item)
+            if (e.Index >= 0 && e.Index < _filteredSheetItems.Count)
             {
-                _lblThumbnailTitle.Text = $"Sheet: {item.SheetNumber} - {item.SheetName} ({item.PaperSize})";
-                try
+                _filteredSheetItems[e.Index].IsSelected = (e.NewValue == CheckState.Checked);
+                BeginInvoke(new Action(() =>
                 {
-                    _picThumbnail.Image?.Dispose();
-                    _picThumbnail.Image = SheetPreviewService.GetSheetThumbnail(item.Sheet, _picThumbnail.Size);
-                }
-                catch { }
+                    RefreshGridRows();
+                    UpdateSummaryLabel();
+                }));
             }
         }
 
-        private void BtnBrowseOutputDir_Click(object sender, EventArgs e)
+        private void SetAllChecklistItems(bool state)
+        {
+            for (int i = 0; i < _chkListSheets.Items.Count; i++)
+            {
+                _chkListSheets.SetItemChecked(i, state);
+                if (i < _filteredSheetItems.Count) _filteredSheetItems[i].IsSelected = state;
+            }
+            RefreshGridRows();
+            UpdateSummaryLabel();
+        }
+
+        private void InvertChecklistItems()
+        {
+            for (int i = 0; i < _chkListSheets.Items.Count; i++)
+            {
+                bool nextState = !_chkListSheets.GetItemChecked(i);
+                _chkListSheets.SetItemChecked(i, nextState);
+                if (i < _filteredSheetItems.Count) _filteredSheetItems[i].IsSelected = nextState;
+            }
+            RefreshGridRows();
+            UpdateSummaryLabel();
+        }
+
+        private void RefreshGridRows()
+        {
+            var selected = _allSheetItems.Where(s => s.IsSelected).ToList();
+            _gridSheets.Rows.Clear();
+
+            int idx = 1;
+            string fmt = (_chkExportPdf.Checked && _chkExportDwg.Checked) ? "PDF / DWG" : (_chkExportPdf.Checked ? "PDF" : "DWG");
+
+            foreach (var item in selected)
+            {
+                int r = _gridSheets.Rows.Add();
+                _gridSheets.Rows[r].Cells[0].Value = idx++;
+                _gridSheets.Rows[r].Cells[1].Value = item.SheetNumber;
+                _gridSheets.Rows[r].Cells[2].Value = item.SheetName;
+                _gridSheets.Rows[r].Cells[3].Value = item.CurrentRevisionNumber;
+                _gridSheets.Rows[r].Cells[4].Value = item.CurrentRevisionDate;
+                _gridSheets.Rows[r].Cells[5].Value = item.PaperSize;
+                _gridSheets.Rows[r].Cells[6].Value = fmt;
+                _gridSheets.Rows[r].Cells[7].Value = "Landscape";
+                _gridSheets.Rows[r].Cells[8].Value = item.ExportStatusText ?? "Sẵn sàng";
+            }
+        }
+
+        private void UpdateSummaryLabel()
+        {
+            int selectedSheets = _allSheetItems.Count(s => s.IsSelected);
+            int totalSheets = _allSheetItems.Count;
+            _lblTotalSummary.Text = $"{selectedSheets} / {totalSheets} Sheets and 0 / 0 Views selected. Total: {totalSheets}";
+        }
+
+        private void UpdateCombineFileName()
+        {
+            string f1 = _txtNaming1.Text.Trim();
+            string f2 = _txtNaming2.Text.Trim();
+            string f3 = _txtNaming3.Text.Trim();
+
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(f1)) parts.Add(f1);
+            if (!string.IsNullOrEmpty(f2)) parts.Add(f2);
+            if (!string.IsNullOrEmpty(f3)) parts.Add(f3);
+
+            string combined = string.Join("_", parts);
+            if (string.IsNullOrEmpty(combined)) combined = "Combined_Project_Sheets";
+            _txtFileCombineName.Text = combined + ".pdf";
+        }
+        #endregion
+
+        #region Actions & Export Execution
+        private void BtnBrowseFolder_Click(object sender, EventArgs e)
         {
             using var dlg = new FolderBrowserDialog();
-            dlg.SelectedPath = _txtOutputDir.Text;
+            dlg.SelectedPath = _txtOutputDirectory.Text;
             if (dlg.ShowDialog() == DialogResult.OK)
             {
-                _txtOutputDir.Text = dlg.SelectedPath;
+                _txtOutputDirectory.Text = dlg.SelectedPath;
             }
         }
 
         private void OpenOutputDirectory()
         {
-            string outDir = _txtOutputDir.Text.Trim();
+            string outDir = _txtOutputDirectory.Text.Trim();
             if (Directory.Exists(outDir))
             {
                 Process.Start(new ProcessStartInfo("explorer.exe", outDir) { UseShellExecute = true });
             }
             else
             {
-                KhimDialogHelper.ShowInfo($"Thư mục chưa tồn tại:\n{outDir}");
+                try
+                {
+                    Directory.CreateDirectory(outDir);
+                    Process.Start(new ProcessStartInfo("explorer.exe", outDir) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    KhimDialogHelper.ShowError("Lỗi Mở Thư Mục", ex.Message);
+                }
             }
         }
 
-        private void BtnPreflightCheck_Click(object sender, EventArgs e)
-        {
-            var selected = _allSheetItems.Where(s => s.IsSelected).ToList();
-            if (!selected.Any())
-            {
-                KhimDialogHelper.ShowWarning("Pre-flight QA Check", "Vui lòng chọn ít nhất 1 sheet để kiểm tra.");
-                return;
-            }
-
-            var warnings = PreflightCheckService.RunPreflightChecks(selected);
-            if (!warnings.Any())
-            {
-                KhimDialogHelper.ShowSuccess("Pre-flight QA Check", "✔ Tất cả bản vẽ đã sẵn sàng. Không phát hiện bất thường về khổ giấy hay quy tắc đặt tên!");
-            }
-            else
-            {
-                string msg = string.Join("\n\n", warnings.Select(w => $"• {(w.IsCritical ? "🔴 CRITICAL" : "🟡 WARNING")}: {w.Title}\n  {w.Details}"));
-                KhimDialogHelper.ShowWarning("Pre-flight QA Check Summary", msg);
-            }
-        }
-
-        private void AppendLog(string text)
-        {
-            if (InvokeRequired)
-            {
-                Invoke(new Action<string>(AppendLog), text);
-                return;
-            }
-            _rtbLogOutput.AppendText(text + "\n");
-            _rtbLogOutput.SelectionStart = _rtbLogOutput.Text.Length;
-            _rtbLogOutput.ScrollToCaret();
-            Application.DoEvents();
-        }
-
-        private ColorDepthType GetSelectedColorDepth()
-        {
-            return _cmbColorDepth.SelectedIndex switch
-            {
-                1 => ColorDepthType.GrayScale,
-                2 => ColorDepthType.BlackLine,
-                _ => ColorDepthType.Color
-            };
-        }
-
-        private void BtnExportStart_Click(object sender, EventArgs e)
+        private void BtnPrint_Click(object sender, EventArgs e)
         {
             var selectedItems = _allSheetItems.Where(s => s.IsSelected).ToList();
             if (!selectedItems.Any())
             {
-                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng tích chọn ít nhất 1 sheet bản vẽ trong danh sách để xuất.");
+                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng chọn ít nhất 1 bản vẽ trong danh sách trước khi in / xuất.");
                 return;
             }
 
             if (!_chkExportPdf.Checked && !_chkExportDwg.Checked)
             {
-                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng chọn ít nhất 1 định dạng xuất (PDF hoặc AutoCAD DWG).");
+                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng tích chọn ít nhất 1 định dạng xuất (PDF hoặc DWG).");
                 return;
             }
 
-            string outDir = _txtOutputDir.Text.Trim();
+            string outDir = _txtOutputDirectory.Text.Trim();
             if (string.IsNullOrWhiteSpace(outDir))
             {
-                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng chọn thư mục lưu file xuất.");
+                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng chọn thư mục lưu file.");
                 return;
             }
 
             if (!Directory.Exists(outDir))
             {
                 try { Directory.CreateDirectory(outDir); }
-                catch (Exception exDir)
+                catch (Exception ex)
                 {
-                    KhimDialogHelper.ShowError("Không Thể Tạo Thư Mục", exDir.Message);
+                    KhimDialogHelper.ShowError("Lỗi Tạo Thư Mục", ex.Message);
                     return;
                 }
             }
 
-            var options = new ExportOptions
-            {
-                ExportPdf = _chkExportPdf.Checked,
-                ExportDwg = _chkExportDwg.Checked,
-                DwgExportSetupName = _cmbDwgSetup.Text.Trim(),
-                OutputDirectory = outDir,
-                ProjectCode = _txtProjectCode.Text.Trim(),
-                CombinePdf = _chkCombinePdf.Checked,
-                CombinedPdfFileName = _txtCombinedFileName.Text.Trim(),
-                AddBookmarks = _chkAddBookmarks.Checked,
-                AutoCoverPage = _chkAutoCoverPage.Checked,
-                ApplyWatermark = _chkWatermark.Checked,
-                WatermarkText = _cmbWatermarkPreset.Text,
-                IssueSetName = _txtIssueSetName.Text.Trim(),
-                GenerateTransmittal = _chkGenerateTransmittal.Checked,
-                GenerateQaReport = _chkGenerateQaReport.Checked,
-                MaxRetryCount = (int)_numMaxRetries.Value
-            };
+            // Sync options
+            _options.ExportPdf = _chkExportPdf.Checked;
+            _options.ExportDwg = _chkExportDwg.Checked;
+            _options.DwgExportSetupName = _cmbDwgSetup.Text.Trim();
+            _options.OutputDirectory = outDir;
+            _options.SplitFoldersByFormat = _rbSplitFoldersByFormat.Checked;
+            _options.CombinePdf = _rbCombineFiles.Checked;
+            _options.CombinedPdfFileName = _txtFileCombineName.Text.Trim();
 
-            _rtbLogOutput.Clear();
-            _progressBar.Visible = true;
-            _progressBar.Minimum = 0;
-            _progressBar.Maximum = selectedItems.Count;
-            _progressBar.Value = 0;
+            _options.PaperPlacementCenter = _rbPlacementCenter.Checked;
+            _options.PaperPlacementOffset = _rbPlacementOffset.Checked;
+            _options.MarginNoMargin = _rbMarginNoMargin.Checked;
+            _options.MarginOffsetX = (double)_numMarginX.Value;
+            _options.MarginOffsetY = (double)_numMarginY.Value;
 
-            AppendLog($"🚀 BẮT ĐẦU BATCH EXPORT [{DateTime.Now:HH:mm:ss}]");
-            AppendLog($"📁 Thư mục xuất: {outDir}");
-            AppendLog($"📊 Tổng số Sheet đã chọn: {selectedItems.Count}");
-            AppendLog($"🎨 Chế độ màu: {_cmbColorDepth.Text}");
+            _options.ZoomFitToPage = _rbZoomFitToPage.Checked;
+            _options.ZoomPercentage = (int)_numZoomPercent.Value;
+            _options.VectorProcessing = _rbVectorProcessing.Checked;
+            _options.RasterQuality = _cmbRasterQuality.SelectedItem?.ToString() ?? "Presentation";
+            _options.ColorMode = _cmbColorDepth.SelectedItem?.ToString() ?? "Color";
 
-            _btnExportStart.Enabled = false;
-            var colorDepth = GetSelectedColorDepth();
+            _options.ViewLinksInBlue = _chkViewLinksInBlue.Checked;
+            _options.HideRefPlanes = _chkHideRefPlanes.Checked;
+            _options.HideUnreferencedViewTags = _chkHideUnreferencedTags.Checked;
+            _options.HideScopeBoxes = _chkHideScopeBoxes.Checked;
+            _options.HideCropBoundaries = _chkHideCropBoundaries.Checked;
+            _options.ReplaceHalftoneWithThinLines = _chkReplaceHalftone.Checked;
+            _options.MaskCoincidentLines = _chkMaskCoincidentLines.Checked;
+
+            _btnPrint.Enabled = false;
+            _btnPrint.Text = "Exporting...";
 
             try
             {
-                if (options.ExportPdf && options.CombinePdf)
+                var queue = new ExportRetryQueue(_options.MaxRetryCount);
+                var qaResults = queue.ProcessBatch(_doc, selectedItems, _options, msg =>
                 {
-                    // ── Chế độ Gộp 1 File PDF ────────────────────────────────
-                    AppendLog("\n🧩 Đang xuất PDF Gộp tất cả sheet bằng Revit Native Exporter...");
-                    string rawCombinedName = options.CombinedPdfFileName.Replace(".pdf", "").Trim();
-                    if (string.IsNullOrEmpty(rawCombinedName)) rawCombinedName = "Combined_Project_Sheets";
+                    // Update UI row status
+                    BeginInvoke(new Action(() => RefreshGridRows()));
+                });
 
-                    var sheetsToCombine = selectedItems.Select(i => i.Sheet).ToList();
-                    string combinedPath = PdfExportEngine.ExportCombinedSheets(_doc, sheetsToCombine, outDir, rawCombinedName, colorDepth);
+                // Generate Transmittal Excel
+                string transPath = TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
 
-                    if (options.AddBookmarks)
-                    {
-                        AppendLog("  🔖 Đang thêm Bookmarks cây điều hướng PDF...");
-                        PdfPostProcessService.AddBookmarks(combinedPath, selectedItems);
-                    }
+                KhimDialogHelper.ShowSuccess(
+                    "Hoàn Tất Xuất Bản Vẽ",
+                    $"Đã xuất thành công {selectedItems.Count} bản vẽ sang thư mục:\n{outDir}\n\nĐã tạo bảng kê phát hành Transmittal Register!");
 
-                    if (options.AutoCoverPage)
-                    {
-                        AppendLog("  📑 Đang chèn Trang Bìa Mục Lục Bản Vẽ...");
-                        PdfPostProcessService.InsertCoverSheet(combinedPath, options.IssueSetName, selectedItems);
-                    }
-
-                    if (options.ApplyWatermark && !string.IsNullOrWhiteSpace(options.WatermarkText))
-                    {
-                        AppendLog("  🌊 Đang đóng dấu Watermark cho PDF gộp...");
-                        PdfPostProcessService.ApplyWatermark(combinedPath, options.WatermarkText);
-                    }
-
-                    foreach (var s in selectedItems)
-                    {
-                        s.ExportStatusText = "✔ Gộp thành công";
-                        _progressBar.Value = Math.Min(_progressBar.Value + 1, _progressBar.Maximum);
-                    }
-
-                    AppendLog($"  ✓ Đã hoàn tất file PDF gộp: {Path.GetFileName(combinedPath)}");
-                }
-                else
-                {
-                    // ── Chế độ Xuất Từng File Riêng Biệt ────────────────────
-                    var retryQueue = new ExportRetryQueue(options.MaxRetryCount);
-                    int currentIdx = 0;
-
-                    var qaEntries = retryQueue.ProcessBatch(_doc, selectedItems, options, msg =>
-                    {
-                        AppendLog(msg);
-                        if (msg.StartsWith("  ✓ Hoàn tất"))
-                        {
-                            currentIdx++;
-                            _progressBar.Value = Math.Min(currentIdx, _progressBar.Maximum);
-                        }
-                    });
-
-                    // Generate QA Technical Log Excel nếu được chọn
-                    if (options.GenerateQaReport)
-                    {
-                        AppendLog("\n📝 Đang sinh file Excel Báo cáo kỹ thuật QA Log...");
-                        string qaPath = QaReportService.GenerateQaExcelReport(outDir, options.ProjectCode, qaEntries);
-                        AppendLog($"  ✓ QA Log: {Path.GetFileName(qaPath)}");
-                    }
-                }
-
-                // Generate Transmittal Register Excel
-                if (options.GenerateTransmittal)
-                {
-                    AppendLog("\n📊 Đang sinh file Excel Bảng kê phát hành (Drawing Transmittal)...");
-                    string transPath = TransmittalGeneratorService.GenerateExcelTransmittal(outDir, options.IssueSetName, options.ProjectCode, selectedItems);
-                    AppendLog($"  ✓ Transmittal: {Path.GetFileName(transPath)}");
-                }
-
-                // Save Snapshot to ExtensibleStorage
-                RevisionSnapshotService.CreateSnapshot(_doc, options.IssueSetName, selectedItems, options.ExportPdf ? "PDF" : "DWG");
-
-                AppendLog("\n🎉 HOÀN TẤT TOÀN BỘ QUÁ TRÌNH BATCH EXPORT!");
-                _progressBar.Value = _progressBar.Maximum;
-
-                var result = MessageBox.Show(
-                    $"Đã xuất thành công {selectedItems.Count} sheet bản vẽ vào thư mục:\n{outDir}\n\nBạn có muốn mở thư mục chứa file ngay bây giờ không?",
-                    "Export Hoàn Tất",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Information);
-
-                if (result == DialogResult.Yes)
-                {
-                    OpenOutputDirectory();
-                }
+                OpenOutputDirectory();
             }
             catch (Exception ex)
             {
-                AppendLog($"\n❌ LỖI: {ex.Message}");
-                KhimDialogHelper.ShowError("Lỗi Xuất File", ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError("Lỗi Trong Quá Trình Xuất", ex.Message, ex.StackTrace);
             }
             finally
             {
-                _btnExportStart.Enabled = true;
-                _progressBar.Visible = false;
-                _gridSheets.Refresh();
+                _btnPrint.Enabled = true;
+                _btnPrint.Text = "Print";
+                RefreshGridRows();
             }
         }
+        #endregion
     }
 }
