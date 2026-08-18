@@ -260,22 +260,86 @@ namespace KhimTools.SheetExport.Forms
             rightPanel.Controls.Add(_tabSettings);
             mainSplit.Panel2.Controls.Add(rightPanel);
 
-            // ── BOTTOM ACTION BAR ───────────────────────────────────────────
-            var bottomBar = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 248) };
+            // ── BOTTOM CONTAINER: Destination Folder & Action Bar ────────────
+            var pnlBottomContainer = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 98,
+                BackColor = Color.FromArgb(242, 244, 248),
+                Padding = new Padding(12, 6, 12, 6)
+            };
 
-            _btnPreflightCheck = new Button { Text = "🔍 Kiểm Tra Trước Khi Xuất", Left = 15, Top = 12, Width = 185, Height = 32, FlatStyle = FlatStyle.System };
-            _btnPreflightCheck.Click += BtnPreflightCheck_Click;
+            // Row 1: Output Directory Picker
+            var pnlOutputDirBar = new System.Windows.Forms.Panel { Dock = DockStyle.Top, Height = 38 };
+            var lblDest = new Label
+            {
+                Text = "📁 Thư Mục Lưu File:",
+                Left = 0,
+                Top = 8,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = Color.DarkSlateBlue
+            };
 
-            _btnOpenOutputDir = new Button { Text = "📂 Mở Thư Mục", Left = 210, Top = 12, Width = 120, Height = 32, FlatStyle = FlatStyle.System };
+            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
+            _txtOutputDir = new TextBox
+            {
+                Left = 150,
+                Top = 5,
+                Width = 720,
+                Font = new Font("Segoe UI", 9.5F),
+                Text = defaultDir
+            };
+
+            _btnBrowseOutputDir = new Button
+            {
+                Text = "📂 Chọn Thư Mục...",
+                Left = 880,
+                Top = 4,
+                Width = 145,
+                Height = 29,
+                FlatStyle = FlatStyle.System,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            };
+            _btnBrowseOutputDir.Click += BtnBrowseOutputDir_Click;
+
+            _btnOpenOutputDir = new Button
+            {
+                Text = "📁 Mở Folder",
+                Left = 1035,
+                Top = 4,
+                Width = 105,
+                Height = 29,
+                FlatStyle = FlatStyle.System
+            };
             _btnOpenOutputDir.Click += (s, e) => OpenOutputDirectory();
+
+            pnlOutputDirBar.Controls.Add(lblDest);
+            pnlOutputDirBar.Controls.Add(_txtOutputDir);
+            pnlOutputDirBar.Controls.Add(_btnBrowseOutputDir);
+            pnlOutputDirBar.Controls.Add(_btnOpenOutputDir);
+
+            pnlOutputDirBar.Resize += (s, e) =>
+            {
+                int rightControlsWidth = _btnBrowseOutputDir.Width + _btnOpenOutputDir.Width + 25;
+                _txtOutputDir.Width = Math.Max(200, pnlOutputDirBar.Width - _txtOutputDir.Left - rightControlsWidth);
+                _btnBrowseOutputDir.Left = _txtOutputDir.Left + _txtOutputDir.Width + 8;
+                _btnOpenOutputDir.Left = _btnBrowseOutputDir.Left + _btnBrowseOutputDir.Width + 8;
+            };
+
+            // Row 2: Action Buttons
+            var bottomBar = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 44 };
+
+            _btnPreflightCheck = new Button { Text = "🔍 Kiểm Tra Trước Khi Xuất", Left = 0, Top = 5, Width = 195, Height = 34, FlatStyle = FlatStyle.System };
+            _btnPreflightCheck.Click += BtnPreflightCheck_Click;
 
             _btnExportStart = new Button
             {
                 Text = "⚡ XUẤT BẢN VẼ (EXPORT NOW)",
                 Left = 700,
-                Top = 10,
-                Width = 240,
-                Height = 36,
+                Top = 3,
+                Width = 250,
+                Height = 38,
                 BackColor = Color.FromArgb(0, 122, 255),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10F, FontStyle.Bold),
@@ -284,22 +348,24 @@ namespace KhimTools.SheetExport.Forms
             _btnExportStart.FlatAppearance.BorderSize = 0;
             _btnExportStart.Click += BtnExportStart_Click;
 
-            _btnClose = new Button { Text = "Đóng", Left = 955, Top = 10, Width = 85, Height = 36, FlatStyle = FlatStyle.System };
+            _btnClose = new Button { Text = "Đóng", Left = 960, Top = 3, Width = 90, Height = 38, FlatStyle = FlatStyle.System };
             _btnClose.Click += (s, e) => Close();
 
             bottomBar.Controls.Add(_btnPreflightCheck);
-            bottomBar.Controls.Add(_btnOpenOutputDir);
             bottomBar.Controls.Add(_btnExportStart);
             bottomBar.Controls.Add(_btnClose);
 
             bottomBar.Resize += (s, e) =>
             {
-                _btnClose.Left = bottomBar.Width - _btnClose.Width - 15;
+                _btnClose.Left = bottomBar.Width - _btnClose.Width;
                 _btnExportStart.Left = _btnClose.Left - _btnExportStart.Width - 10;
             };
 
+            pnlBottomContainer.Controls.Add(pnlOutputDirBar);
+            pnlBottomContainer.Controls.Add(bottomBar);
+
             Controls.Add(mainSplit);
-            Controls.Add(bottomBar);
+            Controls.Add(pnlBottomContainer);
         }
 
         private void BuildGridColumns()
@@ -329,7 +395,7 @@ namespace KhimTools.SheetExport.Forms
             {
                 Dock = DockStyle.Fill,
                 ColumnCount = 2,
-                RowCount = 7,
+                RowCount = 6,
                 Padding = new Padding(8),
                 AutoScroll = true
             };
@@ -397,17 +463,6 @@ namespace KhimTools.SheetExport.Forms
             _txtProjectCode = new TextBox { Text = "PROJ", Width = 160, Anchor = AnchorStyles.Left, Margin = new Padding(0, 3, 0, 8) };
             _txtProjectCode.TextChanged += (s, e) => RecalculateFileNames();
             pnl.Controls.Add(_txtProjectCode, 1, 5);
-
-            // Row 6: Output Directory
-            pnl.Controls.Add(new Label { Text = "Thư Mục Lưu File:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 6);
-            var pnlDir = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(0, 3, 0, 8) };
-            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export");
-            _txtOutputDir = new TextBox { Text = defaultDir, Width = 260, Margin = new Padding(0, 0, 8, 0) };
-            _btnBrowseOutputDir = new Button { Text = "Chọn...", Width = 70, Height = 25, FlatStyle = FlatStyle.System };
-            _btnBrowseOutputDir.Click += BtnBrowseOutputDir_Click;
-            pnlDir.Controls.Add(_txtOutputDir);
-            pnlDir.Controls.Add(_btnBrowseOutputDir);
-            pnl.Controls.Add(pnlDir, 1, 6);
 
             tab.Controls.Add(pnl);
         }
