@@ -24,6 +24,7 @@ namespace KhimTools.SheetExport.Forms
         private List<SheetExportItem> _allSheetItems = new List<SheetExportItem>();
         private List<SheetExportItem> _filteredSheetItems = new List<SheetExportItem>();
         private readonly ExportOptions _options = new ExportOptions();
+        private bool _isLoading = false;
 
         // ── Navigation Sidebar ───────────────────────────────────────────────
         private System.Windows.Forms.Panel _sidebar;
@@ -691,6 +692,7 @@ namespace KhimTools.SheetExport.Forms
         #region Data Loading & Synchronization
         private void LoadDataFromRevit()
         {
+            _isLoading = true;
             try
             {
                 _allSheetItems = SheetCollectorService.GetAllSheets(_doc) ?? new List<SheetExportItem>();
@@ -733,6 +735,10 @@ namespace KhimTools.SheetExport.Forms
             catch (Exception ex)
             {
                 KhimDialogHelper.ShowError("Lỗi Khởi Tạo Dữ Liệu Sheet", ex.Message, ex.StackTrace);
+            }
+            finally
+            {
+                _isLoading = false;
             }
         }
 
@@ -780,14 +786,24 @@ namespace KhimTools.SheetExport.Forms
 
         private void ChkListSheets_ItemCheck(object sender, ItemCheckEventArgs e)
         {
+            if (_isLoading) return;
+
             if (e.Index >= 0 && e.Index < _filteredSheetItems.Count)
             {
                 _filteredSheetItems[e.Index].IsSelected = (e.NewValue == CheckState.Checked);
-                BeginInvoke(new Action(() =>
+                if (IsHandleCreated)
+                {
+                    BeginInvoke(new Action(() =>
+                    {
+                        RefreshGridRows();
+                        UpdateSummaryLabel();
+                    }));
+                }
+                else
                 {
                     RefreshGridRows();
                     UpdateSummaryLabel();
-                }));
+                }
             }
         }
 
