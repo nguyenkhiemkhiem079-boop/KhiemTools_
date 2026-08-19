@@ -327,40 +327,6 @@ namespace KhimTools.RebarTool.Forms
             layoutCover.Controls.Add(_btnProjectCover);
             _grpCover.Controls.Add(layoutCover);
 
-            _grpDesignStandard = new GroupBox { Text = "📐 Tiêu chuẩn Eurocode 2 (EN 1992-1-1)", Dock = DockStyle.Top, Height = 145, Padding = new Padding(8) };
-            var layoutDesign = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-            _cmbDesignStandard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
-            _cmbDesignStandard.Items.AddRange(new string[] { "Eurocode 2 (EN 1992-1-1)" });
-            _cmbDesignStandard.SelectedIndex = 0;
-
-            _cmbConcreteGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
-            _cmbConcreteGrade.Items.AddRange(new string[] { "C30/37 (Mặc định)", "C20/25", "C25/30", "C35/45", "C40/50", "C50/60" });
-            _cmbConcreteGrade.SelectedIndex = 0;
-
-            _cmbSteelGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
-            _cmbSteelGrade.Items.AddRange(new string[] { "B500B (fyk = 500 MPa)", "B500C", "B400" });
-            _cmbSteelGrade.SelectedIndex = 0;
-
-            _lblDesignWarning = new Label { Text = "✅ Chuẩn Eurocode 2: Lb = 40d | L0 = 45d (Tối ưu kết cấu)", ForeColor = Color.DarkGreen, AutoSize = true, Font = new Font("Segoe UI", 7.5F, FontStyle.Bold) };
-
-            AddRowToLayout(layoutDesign, "Tiêu chuẩn:", _cmbDesignStandard);
-            AddRowToLayout(layoutDesign, "Mác bê tông:", _cmbConcreteGrade);
-            AddRowToLayout(layoutDesign, "Mác cốt thép:", _cmbSteelGrade);
-            
-            var warningPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
-            warningPanel.Controls.Add(_lblDesignWarning);
-            layoutDesign.Controls.Add(warningPanel);
-            layoutDesign.SetColumnSpan(warningPanel, 2);
-
-            _grpDesignStandard.Controls.Add(layoutDesign);
-
-            _cmbDesignStandard.SelectedIndexChanged += (s, e) => { UpdateDesignWarning(); _previewPanel?.Invalidate(); };
-            _cmbConcreteGrade.SelectedIndexChanged += (s, e) => { UpdateDesignWarning(); _previewPanel?.Invalidate(); };
-            _cmbSteelGrade.SelectedIndexChanged += (s, e) => { UpdateDesignWarning(); _previewPanel?.Invalidate(); };
-
             _grpMainAnchor = new GroupBox { Text = "Cấu tạo Neo & Nối Thép", Dock = DockStyle.Top, Height = 175, Padding = new Padding(8) };
             var pnlAnchor = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _rdBaseFoundation = new RadioButton { Text = "Cột tầng móng (Nối chân quỳ 90° vào móng)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
@@ -390,7 +356,6 @@ namespace KhimTools.RebarTool.Forms
 
             pnlMainLeft.Controls.Add(_grpMainAnchor);
             pnlMainLeft.Controls.Add(_grpCover);
-            pnlMainLeft.Controls.Add(_grpDesignStandard);
             pnlMainLeft.Controls.Add(_grpMainSection);
 
             _tabMain.Controls.Add(pnlMainLeft);

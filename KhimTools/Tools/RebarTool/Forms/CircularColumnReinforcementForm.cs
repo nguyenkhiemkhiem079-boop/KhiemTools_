@@ -295,66 +295,7 @@ namespace KhimTools.RebarTool.Forms
             pnlAnchor.Controls.Add(pnlLapMult);
             grpMainAnchor.Controls.Add(pnlAnchor);
 
-            // ── Design Standard GroupBox ──────────────────────────────────────────
-            _grpDesignStandard = new GroupBox
-            {
-                Text = "📐 Tiêu Chuẩn Thiết Kế (Anchorage Ld)",
-                Dock = DockStyle.Top,
-                Height = 148,
-                Padding = new Padding(10, 14, 10, 6),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
-            };
-            var layoutDesign = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 4, AutoSize = true };
-            layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            layoutDesign.Font = new Font("Segoe UI", 8.5F);
-
-            _cmbDesignStandard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130 };
-            _cmbDesignStandard.Items.AddRange(new object[] { "TCVN 5574:2018", "Eurocode 2" });
-            _cmbDesignStandard.SelectedIndex = 0;
-
-            _cmbConcreteGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130 };
-            _cmbConcreteGrade.Items.AddRange(new object[] { "Auto (35d)", "B15", "B20", "B22.5", "B25", "B30", "B35", "B40", "B45", "B50",
-                "C20/25", "C25/30", "C28/35", "C30/37", "C32/40", "C35/45", "C40/50" });
-            _cmbConcreteGrade.SelectedIndex = 0;
-
-            _cmbSteelGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 130 };
-            _cmbSteelGrade.Items.AddRange(new object[] { "Auto (30d)", "CB240-T", "CB300-V", "CB400-V", "CB500-V", "B400", "B500" });
-            _cmbSteelGrade.SelectedIndex = 0;
-
-            _lblDesignWarning = new Label
-            {
-                Text = "",
-                ForeColor = Color.OrangeRed,
-                Font = new Font("Segoe UI", 8F, FontStyle.Italic),
-                AutoSize = false,
-                Dock = DockStyle.Bottom,
-                Height = 28,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            EventHandler updateDesignWarning = (s, e) =>
-            {
-                bool tcvnMode = _cmbDesignStandard.SelectedIndex == 0;
-                bool autoGrade = _cmbConcreteGrade.SelectedIndex == 0 || _cmbSteelGrade.SelectedIndex == 0;
-                _lblDesignWarning.Text = autoGrade
-                    ? "⚠ Chọn mác BT & thép để tính Ld chính xác"
-                    : $"✔ Ld tính theo {(tcvnMode ? "TCVN 5574:2018" : "Eurocode 2")}";
-                _lblDesignWarning.ForeColor = autoGrade ? Color.OrangeRed : Color.DarkGreen;
-            };
-            _cmbDesignStandard.SelectedIndexChanged += updateDesignWarning;
-            _cmbConcreteGrade.SelectedIndexChanged += updateDesignWarning;
-            _cmbSteelGrade.SelectedIndexChanged += updateDesignWarning;
-
-            AddRowToLayout(layoutDesign, "Tiêu chuẩn:", _cmbDesignStandard);
-            AddRowToLayout(layoutDesign, "Mác bê tông:", _cmbConcreteGrade);
-            AddRowToLayout(layoutDesign, "Mác thép:", _cmbSteelGrade);
-            _grpDesignStandard.Controls.Add(layoutDesign);
-            _grpDesignStandard.Controls.Add(_lblDesignWarning);
-            // ─────────────────────────────────────────────────────────────────────
-
             pnlMainLeft.Controls.Add(grpMainAnchor);
-            pnlMainLeft.Controls.Add(_grpDesignStandard);
             pnlMainLeft.Controls.Add(grpCover);
             pnlMainLeft.Controls.Add(grpMainSection);
             tabMain.Controls.Add(pnlMainLeft);
@@ -793,29 +734,9 @@ namespace KhimTools.RebarTool.Forms
             LoadTemplateList();
         }
 
-        private DesignCode GetSelectedDesignStandard()
-        {
-            if (_cmbDesignStandard.SelectedIndex == 1) return DesignCode.Eurocode2;
-            return DesignCode.TCVN5574_2018;
-        }
-
-        private ConcreteGrade GetSelectedConcreteGrade()
-        {
-            string txt = _cmbConcreteGrade.Text;
-            if (txt.StartsWith("Auto")) return ConcreteGrade.Auto;
-            string clean = txt.Replace("/", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out ConcreteGrade res)) return res;
-            return ConcreteGrade.Auto;
-        }
-
-        private SteelGrade GetSelectedSteelGrade()
-        {
-            string txt = _cmbSteelGrade.Text;
-            if (txt.StartsWith("Auto")) return SteelGrade.Auto;
-            string clean = txt.Replace("-", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out SteelGrade res)) return res;
-            return SteelGrade.Auto;
-        }
+        private DesignCode GetSelectedDesignStandard() => DesignCode.Eurocode2;
+        private ConcreteGrade GetSelectedConcreteGrade() => ConcreteGrade.C30_37;
+        private SteelGrade GetSelectedSteelGrade() => SteelGrade.B500;
 
         private void SetComboValue(ComboBox combo, string val)
         {
