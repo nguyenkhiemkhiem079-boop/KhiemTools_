@@ -144,7 +144,7 @@ namespace KhimTools.SectionCutTool.Core
                     transform.Origin = cutPt;
                     transform.BasisX = right;
                     transform.BasisY = up;
-                    transform.BasisZ = -dir; // View nhìn dọc theo trục dầm từ Start -> End
+                    transform.BasisZ = right.CrossProduct(up).Normalize(); // View nhìn dọc theo trục dầm, chuẩn quy tắc bàn tay phải
 
                     var box = new BoundingBoxXYZ
                     {
