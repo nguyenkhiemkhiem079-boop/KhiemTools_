@@ -41,7 +41,7 @@ namespace KhimTools.SlabJoin.Services
             {
                 if (floor == null || !floor.IsValidObject) continue;
 
-                BoundingBoxXYZ bbox = floor.get_BoundingBox(activeView) ?? floor.get_BoundingBox(null);
+                BoundingBoxXYZ bbox = floor.get_BoundingBox(null) ?? floor.get_BoundingBox(activeView);
                 if (bbox == null) continue;
 
                 boxes.Add(new FloorBBox

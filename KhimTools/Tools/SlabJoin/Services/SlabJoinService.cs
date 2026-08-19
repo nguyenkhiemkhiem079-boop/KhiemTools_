@@ -162,12 +162,12 @@ namespace KhimTools.SlabJoin.Services
             try
             {
                 View activeView = doc.ActiveView;
-                BoundingBoxXYZ bb1 = el1.get_BoundingBox(activeView) ?? el1.get_BoundingBox(null);
-                BoundingBoxXYZ bb2 = el2.get_BoundingBox(activeView) ?? el2.get_BoundingBox(null);
+                BoundingBoxXYZ bb1 = el1.get_BoundingBox(null) ?? el1.get_BoundingBox(activeView);
+                BoundingBoxXYZ bb2 = el2.get_BoundingBox(null) ?? el2.get_BoundingBox(activeView);
 
                 if (bb1 == null || bb2 == null) return false;
 
-                double tol = BoundingBoxToleranceFeet;
+                double tol = 0.0328; // ~10 mm tolerance
 
                 return (bb1.Max.X + tol >= bb2.Min.X && bb1.Min.X - tol <= bb2.Max.X) &&
                        (bb1.Max.Y + tol >= bb2.Min.Y && bb1.Min.Y - tol <= bb2.Max.Y) &&
@@ -181,14 +181,19 @@ namespace KhimTools.SlabJoin.Services
 
         private static double GetThicknessFeet(Document doc, Floor floor)
         {
-            if (floor == null) return 0;
+            if (floor == null) return 0.5;
             try
             {
                 FloorType ftype = doc.GetElement(floor.GetTypeId()) as FloorType;
                 CompoundStructure cs = ftype?.GetCompoundStructure();
-                return cs?.GetWidth() ?? 0;
+                if (cs != null && cs.GetWidth() > 0) return cs.GetWidth();
+
+                double pThick = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
+                             ?? floor.get_Parameter(BuiltInParameter.FLOOR_ATTR_THICKNESS_PARAM)?.AsDouble()
+                             ?? 0.5;
+                return pThick;
             }
-            catch { return 0; }
+            catch { return 0.5; }
         }
     }
 }
