@@ -411,7 +411,9 @@ namespace KhimTools.RebarTool.Core
 
             double stepXFeet = UnitUtils.ConvertToInternalUnits(settings.StepXMm, UnitTypeId.Millimeters);
             double stepYFeet = UnitUtils.ConvertToInternalUnits(settings.StepYMm, UnitTypeId.Millimeters);
-            double hookFeet = UnitUtils.ConvertToInternalUnits(settings.HookLenMm, UnitTypeId.Millimeters);
+            double footLenFeet = UnitUtils.ConvertToInternalUnits(settings.HookLenMm > 0 ? settings.HookLenMm : 150, UnitTypeId.Millimeters); // Chân A/E: 150mm
+            double bridgeWidthFeet = ToFeet(150); // Cầu trên C: 150mm
+            double barDia = barType.BarModelDiameter;
 
             double hChair = zTop - zBot;
             if (hChair <= 0.1) return list;
@@ -426,30 +428,60 @@ namespace KhimTools.RebarTool.Core
 
                     try
                     {
-                        XYZ p1 = new XYZ(x - hookFeet, y, zBot);
-                        XYZ p2 = new XYZ(x, y, zBot);
-                        XYZ p3 = new XYZ(x, y, zTop);
-                        XYZ p4 = new XYZ(x + hookFeet, y, zTop);
+                        // Hình dạng Con Kê Chân Chó Chuẩn Shape 31 (JP_T31 / BS 8666 / Eurocode 2):
+                        // P1: Chân trái dưới (zBot) -> P2: Gốc chân trái (zBot)
+                        // P2: Gốc chân trái -> P3: Đỉnh trái (zTop)
+                        // P3: Đỉnh trái -> P4: Đỉnh phải (zTop) (Cầu đỡ thép mặt trên)
+                        // P4: Đỉnh phải -> P5: Gốc chân phải (zBot)
+                        // P5: Gốc chân phải -> P6: Chân phải dưới (zBot)
+                        double halfBridge = bridgeWidthFeet / 2.0;
+
+                        XYZ p1 = new XYZ(x - halfBridge, y - footLenFeet, zBot);
+                        XYZ p2 = new XYZ(x - halfBridge, y, zBot);
+                        XYZ p3 = new XYZ(x - halfBridge, y, zTop);
+                        XYZ p4 = new XYZ(x + halfBridge, y, zTop);
+                        XYZ p5 = new XYZ(x + halfBridge, y, zBot);
+                        XYZ p6 = new XYZ(x + halfBridge, y + footLenFeet, zBot);
 
                         var curves = new List<Curve>
                         {
                             Line.CreateBound(p1, p2),
                             Line.CreateBound(p2, p3),
-                            Line.CreateBound(p3, p4)
+                            Line.CreateBound(p3, p4),
+                            Line.CreateBound(p4, p5),
+                            Line.CreateBound(p5, p6)
                         };
 
                         Rebar chair = RebarShapeCreationHelper.CreateFromCurvesSafe(
-                            _doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisY, curves,
+                            _doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisZ, curves,
                             RebarHookOrientation.Left, RebarHookOrientation.Right);
+
                         if (chair != null)
                         {
+                            // Gán tham số kích thước phân đoạn theo Rebar Shape 31 / Shared Parameter VNDC:
+                            // L1 = A - d/2, L2 = B - d, L3 = C - d, L4 = D - d, L5 = E - d/2
+                            var shapeParams = new Dictionary<string, double>
+                            {
+                                { "A", footLenFeet },
+                                { "B", hChair },
+                                { "C", bridgeWidthFeet },
+                                { "D", hChair },
+                                { "E", footLenFeet },
+                                { "VNDC_L1", footLenFeet - barDia / 2.0 },
+                                { "VNDC_L2", hChair - barDia },
+                                { "VNDC_L3", bridgeWidthFeet - barDia },
+                                { "VNDC_L4", hChair - barDia },
+                                { "VNDC_L5", footLenFeet - barDia / 2.0 }
+                            };
+                            RebarShapeLibrary.ApplyShapeParameters(chair, shapeParams);
+
                             list.Add(chair);
                             report?.AddSuccess(1);
                         }
                     }
                     catch (Exception ex)
                     {
-                        report?.AddError(floor, $"{panelId} - Con kê / Thép chân chó (Spacer)", ex);
+                        report?.AddError(floor, $"{panelId} - Con kê / Thép chân chó (Spacer Shape 31)", ex);
                     }
                 }
             }
