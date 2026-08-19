@@ -1705,6 +1705,12 @@ namespace KhimTools.RebarTool.Forms
 
                 foreach (var beam in _selectedBeams)
                 {
+                    using var tx = new Transaction(_doc, $"Create Rebar for Beam {beam.Id.ToLongValue()}");
+                    tx.Start();
+                    var failOpt = tx.GetFailureHandlingOptions();
+                    failOpt.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+                    tx.SetFailureHandlingOptions(failOpt);
+
                     var input = new BeamRebarInput
                     {
                         Beam = beam,
@@ -1731,6 +1737,8 @@ namespace KhimTools.RebarTool.Forms
 
                     var generator = new BeamRebarGenerator(_doc);
                     var rebars = generator.Generate(input);
+                    tx.Commit();
+
                     if (rebars != null && rebars.Any()) successCount++;
                 }
 
