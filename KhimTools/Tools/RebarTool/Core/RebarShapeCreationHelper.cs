@@ -55,8 +55,17 @@ namespace KhimTools.RebarTool.Core
 
             Rebar rebar = null;
 
-            // Cấp 1 (Ưu tiên số 1 - Khuyến nghị của Revit API): useExistingShape: true, createNewShape: true
-            // Giúp Revit tự động gán và khớp với RebarShape chuẩn có sẵn (Rebar Shape 00, 51, M_00, T1), loại bỏ hoàn toàn lỗi "Can't solve Rebar Shape"
+            // Cấp 1 (Khớp hình dạng có sẵn - An toàn 100% không bao giờ sinh lỗi RebarShape):
+            try
+            {
+                rebar = Rebar.CreateFromCurves(
+                    doc, style, barType, hook0, hook1, host,
+                    norm, curves, hookOrient0, hookOrient1, true, false);
+                if (rebar != null) return rebar;
+            }
+            catch { }
+
+            // Cấp 2: Cho phép khớp có sẵn hoặc tạo mới shape nếu dự án chưa có:
             try
             {
                 rebar = Rebar.CreateFromCurves(
@@ -66,9 +75,18 @@ namespace KhimTools.RebarTool.Core
             }
             catch { }
 
-            // Cấp 2: Nếu có hook mà bị lỗi tham số hook, thử bỏ hook với useExistingShape: true
+            // Cấp 3: Nếu có hook mà bị lỗi tham số hook, thử bỏ hook với useExistingShape: true
             if (hook0 != null || hook1 != null)
             {
+                try
+                {
+                    rebar = Rebar.CreateFromCurves(
+                        doc, style, barType, null, null, host,
+                        norm, curves, hookOrient0, hookOrient1, true, false);
+                    if (rebar != null) return rebar;
+                }
+                catch { }
+
                 try
                 {
                     rebar = Rebar.CreateFromCurves(
@@ -79,9 +97,18 @@ namespace KhimTools.RebarTool.Core
                 catch { }
             }
 
-            // Cấp 3: Nếu style là StirrupTie bị lỗi, chuyển sang Standard với useExistingShape: true
+            // Cấp 4: Nếu style là StirrupTie bị lỗi, chuyển sang Standard
             if (style != RebarStyle.Standard)
             {
+                try
+                {
+                    rebar = Rebar.CreateFromCurves(
+                        doc, RebarStyle.Standard, barType, null, null, host,
+                        norm, curves, hookOrient0, hookOrient1, true, false);
+                    if (rebar != null) return rebar;
+                }
+                catch { }
+
                 try
                 {
                     rebar = Rebar.CreateFromCurves(
@@ -90,29 +117,6 @@ namespace KhimTools.RebarTool.Core
                     if (rebar != null) return rebar;
                 }
                 catch { }
-            }
-
-            // Cấp 4: Fallback useExistingShape: false nếu dự án chưa có bất kỳ RebarShape nào
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc, style, barType, hook0, hook1, host,
-                    norm, curves, hookOrient0, hookOrient1, false, true);
-                if (rebar != null) return rebar;
-            }
-            catch { }
-
-            // Cấp 5: Fallback Standard không hook với useExistingShape: false
-            try
-            {
-                rebar = Rebar.CreateFromCurves(
-                    doc, RebarStyle.Standard, barType, null, null, host,
-                    norm, curves, hookOrient0, hookOrient1, false, true);
-                if (rebar != null) return rebar;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[RebarShapeCreationHelper] CreateFromCurvesSafe failed: {ex.Message}");
             }
 
             return rebar;

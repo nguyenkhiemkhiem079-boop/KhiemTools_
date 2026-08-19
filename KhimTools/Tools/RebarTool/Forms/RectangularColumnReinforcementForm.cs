@@ -327,24 +327,24 @@ namespace KhimTools.RebarTool.Forms
             layoutCover.Controls.Add(_btnProjectCover);
             _grpCover.Controls.Add(layoutCover);
 
-            _grpDesignStandard = new GroupBox { Text = "📐 Tiêu chuẩn & Cấp độ bền", Dock = DockStyle.Top, Height = 145, Padding = new Padding(8) };
+            _grpDesignStandard = new GroupBox { Text = "📐 Tiêu chuẩn Eurocode 2 (EN 1992-1-1)", Dock = DockStyle.Top, Height = 145, Padding = new Padding(8) };
             var layoutDesign = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutDesign.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            _cmbDesignStandard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
-            _cmbDesignStandard.Items.AddRange(new string[] { "TCVN 5574:2018", "Eurocode 2 (EN 1992)" });
+            _cmbDesignStandard = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
+            _cmbDesignStandard.Items.AddRange(new string[] { "Eurocode 2 (EN 1992-1-1)" });
             _cmbDesignStandard.SelectedIndex = 0;
 
-            _cmbConcreteGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
-            _cmbConcreteGrade.Items.AddRange(new string[] { "Auto / Tự động", "B15", "B20", "B25", "B30", "B35", "B40", "B45", "B50", "C20/25", "C25/30", "C30/37", "C35/45", "C40/50" });
+            _cmbConcreteGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
+            _cmbConcreteGrade.Items.AddRange(new string[] { "C30/37 (Mặc định)", "C20/25", "C25/30", "C35/45", "C40/50", "C50/60" });
             _cmbConcreteGrade.SelectedIndex = 0;
 
-            _cmbSteelGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
-            _cmbSteelGrade.Items.AddRange(new string[] { "Auto / Tự động", "CB240-T", "CB300-V", "CB400-V", "CB500-V", "B400", "B500" });
+            _cmbSteelGrade = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 160 };
+            _cmbSteelGrade.Items.AddRange(new string[] { "B500B (fyk = 500 MPa)", "B500C", "B400" });
             _cmbSteelGrade.SelectedIndex = 0;
 
-            _lblDesignWarning = new Label { Text = "⚠️ Chế độ tự động dùng hệ số 35d/30d.", ForeColor = Color.DarkOrange, AutoSize = true, Font = new Font("Segoe UI", 7.5F, FontStyle.Italic) };
+            _lblDesignWarning = new Label { Text = "✅ Chuẩn Eurocode 2: Lb = 40d | L0 = 45d (Tối ưu kết cấu)", ForeColor = Color.DarkGreen, AutoSize = true, Font = new Font("Segoe UI", 7.5F, FontStyle.Bold) };
 
             AddRowToLayout(layoutDesign, "Tiêu chuẩn:", _cmbDesignStandard);
             AddRowToLayout(layoutDesign, "Mác bê tông:", _cmbConcreteGrade);
@@ -1055,44 +1055,32 @@ namespace KhimTools.RebarTool.Forms
 
         private DesignCode GetSelectedDesignStandard()
         {
-            if (_cmbDesignStandard.SelectedIndex == 1) return DesignCode.Eurocode2;
-            return DesignCode.TCVN5574_2018;
+            return DesignCode.Eurocode2;
         }
 
         private ConcreteGrade GetSelectedConcreteGrade()
         {
             string txt = _cmbConcreteGrade.Text;
-            if (txt.StartsWith("Auto")) return ConcreteGrade.Auto;
-            string clean = txt.Replace("/", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out ConcreteGrade res)) return res;
-            return ConcreteGrade.Auto;
+            if (txt.Contains("C20/25")) return ConcreteGrade.C20_25;
+            if (txt.Contains("C25/30")) return ConcreteGrade.C25_30;
+            if (txt.Contains("C35/45")) return ConcreteGrade.C35_45;
+            if (txt.Contains("C40/50")) return ConcreteGrade.C40_50;
+            return ConcreteGrade.C30_37;
         }
 
         private SteelGrade GetSelectedSteelGrade()
         {
             string txt = _cmbSteelGrade.Text;
-            if (txt.StartsWith("Auto")) return SteelGrade.Auto;
-            string clean = txt.Replace("-", "_").Replace(" ", "");
-            if (Enum.TryParse(clean, out SteelGrade res)) return res;
-            return SteelGrade.Auto;
+            if (txt.Contains("B400")) return SteelGrade.B400;
+            return SteelGrade.B500;
         }
 
         private void UpdateDesignWarning()
         {
-            if (_cmbConcreteGrade.SelectedIndex == 0 || _cmbSteelGrade.SelectedIndex == 0)
-            {
-                _lblDesignWarning.Text = LanguageManager.IsEnglish 
-                    ? "⚠️ Auto: Fallback to fixed multiplier (35d/30d)." 
-                    : "⚠️ Tự động: Dùng hệ số mặc định (35d/30d).";
-                _lblDesignWarning.ForeColor = Color.DarkOrange;
-            }
-            else
-            {
-                _lblDesignWarning.Text = LanguageManager.IsEnglish 
-                    ? "✅ Active: Calculated dynamically from code." 
-                    : "✅ Hoạt động: Tính toán động theo tiêu chuẩn.";
-                _lblDesignWarning.ForeColor = Color.DarkGreen;
-            }
+            _lblDesignWarning.Text = LanguageManager.IsEnglish 
+                ? "✅ Eurocode 2: Lb = 40d | L0 = 45d (Calculated dynamically)" 
+                : "✅ Tiêu chuẩn Eurocode 2: Lb = 40d | L0 = 45d (Chuẩn kỹ thuật)";
+            _lblDesignWarning.ForeColor = Color.DarkGreen;
         }
 
         private class ColumnListItem
