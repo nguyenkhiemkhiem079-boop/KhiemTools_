@@ -56,6 +56,32 @@ namespace KhimTools.SectionCutTool.Core
         }
 
         /// <summary>
+        /// Tạo tên View không trùng lặp bằng cách kiểm tra trên tập HashSet tên view đã tồn tại (Tối ưu hiệu năng O(1), không truy vấn lại DB Revit).
+        /// </summary>
+        public static string GetUniqueViewName(ISet<string> existingNames, string baseName)
+        {
+            if (string.IsNullOrWhiteSpace(baseName)) return "Section_01";
+            if (existingNames == null) return baseName;
+
+            if (!existingNames.Contains(baseName))
+            {
+                existingNames.Add(baseName);
+                return baseName;
+            }
+
+            int counter = 1;
+            string candidate;
+            do
+            {
+                candidate = $"{baseName}_{counter:D2}";
+                counter++;
+            } while (existingNames.Contains(candidate));
+
+            existingNames.Add(candidate);
+            return candidate;
+        }
+
+        /// <summary>
         /// Tạo tên View không trùng lặp trong Document bằng cách thêm hậu tố số tăng dần nếu tên đã tồn tại.
         /// </summary>
         public static string GetUniqueViewName(Document doc, string baseName)
@@ -70,20 +96,7 @@ namespace KhimTools.SectionCutTool.Core
                     .Select(v => v.Name),
                 StringComparer.OrdinalIgnoreCase);
 
-            if (!existingNames.Contains(baseName))
-            {
-                return baseName;
-            }
-
-            int counter = 1;
-            string candidate;
-            do
-            {
-                candidate = $"{baseName}_{counter:D2}";
-                counter++;
-            } while (existingNames.Contains(candidate));
-
-            return candidate;
+            return GetUniqueViewName(existingNames, baseName);
         }
     }
 }

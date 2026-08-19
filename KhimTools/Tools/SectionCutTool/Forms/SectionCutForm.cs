@@ -1020,12 +1020,46 @@ namespace KhimTools.SectionCutTool.Forms
             try
             {
                 Cursor = Cursors.WaitCursor;
-                var report = _generator.GenerateSections(selected, settings);
+                _btnGenerate.Enabled = false;
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "Generating..." : "Đang xử lý...";
+
+                var report = _generator.GenerateSections(selected, settings, (curr, total, label) =>
+                {
+                    _btnGenerate.Text = $"({curr}/{total}) {label}";
+                    Application.DoEvents();
+                });
+
                 Cursor = Cursors.Default;
+                _btnGenerate.Enabled = true;
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+
+                var createdViews = report.Items.Where(x => x.Success && x.CreatedView != null).Select(x => x.CreatedView).ToList();
+                if (_uidoc != null && createdViews.Any())
+                {
+                    try
+                    {
+                        // Highlight các View vừa tạo trong Project Browser
+                        _uidoc.Selection.SetElementIds(createdViews.Select(v => v.Id).ToList());
+                        // Tự động mở mặt cắt đầu tiên để người dùng kiểm tra ngay
+                        _uidoc.ActiveView = createdViews.First();
+                    }
+                    catch { }
+                }
+
+                string viewNames = createdViews.Any()
+                    ? string.Join("\n", createdViews.Take(6).Select(v => $"  ✔ {v.Name}")) + (createdViews.Count > 6 ? $"\n  ... và {createdViews.Count - 6} mặt cắt khác." : "")
+                    : "";
 
                 string summaryMsg = LanguageManager.IsEnglish
-                    ? $"Section Generation Finished!\n\n• Success: {report.SuccessCount} views\n• Failures: {report.FailureCount}\n• Total Processed Elements: {selected.Count}"
+                    ? $"Section Generation Finished!\n\n• Successfully Created: {report.SuccessCount} ViewSections\n• Failures: {report.FailureCount}\n• Elements Processed: {selected.Count}"
                     : $"Hoàn tất quá trình tạo mặt cắt tự động!\n\n• Tạo thành công: {report.SuccessCount} ViewSection\n• Gặp lỗi: {report.FailureCount}\n• Số cấu kiện xử lý: {selected.Count}";
+
+                if (!string.IsNullOrEmpty(viewNames))
+                {
+                    summaryMsg += LanguageManager.IsEnglish
+                        ? $"\n\nCreated Views:\n{viewNames}\n\n(The first created section view has been opened in Revit!)"
+                        : $"\n\nDanh sách mặt cắt đã tạo:\n{viewNames}\n\n(Đã tự động mở mặt cắt đầu tiên trên Revit để bạn kiểm tra!)";
+                }
 
                 if (report.FailureCount > 0 && report.Items.Any(x => !x.Success))
                 {
@@ -1051,6 +1085,8 @@ namespace KhimTools.SectionCutTool.Forms
             catch (Exception ex)
             {
                 Cursor = Cursors.Default;
+                _btnGenerate.Enabled = true;
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
                 KhimDialogHelper.ShowError(
                     LanguageManager.IsEnglish ? "Error Creating Sections" : "Lỗi Tạo Mặt Cắt",
                     ex.Message,

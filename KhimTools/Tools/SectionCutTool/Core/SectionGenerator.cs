@@ -51,6 +51,20 @@ namespace KhimTools.SectionCutTool.Core
                 if (!string.IsNullOrWhiteSpace(crossTplName)) crossTemplate = FindViewTemplate(crossTplName);
             }
 
+            // Thu thập sẵn danh sách tên View và ViewFamilyType để tối ưu O(1), không truy vấn DB trong loop
+            var existingViewNames = new HashSet<string>(
+                new FilteredElementCollector(_doc)
+                    .OfClass(typeof(View))
+                    .Cast<View>()
+                    .Where(v => !v.IsTemplate)
+                    .Select(v => v.Name),
+                StringComparer.OrdinalIgnoreCase);
+
+            var detailVft = new FilteredElementCollector(_doc)
+                .OfClass(typeof(ViewFamilyType))
+                .Cast<ViewFamilyType>()
+                .FirstOrDefault(t => t.ViewFamily == ViewFamily.Detail);
+
             int totalElements = selectedItems.Count;
 
             using (var tx = new Transaction(_doc, "KHIM TOOLS — Auto Create Section Views"))
@@ -93,7 +107,7 @@ namespace KhimTools.SectionCutTool.Core
                             string baseName = SectionNamingHelper.FormatSectionName(
                                 pattern, item, secIdx, placement.PositionLabel, placement.IsLongitudinal);
 
-                            string uniqueName = SectionNamingHelper.GetUniqueViewName(_doc, baseName);
+                            string uniqueName = SectionNamingHelper.GetUniqueViewName(existingViewNames, baseName);
 
                             try
                             {
@@ -105,14 +119,9 @@ namespace KhimTools.SectionCutTool.Core
                                 catch
                                 {
                                     // Fallback sang Detail ViewFamilyType nếu loại Section hiện tại không hỗ trợ góc cắt
-                                    var fallbackVft = new FilteredElementCollector(_doc)
-                                        .OfClass(typeof(ViewFamilyType))
-                                        .Cast<ViewFamilyType>()
-                                        .FirstOrDefault(t => (t.ViewFamily == ViewFamily.Detail || t.ViewFamily == ViewFamily.Section) && t.Id != vft.Id);
-
-                                    if (fallbackVft != null)
+                                    if (detailVft != null && detailVft.Id != vft.Id)
                                     {
-                                        view = ViewSection.CreateSection(_doc, fallbackVft.Id, placement.SectionBox);
+                                        view = ViewSection.CreateSection(_doc, detailVft.Id, placement.SectionBox);
                                     }
                                     else
                                     {

@@ -553,12 +553,20 @@ namespace KhimTools.SectionCutTool.Core
         private static List<double> ResolveCutRatios(SectionCutSettings settings, double elementLengthFeet)
         {
             var ratios = new List<double>();
+            if (elementLengthFeet <= 0.1 || double.IsNaN(elementLengthFeet))
+            {
+                ratios.Add(0.5);
+                return ratios;
+            }
 
             if (settings.CrossSectionMode == CrossSectionCutMode.FixedSpacing)
             {
                 double spacingFeet = ToFeet(Math.Max(settings.SpacingMm, 200.0));
+                if (spacingFeet < 0.1) spacingFeet = ToFeet(1000.0);
                 double cur = spacingFeet;
-                while (cur < elementLengthFeet - ToFeet(100))
+                int maxCuts = 50; // Guard against infinite loop
+                int cutCount = 0;
+                while (cur < elementLengthFeet - ToFeet(100) && cutCount++ < maxCuts)
                 {
                     ratios.Add(cur / elementLengthFeet);
                     cur += spacingFeet;
