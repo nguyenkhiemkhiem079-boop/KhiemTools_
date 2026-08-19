@@ -40,17 +40,12 @@ namespace KhimTools.RebarTool.Forms
         private NumericUpDown _numBarsB;
         private NumericUpDown _numBarsH;
         private ComboBox _cmbMainDia;
-        private CheckBox _chkDowel;
         private CheckBox _chkTopAnchor;
         private RadioButton _rdBaseFoundation;
         private RadioButton _rdBaseStandardLevel;
         private CheckBox _chkCrankedSplice;
         private NumericUpDown _numLapMultiplier;
         private CheckBox _chkStaggeredSplice;
-        private ComboBox _cmbDesignStandard;
-        private ComboBox _cmbConcreteGrade;
-        private ComboBox _cmbSteelGrade;
-        private Label _lblDesignWarning;
 
         // Concrete Cover
         private CheckBox _chkCustomCover;
@@ -85,8 +80,6 @@ namespace KhimTools.RebarTool.Forms
 
         private CheckBox _chkAssignElevation;
         private CheckBox _chkAssignPartition;
-        private CheckBox _chkCompressSplice;
-        private CheckBox _chkGroupRebarNumber;
 
         private NumericUpDown _numDefaultBeamHd;
 
@@ -121,7 +114,6 @@ namespace KhimTools.RebarTool.Forms
         private GroupBox _grpCover;
         private Label _lblCustomCover;
         private Button _btnProjectCover;
-        private GroupBox _grpDesignStandard;
         private GroupBox _grpMainAnchor;
         private GroupBox _grpStirrupZone;
         private Label _lblStirrupDia;
@@ -928,9 +920,9 @@ namespace KhimTools.RebarTool.Forms
             var settings = new ColumnRebarSettings
             {
                 Name = name.Trim(),
-                DesignStandard = _cmbDesignStandard.Text.Contains("Eurocode") ? "Eurocode2" : "TCVN5574_2018",
-                ConcreteGrade = _cmbConcreteGrade.Text,
-                SteelGrade = _cmbSteelGrade.Text,
+                DesignStandard = "Eurocode2",
+                ConcreteGrade = "C30/37",
+                SteelGrade = "B500B",
                 MainBarType = _cmbMainDia.Text,
                 StirrupBarType = _cmbStirrupDia.Text,
                 BarsAlongB = (int)_numBarsB.Value,
@@ -962,11 +954,6 @@ namespace KhimTools.RebarTool.Forms
 
             var settings = RebarTemplateManager.LoadColumnTemplate(name);
             if (settings == null) return;
-
-            SetComboValue(_cmbDesignStandard, settings.DesignStandard ?? "TCVN");
-            SetComboValue(_cmbConcreteGrade, settings.ConcreteGrade ?? "Auto");
-            SetComboValue(_cmbSteelGrade, settings.SteelGrade ?? "Auto");
-
 
             SetComboValue(_cmbMainDia, settings.MainBarType);
             SetComboValue(_cmbStirrupDia, settings.StirrupBarType);
@@ -1021,35 +1008,9 @@ namespace KhimTools.RebarTool.Forms
             }
         }
 
-        private DesignCode GetSelectedDesignStandard()
-        {
-            return DesignCode.Eurocode2;
-        }
-
-        private ConcreteGrade GetSelectedConcreteGrade()
-        {
-            string txt = _cmbConcreteGrade.Text;
-            if (txt.Contains("C20/25")) return ConcreteGrade.C20_25;
-            if (txt.Contains("C25/30")) return ConcreteGrade.C25_30;
-            if (txt.Contains("C35/45")) return ConcreteGrade.C35_45;
-            if (txt.Contains("C40/50")) return ConcreteGrade.C40_50;
-            return ConcreteGrade.C30_37;
-        }
-
-        private SteelGrade GetSelectedSteelGrade()
-        {
-            string txt = _cmbSteelGrade.Text;
-            if (txt.Contains("B400")) return SteelGrade.B400;
-            return SteelGrade.B500;
-        }
-
-        private void UpdateDesignWarning()
-        {
-            _lblDesignWarning.Text = LanguageManager.IsEnglish 
-                ? "✅ Eurocode 2: Lb = 40d | L0 = 45d (Calculated dynamically)" 
-                : "✅ Tiêu chuẩn Eurocode 2: Lb = 40d | L0 = 45d (Chuẩn kỹ thuật)";
-            _lblDesignWarning.ForeColor = Color.DarkGreen;
-        }
+        private DesignCode GetSelectedDesignStandard() => DesignCode.Eurocode2;
+        private ConcreteGrade GetSelectedConcreteGrade() => ConcreteGrade.C30_37;
+        private SteelGrade GetSelectedSteelGrade() => SteelGrade.B500;
 
         private class ColumnListItem
         {

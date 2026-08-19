@@ -42,18 +42,12 @@ namespace KhimTools.RebarTool.Forms
         // Controls Thép Chủ
         private NumericUpDown _numMainQty;
         private ComboBox _cmbMainDia;
-        private CheckBox _chkDowel;
         private CheckBox _chkTopAnchor;
         private RadioButton _rdBaseFoundation;
         private RadioButton _rdBaseStandardLevel;
         private CheckBox _chkCrankedSplice;
         private NumericUpDown _numLapMultiplier;
         private CheckBox _chkStaggeredSplice;
-        private ComboBox _cmbDesignStandard;
-        private ComboBox _cmbConcreteGrade;
-        private ComboBox _cmbSteelGrade;
-        private Label _lblDesignWarning;
-        private GroupBox _grpDesignStandard;
 
         // Concrete Cover
         private CheckBox _chkCustomCover;
@@ -84,8 +78,6 @@ namespace KhimTools.RebarTool.Forms
 
         private CheckBox _chkAssignElevation;
         private CheckBox _chkAssignPartition;
-        private CheckBox _chkCompressSplice;
-        private CheckBox _chkGroupRebarNumber;
 
         private NumericUpDown _numDefaultBeamHd;
 
@@ -661,9 +653,9 @@ namespace KhimTools.RebarTool.Forms
             var settings = new ColumnRebarSettings
             {
                 Name = name.Trim(),
-                DesignStandard = GetSelectedDesignStandard() == DesignCode.Eurocode2 ? "Eurocode2" : "TCVN5574_2018",
-                ConcreteGrade = _cmbConcreteGrade.Text,
-                SteelGrade = _cmbSteelGrade.Text,
+                DesignStandard = "Eurocode2",
+                ConcreteGrade = "C30/37",
+                SteelGrade = "B500B",
                 MainBarType = _cmbMainDia.Text,
                 StirrupBarType = _cmbStirrupDia.Text,
                 BarsAlongB = (int)_numMainQty.Value,
@@ -696,9 +688,6 @@ namespace KhimTools.RebarTool.Forms
             var settings = RebarTemplateManager.LoadColumnTemplate(name);
             if (settings == null) return;
 
-            SetComboValue(_cmbDesignStandard, settings.DesignStandard?.Contains("Eurocode") == true ? "Eurocode 2" : "TCVN 5574:2018");
-            SetComboValue(_cmbConcreteGrade, settings.ConcreteGrade ?? "Auto (35d)");
-            SetComboValue(_cmbSteelGrade, settings.SteelGrade ?? "Auto (30d)");
             SetComboValue(_cmbMainDia, settings.MainBarType);
             SetComboValue(_cmbStirrupDia, settings.StirrupBarType);
             _numMainQty.Value = Math.Max(_numMainQty.Minimum, Math.Min(_numMainQty.Maximum, settings.BarsAlongB));
