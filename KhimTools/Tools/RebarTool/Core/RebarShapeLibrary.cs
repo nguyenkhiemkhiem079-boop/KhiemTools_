@@ -86,7 +86,8 @@ namespace KhimTools.RebarTool.Core
             baseDirs.Add(Path.Combine(programData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Legacy"));
             baseDirs.Add(Path.Combine(programData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Modern"));
 
-            // Thư mục mã nguồn Workspace của KhimTools
+            // Thư mục mã nguồn Workspace của KhimTools & Rebar Shape Family Workspace
+            baseDirs.Add(@"c:\Users\khiem.nguyen\Documents\2.1_Rebar Shape (2)\2.1_Rebar Shape");
             baseDirs.Add(@"c:\Users\khiem.nguyen\Documents\KhimTools_v2\KhimTools\Tools\RebarTool\RebarShapes");
             baseDirs.Add(@"c:\Users\khiem.nguyen\Documents\KhimTools_v2\KhimTools\bin\Debug\net48");
             baseDirs.Add(@"c:\Users\khiem.nguyen\Documents\KhimTools_v2\KhimTools\bin\Debug\net8.0-windows");
@@ -104,6 +105,57 @@ namespace KhimTools.RebarTool.Core
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Nạp sẵn các RebarShape tiêu chuẩn (JP_T00, JP_T11, JP_T21, JP_T27, JP_T51, JP_T75...) vào Document.
+        /// Giúp Revit tự động gán đúng Family Shape khi tạo thanh thép từ Curve.
+        /// </summary>
+        public static void PreloadCommonShapes(Document doc)
+        {
+            if (doc == null || doc.IsReadOnly) return;
+
+            string[] commonShapes = { "JP_T00", "JP_T11", "JP_T12", "JP_T21", "JP_T27", "JP_T51", "JP_T75" };
+            foreach (var shapeName in commonShapes)
+            {
+                try
+                {
+                    GetOrLoadShape(doc, shapeName);
+                }
+                catch { }
+            }
+        }
+
+        /// <summary>
+        /// Gán các biến kích thước hình học (A, B, C, Angle1, L1, L2, L3, VNDC_L1, VNDC_L2...) vào Rebar
+        /// để cây thép khớp chính xác kỹ thuật uốn bẻ và thống kê bảng biểu BBS.
+        /// </summary>
+        public static void ApplyShapeParameters(Rebar rebar, IDictionary<string, double> parameters)
+        {
+            if (rebar == null || parameters == null || parameters.Count == 0) return;
+
+            foreach (var kvp in parameters)
+            {
+                string paramName = kvp.Key;
+                double val = kvp.Value;
+
+                // Thử gán tham số trực tiếp (A, B, C, VNDC_L1, L1, Angle1...)
+                var param = rebar.LookupParameter(paramName) ??
+                            rebar.LookupParameter("VNDC_" + paramName) ??
+                            rebar.LookupParameter(paramName.ToUpper());
+
+                if (param != null && !param.IsReadOnly)
+                {
+                    try
+                    {
+                        if (param.StorageType == StorageType.Double)
+                        {
+                            param.Set(val);
+                        }
+                    }
+                    catch { }
+                }
+            }
         }
 
         // ─── Private helpers ────────────────────────────────────────────────────
