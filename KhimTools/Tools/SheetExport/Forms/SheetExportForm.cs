@@ -944,19 +944,22 @@ namespace KhimTools.SheetExport.Forms
 
             _btnPrint.Enabled = false;
             _btnPrint.Text = "Exporting...";
+            Cursor = Cursors.WaitCursor;
 
             try
             {
                 var queue = new ExportRetryQueue(_options.MaxRetryCount);
                 var qaResults = queue.ProcessBatch(_doc, selectedItems, _options, msg =>
                 {
-                    // Update UI row status
-                    BeginInvoke(new Action(() => RefreshGridRows()));
+                    _btnPrint.Text = msg;
+                    RefreshGridRows();
+                    Application.DoEvents();
                 });
 
                 // Generate Transmittal Excel
                 string transPath = TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
 
+                Cursor = Cursors.Default;
                 KhimDialogHelper.ShowSuccess(
                     "Hoàn Tất Xuất Bản Vẽ",
                     $"Đã xuất thành công {selectedItems.Count} bản vẽ sang thư mục:\n{outDir}\n\nĐã tạo bảng kê phát hành Transmittal Register!");
@@ -965,10 +968,12 @@ namespace KhimTools.SheetExport.Forms
             }
             catch (Exception ex)
             {
+                Cursor = Cursors.Default;
                 KhimDialogHelper.ShowError("Lỗi Trong Quá Trình Xuất", ex.Message, ex.StackTrace);
             }
             finally
             {
+                Cursor = Cursors.Default;
                 _btnPrint.Enabled = true;
                 _btnPrint.Text = "Print";
                 RefreshGridRows();
