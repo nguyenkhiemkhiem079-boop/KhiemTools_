@@ -14,7 +14,7 @@ namespace KhimTools.SlabJoin.Services
     /// </summary>
     public class ElementJoinService
     {
-        private const double BbTolerance = 0.003; // ~1mm
+        private const double BbTolerance = 0.0328; // ~10mm tolerance
 
         public delegate void LogCallback(string message);
 
@@ -110,6 +110,7 @@ namespace KhimTools.SlabJoin.Services
             {
                 log?.Invoke($"[SWITCH] Processing: {rule}");
                 var pairs = FindCandidatePairs(doc, rule, scope, selectedIds, log);
+                log?.Invoke($"  → Found {pairs.Count} candidate pairs");
 
                 int batchSize = 50;
                 for (int i = 0; i < pairs.Count; i += batchSize)
@@ -134,20 +135,22 @@ namespace KhimTools.SlabJoin.Services
             return results;
         }
 
-        // ─── CANDIDATE PAIR FINDER ──────────────────────────────────────
+        // ─── CANDIDATE PAIR DISCOVERY ───────────────────────────────────
 
-        private List<Tuple<ElementId, ElementId>> FindCandidatePairs(
+        public List<Tuple<ElementId, ElementId>> FindCandidatePairs(
             Document doc, CategoryMatchRule rule, ScopeMode scope,
-            ICollection<ElementId> selectedIds, LogCallback log)
+            ICollection<ElementId> selectedIds, LogCallback log = null)
         {
             var elemsA = CollectElements(doc, rule.CategoryA, scope, selectedIds);
             var elemsB = (rule.CategoryA == rule.CategoryB)
                 ? elemsA
                 : CollectElements(doc, rule.CategoryB, scope, selectedIds);
 
-            log?.Invoke($"  Elements A ({CategoryMatchRule.CategoryDisplayName(rule.CategoryA)}): {elemsA.Count}");
-            if (rule.CategoryA != rule.CategoryB)
-                log?.Invoke($"  Elements B ({CategoryMatchRule.CategoryDisplayName(rule.CategoryB)}): {elemsB.Count}");
+            if (log != null)
+            {
+                log.Invoke($"  Elements A ({CategoryMatchRule.CategoryDisplayName(rule.CategoryA)}): {elemsA.Count}");
+                log.Invoke($"  Elements B ({CategoryMatchRule.CategoryDisplayName(rule.CategoryB)}): {elemsB.Count}");
+            }
 
             var seen = new HashSet<string>();
             var pairs = new List<Tuple<ElementId, ElementId>>();
@@ -192,7 +195,7 @@ namespace KhimTools.SlabJoin.Services
                         return new List<Element>();
                     return selectedIds
                         .Select(id => doc.GetElement(id))
-                        .Where(e => e != null && e.Category.IsCategory(category))
+                        .Where(e => e != null && e.Category != null && (e.Category.Id.ToLongValue() == (long)category || e.Category.IsCategory(category)))
                         .ToList();
 
                 case ScopeMode.AllModel:

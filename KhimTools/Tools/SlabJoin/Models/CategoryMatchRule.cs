@@ -10,6 +10,14 @@ namespace KhimTools.SlabJoin.Models
         public BuiltInCategory CategoryA { get; set; } = BuiltInCategory.OST_Floors;
         public BuiltInCategory CategoryB { get; set; } = BuiltInCategory.OST_Floors;
 
+        public CategoryMatchRule() { }
+
+        public CategoryMatchRule(BuiltInCategory a, BuiltInCategory b)
+        {
+            CategoryA = a;
+            CategoryB = b;
+        }
+
         public string LabelA => CategoryDisplayName(CategoryA);
         public string LabelB => CategoryDisplayName(CategoryB);
 

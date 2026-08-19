@@ -70,83 +70,42 @@ namespace KhimTools.SlabJoin.Commands
                 string modeLabel = (doJoin ? "JOIN" : "UNJOIN") + (viewOnly ? " — Active View" : " — Entire Model");
                 logger.LogInfo($"=== {modeLabel} started ===");
 
-                // ── 2. Thu thập sàn ────────────────────────────────────────────
+                // ── 2. Thiết lập quy tắc nối cấu kiện kết cấu ──────────────────
                 var sw = Stopwatch.StartNew();
-                var scanner = new SlabScannerService();
-                var floors  = scanner.GetFloors(doc, viewOnly, out List<SkippedElementInfo> skipped);
+                var joinService = new ElementJoinService();
+                ScopeMode scope = viewOnly ? ScopeMode.CurrentView : ScopeMode.AllModel;
 
-                logger.LogInfo($"Floors found: {floors.Count}, skipped: {skipped.Count}");
-                foreach (var s in skipped)
-                    logger.LogInfo($"  Skipped {s.ElementId.ToLongValue()}: {s.Reason}");
-
-                if (floors.Count < 2)
+                var rules = new List<CategoryMatchRule>
                 {
-                    TaskDialog.Show("Join / Unjoin Floors",
-                        $"Tìm thấy {floors.Count} sàn trong scope '{modeLabel}'.\n" +
-                        "Cần ít nhất 2 sàn để xử lý.");
-                    return Result.Succeeded;
-                }
+                    new CategoryMatchRule(BuiltInCategory.OST_Floors, BuiltInCategory.OST_StructuralFraming),
+                    new CategoryMatchRule(BuiltInCategory.OST_Floors, BuiltInCategory.OST_StructuralColumns),
+                    new CategoryMatchRule(BuiltInCategory.OST_Floors, BuiltInCategory.OST_Walls),
+                    new CategoryMatchRule(BuiltInCategory.OST_Floors, BuiltInCategory.OST_Floors),
+                    new CategoryMatchRule(BuiltInCategory.OST_StructuralFraming, BuiltInCategory.OST_StructuralColumns),
+                    new CategoryMatchRule(BuiltInCategory.OST_StructuralFraming, BuiltInCategory.OST_StructuralFraming)
+                };
 
-                // ── 3. Tìm cặp có BB chạm nhau ─────────────────────────────────
-                var spatial = new SpatialIndexService();
-                var pairs   = spatial.FindCandidatePairs(doc, floors);
-                logger.LogInfo($"Candidate pairs: {pairs.Count}");
-
-                // ── 4. Thực hiện join/unjoin theo batch (Chống đơ/văng Revit) ────
-                var joinService = new SlabJoinService();
-                var results = new List<JoinPairResult>();
-
-                string txGroup = doJoin ? "Join Floors Batch" : "Unjoin Floors Batch";
-                int batchSize = 50;
-                int totalPairs = pairs.Count;
-
-                for (int i = 0; i < totalPairs; i += batchSize)
-                {
-                    var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"{txGroup} ({i + 1}-{Math.Min(i + batchSize, totalPairs)})"))
-                    {
-                        tx.Start();
-                        FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-                        failOptions.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
-                        tx.SetFailureHandlingOptions(failOptions);
-
-                        var batchResults = doJoin
-                            ? joinService.JoinSlabs(doc, chunk)
-                            : joinService.UnjoinSlabs(doc, chunk);
-
-                        if (batchResults != null)
-                            results.AddRange(batchResults);
-
-                        tx.Commit();
-                    }
-                }
+                // ── 3. Thực thi Join/Unjoin đa cấu kiện ────────────────────────
+                var results = doJoin
+                    ? joinService.JoinByRules(doc, rules, scope, null, msg => logger.LogInfo(msg))
+                    : joinService.UnjoinByRules(doc, rules, scope, null, msg => logger.LogInfo(msg));
 
                 sw.Stop();
 
-                // ── 5. Tổng kết ────────────────────────────────────────────────
+                // ── 4. Tổng kết ────────────────────────────────────────────────
                 int success = results.Count(r => r.Success);
                 int already = results.Count(r => !r.Success && !r.IsError);
                 int failed  = results.Count(r => r.IsError);
+                int totalPairs = results.Count;
 
-                var summary = new OperationSummary
-                {
-                    OperationType              = doJoin ? OperationType.Join : OperationType.Unjoin,
-                    TotalStructuralFloorsScanned = floors.Count,
-                    CandidatePairsFound        = pairs.Count,
-                    ElapsedTime                = sw.Elapsed
-                };
-                summary.SkippedElements.AddRange(skipped);
-                summary.ProcessedPairs.AddRange(results);
-                logger.WriteSummary(summary);
-
-                TaskDialog.Show($"{(doJoin ? "Join" : "Unjoin")} Floors — Hoàn tất",
+                TaskDialog.Show($"{(doJoin ? "Join" : "Unjoin")} Geometry — Hoàn tất",
                     $"Mode          : {modeLabel}\n" +
-                    $"Sàn tìm thấy  : {floors.Count}\n" +
-                    $"Cặp ứng viên  : {pairs.Count}\n" +
+                    $"Cặp ứng viên  : {totalPairs} (Sàn-Dầm, Sàn-Cột, Sàn-Tường, Dầm-Cột, Sàn-Sàn)\n" +
                     $"Thành công     : {success}\n" +
                     $"Đã xử lý trước: {already}\n" +
                     $"Lỗi            : {failed}\n" +
-                    $"Thời gian      : {sw.Elapsed.TotalSeconds:F2} s");
+                    $"Thời gian      : {sw.Elapsed.TotalSeconds:F2} s\n\n" +
+                    $"💡 Mẹo: Dùng công cụ 'Join Elements' trên Ribbon để tùy chỉnh quy tắc nối theo ý muốn.");
 
                 return Result.Succeeded;
             }
