@@ -180,6 +180,106 @@ namespace KhimTools.RebarTool.Core
             return intervals;
         }
 
+        /// <summary>
+        /// Tính toán các phân đoạn thép nằm chính xác bên trong ranh giới đa giác của sàn và không bị đâm qua lỗ mở.
+        /// </summary>
+        public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
+            double fixedCoord, bool isXDirection,
+            CurveLoop boundary, List<CurveLoop> openings,
+            double anchorFeet, double coverFeet)
+        {
+            var rawCrossings = new List<double>();
+            if (boundary == null) return new List<(double, double)>();
+
+            // 1. Tìm giao điểm của đường rải thép với các cạnh của ranh giới sàn (Boundary Polygon)
+            foreach (Curve c in boundary)
+            {
+                XYZ p0 = c.GetEndPoint(0);
+                XYZ p1 = c.GetEndPoint(1);
+
+                double cFixed0 = isXDirection ? p0.Y : p0.X;
+                double cFixed1 = isXDirection ? p1.Y : p1.X;
+                double cDir0 = isXDirection ? p0.X : p0.Y;
+                double cDir1 = isXDirection ? p1.X : p1.Y;
+
+                // Kiểm tra xem fixedCoord có nằm trong khoảng Y (hoặc X) của đoạn thẳng không
+                if ((cFixed0 <= fixedCoord && fixedCoord < cFixed1) || (cFixed1 <= fixedCoord && fixedCoord < cFixed0))
+                {
+                    double t = (fixedCoord - cFixed0) / (cFixed1 - cFixed0);
+                    double dirIntersect = cDir0 + t * (cDir1 - cDir0);
+                    rawCrossings.Add(dirIntersect);
+                }
+            }
+
+            if (rawCrossings.Count < 2) return new List<(double, double)>();
+
+            // 2. Sắp xếp các giao điểm và ghép thành các đoạn [x_in, x_out] nằm trong bê tông sàn
+            rawCrossings.Sort();
+            var validSlabSegments = new List<(double Start, double End)>();
+            for (int i = 0; i + 1 < rawCrossings.Count; i += 2)
+            {
+                double segStart = rawCrossings[i] - anchorFeet;
+                double segEnd = rawCrossings[i + 1] + anchorFeet;
+                if (segEnd - segStart >= 0.5)
+                {
+                    validSlabSegments.Add((segStart, segEnd));
+                }
+            }
+
+            // 3. Cắt trừ các lỗ mở trong sàn
+            var finalIntervals = new List<(double Start, double End)>();
+            foreach (var seg in validSlabSegments)
+            {
+                var clipped = ClipIntervalAgainstOpenings(seg.Start, seg.End, fixedCoord, isXDirection, openings, coverFeet);
+                foreach (var c in clipped)
+                {
+                    if (c.End - c.Start >= 0.5) // Chiều dài tối thiểu 150mm
+                    {
+                        finalIntervals.Add(c);
+                    }
+                }
+            }
+
+            return finalIntervals;
+        }
+
+        /// <summary>
+        /// Kiểm tra xem một tọa độ điểm (X, Y) có nằm trong khối bê tông của sàn và nằm ngoài các lỗ mở hay không.
+        /// </summary>
+        public static bool IsPointInsideSlab(XYZ pt, CurveLoop boundary, List<CurveLoop> openings)
+        {
+            if (boundary == null) return false;
+            if (!IsPointInPolygon(pt, boundary)) return false;
+            if (openings != null)
+            {
+                foreach (var op in openings)
+                {
+                    if (IsPointInPolygon(pt, op)) return false;
+                }
+            }
+            return true;
+        }
+
+        private static bool IsPointInPolygon(XYZ pt, CurveLoop polygon)
+        {
+            if (polygon == null) return false;
+            var pts = new List<XYZ>();
+            foreach (Curve c in polygon) pts.Add(c.GetEndPoint(0));
+            int n = pts.Count;
+            if (n < 3) return false;
+
+            bool inside = false;
+            for (int i = 0, j = n - 1; i < n; j = i++)
+            {
+                if (((pts[i].Y > pt.Y) != (pts[j].Y > pt.Y)) &&
+                    (pt.X < (pts[j].X - pts[i].X) * (pt.Y - pts[i].Y) / (pts[j].Y - pts[i].Y) + pts[i].X))
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
         private static PlanarFace GetTopPlanarFace(Floor floor)
         {
             var options = new Options { ComputeReferences = true, DetailLevel = ViewDetailLevel.Fine };
