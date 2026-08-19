@@ -623,6 +623,9 @@ namespace KhimTools.RebarTool.Forms
             tx.SetFailureHandlingOptions(failOptions);
             try
             {
+                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T21, JP_T51, JP_T80...) vào Document
+                RebarShapeLibrary.PreloadCommonShapes(_doc);
+
                 var generator = new RectangularColumnRebarGenerator(_doc);
                 var drawingGen = new ColumnRebarDrawingGenerator(_doc);
                 var sectionGen = new ColumnRebarSectionViewGenerator(_doc);

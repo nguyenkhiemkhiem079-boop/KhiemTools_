@@ -186,7 +186,12 @@ namespace KhimTools.RebarTool.Core
                 double rot = profile.RotationRad;
                 XYZ center = profile.BaseCenter;
 
-                // --- 1. BASE FOOTING ANCHOR (NẾU LÀ CỘT MÓNG) ---
+                // Xác định mặt phẳng uốn bẻ 2D chuẩn (X-Z hoặc Y-Z) để đảm bảo đồng phẳng 100%
+                bool bendAlongY = Math.Abs(ly) >= Math.Abs(lx);
+                double dirX = lx > 0 ? -1 : 1;
+                double dirY = ly > 0 ? -1 : 1;
+
+                // --- 1. BASE FOOTING ANCHOR (NẾU LÀ CỘT MÓNG - Chân quỳ L bẻ vào tâm) ---
                 double footLegLen = RebarAnchorageCalculator.CalculateAnchorageLength(
                     UnitUtils.ConvertFromInternalUnits(mainDia, UnitTypeId.Millimeters),
                     input.ConcreteGrade,
@@ -198,25 +203,25 @@ namespace KhimTools.RebarTool.Core
 
                 if (input.IsFoundationColumn && input.AdjacentColumnBelow == null)
                 {
-                    // Hướng bẻ góc móng vào phía tâm
-                    double dirX = lx > 0 ? -1 : 1;
-                    double dirY = ly > 0 ? -1 : 1;
-                    XYZ footStart = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx + dirX * footLegLen, ly + dirY * footLegLen, baseZBottom - profile.BaseCenter.Z, center, rot);
+                    double footLx = bendAlongY ? lx : lx + dirX * footLegLen;
+                    double footLy = bendAlongY ? ly + dirY * footLegLen : ly;
+
+                    XYZ footStart = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, footLx, footLy, baseZBottom - profile.BaseCenter.Z, center, rot);
                     XYZ footCorner = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, baseZBottom - profile.BaseCenter.Z, center, rot);
                     curves.Add(Line.CreateBound(footStart, footCorner));
                 }
 
-                // --- 2. CRANKED 1:6 SPLICE AT JOINT (NẾU CÓ CỘT TẦNG TRÊN - ÁNH 1) ---
+                // --- 2. CRANKED 1:6 SPLICE AT JOINT (NẾU CÓ CỘT TẦNG TRÊN) ---
                 if (!isTopRoof && input.EnableCrankedSplice)
                 {
                     double crankZStart = profile.TopCenter.Z - ToFeet(100);
-                    double crankHeight = mainDia * 6; // Độ dốc 1:6
+                    double crankHeight = mainDia * 6; // Độ dốc 1:6 chuẩn kỹ thuật
                     double crankZEnd = crankZStart + crankHeight;
 
-                    // Hướng ép bóp vào trong tâm
+                    // Bẻ bóp vào trong tâm theo 1 phương duy nhất (đảm bảo đồng phẳng)
                     double inwardStep = mainDia;
-                    double crankLx = (lx > 0) ? lx - inwardStep : (lx < 0 ? lx + inwardStep : lx);
-                    double crankLy = (ly > 0) ? ly - inwardStep : (ly < 0 ? ly + inwardStep : ly);
+                    double crankLx = bendAlongY ? lx : (lx > 0 ? lx - inwardStep : lx + inwardStep);
+                    double crankLy = bendAlongY ? (ly > 0 ? ly - inwardStep : ly + inwardStep) : ly;
 
                     XYZ pt1 = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, baseZBottom - profile.BaseCenter.Z, center, rot);
                     XYZ ptCrank1 = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, crankZStart - profile.BaseCenter.Z, center, rot);
@@ -235,7 +240,7 @@ namespace KhimTools.RebarTool.Core
                     curves.Add(Line.CreateBound(pt1, pt2));
                 }
 
-                // --- 3. TOP ROOF HOOK 90° (NẾU LÀ CỘT MÁI / KẾT THÚC - ÁNH 2) ---
+                // --- 3. TOP ROOF HOOK 90° (NẾU LÀ CỘT MÁI / KẾT THÚC) ---
                 if (isTopRoof && input.HasTopAnchor)
                 {
                     double hookLen = RebarAnchorageCalculator.CalculateAnchorageLength(
@@ -246,37 +251,36 @@ namespace KhimTools.RebarTool.Core
                         input.DesignStandard,
                         input.TopRoofHookLengthMultiplier);
                     hookLen = UnitUtils.ConvertToInternalUnits(hookLen, UnitTypeId.Millimeters);
-                    // Hướng quay uốn móc vào tâm cột
-                    double dirX = lx > 0 ? -1 : 1;
-                    double dirY = ly > 0 ? -1 : 1;
+
+                    double hookEndLx = bendAlongY ? lx : lx + dirX * hookLen;
+                    double hookEndLy = bendAlongY ? ly + dirY * hookLen : ly;
 
                     XYZ hookStart = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, zTop - profile.BaseCenter.Z, center, rot);
-                    XYZ hookEnd = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx + dirX * hookLen, ly + dirY * hookLen, zTop - profile.BaseCenter.Z, center, rot);
+                    XYZ hookEnd = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, hookEndLx, hookEndLy, zTop - profile.BaseCenter.Z, center, rot);
                     curves.Add(Line.CreateBound(hookStart, hookEnd));
                 }
 
                 if (curves.Any())
                 {
-                    XYZ norm = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, 1, 0, 0, XYZ.Zero, rot).Normalize();
-                    if (norm.GetLength() < 0.01 || Math.Abs(norm.Z) > 0.9) norm = XYZ.BasisX;
-
-                    if (curves.Count >= 2)
-                    {
-                        XYZ v1 = (curves[0].GetEndPoint(1) - curves[0].GetEndPoint(0)).Normalize();
-                        XYZ v2 = (curves[1].GetEndPoint(1) - curves[1].GetEndPoint(0)).Normalize();
-                        XYZ cross = v1.CrossProduct(v2);
-                        if (cross.GetLength() > 0.01)
-                        {
-                            norm = cross.Normalize();
-                        }
-                    }
+                    // Normal vector cho mặt phẳng thanh thép 2D
+                    XYZ localNorm = bendAlongY ? new XYZ(1, 0, 0) : new XYZ(0, 1, 0);
+                    XYZ worldNorm = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, localNorm.X, localNorm.Y, 0, XYZ.Zero, rot).Normalize();
+                    if (worldNorm.GetLength() < 0.01) worldNorm = XYZ.BasisX;
 
                     Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(
                         _doc, RebarStyle.Standard, input.MainBarType, null, null, input.Column,
-                        norm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                        worldNorm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
 
                     if (bar != null)
                     {
+                        // Gán tham số hình học phân đoạn Shape 11 / Shape 00 / VNDC_L1
+                        var shapeParams = new Dictionary<string, double>
+                        {
+                            { "A", zTop - baseZBottom },
+                            { "VNDC_L1", zTop - baseZBottom }
+                        };
+                        RebarShapeLibrary.ApplyShapeParameters(bar, shapeParams);
+
                         bars.Add(bar);
                     }
                     else
@@ -360,7 +364,7 @@ namespace KhimTools.RebarTool.Core
                     try
                     {
                         Rebar diamondHoop = RectangularStirrupHelper.CreateDiamondHoop(
-                            _doc, input.Column, input.StirrupBarType, center, halfB / 2.0, halfH / 2.0, profile.RotationRad, XYZ.BasisZ);
+                            _doc, input.Column, input.StirrupBarType, center, halfB, halfH, profile.RotationRad, XYZ.BasisZ);
                         if (diamondHoop != null) hoops.Add(diamondHoop);
                     }
                     catch (Exception ex)
