@@ -47,11 +47,11 @@ namespace KhimTools.RebarTool.Core
                 IList<CurveLoop> loops = topFace.GetEdgesAsCurveLoops();
                 if (loops != null && loops.Count > 0)
                 {
-                    // Loop lớn nhất có diện tích/chu vi lớn nhất là ranh giới ngoài
+                    // Loop có diện tích lớn nhất là ranh giới ngoài
                     var sortedLoops = loops.OrderByDescending(GetLoopArea).ToList();
                     profile.OuterBoundary = sortedLoops[0];
 
-                    // Các loop còn lại là lỗ mở trong sàn
+                    // Các loop còn lại trên Face là lỗ mở trong sàn
                     for (int i = 1; i < sortedLoops.Count; i++)
                     {
                         profile.InnerOpenings.Add(sortedLoops[i]);
@@ -59,7 +59,43 @@ namespace KhimTools.RebarTool.Core
                 }
             }
 
-            // 4. Kích thước BoundingBox
+            // 4. Tìm thêm các Opening (Shaft Opening / Floor Opening) cắt qua Floor trong mô hình
+            try
+            {
+                var openings = new FilteredElementCollector(doc)
+                    .OfClass(typeof(Opening))
+                    .WherePasses(new ElementIntersectsElementFilter(floor))
+                    .Cast<Opening>()
+                    .ToList();
+
+                foreach (var op in openings)
+                {
+                    var bbOp = op.get_BoundingBox(null);
+                    if (bbOp != null)
+                    {
+                        double minX = bbOp.Min.X; double maxX = bbOp.Max.X;
+                        double minY = bbOp.Min.Y; double maxY = bbOp.Max.Y;
+                        double z = topFace?.Origin.Z ?? floor.get_BoundingBox(null)?.Max.Z ?? 0;
+
+                        var opLoop = new CurveLoop();
+                        opLoop.Append(Line.CreateBound(new XYZ(minX, minY, z), new XYZ(maxX, minY, z)));
+                        opLoop.Append(Line.CreateBound(new XYZ(maxX, minY, z), new XYZ(maxX, maxY, z)));
+                        opLoop.Append(Line.CreateBound(new XYZ(maxX, maxY, z), new XYZ(minX, maxY, z)));
+                        opLoop.Append(Line.CreateBound(new XYZ(minX, maxY, z), new XYZ(minX, minY, z)));
+                        
+                        // Kiểm tra không trùng với các loop đã có
+                        bool duplicate = profile.InnerOpenings.Any(existing => 
+                            GetLoopArea(existing) > 0 && Math.Abs(GetLoopArea(existing) - GetLoopArea(opLoop)) < 0.1);
+                        if (!duplicate)
+                        {
+                            profile.InnerOpenings.Add(opLoop);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // 5. Kích thước BoundingBox
             if (profile.BoundingBox != null)
             {
                 double dx = profile.BoundingBox.Max.X - profile.BoundingBox.Min.X;
@@ -69,6 +105,79 @@ namespace KhimTools.RebarTool.Core
             }
 
             return profile;
+        }
+
+        /// <summary>
+        /// Cắt ngắn / chia nhỏ các đoạn thép khi đi qua các lỗ mở trong sàn.
+        /// Trả về danh sách các khoảng [Start, End] hợp lệ không bị đâm xuyên qua lỗ mở.
+        /// </summary>
+        public static List<(double Start, double End)> ClipIntervalAgainstOpenings(
+            double startPos, double endPos, double fixedCoord, bool isXDirection,
+            List<CurveLoop> openings, double coverFeet)
+        {
+            var intervals = new List<(double Start, double End)> { (Math.Min(startPos, endPos), Math.Max(startPos, endPos)) };
+            if (openings == null || !openings.Any()) return intervals;
+
+            foreach (var op in openings)
+            {
+                // Tính BoundingBox của lỗ mở trên mặt phẳng XY
+                double opMinDir = double.MaxValue, opMaxDir = double.MinValue;
+                double opMinFixed = double.MaxValue, opMaxFixed = double.MinValue;
+
+                foreach (Curve c in op)
+                {
+                    XYZ p0 = c.GetEndPoint(0);
+                    XYZ p1 = c.GetEndPoint(1);
+
+                    double dir0 = isXDirection ? p0.X : p0.Y;
+                    double dir1 = isXDirection ? p1.X : p1.Y;
+                    double fix0 = isXDirection ? p0.Y : p0.X;
+                    double fix1 = isXDirection ? p1.Y : p1.X;
+
+                    opMinDir = Math.Min(opMinDir, Math.Min(dir0, dir1));
+                    opMaxDir = Math.Max(opMaxDir, Math.Max(dir0, dir1));
+                    opMinFixed = Math.Min(opMinFixed, Math.Min(fix0, fix1));
+                    opMaxFixed = Math.Max(opMaxFixed, Math.Max(fix0, fix1));
+                }
+
+                // Nếu thanh thép nằm ngoài phạm vi bề rộng lỗ mở thì bỏ qua
+                if (fixedCoord < opMinFixed || fixedCoord > opMaxFixed) continue;
+
+                // Vùng lỗ mở cần tránh (kèm lớp bảo vệ bê tông cover)
+                double holeStart = opMinDir - coverFeet;
+                double holeEnd = opMaxDir + coverFeet;
+
+                var nextIntervals = new List<(double Start, double End)>();
+                foreach (var seg in intervals)
+                {
+                    // Trường hợp 1: Đoạn thép nằm hoàn toàn ngoài lỗ mở
+                    if (seg.End <= holeStart || seg.Start >= holeEnd)
+                    {
+                        nextIntervals.Add(seg);
+                    }
+                    // Trường hợp 2: Lỗ mở cắt đôi đoạn thép ở giữa
+                    else if (seg.Start < holeStart && seg.End > holeEnd)
+                    {
+                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
+                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
+                    }
+                    // Trường hợp 3: Lỗ mở đè lên đầu cuối
+                    else if (seg.Start < holeStart && seg.End <= holeEnd)
+                    {
+                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
+                    }
+                    // Trường hợp 4: Lỗ mở đè lên đầu bắt đầu
+                    else if (seg.Start >= holeStart && seg.End > holeEnd)
+                    {
+                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
+                    }
+                    // Trường hợp 5: Đoạn thép lọt hoàn toàn trong lỗ mở -> Không thêm gì (Bỏ qua)
+                }
+
+                intervals = nextIntervals;
+            }
+
+            return intervals;
         }
 
         private static PlanarFace GetTopPlanarFace(Floor floor)
@@ -101,12 +210,24 @@ namespace KhimTools.RebarTool.Core
             return topFace;
         }
 
+        /// <summary>
+        /// Tính diện tích hình học chính xác của CurveLoop trên mặt phẳng XY bằng công thức Shoelace
+        /// </summary>
         private static double GetLoopArea(CurveLoop loop)
         {
             if (loop == null) return 0;
-            double length = 0;
-            foreach (Curve c in loop) length += c.Length;
-            return length;
+            var pts = new List<XYZ>();
+            foreach (Curve c in loop) pts.Add(c.GetEndPoint(0));
+            if (pts.Count < 3) return 0;
+
+            double area = 0;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                XYZ p1 = pts[i];
+                XYZ p2 = pts[(i + 1) % pts.Count];
+                area += (p1.X * p2.Y - p2.X * p1.Y);
+            }
+            return Math.Abs(area) / 2.0;
         }
     }
 }

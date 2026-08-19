@@ -87,6 +87,7 @@ namespace KhimTools.RebarTool.Core
                 var botX = CreateRebarLineArray(panel.HostFloor, botXType,
                     startX, endX, bb.Min.Y + ToFeet(50), bb.Max.Y - ToFeet(50), zBotX,
                     XYZ.BasisX, XYZ.BasisY, cfg.BottomLayer.SpacingXMm,
+                    panel.Openings,
                     report, $"{panel.PanelId} - Thép đáy phương X");
                 createdRebars.AddRange(botX);
 
@@ -94,6 +95,7 @@ namespace KhimTools.RebarTool.Core
                 var botY = CreateRebarLineArray(panel.HostFloor, botYType,
                     startY, endY, bb.Min.X + ToFeet(50), bb.Max.X - ToFeet(50), zBotY,
                     XYZ.BasisY, XYZ.BasisX, cfg.BottomLayer.SpacingYMm,
+                    panel.Openings,
                     report, $"{panel.PanelId} - Thép đáy phương Y");
                 createdRebars.AddRange(botY);
             }
@@ -109,12 +111,14 @@ namespace KhimTools.RebarTool.Core
                 var topX = CreateRebarLineArray(panel.HostFloor, topMeshXType,
                     startX, endX, bb.Min.Y + ToFeet(50), bb.Max.Y - ToFeet(50), zTop1,
                     XYZ.BasisX, XYZ.BasisY, cfg.TopLayer.SpacingXMm,
+                    panel.Openings,
                     report, $"{panel.PanelId} - Lưới trên full X");
                 createdRebars.AddRange(topX);
 
                 var topY = CreateRebarLineArray(panel.HostFloor, topMeshYType,
                     startY, endY, bb.Min.X + ToFeet(50), bb.Max.X - ToFeet(50), zTop2,
                     XYZ.BasisY, XYZ.BasisX, cfg.TopLayer.SpacingYMm,
+                    panel.Openings,
                     report, $"{panel.PanelId} - Lưới trên full Y");
                 createdRebars.AddRange(topY);
             }
@@ -146,6 +150,7 @@ namespace KhimTools.RebarTool.Core
                     var hatLeft = CreateRebarLineArray(panel.HostFloor, hatXType,
                         x1, x2, bb.Min.Y + ToFeet(50), bb.Max.Y - ToFeet(50), zHatX,
                         XYZ.BasisX, XYZ.BasisY, cfg.HatReinforce.SpacingXMm,
+                        panel.Openings,
                         report, $"{panel.PanelId} - Mũ gối X bên trái");
                     createdRebars.AddRange(hatLeft);
 
@@ -155,6 +160,7 @@ namespace KhimTools.RebarTool.Core
                         var distLeft = CreateRebarLineArray(panel.HostFloor, distType,
                             bb.Min.Y, bb.Max.Y, bb.Min.X + ToFeet(50), x2 - ToFeet(50), zHatX - ToFeet(15),
                             XYZ.BasisY, XYZ.BasisX, cfg.TopDistribution.SpacingMm,
+                            panel.Openings,
                             report, $"{panel.PanelId} - Thép phân bố mũ X trái");
                         createdRebars.AddRange(distLeft);
                     }
@@ -168,6 +174,7 @@ namespace KhimTools.RebarTool.Core
                     var hatRight = CreateRebarLineArray(panel.HostFloor, hatXType,
                         x1, x2, bb.Min.Y + ToFeet(50), bb.Max.Y - ToFeet(50), zHatX,
                         XYZ.BasisX, XYZ.BasisY, cfg.HatReinforce.SpacingXMm,
+                        panel.Openings,
                         report, $"{panel.PanelId} - Mũ gối X bên phải");
                     createdRebars.AddRange(hatRight);
 
@@ -176,6 +183,7 @@ namespace KhimTools.RebarTool.Core
                         var distRight = CreateRebarLineArray(panel.HostFloor, distType,
                             bb.Min.Y, bb.Max.Y, x1 + ToFeet(50), bb.Max.X - ToFeet(50), zHatX - ToFeet(15),
                             XYZ.BasisY, XYZ.BasisX, cfg.TopDistribution.SpacingMm,
+                            panel.Openings,
                             report, $"{panel.PanelId} - Thép phân bố mũ X phải");
                         createdRebars.AddRange(distRight);
                     }
@@ -189,6 +197,7 @@ namespace KhimTools.RebarTool.Core
                     var hatBot = CreateRebarLineArray(panel.HostFloor, hatYType,
                         y1, y2, bb.Min.X + ToFeet(50), bb.Max.X - ToFeet(50), zHatY,
                         XYZ.BasisY, XYZ.BasisX, cfg.HatReinforce.SpacingYMm,
+                        panel.Openings,
                         report, $"{panel.PanelId} - Mũ gối Y phía dưới");
                     createdRebars.AddRange(hatBot);
 
@@ -197,6 +206,7 @@ namespace KhimTools.RebarTool.Core
                         var distBot = CreateRebarLineArray(panel.HostFloor, distType,
                             bb.Min.X, bb.Max.X, bb.Min.Y + ToFeet(50), y2 - ToFeet(50), zHatY - ToFeet(15),
                             XYZ.BasisX, XYZ.BasisY, cfg.TopDistribution.SpacingMm,
+                            panel.Openings,
                             report, $"{panel.PanelId} - Thép phân bố mũ Y dưới");
                         createdRebars.AddRange(distBot);
                     }
@@ -210,6 +220,7 @@ namespace KhimTools.RebarTool.Core
                     var hatTop = CreateRebarLineArray(panel.HostFloor, hatYType,
                         y1, y2, bb.Min.X + ToFeet(50), bb.Max.X - ToFeet(50), zHatY,
                         XYZ.BasisY, XYZ.BasisX, cfg.HatReinforce.SpacingYMm,
+                        panel.Openings,
                         report, $"{panel.PanelId} - Mũ gối Y phía trên");
                     createdRebars.AddRange(hatTop);
 
@@ -218,6 +229,7 @@ namespace KhimTools.RebarTool.Core
                         var distTop = CreateRebarLineArray(panel.HostFloor, distType,
                             bb.Min.X, bb.Max.X, y1 + ToFeet(50), bb.Max.Y - ToFeet(50), zHatY - ToFeet(15),
                             XYZ.BasisX, XYZ.BasisY, cfg.TopDistribution.SpacingMm,
+                            panel.Openings,
                             report, $"{panel.PanelId} - Thép phân bố mũ Y trên");
                         createdRebars.AddRange(distTop);
                     }
@@ -229,6 +241,14 @@ namespace KhimTools.RebarTool.Core
             {
                 var chairs = CreateSpacers(panel.HostFloor, chairType, bb, zBotX, zHatX, cfg.Spacer, report, panel.PanelId);
                 createdRebars.AddRange(chairs);
+            }
+
+            // ── 5. THÉP GIA CƯỜNG BO VIỀN LỖ MỞ (OPENING TRIM REBARS) ──────────
+            if (panel.Openings != null && panel.Openings.Any())
+            {
+                RebarBarType trimType = botXType ?? topMeshXType ?? barTypes.FirstOrDefault();
+                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, zBot1, zTop1, report);
+                createdRebars.AddRange(trimmers);
             }
 
             return createdRebars;
@@ -249,7 +269,9 @@ namespace KhimTools.RebarTool.Core
                 ThicknessFeet = profile.ThicknessFeet,
                 ThicknessMm = profile.ThicknessMm,
                 CoverTopFeet = profile.CoverTopFeet,
-                CoverBottomFeet = profile.CoverBottomFeet
+                CoverBottomFeet = profile.CoverBottomFeet,
+                Boundary = profile.OuterBoundary,
+                Openings = profile.InnerOpenings ?? new List<CurveLoop>()
             };
 
             panel.Config.BottomLayer.DiaXLabel = settings.BotXDiaLabel;
@@ -274,6 +296,7 @@ namespace KhimTools.RebarTool.Core
         private List<Rebar> CreateRebarLineArray(Floor floor, RebarBarType barType,
             double startDir, double endDir, double startPerp, double endPerp, double zLevel,
             XYZ dirVector, XYZ arrayVector, double spacingMm,
+            List<CurveLoop> openings = null,
             RebarGenerationReport report = null, string groupName = "Thép sàn")
         {
             var list = new List<Rebar>();
@@ -282,31 +305,55 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 double spacingFeet = UnitUtils.ConvertToInternalUnits(spacingMm, UnitTypeId.Millimeters);
-
-                XYZ p1 = (dirVector == XYZ.BasisX)
-                    ? new XYZ(startDir, startPerp, zLevel)
-                    : new XYZ(startPerp, startDir, zLevel);
-
-                XYZ p2 = (dirVector == XYZ.BasisX)
-                    ? new XYZ(endDir, startPerp, zLevel)
-                    : new XYZ(startPerp, endDir, zLevel);
-
-                Line curve = Line.CreateBound(p1, p2);
-                var curves = new List<Curve> { curve };
-
-                // Normal phải là hướng rải thép (arrayVector) để SetLayoutAsNumberWithSpacing rải đúng trên mặt bằng sàn
+                double coverFeet = ToFeet(25);
+                bool isX = (dirVector == XYZ.BasisX);
                 XYZ normal = (arrayVector != null && arrayVector.GetLength() > 0.01)
                     ? arrayVector.Normalize()
-                    : (dirVector == XYZ.BasisX ? XYZ.BasisY : XYZ.BasisX);
+                    : (isX ? XYZ.BasisY : XYZ.BasisX);
 
-                Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, floor, normal, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
-                if (rebar != null)
+                if (openings != null && openings.Any())
                 {
-                    double arrayLen = Math.Abs(endPerp - startPerp);
-                    int count = Math.Max(2, (int)Math.Floor(arrayLen / spacingFeet));
-                    rebar.GetShapeDrivenAccessor().SetLayoutAsNumberWithSpacing(count, spacingFeet, true, true, true);
-                    list.Add(rebar);
-                    report?.AddSuccess(1);
+                    // Rải từng thanh thép cắt ngắn hoặc tách đôi khi gặp lỗ mở
+                    for (double perp = startPerp; perp <= endPerp; perp += spacingFeet)
+                    {
+                        var intervals = SlabGeometryHelper.ClipIntervalAgainstOpenings(startDir, endDir, perp, isX, openings, coverFeet);
+                        foreach (var seg in intervals)
+                        {
+                            if (seg.End - seg.Start < 0.5) continue; // Bỏ qua đoạn quá ngắn < 150mm
+
+                            XYZ p1 = isX ? new XYZ(seg.Start, perp, zLevel) : new XYZ(perp, seg.Start, zLevel);
+                            XYZ p2 = isX ? new XYZ(seg.End, perp, zLevel) : new XYZ(perp, seg.End, zLevel);
+
+                            var curves = new List<Curve> { Line.CreateBound(p1, p2) };
+                            Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                                _doc, RebarStyle.Standard, barType, null, null, floor, normal, curves,
+                                RebarHookOrientation.Left, RebarHookOrientation.Right);
+                            if (rebar != null)
+                            {
+                                list.Add(rebar);
+                                report?.AddSuccess(1);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Không có lỗ mở: Rải Rebar Array tiêu chuẩn
+                    XYZ p1 = isX ? new XYZ(startDir, startPerp, zLevel) : new XYZ(startPerp, startDir, zLevel);
+                    XYZ p2 = isX ? new XYZ(endDir, startPerp, zLevel) : new XYZ(startPerp, endDir, zLevel);
+
+                    var curves = new List<Curve> { Line.CreateBound(p1, p2) };
+                    Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                        _doc, RebarStyle.Standard, barType, null, null, floor, normal, curves,
+                        RebarHookOrientation.Left, RebarHookOrientation.Right);
+                    if (rebar != null)
+                    {
+                        double arrayLen = Math.Abs(endPerp - startPerp);
+                        int count = Math.Max(2, (int)Math.Floor(arrayLen / spacingFeet));
+                        rebar.GetShapeDrivenAccessor().SetLayoutAsNumberWithSpacing(count, spacingFeet, true, true, true);
+                        list.Add(rebar);
+                        report?.AddSuccess(1);
+                    }
                 }
             }
             catch (Exception ex)
@@ -315,6 +362,86 @@ namespace KhimTools.RebarTool.Core
             }
 
             return list;
+        }
+
+        private List<Rebar> CreateOpeningTrimmerBars(Floor floor, RebarBarType barType,
+            List<CurveLoop> openings, double zBot, double zTop, RebarGenerationReport report = null)
+        {
+            var list = new List<Rebar>();
+            if (barType == null || openings == null || !openings.Any()) return list;
+
+            double barDia = barType.BarModelDiameter;
+            double anchLen = barDia * 40; // Lb = 40d theo Eurocode 2
+            double cover = ToFeet(25);
+
+            foreach (var op in openings)
+            {
+                double minX = double.MaxValue, maxX = double.MinValue;
+                double minY = double.MaxValue, maxY = double.MinValue;
+
+                foreach (Curve c in op)
+                {
+                    XYZ p0 = c.GetEndPoint(0);
+                    XYZ p1 = c.GetEndPoint(1);
+                    minX = Math.Min(minX, Math.Min(p0.X, p1.X));
+                    maxX = Math.Max(maxX, Math.Max(p0.X, p1.X));
+                    minY = Math.Min(minY, Math.Min(p0.Y, p1.Y));
+                    maxY = Math.Max(maxY, Math.Max(p0.Y, p1.Y));
+                }
+
+                double width = maxX - minX;
+                double height = maxY - minY;
+                if (width < 0.5 || height < 0.5) continue; // Bỏ qua lỗ quá nhỏ < 150mm
+
+                // Thép gia cường 4 cạnh lỗ mở (Bottom & Top)
+                double[] zLevels = new double[] { zBot, zTop };
+                foreach (double z in zLevels)
+                {
+                    // 2 thanh song song cạnh dưới
+                    XYZ b1 = new XYZ(minX - anchLen, minY - cover, z);
+                    XYZ b2 = new XYZ(maxX + anchLen, minY - cover, z);
+                    CreateSingleStraightBar(floor, barType, b1, b2, list, report, "Gia cường lỗ mở cạnh dưới");
+
+                    // 2 thanh song song cạnh trên
+                    XYZ t1 = new XYZ(minX - anchLen, maxY + cover, z);
+                    XYZ t2 = new XYZ(maxX + anchLen, maxY + cover, z);
+                    CreateSingleStraightBar(floor, barType, t1, t2, list, report, "Gia cường lỗ mở cạnh trên");
+
+                    // 2 thanh song song cạnh trái
+                    XYZ l1 = new XYZ(minX - cover, minY - anchLen, z);
+                    XYZ l2 = new XYZ(minX - cover, maxY + anchLen, z);
+                    CreateSingleStraightBar(floor, barType, l1, l2, list, report, "Gia cường lỗ mở cạnh trái");
+
+                    // 2 thanh song song cạnh phải
+                    XYZ r1 = new XYZ(maxX + cover, minY - anchLen, z);
+                    XYZ r2 = new XYZ(maxX + cover, maxY + anchLen, z);
+                    CreateSingleStraightBar(floor, barType, r1, r2, list, report, "Gia cường lỗ mở cạnh phải");
+                }
+            }
+
+            return list;
+        }
+
+        private void CreateSingleStraightBar(Floor floor, RebarBarType barType, XYZ p1, XYZ p2,
+            List<Rebar> list, RebarGenerationReport report, string desc)
+        {
+            try
+            {
+                if (p1.DistanceTo(p2) < 0.5) return;
+                var curves = new List<Curve> { Line.CreateBound(p1, p2) };
+                Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                    _doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisZ, curves,
+                    RebarHookOrientation.Left, RebarHookOrientation.Right);
+                if (rebar != null)
+                {
+                    list.Add(rebar);
+                    report?.AddSuccess(1);
+                }
+            }
+            catch (Exception ex)
+            {
+                report?.AddError(floor, desc, ex);
+            }
         }
 
         private List<Rebar> CreateSpacers(Floor floor, RebarBarType barType, BoundingBoxXYZ bb,

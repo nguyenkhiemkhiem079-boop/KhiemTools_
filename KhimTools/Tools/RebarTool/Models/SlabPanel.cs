@@ -191,6 +191,7 @@ namespace KhimTools.RebarTool.Models
         public string LevelName { get; set; } = "";
 
         public CurveLoop Boundary { get; set; }
+        public List<CurveLoop> Openings { get; set; } = new List<CurveLoop>();
         public List<SlabPanelEdge> Edges { get; set; } = new List<SlabPanelEdge>();
 
         public double WidthMm { get; set; }

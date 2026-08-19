@@ -30,6 +30,7 @@ namespace KhimTools.RebarTool.Core
                     FloorName = floor.Name,
                     LevelName = profile.LevelName,
                     Boundary = profile.OuterBoundary,
+                    Openings = profile.InnerOpenings ?? new List<CurveLoop>(),
                     WidthMm = profile.WidthMm,
                     LengthMm = profile.LengthMm,
                     ThicknessMm = profile.ThicknessMm,
