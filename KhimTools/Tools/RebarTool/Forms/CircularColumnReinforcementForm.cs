@@ -169,6 +169,7 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
+            Controls.Add(bottomPanel);
 
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
             var lblColTitle = new Label { Text = "📋 Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
@@ -597,6 +598,9 @@ namespace KhimTools.RebarTool.Forms
             tx.SetFailureHandlingOptions(failOptions);
             try
             {
+                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
+                RebarShapeLibrary.PreloadCommonShapes(_doc);
+
                 var generator = new CircularColumnRebarGenerator(_doc);
                 var drawingGen = new ColumnRebarDrawingGenerator(_doc);
                 var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
