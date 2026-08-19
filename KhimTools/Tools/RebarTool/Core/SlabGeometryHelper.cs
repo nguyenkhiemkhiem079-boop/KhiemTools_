@@ -213,13 +213,15 @@ namespace KhimTools.RebarTool.Core
 
             if (rawCrossings.Count < 2) return new List<(double, double)>();
 
-            // 2. Sắp xếp các giao điểm và ghép thành các đoạn [x_in, x_out] nằm trong bê tông sàn
+            // 2. Sắp xếp các giao điểm và ghép thành các đoạn [x_in, x_out] nằm gọn trong khối bê tông sàn
             rawCrossings.Sort();
             var validSlabSegments = new List<(double Start, double End)>();
             for (int i = 0; i + 1 < rawCrossings.Count; i += 2)
             {
-                double segStart = rawCrossings[i] - anchorFeet;
-                double segEnd = rawCrossings[i + 1] + anchorFeet;
+                // Thép phải thụt vào trong mép bê tông sàn một khoảng bảo vệ (cover = 25mm)
+                // Đảm bảo không bao giờ bị đâm xiên/thừa ra ngoài không gian (out sàn)
+                double segStart = rawCrossings[i] + coverFeet;
+                double segEnd = rawCrossings[i + 1] - coverFeet;
                 if (segEnd - segStart >= 0.5)
                 {
                     validSlabSegments.Add((segStart, segEnd));
