@@ -234,10 +234,22 @@ namespace KhimTools.SheetExport.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = System.Windows.Forms.Orientation.Vertical,
-                SplitterDistance = 380,
-                Panel1MinSize = 320,
-                Panel2MinSize = 500,
                 Padding = new Padding(6)
+            };
+
+            Shown += (s, e) =>
+            {
+                try
+                {
+                    if (split.Width > 850)
+                    {
+                        split.Panel1MinSize = 300;
+                        split.Panel2MinSize = 450;
+                        int dist = Math.Min(split.Width - 460, 380);
+                        if (dist > 300) split.SplitterDistance = dist;
+                    }
+                }
+                catch { }
             };
 
             // ── LEFT PANE: Sheet Sets & Sheet Checklist ──────────────────────

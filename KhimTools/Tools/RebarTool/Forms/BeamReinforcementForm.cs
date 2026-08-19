@@ -213,10 +213,22 @@ namespace KhimTools.RebarTool.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = System.Windows.Forms.Orientation.Horizontal,
-                SplitterDistance = 420,
-                Panel1MinSize = 350,
-                Panel2MinSize = 250,
                 BackColor = Color.FromArgb(235, 238, 245)
+            };
+
+            Shown += (s, e) =>
+            {
+                try
+                {
+                    if (mainSplit.Height > 500)
+                    {
+                        mainSplit.Panel1MinSize = 300;
+                        mainSplit.Panel2MinSize = 200;
+                        int dist = Math.Min(mainSplit.Height - 220, 420);
+                        if (dist > 300) mainSplit.SplitterDistance = dist;
+                    }
+                }
+                catch { }
             };
 
             // ── TOP PANEL ──
