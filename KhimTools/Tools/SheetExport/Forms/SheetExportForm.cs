@@ -65,6 +65,7 @@ namespace KhimTools.SheetExport.Forms
         private TextBox _txtFileCombineName;
         private CheckBox _chkExportPdf;
         private CheckBox _chkExportDwg;
+        private CheckBox _chkCreateTransmittal;
         private DataGridView _gridSheets;
 
         // ── View 2: Settings UI Elements ─────────────────────────────────────
@@ -336,15 +337,16 @@ namespace KhimTools.SheetExport.Forms
             };
 
             var lblCombine = new Label { Text = "Tên file PDF gộp:", AutoSize = true, Font = new Font("Segoe UI", 9F), Margin = new Padding(3, 6, 6, 3) };
-            _txtFileCombineName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 480, Font = new Font("Segoe UI", 9F), Margin = new Padding(0, 3, 15, 3) };
+            _txtFileCombineName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 400, Font = new Font("Segoe UI", 9F), Margin = new Padding(0, 3, 10, 3) };
 
-            _chkExportPdf = new CheckBox { Text = "Xuất PDF", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(6, 5, 12, 3) };
-            _chkExportDwg = new CheckBox { Text = "Xuất DWG", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkGreen, Margin = new Padding(6, 5, 6, 3) };
+            _chkExportPdf = new CheckBox { Text = "Xuất PDF", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(6, 5, 10, 3) };
+            _chkExportDwg = new CheckBox { Text = "Xuất DWG", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkGreen, Margin = new Padding(6, 5, 10, 3) };
+            _chkCreateTransmittal = new CheckBox { Text = "Tạo Bảng Kê Excel (Transmittal)", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F), Margin = new Padding(6, 5, 6, 3) };
 
             _chkExportPdf.CheckedChanged += (s, e) => RefreshGridRows();
             _chkExportDwg.CheckedChanged += (s, e) => RefreshGridRows();
 
-            pnlRow3.Controls.AddRange(new System.Windows.Forms.Control[] { lblCombine, _txtFileCombineName, _chkExportPdf, _chkExportDwg });
+            pnlRow3.Controls.AddRange(new System.Windows.Forms.Control[] { lblCombine, _txtFileCombineName, _chkExportPdf, _chkExportDwg, _chkCreateTransmittal });
             pnlTopConfig.Controls.Add(pnlRow3);
 
             // Row 4: Search & Quick Selection Toolbar
@@ -964,6 +966,12 @@ namespace KhimTools.SheetExport.Forms
             _options.ReplaceHalftoneWithThinLines = _chkReplaceHalftone?.Checked ?? true;
             _options.MaskCoincidentLines = _chkMaskCoincidentLines?.Checked ?? false;
 
+            // Compute exact filename for each selected sheet
+            foreach (var item in selectedItems)
+            {
+                item.ComputedFileName = ComputeSheetFileName(item);
+            }
+
             _btnPrint.Enabled = false;
             _btnPrint.Text = "Đang xuất...";
             Cursor = Cursors.WaitCursor;
@@ -978,14 +986,23 @@ namespace KhimTools.SheetExport.Forms
                     Application.DoEvents();
                 });
 
-                // Generate Transmittal Excel
-                string transPath = TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
+                // Generate Transmittal Excel only if requested
+                if (_chkCreateTransmittal.Checked)
+                {
+                    TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
+                }
+
+                int successCount = qaResults.Count(r => r.Success);
+                int failCount = qaResults.Count(r => !r.Success);
 
                 Cursor = Cursors.Default;
-                KhimDialogHelper.ShowSuccess(
-                    "Hoàn Tất Xuất Bản Vẽ",
-                    $"Đã xuất thành công {selectedItems.Count} bản vẽ sang thư mục:\n{outDir}\n\nĐã tạo bảng kê phát hành Transmittal Register!");
+                string successMsg = $"🎉 Đã xuất thành công {successCount} bản vẽ sang thư mục:\n{outDir}";
+                if (failCount > 0)
+                {
+                    successMsg += $"\n⚠️ Có {failCount} bản vẽ gặp lỗi.";
+                }
 
+                KhimDialogHelper.ShowSuccess("Hoàn Tất Xuất Bản Vẽ", successMsg);
                 OpenOutputDirectory();
             }
             catch (Exception ex)
@@ -1000,6 +1017,42 @@ namespace KhimTools.SheetExport.Forms
                 _btnPrint.Text = "⚡ XUẤT IN BẢN VẼ";
                 RefreshGridRows();
             }
+        }
+
+        private string ComputeSheetFileName(SheetExportItem item)
+        {
+            string cleanNum = SanitizeFileName(item.SheetNumber);
+            string cleanName = SanitizeFileName(item.SheetName);
+
+            if (_chkUseNamingConvention.Checked)
+            {
+                string p1 = SanitizeFileName(_txtNaming1.Text.Trim());
+                string p2 = SanitizeFileName(_txtNaming2.Text.Trim());
+                string p3 = SanitizeFileName(_txtNaming3.Text.Trim());
+
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(p1)) parts.Add(p1);
+                if (!string.IsNullOrEmpty(p2)) parts.Add(p2);
+                if (!string.IsNullOrEmpty(cleanNum)) parts.Add(cleanNum);
+                if (!string.IsNullOrEmpty(cleanName)) parts.Add(cleanName);
+
+                return string.Join(" - ", parts);
+            }
+            else
+            {
+                return $"{cleanNum} - {cleanName}";
+            }
+        }
+
+        private static string SanitizeFileName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "Sheet";
+            var invalid = Path.GetInvalidFileNameChars();
+            foreach (char c in invalid)
+            {
+                name = name.Replace(c, '_');
+            }
+            return name.Trim();
         }
         #endregion
     }

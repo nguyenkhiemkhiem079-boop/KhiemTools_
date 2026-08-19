@@ -19,6 +19,12 @@ namespace KhimTools.SheetExport.Services
             if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
+            if (string.IsNullOrWhiteSpace(fileNameWithoutExt))
+            {
+                fileNameWithoutExt = $"{sheet.SheetNumber} - {sheet.Name}";
+            }
+            fileNameWithoutExt = Sanitize(fileNameWithoutExt);
+
             string targetPath = Path.Combine(outputFolder, fileNameWithoutExt + ".pdf");
 
             var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, options);
@@ -184,6 +190,17 @@ namespace KhimTools.SheetExport.Services
             }
 
             return opt;
+        }
+
+        private static string Sanitize(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "Sheet";
+            var invalid = Path.GetInvalidFileNameChars();
+            foreach (char c in invalid)
+            {
+                name = name.Replace(c, '_');
+            }
+            return name.Trim();
         }
     }
 }

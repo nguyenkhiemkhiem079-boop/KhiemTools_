@@ -17,6 +17,12 @@ namespace KhimTools.SheetExport.Services
             if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
             if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
 
+            if (string.IsNullOrWhiteSpace(fileNameWithoutExt))
+            {
+                fileNameWithoutExt = $"{sheet.SheetNumber} - {sheet.Name}";
+            }
+            fileNameWithoutExt = Sanitize(fileNameWithoutExt);
+
             DWGExportOptions dwgOpt = null;
             if (!string.IsNullOrWhiteSpace(dwgSetupName) && !dwgSetupName.StartsWith("In-Session"))
             {
@@ -61,6 +67,17 @@ namespace KhimTools.SheetExport.Services
             }
 
             return targetPath;
+        }
+
+        private static string Sanitize(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return "Sheet";
+            var invalid = Path.GetInvalidFileNameChars();
+            foreach (char c in invalid)
+            {
+                name = name.Replace(c, '_');
+            }
+            return name.Trim();
         }
     }
 }
