@@ -112,20 +112,36 @@ namespace KhimTools.SectionCutTool.Core
                             try
                             {
                                 ViewSection view = null;
-                                try
+                                if (vft.ViewFamily == ViewFamily.Detail)
                                 {
-                                    view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
+                                    view = ViewSection.CreateDetail(_doc, vft.Id, placement.SectionBox);
                                 }
-                                catch
+                                else
                                 {
-                                    // Fallback sang Detail ViewFamilyType nếu loại Section hiện tại không hỗ trợ góc cắt
-                                    if (detailVft != null && detailVft.Id != vft.Id)
+                                    try
                                     {
-                                        view = ViewSection.CreateSection(_doc, detailVft.Id, placement.SectionBox);
+                                        view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
                                     }
-                                    else
+                                    catch
                                     {
-                                        throw;
+                                        // Thử các ViewFamilyType Section khác trong dự án
+                                        var otherSectionVft = new FilteredElementCollector(_doc)
+                                            .OfClass(typeof(ViewFamilyType))
+                                            .Cast<ViewFamilyType>()
+                                            .FirstOrDefault(t => t.ViewFamily == ViewFamily.Section && t.Id != vft.Id);
+
+                                        if (otherSectionVft != null)
+                                        {
+                                            view = ViewSection.CreateSection(_doc, otherSectionVft.Id, placement.SectionBox);
+                                        }
+                                        else if (detailVft != null)
+                                        {
+                                            view = ViewSection.CreateDetail(_doc, detailVft.Id, placement.SectionBox);
+                                        }
+                                        else
+                                        {
+                                            throw;
+                                        }
                                     }
                                 }
 
