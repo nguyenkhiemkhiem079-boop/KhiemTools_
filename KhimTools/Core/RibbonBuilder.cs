@@ -232,6 +232,19 @@ namespace KhimTools.Core
                 Image = LoadImage("rebar_draw_16.png")
             };
             panel.AddItem(alignVpData);
+
+            var updateDetailNumData = new PushButtonData(
+                "CmdUpdateDetailNumbers",
+                "Update" + Environment.NewLine + "Detail No",
+                assemblyPath,
+                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
+            {
+                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
+                LongDescription = "Hỗ trợ trích xuất CW, W hoặc pattern tùy biến theo Regex, tự động thêm đuôi .1, .2 chống trùng lặp trên cùng Sheet.",
+                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("export_sheet_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(updateDetailNumData);
         }
 
         // ══════════════════════════════════════════════════════════════════
