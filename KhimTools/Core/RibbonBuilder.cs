@@ -219,6 +219,19 @@ namespace KhimTools.Core
                 Image = LoadImage("export_sheet_16.png")
             };
             panel.AddItem(sheetExportData);
+
+            var alignVpData = new PushButtonData(
+                "CmdAlignViewport",
+                "Align" + Environment.NewLine + "Viewport",
+                assemblyPath,
+                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
+            {
+                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport trên nhiều Sheet (Bản vẽ).",
+                LongDescription = "Chọn một Viewport nguồn làm chuẩn, sau đó tự động căn chỉnh vị trí các Viewport trên danh sách Sheet được chọn trùng khớp 100%. Tự động bỏ qua Legends và Schedules.",
+                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("export_sheet_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(alignVpData);
         }
 
         // ══════════════════════════════════════════════════════════════════
