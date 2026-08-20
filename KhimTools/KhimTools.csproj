@@ -69,7 +69,7 @@
   <!-- Rebar Shape families (toàn bộ bộ JP_T##) — copy vào RebarShapes\ subfolder trong output
        để RebarShapeLibrary.ResolveRfaPath() tìm đúng đường dẫn lúc runtime trong Revit. -->
   <ItemGroup>
-    <None Include="Tools\RebarTool\RebarShapes\*.rfa">
+    <None Include="Tools\KhimStructural\RebarTool\RebarShapes\*.rfa">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>RebarShapes\%(Filename)%(Extension)</TargetPath>
     </None>

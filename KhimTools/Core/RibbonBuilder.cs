@@ -8,149 +8,80 @@ using Autodesk.Revit.UI;
 namespace KhimTools.Core
 {
     /// <summary>
-    /// Class chịu trách nhiệm duy nhất cho việc dựng Ribbon UI cho KhimTools theo chuẩn chuyên nghiệp:
-    ///   Tab: "Khim Tools"
-    ///   Panel 1: "Rebar"            — SplitButton (Column Rebar main + sub-items), Beam Rebar, Cover Setup
-    ///   Panel 2: "Join / Geometry"  — Join Elements (large), Join Slabs + Unjoin Slabs (stacked legacy)
+    /// Xây dựng toàn bộ hệ thống Ribbon của KhimTools phân chia theo 4 phân hệ chuẩn Revit:
+    ///   1. KhimGen           (Quản lý chung, Workspace, Join, Align Viewport, Sheet Exporter)
+    ///   2. KhimStructural    (Bố trí thép Cột, Dầm, Sàn, Móng, Cover, Mặt cắt & Bản vẽ thép)
+    ///   3. KhimArchitectural (Quản lý Phòng, 3D Room, Lớp hoàn thiện)
+    ///   4. KhimMEP           (Lỗ mở xuyên cấu kiện, Tag cao độ MEP)
     /// </summary>
     public static class RibbonBuilder
     {
-        // Ribbon Names Constants
-        public const string TabName = "Khim Tools";
-        public const string RebarPanelName = "Rebar Modeling";
-        public const string JoinPanelName = "Geometry & Join";
-        public const string DocPanelName = "Documentation";
-        public const string ExportPanelName = "Publish & Export";
-        public const string SystemPanelName = "Workspace & System";
+        // Ribbon Tabs Constants
+        public const string TabGen = "KhimGen";
+        public const string TabStr = "KhimStructural";
+        public const string TabArc = "KhimArchitectural";
+        public const string TabMep = "KhimMEP";
 
         public static void BuildRibbon(UIControlledApplication application)
         {
-            CreateTabSafely(application, TabName);
             string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
-            BuildRebarPanel(application, assemblyPath);
-            BuildJoinPanel(application, assemblyPath);
-            BuildDocPanel(application, assemblyPath);
-            BuildExportPanel(application, assemblyPath);
-            BuildSystemPanel(application, assemblyPath);
+            // 1. Tab KHIM GEN
+            CreateTabSafely(application, TabGen);
+            BuildGenWorkspacePanel(application, assemblyPath);
+            BuildGenJoinPanel(application, assemblyPath);
+            BuildGenViewSheetPanel(application, assemblyPath);
+            BuildGenExportPanel(application, assemblyPath);
+
+            // 2. Tab KHIM STRUCTURAL
+            CreateTabSafely(application, TabStr);
+            BuildStrRebarPanel(application, assemblyPath);
+            BuildStrDetailingPanel(application, assemblyPath);
+
+            // 3. Tab KHIM ARCHITECTURAL
+            CreateTabSafely(application, TabArc);
+            BuildArcRoomsPanel(application, assemblyPath);
+            BuildArcFinishesPanel(application, assemblyPath);
+
+            // 4. Tab KHIM MEP
+            CreateTabSafely(application, TabMep);
+            BuildMepPenetrationsPanel(application, assemblyPath);
+            BuildMepTagsPanel(application, assemblyPath);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // PANEL 1: REBAR MODELING
-        // ══════════════════════════════════════════════════════════════════
-        private static void BuildRebarPanel(UIControlledApplication application, string assemblyPath)
+        #region TAB 1: KHIM GEN
+        private static void BuildGenWorkspacePanel(UIControlledApplication application, string assemblyPath)
         {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, RebarPanelName);
+            RibbonPanel panel = GetOrCreatePanel(application, TabGen, "Workspace & System");
 
-            // 1. SplitButton: Column Rebar (Main action = CmdColumnRebar auto-detect)
-            var splitButtonData = new SplitButtonData(
-                "ColumnRebarSplitButton",
-                "Column" + Environment.NewLine + "Rebar")
-            {
-                ToolTip = "Bố trí thép cột tự động (phát hiện vuông/tròn từ phần tử đang chọn)."
-            };
-
-            var splitButton = panel.AddItem(splitButtonData) as SplitButton;
-            if (splitButton != null)
-            {
-                // Main / First item: Auto-detect column rebar
-                AddPushButton(splitButton, "CmdColumnRebar", "Column Rebar (Auto-detect)",
-                    "KhimTools.RebarTool.Commands.CmdColumnRebar", assemblyPath,
-                    "Tự động phát hiện loại cột (vuông/tròn) và mở giao diện phù hợp.",
-                    "rebar_col_32.png", "rebar_col_16.png");
-
-                // Sub-item 1: Rectangular columns batch
-                AddPushButton(splitButton, "CmdMultiColumnRebar", "Cột Vuông / Chữ Nhật 2.0",
-                    "KhimTools.RebarTool.Commands.CmdMultiColumnRebar", assemblyPath,
-                    "Giao diện thiết lập & tạo thép hàng loạt cho cột vuông/chữ nhật.",
-                    "rebar_col_32.png", "rebar_col_rect_16.png");
-
-                // Sub-item 2: Round columns batch
-                AddPushButton(splitButton, "CmdMultiRoundColumnRebar", "Cột Tròn 2.0",
-                    "KhimTools.RebarTool.Commands.CmdMultiRoundColumnRebar", assemblyPath,
-                    "Giao diện thiết lập & tạo thép hàng loạt cho cột tròn.",
-                    "rebar_col_circ_32.png", "rebar_col_circ_16.png");
-
-                splitButton.AddSeparator();
-
-                // Sub-item 3: Column Drawing
-                AddPushButton(splitButton, "CmdColumnDrawing", "Column Drawing",
-                    "KhimTools.RebarTool.Commands.CmdColumnDrawing", assemblyPath,
-                    "Tự động xuất bản vẽ mặt cắt 2D & thống kê thép cột.",
-                    "rebar_col_32.png", "rebar_draw_16.png");
-
-                // Sub-item 4: Update Column Drawing
-                AddPushButton(splitButton, "CmdUpdateColumnDrawing", "Update Drawing",
-                    "KhimTools.RebarTool.Commands.CmdUpdateColumnDrawing", assemblyPath,
-                    "Đồng bộ cập nhật lại bản vẽ 2D đã xuất theo mô hình thép mới nhất.",
-                    "rebar_col_32.png", "rebar_draw_16.png");
-            }
-
-            // 2. Large button: Beam Rebar
-            var beamData = new PushButtonData(
-                "CmdBeamRebar",
-                "Beam" + Environment.NewLine + "Rebar",
+            var wsData = new PushButtonData(
+                "CmdToggleWorkspace",
+                "Khim" + Environment.NewLine + "Workspace",
                 assemblyPath,
-                "KhimTools.RebarTool.Commands.CmdBeamRebar")
+                "KhimTools.Workspace.Commands.CmdToggleWorkspace")
             {
-                ToolTip = "Bố trí thép dầm (Beam Rebar v2.0) chuẩn kết cấu TCVN & Eurocode.",
-                LongDescription = "Hỗ trợ thép chủ chạy suốt (top/bottom), thép gia cường gối L/3, " +
-                    "thép gia cường bụng L/6, thép sườn (skin bars), đai phân vùng A1/A2/A1 và đai treo dầm phụ.",
-                LargeImage = LoadImage("rebar_beam_32.png"),
-                Image = LoadImage("rebar_beam_16.png")
+                ToolTip = "Bật/Tắt bảng điều khiển Khim Workspace (Dockable Pane).",
+                LargeImage = LoadImage("icon_workspace_32.png") ?? LoadImage("rebar_col_32.png"),
+                Image = LoadImage("icon_workspace_16.png") ?? LoadImage("rebar_col_16.png")
             };
-            panel.AddItem(beamData);
+            panel.AddItem(wsData);
 
-            // 3. Large button: Slab Rebar
-            var slabData = new PushButtonData(
-                "CmdSlabRebar",
-                "Slab" + Environment.NewLine + "Rebar",
+            var updateData = new PushButtonData(
+                "CmdCheckUpdate",
+                "Check" + Environment.NewLine + "Update",
                 assemblyPath,
-                "KhimTools.RebarTool.Commands.CmdSlabRebar")
+                "KhimTools.Updater.Commands.CmdCheckUpdate")
             {
-                ToolTip = "Bố trí thép sàn tự động (Slab Rebar v2.5).",
-                LongDescription = "Bố trí thép sàn 2 lớp (Bottom/Top Mat), thép mũ gối (Top Support Hats), " +
-                    "thép chân chó (High Chairs) và thép gia cường lỗ mở (Opening Trim Bars).",
-                LargeImage = LoadImage("rebar_slab_32.png"),
-                Image = LoadImage("rebar_slab_16.png")
-            };
-            panel.AddItem(slabData);
-
-            // 4. Large button: Foundation Rebar
-            var fdnData = new PushButtonData(
-                "CmdFoundationRebar",
-                "Foundation" + Environment.NewLine + "Rebar",
-                assemblyPath,
-                "KhimTools.RebarTool.Commands.CmdFoundationRebar")
-            {
-                ToolTip = "Bố trí thép móng tự động (Foundation Rebar v2.5).",
-                LongDescription = "Bố trí thép lưới dưới/lưới trên móng, thép đai mép và thép chờ cột theo TCVN 5574 & Eurocode 2/7.",
-                LargeImage = LoadImage("rebar_fdn_32.png"),
-                Image = LoadImage("rebar_fdn_16.png")
-            };
-            panel.AddItem(fdnData);
-
-            // 5. Small button: Cover Setup
-            var coverData = new PushButtonData(
-                "CmdProjectCoverSetup",
-                "Cover" + Environment.NewLine + "Setup",
-                assemblyPath,
-                "KhimTools.RebarTool.Commands.CmdProjectCoverSetup")
-            {
-                ToolTip = "Cấu hình Lớp bê tông bảo vệ (Concrete Cover) toàn dự án.",
+                ToolTip = "Kiểm tra và cập nhật phiên bản mới nhất của KhimTools.",
                 Image = LoadImage("rebar_cover_16.png")
             };
-            panel.AddItem(coverData);
+            panel.AddItem(updateData);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // PANEL 2: GEOMETRY & JOIN
-        // ══════════════════════════════════════════════════════════════════
-        private static void BuildJoinPanel(UIControlledApplication application, string assemblyPath)
+        private static void BuildGenJoinPanel(UIControlledApplication application, string assemblyPath)
         {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, JoinPanelName);
+            RibbonPanel panel = GetOrCreatePanel(application, TabGen, "Geometry & Join");
 
-            // 1. Large button: Join Elements
             var joinElementsData = new PushButtonData(
                 "CmdJoinElements",
                 "Join" + Environment.NewLine + "Elements",
@@ -158,22 +89,19 @@ namespace KhimTools.Core
                 "KhimTools.SlabJoin.Commands.CmdJoinElements")
             {
                 ToolTip = "Mở công cụ Join/Unjoin/Switch chuyên nghiệp cho tất cả loại cấu kiện.",
-                LongDescription = "Hỗ trợ join/unjoin/switch geometry giữa bất kỳ cặp Category: " +
-                    "Floors, Walls, Columns, Beams, Foundations, Roofs, Ceilings. " +
-                    "Với Category Matching rules, Scope selector, Terminal Output realtime, và Template Save/Load.",
+                LongDescription = "Hỗ trợ join/unjoin/switch geometry giữa bất kỳ cặp Category: Floors, Walls, Columns, Beams, Foundations...",
                 LargeImage = LoadImage("icon_join_32.png"),
                 Image = LoadImage("icon_join_16.png")
             };
             panel.AddItem(joinElementsData);
 
-            // 2. Stacked small buttons for legacy commands
             var joinSlabData = new PushButtonData(
                 "JoinSlabsLegacy",
                 "Join Slabs",
                 assemblyPath,
                 "KhimTools.SlabJoin.Commands.JoinSlabsCommand")
             {
-                ToolTip = "Join sàn (phiên bản legacy — TaskDialog).",
+                ToolTip = "Join sàn nhanh.",
                 Image = LoadImage("icon_join_16.png")
             };
 
@@ -183,44 +111,28 @@ namespace KhimTools.Core
                 assemblyPath,
                 "KhimTools.SlabJoin.Commands.UnjoinSlabsCommand")
             {
-                ToolTip = "Unjoin sàn (phiên bản legacy — TaskDialog).",
+                ToolTip = "Unjoin sàn nhanh.",
                 Image = LoadImage("icon_unjoin_16.png")
             };
 
             panel.AddStackedItems(joinSlabData, unjoinSlabData);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // PANEL 3: DOCUMENTATION
-        // ══════════════════════════════════════════════════════════════════
-        private static void BuildDocPanel(UIControlledApplication application, string assemblyPath)
+        private static void BuildGenViewSheetPanel(UIControlledApplication application, string assemblyPath)
         {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, DocPanelName);
+            RibbonPanel panel = GetOrCreatePanel(application, TabGen, "View & Sheet Manager");
 
-            // 1. Large button: Section Cut
-            var sectionData = new PushButtonData(
-                "CmdSectionCut",
-                "Section" + Environment.NewLine + "Cut",
-                assemblyPath,
-                "KhimTools.SectionCutTool.Commands.CmdSectionCut")
-            {
-                ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
-                LongDescription = "Hỗ trợ cắt dọc theo trục tim và cắt ngang theo % hoặc khoảng cách đều cho Dầm, Cột, Vách, Sàn, Móng. Tự động đặt tên, gán View Template, scale và crop box.",
-                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("rebar_beam_32.png"),
-                Image = LoadImage("rebar_draw_16.png")
-            };
-            panel.AddItem(sectionData);
-
-            // 2. Stacked: Align Viewport & Update Detail Numbers
             var alignVpData = new PushButtonData(
                 "CmdAlignViewport",
-                "Align Viewport",
+                "Align" + Environment.NewLine + "Viewport",
                 assemblyPath,
                 "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
             {
-                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport trên nhiều Sheet (Bản vẽ).",
+                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport & Bảng Schedule trên nhiều Sheet.",
+                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("rebar_col_32.png"),
                 Image = LoadImage("rebar_draw_16.png")
             };
+            panel.AddItem(alignVpData);
 
             var updateDetailNumData = new PushButtonData(
                 "CmdUpdateDetailNumbers",
@@ -231,16 +143,12 @@ namespace KhimTools.Core
                 ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
                 Image = LoadImage("rebar_draw_16.png")
             };
-
-            panel.AddStackedItems(alignVpData, updateDetailNumData);
+            panel.AddItem(updateDetailNumData);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // PANEL 4: PUBLISH & EXPORT
-        // ══════════════════════════════════════════════════════════════════
-        private static void BuildExportPanel(UIControlledApplication application, string assemblyPath)
+        private static void BuildGenExportPanel(UIControlledApplication application, string assemblyPath)
         {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, ExportPanelName);
+            RibbonPanel panel = GetOrCreatePanel(application, TabGen, "Publish & Export");
 
             var sheetExportData = new PushButtonData(
                 "CmdSheetExport",
@@ -248,121 +156,244 @@ namespace KhimTools.Core
                 assemblyPath,
                 "KhimTools.SheetExport.Commands.CmdSheetExport")
             {
-                ToolTip = "Công cụ Batch Print & Export Sheet/View chuyên nghiệp (PDF, DWG, Issue Manager).",
-                LongDescription = "Hỗ trợ Naming Templates với Regex validation, Issue Revision Diffing, " +
-                    "Tự động tạo file Excel Transmittal Register & QA Technical Log, " +
-                    "PDFsharp Bookmarks, Watermark Status Stamp, Cover Sheet, và Auto-Retry.",
-                LargeImage = LoadImage("export_sheet_32.png"),
-                Image = LoadImage("export_sheet_16.png")
+                ToolTip = "Xuất in bản vẽ hàng loạt (PDF & AutoCAD DWG) + Tạo Bảng Kê Transmittal.",
+                LargeImage = LoadImage("icon_export_32.png") ?? LoadImage("rebar_draw_16.png"),
+                Image = LoadImage("icon_export_16.png") ?? LoadImage("rebar_draw_16.png")
             };
             panel.AddItem(sheetExportData);
         }
+        #endregion
 
-        // ══════════════════════════════════════════════════════════════════
-        // PANEL 5: WORKSPACE & SYSTEM
-        // ══════════════════════════════════════════════════════════════════
-        private static void BuildSystemPanel(UIControlledApplication application, string assemblyPath)
+        #region TAB 2: KHIM STRUCTURAL
+        private static void BuildStrRebarPanel(UIControlledApplication application, string assemblyPath)
         {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, SystemPanelName);
+            RibbonPanel panel = GetOrCreatePanel(application, TabStr, "Rebar Modeling");
 
-            // 1. Large Button: Khim Workspace (Dockable Pane)
-            var workspaceData = new PushButtonData(
-                "CmdToggleWorkspace",
-                "Khim" + Environment.NewLine + "Workspace",
-                assemblyPath,
-                "KhimTools.Tools.Workspace.Commands.CmdToggleWorkspace")
+            // SplitButton: Column Rebar
+            var splitButtonData = new SplitButtonData("ColumnRebarSplitButton", "Column" + Environment.NewLine + "Rebar")
             {
-                ToolTip = "Mở / Đóng bảng điều khiển KhimTools Workspace (Dockable Pane).",
-                LongDescription = "Bảng điều khiển ghim trực tiếp bên cạnh Project Browser/Properties giúp truy cập nhanh các tính năng và quản lý quy trình thiết kế.",
+                ToolTip = "Bố trí thép cột tự động (phát hiện vuông/tròn từ phần tử đang chọn)."
+            };
+
+            var splitButton = panel.AddItem(splitButtonData) as SplitButton;
+            if (splitButton != null)
+            {
+                AddPushButton(splitButton, "CmdColumnRebar", "Column Rebar (Auto-detect)",
+                    "KhimTools.RebarTool.Commands.CmdColumnRebar", assemblyPath,
+                    "Tự động phát hiện loại cột (vuông/tròn) và mở giao diện phù hợp.",
+                    "rebar_col_32.png", "rebar_col_16.png");
+
+                AddPushButton(splitButton, "CmdMultiColumnRebar", "Cột Vuông / Chữ Nhật 2.0",
+                    "KhimTools.RebarTool.Commands.CmdMultiColumnRebar", assemblyPath,
+                    "Giao diện thiết lập & tạo thép hàng loạt cho cột vuông/chữ nhật.",
+                    "rebar_col_32.png", "rebar_col_rect_16.png");
+
+                AddPushButton(splitButton, "CmdMultiRoundColumnRebar", "Cột Tròn 2.0",
+                    "KhimTools.RebarTool.Commands.CmdMultiRoundColumnRebar", assemblyPath,
+                    "Giao diện thiết lập & tạo thép hàng loạt cho cột tròn.",
+                    "rebar_col_circ_32.png", "rebar_col_circ_16.png");
+            }
+
+            // Beam Rebar
+            var beamData = new PushButtonData("CmdBeamRebar", "Beam" + Environment.NewLine + "Rebar", assemblyPath, "KhimTools.RebarTool.Commands.CmdBeamRebar")
+            {
+                ToolTip = "Bố trí thép dầm (Beam Rebar v2.0) chuẩn kết cấu TCVN & Eurocode.",
+                LargeImage = LoadImage("rebar_beam_32.png"),
+                Image = LoadImage("rebar_beam_16.png")
+            };
+            panel.AddItem(beamData);
+
+            // Slab Rebar
+            var slabData = new PushButtonData("CmdSlabRebar", "Slab" + Environment.NewLine + "Rebar", assemblyPath, "KhimTools.RebarTool.Commands.CmdSlabRebar")
+            {
+                ToolTip = "Bố trí thép sàn tự động (Slab Rebar v2.5).",
+                LargeImage = LoadImage("rebar_slab_32.png"),
+                Image = LoadImage("rebar_slab_16.png")
+            };
+            panel.AddItem(slabData);
+
+            // Foundation Rebar
+            var fdnData = new PushButtonData("CmdFoundationRebar", "Foundation" + Environment.NewLine + "Rebar", assemblyPath, "KhimTools.RebarTool.Commands.CmdFoundationRebar")
+            {
+                ToolTip = "Bố trí thép móng tự động (Foundation Rebar v2.5).",
+                LargeImage = LoadImage("rebar_fdn_32.png"),
+                Image = LoadImage("rebar_fdn_16.png")
+            };
+            panel.AddItem(fdnData);
+
+            // Cover Setup
+            var coverData = new PushButtonData("CmdProjectCoverSetup", "Cover" + Environment.NewLine + "Setup", assemblyPath, "KhimTools.RebarTool.Commands.CmdProjectCoverSetup")
+            {
+                ToolTip = "Cấu hình Lớp bê tông bảo vệ (Concrete Cover) toàn dự án.",
+                Image = LoadImage("rebar_cover_16.png")
+            };
+            panel.AddItem(coverData);
+        }
+
+        private static void BuildStrDetailingPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabStr, "Structural Detailing");
+
+            // Section Cut
+            var sectionData = new PushButtonData("CmdSectionCut", "Section" + Environment.NewLine + "Cut", assemblyPath, "KhimTools.SectionCutTool.Commands.CmdSectionCut")
+            {
+                ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
+                LargeImage = LoadImage("rebar_beam_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(sectionData);
+
+            // Column Drawing
+            var drawColData = new PushButtonData("CmdColumnDrawing", "Column" + Environment.NewLine + "Drawing", assemblyPath, "KhimTools.RebarTool.Commands.CmdColumnDrawing")
+            {
+                ToolTip = "Tự động xuất bản vẽ mặt cắt 2D & thống kê thép cột.",
+                LargeImage = LoadImage("rebar_col_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(drawColData);
+        }
+        #endregion
+
+        #region TAB 3: KHIM ARCHITECTURAL
+        private static void BuildArcRoomsPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabArc, "Rooms & Views");
+
+            var room3dData = new PushButtonData("CmdRoom3DView", "Room 3D" + Environment.NewLine + "View", assemblyPath, "KhimTools.Architectural.Rooms.CmdRoom3DView")
+            {
+                ToolTip = "Tự động tạo Khung nhìn 3D cô lập (3D Section Box) cho Phòng được chọn.",
+                LargeImage = LoadImage("icon_workspace_32.png") ?? LoadImage("rebar_col_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(room3dData);
+        }
+
+        private static void BuildArcFinishesPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabArc, "Finishes & Layout");
+
+            var finishData = new PushButtonData("CmdWallFloorFinishes", "Room" + Environment.NewLine + "Finishes", assemblyPath, "KhimTools.Architectural.Finishes.CmdWallFloorFinishes")
+            {
+                ToolTip = "Tự động bố trí lớp hoàn thiện sàn/tường theo chu vi phòng.",
                 LargeImage = LoadImage("icon_join_32.png"),
                 Image = LoadImage("icon_join_16.png")
             };
-            panel.AddItem(workspaceData);
+            panel.AddItem(finishData);
+        }
+        #endregion
 
-            // 2. Large Button: Check Update / About
-            var updateData = new PushButtonData(
-                "CmdCheckUpdate",
-                "Check" + Environment.NewLine + "Update",
-                assemblyPath,
-                "KhimTools.Tools.Updater.Commands.CmdCheckUpdate")
+        #region TAB 4: KHIM MEP
+        private static void BuildMepPenetrationsPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabMep, "Penetrations & Clash");
+
+            var openingData = new PushButtonData("CmdMepOpenings", "MEP" + Environment.NewLine + "Openings", assemblyPath, "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
-                ToolTip = "Kiểm tra phiên bản mới và thông tin cập nhật KhimTools.",
-                LongDescription = "Tự động kiểm tra bản cập nhật mới nhất, hiển thị Changelog và hỗ trợ cài đặt nhanh.",
-                LargeImage = LoadImage("export_sheet_32.png"),
-                Image = LoadImage("export_sheet_16.png")
+                ToolTip = "Tự động kiểm tra xung đột ống MEP với Dầm/Sàn/Vách và đục lỗ mở (Openings).",
+                LargeImage = LoadImage("rebar_beam_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
             };
-            panel.AddItem(updateData);
+            panel.AddItem(openingData);
         }
 
-        // ══════════════════════════════════════════════════════════════════
-        // HELPERS
-        // ══════════════════════════════════════════════════════════════════
-
-        private static void AddPushButton(SplitButton parent, string name, string text,
-            string className, string assemblyPath, string tooltip, string largeImage, string smallImage)
+        private static void BuildMepTagsPanel(UIControlledApplication application, string assemblyPath)
         {
-            var data = new PushButtonData(name, text, assemblyPath, className)
+            RibbonPanel panel = GetOrCreatePanel(application, TabMep, "Annotation & Tags");
+
+            var tagData = new PushButtonData("CmdMepElevationTags", "Elevation" + Environment.NewLine + "Tags", assemblyPath, "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
-                ToolTip = tooltip,
-                LargeImage = LoadImage(largeImage),
-                Image = LoadImage(smallImage)
+                ToolTip = "Tự động gán nhãn cao độ đáy (BOP/Invert Elevation) cho ống gió và ống nước.",
+                LargeImage = LoadImage("icon_export_32.png") ?? LoadImage("rebar_draw_16.png"),
+                Image = LoadImage("rebar_draw_16.png")
             };
-            parent.AddPushButton(data);
+            panel.AddItem(tagData);
+        }
+        #endregion
+
+        #region Helper Methods
+        private static void CreateTabSafely(UIControlledApplication app, string tabName)
+        {
+            try
+            {
+                app.CreateRibbonTab(tabName);
+            }
+            catch { }
         }
 
-        private static void CreateTabSafely(UIControlledApplication application, string tabName)
+        private static RibbonPanel GetOrCreatePanel(UIControlledApplication app, string tabName, string panelName)
         {
-            try { application.CreateRibbonTab(tabName); }
-            catch (Autodesk.Revit.Exceptions.ArgumentException) { }
-        }
-
-        private static RibbonPanel GetOrCreatePanel(UIControlledApplication application, string tabName, string panelName)
-        {
-            var existingPanel = application
-                .GetRibbonPanels(tabName)
-                .FirstOrDefault(p => string.Equals(p.Name, panelName, StringComparison.OrdinalIgnoreCase));
-            return existingPanel ?? application.CreateRibbonPanel(tabName, panelName);
-        }
-
-        private static BitmapImage LoadImage(string fileName)
-        {
-            if (string.IsNullOrEmpty(fileName)) return null;
+            var panels = app.GetRibbonPanels(tabName);
+            var existing = panels.FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase));
+            if (existing != null) return existing;
 
             try
             {
-                string assemblyName = Assembly.GetExecutingAssembly().GetName().Name;
-                var uri = new Uri($"pack://application:,,,/{assemblyName};component/Resources/{fileName}", UriKind.Absolute);
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.UriSource = uri;
-                bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.EndInit();
-                return bitmap;
+                return app.CreateRibbonPanel(tabName, panelName);
             }
             catch
             {
-                try
+                return app.GetRibbonPanels(tabName).FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        private static void AddPushButton(SplitButton splitButton, string name, string text,
+            string className, string assemblyPath, string toolTip, string largeIconName, string smallIconName)
+        {
+            var data = new PushButtonData(name, text, assemblyPath, className)
+            {
+                ToolTip = toolTip,
+                LargeImage = LoadImage(largeIconName),
+                Image = LoadImage(smallIconName)
+            };
+            splitButton.AddPushButton(data);
+        }
+
+        private static BitmapImage LoadImage(string resourceOrFileName)
+        {
+            if (string.IsNullOrEmpty(resourceOrFileName)) return null;
+
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                string resourceName = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(r => r.EndsWith(resourceOrFileName, StringComparison.OrdinalIgnoreCase));
+
+                if (resourceName != null)
                 {
-                    var assembly = Assembly.GetExecutingAssembly();
-                    string resourceName = assembly.GetManifestResourceNames()
-                        .FirstOrDefault(n => n.EndsWith("Resources." + fileName, StringComparison.OrdinalIgnoreCase));
-                    if (resourceName != null)
+                    using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                     {
-                        using var stream = assembly.GetManifestResourceStream(resourceName);
                         if (stream != null)
                         {
-                            var bitmap = new BitmapImage();
-                            bitmap.BeginInit();
-                            bitmap.StreamSource = stream;
-                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmap.EndInit();
-                            return bitmap;
+                            var img = new BitmapImage();
+                            img.BeginInit();
+                            img.StreamSource = stream;
+                            img.CacheOption = BitmapCacheOption.OnLoad;
+                            img.EndInit();
+                            img.Freeze();
+                            return img;
                         }
                     }
                 }
-                catch { }
-                return null;
+
+                string dir = Path.GetDirectoryName(assembly.Location) ?? "";
+                string diskPath = Path.Combine(dir, "Resources", resourceOrFileName);
+                if (!File.Exists(diskPath)) diskPath = Path.Combine(dir, resourceOrFileName);
+
+                if (File.Exists(diskPath))
+                {
+                    var img = new BitmapImage();
+                    img.BeginInit();
+                    img.UriSource = new Uri(diskPath, UriKind.Absolute);
+                    img.CacheOption = BitmapCacheOption.OnLoad;
+                    img.EndInit();
+                    img.Freeze();
+                    return img;
+                }
             }
+            catch { }
+
+            return null;
         }
+        #endregion
     }
 }
