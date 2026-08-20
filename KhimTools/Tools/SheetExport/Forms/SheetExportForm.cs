@@ -131,13 +131,6 @@ namespace KhimTools.SheetExport.Forms
             MinimumSize = new Size(1100, 680);
             BackColor = KhimUiStyle.FormBg;
 
-            // 0. Top Banner Header
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Sheet Batch Export & Print Manager",
-                "Bộ công cụ xuất in PDF & AutoCAD DWG hàng loạt, tự động nhận diện khổ giấy và quản lý bộ bản vẽ",
-                "v2.5 Pro");
-            Controls.Add(header);
-
             // 1. Sidebar Navigation (Left)
             BuildSidebar();
 

@@ -158,13 +158,6 @@ namespace KhimTools.RebarTool.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Rectangular Column Detailing",
-                "Automated Column Reinforcement Engine & 2D/3D Inspection Views",
-                "v2.5 Pro");
-            Controls.Add(header);
-
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
@@ -695,7 +688,7 @@ namespace KhimTools.RebarTool.Forms
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
             var fontTitle = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString("COLUMN ELEVATION REVIEW", fontTitle, Brushes.DarkRed, 10, 8);
+            g.DrawString(LanguageManager.IsEnglish ? "COLUMN ELEVATION PREVIEW" : "MẶT ĐỨNG CỐT THÉP CỘT", fontTitle, Brushes.DarkRed, 10, 8);
 
             var selectedItem = _columnListBox.SelectedItem as ColumnListItem;
             FamilyInstance col = selectedItem?.Column ?? _preSelectedColumns.FirstOrDefault() ?? _availableColumns.FirstOrDefault();
@@ -704,7 +697,7 @@ namespace KhimTools.RebarTool.Forms
             double bMm = 600;
             double hMm = 700;
             string mark = "<not set>";
-            string levelName = "Tầng 14 (+47700)";
+            string levelName = LanguageManager.IsEnglish ? "Level" : "Tầng";
 
             if (col != null)
             {
@@ -715,7 +708,7 @@ namespace KhimTools.RebarTool.Forms
                     bMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters));
                     hMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters));
                     mark = col.LookupParameter("Mark")?.AsString() ?? "<not set>";
-                    levelName = _doc.GetElement(col.LevelId)?.Name ?? "Level";
+                    levelName = _doc.GetElement(col.LevelId)?.Name ?? (LanguageManager.IsEnglish ? "Level" : "Tầng");
                 }
                 catch { }
             }
@@ -746,7 +739,7 @@ namespace KhimTools.RebarTool.Forms
             for (int y = y0 + 45; y >= y0 + 5; y -= 6)
                 g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
 
-            // Vertical Main Rebars with Cranked 1:6 splices, Top Hooks (Image 2) & Foundation L-bends
+            // Vertical Main Rebars with Cranked 1:6 splices, Top Hooks & Foundation L-bends
             using var rebarPen = new Pen(Color.Navy, 2);
             bool isFoundation = _rdBaseFoundation != null && _rdBaseFoundation.Checked;
             bool isTopHook = _chkTopAnchor != null && _chkTopAnchor.Checked;
@@ -787,7 +780,7 @@ namespace KhimTools.RebarTool.Forms
                     g.DrawLine(rebarPen, bx, bY, bx, tY);
                 }
 
-                // 3. Top Roof 90° Hook Termination (Ảnh 2)
+                // 3. Top Roof 90° Hook Termination
                 if (isTopHook)
                 {
                     int hookDir = (bx < cx) ? 12 : (bx > cx ? -12 : -6);
@@ -802,28 +795,33 @@ namespace KhimTools.RebarTool.Forms
             var fontSmall = new Font("Segoe UI", 7.5F);
             g.DrawString($"▼ {levelName}", fontSmall, Brushes.Black, x0 + colWidth + 2, y0 + colHeight + 2);
 
-            // Text Info Overlay (Cleanly positioned inside panel margins without truncation)
+            // Text Info Overlay
             var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
             int leftX = 6;
             int rightX = x0 + colWidth + 8;
             int textY = y0 + colHeight / 2 - 25;
 
-            g.DrawString($"Height = {heightMm} (mm)\nBxH = {bMm}x{hMm}\nMark: {mark}", fontSmall, Brushes.Black, leftX, textY);
+            string heightLabel = LanguageManager.IsEnglish ? "Height" : "Chiều cao";
+            string markLabel = LanguageManager.IsEnglish ? "Mark" : "Ký hiệu";
+            string mainRebarLabel = LanguageManager.IsEnglish ? "Main Rebar" : "Thép chủ";
+            string distLabel = LanguageManager.IsEnglish ? "Distribute" : "Phân bố";
+
+            g.DrawString($"{heightLabel} = {heightMm} (mm)\nBxH = {bMm}x{hMm}\n{markLabel}: {mark}", fontSmall, Brushes.Black, leftX, textY);
 
             string diaStr = _cmbMainDia?.Text ?? "18";
-            g.DrawString($"Main Rebar:\n  {totalBars}Φ{diaStr}\nDistribute:\n  A1, A2, A1", fontRed, Brushes.Red, rightX, textY);
+            g.DrawString($"{mainRebarLabel}:\n  {totalBars}Φ{diaStr}\n{distLabel}:\n  A1, A2, A1", fontRed, Brushes.Red, rightX, textY);
         }
 
         private void ApplyLanguage()
         {
             bool isEn = LanguageManager.IsEnglish;
 
-            Text = isEn ? "🏗️ KHIM TOOLS — Rectangular Column Reinforcement (v2.0)" : "🏗️ KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật (v2.0)";
+            Text = isEn ? "🏗️ Rectangular Column Reinforcement" : "🏗️ Bố trí Thép Cột Vuông / Chữ Nhật";
 
-            if (_tabMain != null) _tabMain.Text = isEn ? "📌 Main Rebar & Review" : "📌 Thép Chủ & Review";
-            if (_tabStirrup != null) _tabStirrup.Text = isEn ? "🌀 Stirrups" : "🌀 Thép Đai (Stirrups)";
-            if (_tabGenSettings != null) _tabGenSettings.Text = isEn ? "⚙️ General Settings" : "⚙️ General Settings";
-            if (_tabViews != null) _tabViews.Text = isEn ? "🖼️ Drawing & Views" : "🖼️ Bản Vẽ & Views";
+            if (_tabMain != null) _tabMain.Text = isEn ? "📌 Main Rebar & Preview" : "📌 Thép Chủ & Xem Trước";
+            if (_tabStirrup != null) _tabStirrup.Text = isEn ? "🌀 Stirrups" : "🌀 Thép Đai";
+            if (_tabGenSettings != null) _tabGenSettings.Text = isEn ? "⚙️ General Settings" : "⚙️ Cài Đặt Chung";
+            if (_tabViews != null) _tabViews.Text = isEn ? "🖼️ Drawing & Views" : "🖼️ Bản Vẽ & Khung Nhìn";
 
             // Tab 1 Main
             if (_grpMainSection != null) _grpMainSection.Text = isEn ? "Main Rebar Arrangement" : "Bố trí Thép Chủ Tiết Diện";
@@ -832,27 +830,27 @@ namespace KhimTools.RebarTool.Forms
             if (_lblMainDia != null) _lblMainDia.Text = isEn ? "Main rebar diameter:" : "Đường kính thép chủ:";
 
             if (_grpCover != null) _grpCover.Text = isEn ? "Concrete Cover" : "Lớp Bê Tông Bảo Vệ";
-            if (_chkCustomCover != null) _chkCustomCover.Text = isEn ? "Custom Cover (mm)" : "Nhập tay Cover (mm)";
-            if (_lblCustomCover != null) _lblCustomCover.Text = isEn ? "Custom Cover (mm):" : "Cover tùy chỉnh (mm):";
-            if (_btnProjectCover != null) _btnProjectCover.Text = isEn ? "⚙️ Project Cover" : "⚙️ Cover Dự Án";
+            if (_chkCustomCover != null) _chkCustomCover.Text = isEn ? "Custom Cover (mm)" : "Nhập tay Lớp Bảo Vệ (mm)";
+            if (_lblCustomCover != null) _lblCustomCover.Text = isEn ? "Custom Cover (mm):" : "Lớp bảo vệ tùy chỉnh (mm):";
+            if (_btnProjectCover != null) _btnProjectCover.Text = isEn ? "⚙️ Project Cover" : "⚙️ Lớp Bảo Vệ Dự Án";
 
             if (_grpMainAnchor != null) _grpMainAnchor.Text = isEn ? "Anchorage & Lap Splice Detailing" : "Cấu tạo Neo & Nối Thép";
             if (_rdBaseStandardLevel != null) _rdBaseStandardLevel.Text = isEn ? "Typical / Floor Column (Continuous dowel)" : "Cột tầng sàn / điển hình (Thép chờ nối tầng)";
             if (_rdBaseFoundation != null) _rdBaseFoundation.Text = isEn ? "Base / Foundation Column (90° Footing L-bend)" : "Cột tầng móng (Nối chân quỳ 90° vào móng)";
-            if (_chkCrankedSplice != null) _chkCrankedSplice.Text = isEn ? "1:6 Cranked offset splice at joint (Image 1)" : "Nhấn vắt nghiêng 1:6 vị trí nối (Ảnh 1)";
-            if (_chkTopAnchor != null) _chkTopAnchor.Text = isEn ? "90° Inward hook for roof column (Image 2)" : "Neo uốn móc 90° đỉnh mái (Ảnh 2)";
-            if (_chkStaggeredSplice != null) _chkStaggeredSplice.Text = isEn ? "50% Staggered lap splice (1.3 Ls)" : "Nối so le 50% (Staggered 1.3 Ls)";
+            if (_chkCrankedSplice != null) _chkCrankedSplice.Text = isEn ? "1:6 Cranked offset splice at joint" : "Nhấn vắt nghiêng 1:6 tại vị trí nối";
+            if (_chkTopAnchor != null) _chkTopAnchor.Text = isEn ? "90° Inward hook for roof column" : "Neo uốn móc 90° đỉnh mái";
+            if (_chkStaggeredSplice != null) _chkStaggeredSplice.Text = isEn ? "50% Staggered lap splice (1.3 Ls)" : "Nối so le 50% (Cách 1.3 Ls)";
 
             // Tab 2 Stirrups
             if (_grpStirrupZone != null) _grpStirrupZone.Text = isEn ? "Stirrup Distribution A1 / A2 / A1 (Structural Standard)" : "Phân Vùng Đai A1 / A2 / A1 (Chuẩn Kết Cấu)";
             if (_lblStirrupDia != null) _lblStirrupDia.Text = isEn ? "Stirrup bar diameter:" : "Đường kính thép đai:";
-            if (_lblStirrupA1 != null) _lblStirrupA1.Text = isEn ? "Dense A1 stirrup spacing (mm):" : "Khoảng cách đai dầy A1 (mm):";
+            if (_lblStirrupA1 != null) _lblStirrupA1.Text = isEn ? "Dense A1 stirrup spacing (mm):" : "Khoảng cách đai dày A1 (mm):";
             if (_lblStirrupA2 != null) _lblStirrupA2.Text = isEn ? "Sparse A2 stirrup spacing (mm):" : "Khoảng cách đai thưa A2 (mm):";
-            if (_lblZoneA1Len != null) _lblZoneA1Len.Text = isEn ? "Dense A1 zone length (mm):" : "Chiều dài vùng dầy A1 (mm):";
+            if (_lblZoneA1Len != null) _lblZoneA1Len.Text = isEn ? "Dense A1 zone length (mm):" : "Chiều dài vùng đai dày A1 (mm):";
 
             if (_grpInnerStirrup != null) _grpInnerStirrup.Text = isEn ? "Inner Tie & Crosslink Options" : "Cấu tạo Đai Phụ & Móc Đai";
-            if (_chkInnerDiamond != null) _chkInnerDiamond.Text = isEn ? "Create inner diamond stirrup JP_T80 (when ≥3 bars/side)" : "Tạo đai lồng / đai thoi JP_T80 (khi ≥3 thanh/cạnh)";
-            if (_chkCrossLinks != null) _chkCrossLinks.Text = isEn ? "Create crosslinks / C-links JP_T68" : "Tạo đai móc phụ / Crosslink JP_T68";
+            if (_chkInnerDiamond != null) _chkInnerDiamond.Text = isEn ? "Create inner diamond stirrup (when ≥3 bars/side)" : "Tạo đai lồng / đai thoi (khi ≥3 thanh/cạnh)";
+            if (_chkCrossLinks != null) _chkCrossLinks.Text = isEn ? "Create crosslinks / C-links" : "Tạo đai móc phụ / Đai C";
 
             // Tab 3 General Settings
             if (_grpHook != null) _grpHook.Text = isEn ? "REBAR HOOK BENDING SECTION" : "CẤU TẠO UỐN MÓC THÉP";
@@ -860,38 +858,38 @@ namespace KhimTools.RebarTool.Forms
             if (_rdHookLengthDia != null) _rdHookLengthDia.Text = isEn ? "By diameter (xD):" : "Theo đường kính thanh (xD):";
 
             if (_grpBendCut != null) _grpBendCut.Text = isEn ? "REBAR BENDING OR CUTTING CONDITIONS" : "ĐIỀU KIỆN UỐN HOẶC CẮT THÉP";
-            if (_lblBendE != null) _lblBendE.Text = isEn ? "Bend rebar if e ≤ (mm):" : "Uốn thép nếu lệch e ≤ (mm):";
-            if (_lblBendRatio != null) _lblBendRatio.Text = isEn ? "Bend by ratio Hd/e ≥:" : "Tỷ lệ dốc uốn Hd/e ≥:";
+            if (_lblBendE != null) _lblBendE.Text = isEn ? "Bend rebar if offset e ≤ (mm):" : "Uốn thép nếu độ lệch e ≤ (mm):";
+            if (_lblBendRatio != null) _lblBendRatio.Text = isEn ? "Bend slope ratio Hd/e ≥:" : "Tỷ lệ độ dốc uốn Hd/e ≥:";
 
             if (_grpTopRoof != null) _grpTopRoof.Text = isEn ? "SET TOP ROOF REBAR" : "KẾT THÚC THÉP ĐỈNH MÁI";
             if (_rdTopRoofHook != null) _rdTopRoofHook.Text = isEn ? "Bend hook for top floor rebar" : "Bẻ móc cho thép tầng đỉnh mái";
-            if (_rdTopRoofContinue != null) _rdTopRoofContinue.Text = isEn ? "Continue waiting for top floor rebar" : "Chờ thẳng cho tầng tiếp theo";
+            if (_rdTopRoofContinue != null) _rdTopRoofContinue.Text = isEn ? "Continue straight for next level" : "Chờ thẳng cho tầng tiếp theo";
 
             if (_grpSplicePos != null) _grpSplicePos.Text = isEn ? "REBAR SPLICE POSITION" : "VỊ TRÍ NỐI THÉP CỘT";
             if (_lblSpliceDist != null) _lblSpliceDist.Text = isEn ? "Splice distance from column base L = (mm):" : "Khoảng cách nối từ chân cột L = (mm):";
 
             if (_grpAssignInfo != null) _grpAssignInfo.Text = isEn ? "ASSIGN ADDITIONAL INFORMATION TO REBAR" : "GÁN THÔNG TIN BỔ SUNG CHO THÉP";
             if (_chkAssignElevation != null) _chkAssignElevation.Text = isEn ? "Assign column elevation to rebar" : "Gán cao độ cột vào thông số thép";
-            if (_chkAssignPartition != null) _chkAssignPartition.Text = isEn ? "Automatically assign Partition to rebar" : "Tự động gán Partition cho thép";
+            if (_chkAssignPartition != null) _chkAssignPartition.Text = isEn ? "Automatically assign Partition to rebar" : "Tự động gán Phân vùng (Partition) cho thép";
 
             if (_grpSlabBeam != null) _grpSlabBeam.Text = isEn ? "OPTION AT SLAB BEAM POSITION" : "TÙY CHỌN TẠI VỊ TRÍ DẦM / SÀN";
-            if (_lblDefaultHd != null) _lblDefaultHd.Text = isEn ? "Default height Hd (mm):" : "Chiều cao dầm mặc định Hd (mm):";
+            if (_lblDefaultHd != null) _lblDefaultHd.Text = isEn ? "Default beam height Hd (mm):" : "Chiều cao dầm mặc định Hd (mm):";
 
             // Tab 4 Drawing
-            if (_grpViews != null) _grpViews.Text = isEn ? "Drawing & View Options" : "Tự Động Tạo View & Triển Khai Bản Vẽ";
-            if (_chkAutoDrawing != null) _chkAutoDrawing.Text = isEn ? "Automatically generate section drawing sheets" : "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)";
-            if (_chkAutoSection3D != null) _chkAutoSection3D.Text = isEn ? "Create 3D Rebar View for columns" : "Tự động tạo View xem thép 3D (Plan View + 3D View)";
+            if (_grpViews != null) _grpViews.Text = isEn ? "Drawing & View Options" : "Tự Động Tạo Khung Nhìn & Bản Vẽ";
+            if (_chkAutoDrawing != null) _chkAutoDrawing.Text = isEn ? "Automatically generate 2D section drawing & BBS" : "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)";
+            if (_chkAutoSection3D != null) _chkAutoSection3D.Text = isEn ? "Create 3D Inspection Views (Plan View + 3D View)" : "Tự động tạo Khung nhìn xem thép 3D (Mặt bằng + 3D)";
 
             // Right & Bottom Panels
             if (_lblColTitle != null) _lblColTitle.Text = isEn ? "📋 Column List" : "📋 Danh Sách Cột";
             if (_lblTemplate != null) _lblTemplate.Text = isEn ? "📋 Configuration Template:" : "📋 Mẫu Thiết Lập:";
-            if (_btnSaveTemplate != null) _btnSaveTemplate.Text = isEn ? "Save As..." : "Lưu mẫu...";
+            if (_btnSaveTemplate != null) _btnSaveTemplate.Text = isEn ? "Save..." : "Lưu mẫu...";
             if (_btnApplyTemplate != null) _btnApplyTemplate.Text = isEn ? "Apply" : "Áp dụng";
             if (_btnDeleteTemplate != null) _btnDeleteTemplate.Text = isEn ? "Delete" : "Xóa mẫu";
             if (_rdScopeSelected != null) _rdScopeSelected.Text = isEn ? $"Selected columns ({_preSelectedColumns.Count})" : $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})";
             if (_rdScopeAll != null) _rdScopeAll.Text = isEn ? $"All model columns ({_availableColumns.Count})" : $"Tất cả cột ({_availableColumns.Count})";
             if (_btnSelectAll != null) _btnSelectAll.Text = isEn ? "Select All" : "Chọn Tất Cả";
-            if (_btnDeselectAll != null) _btnDeselectAll.Text = isEn ? "Clear" : "Bỏ Chọn";
+            if (_btnDeselectAll != null) _btnDeselectAll.Text = isEn ? "Deselect All" : "Bỏ Chọn";
 
             if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "⚡ Create Rebar" : "⚡ Tạo Thép";
             if (_btnClose != null) _btnClose.Text = isEn ? "Close" : "Đóng";

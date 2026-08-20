@@ -55,6 +55,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="App\**" />
+    <Page Remove="App\**" />
+    <Resource Remove="App\**" />
+    <ApplicationDefinition Remove="App\**" />
+    <None Remove="App\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="Resources\*.png" />
   </ItemGroup>
 
