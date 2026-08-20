@@ -56,6 +56,20 @@ namespace KhimTools.Core
             };
             panel.AddItem(wsData);
 
+            // 1.5 Auto Grid & Plan
+            var gridPlanData = new PushButtonData(
+                "CmdAutoGridPlan",
+                "Grid &" + Environment.NewLine + "Plans",
+                assemblyPath,
+                "KhimTools.GridLevel.Commands.CmdAutoGridPlan")
+            {
+                ToolTip = "Tự động tạo Hệ Lưới Trục (Grids) & Cao Độ Tầng, Mặt Bằng (Levels & Plans).",
+                LongDescription = "Hỗ trợ nhập khoảng cách trục theo chuỗi (VD: 6000, 7200, 3x6000), tự động đánh Dimension và sinh các mặt bằng kiến trúc, kết cấu.",
+                LargeImage = LoadImage("icon_grid_32.png"),
+                Image = LoadImage("icon_grid_16.png")
+            };
+            panel.AddItem(gridPlanData);
+
             // 2. Join Elements
             var joinElementsData = new PushButtonData(
                 "CmdJoinElements",
