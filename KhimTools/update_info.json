@@ -1,0 +1,12 @@
+{
+  "latest_version": "v2.1.0",
+  "release_date": "2026-08-20",
+  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
+  "changelog": [
+    "Tái cấu trúc giao diện KhimTools Workspace chuyên nghiệp.",
+    "Bổ sung Dockable Workspace Panel ghim cạnh màn hình.",
+    "Tự động đồng bộ Detail Number và Căn chỉnh Viewport.",
+    "Tối ưu hiệu năng tạo thép hàng loạt cho Cột và Dầm."
+  ],
+  "is_mandatory": false
+}

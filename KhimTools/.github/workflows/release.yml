@@ -1,0 +1,71 @@
+name: Build & Release Executable & Bundle
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+
+      - name: Build C# Revit Addin DLLs
+        run: |
+          dotnet build KhimTools.csproj -c Release
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Executable with PyInstaller
+        run: |
+          pyinstaller KhiemTools.spec
+
+      - name: Setup Inno Setup Compiler
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        with:
+          path: installer.iss
+
+      - name: Archive Addin Bundle & Executable (ZIP)
+        shell: pwsh
+        run: |
+          if (Test-Path dist/KhiemTools.exe) {
+            Compress-Archive -Path dist/KhiemTools.exe -DestinationPath dist/KhiemTools_Portable.zip
+          }
+
+      - name: Create GitHub Release & Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/KhiemTools.exe
+            dist/KhiemTools_Portable.zip
+            Output/KhiemTools_Setup.exe
+            update_info.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

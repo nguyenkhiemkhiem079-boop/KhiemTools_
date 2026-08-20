@@ -17,9 +17,11 @@ namespace KhimTools.Core
     {
         // Ribbon Names Constants
         public const string TabName = "Khim Tools";
-        public const string RebarPanelName = "Rebar";
-        public const string JoinPanelName = "Join / Geometry";
-        public const string ExportPanelName = "Publish / Export";
+        public const string RebarPanelName = "Rebar Modeling";
+        public const string JoinPanelName = "Geometry & Join";
+        public const string DocPanelName = "Documentation";
+        public const string ExportPanelName = "Publish & Export";
+        public const string SystemPanelName = "Workspace & System";
 
         public static void BuildRibbon(UIControlledApplication application)
         {
@@ -28,11 +30,13 @@ namespace KhimTools.Core
 
             BuildRebarPanel(application, assemblyPath);
             BuildJoinPanel(application, assemblyPath);
+            BuildDocPanel(application, assemblyPath);
             BuildExportPanel(application, assemblyPath);
+            BuildSystemPanel(application, assemblyPath);
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // PANEL 1: REBAR
+        // PANEL 1: REBAR MODELING
         // ══════════════════════════════════════════════════════════════════
         private static void BuildRebarPanel(UIControlledApplication application, string assemblyPath)
         {
@@ -124,21 +128,9 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_fdn_32.png"),
                 Image = LoadImage("rebar_fdn_16.png")
             };
-            // 5. Large button: Section Cut
-            var sectionData = new PushButtonData(
-                "CmdSectionCut",
-                "Section" + Environment.NewLine + "Cut",
-                assemblyPath,
-                "KhimTools.SectionCutTool.Commands.CmdSectionCut")
-            {
-                ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
-                LongDescription = "Hỗ trợ cắt dọc theo trục tim và cắt ngang theo % hoặc khoảng cách đều cho Dầm, Cột, Vách, Sàn, Móng. Tự động đặt tên, gán View Template, scale và crop box.",
-                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("rebar_beam_32.png"),
-                Image = LoadImage("rebar_draw_16.png")
-            };
-            panel.AddItem(sectionData);
+            panel.AddItem(fdnData);
 
-            // 6. Small button: Cover Setup
+            // 5. Small button: Cover Setup
             var coverData = new PushButtonData(
                 "CmdProjectCoverSetup",
                 "Cover" + Environment.NewLine + "Setup",
@@ -152,7 +144,7 @@ namespace KhimTools.Core
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // PANEL 2: JOIN / GEOMETRY
+        // PANEL 2: GEOMETRY & JOIN
         // ══════════════════════════════════════════════════════════════════
         private static void BuildJoinPanel(UIControlledApplication application, string assemblyPath)
         {
@@ -199,7 +191,52 @@ namespace KhimTools.Core
         }
 
         // ══════════════════════════════════════════════════════════════════
-        // PANEL 3: PUBLISH / EXPORT
+        // PANEL 3: DOCUMENTATION
+        // ══════════════════════════════════════════════════════════════════
+        private static void BuildDocPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, DocPanelName);
+
+            // 1. Large button: Section Cut
+            var sectionData = new PushButtonData(
+                "CmdSectionCut",
+                "Section" + Environment.NewLine + "Cut",
+                assemblyPath,
+                "KhimTools.SectionCutTool.Commands.CmdSectionCut")
+            {
+                ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
+                LongDescription = "Hỗ trợ cắt dọc theo trục tim và cắt ngang theo % hoặc khoảng cách đều cho Dầm, Cột, Vách, Sàn, Móng. Tự động đặt tên, gán View Template, scale và crop box.",
+                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("rebar_beam_32.png"),
+                Image = LoadImage("rebar_draw_16.png")
+            };
+            panel.AddItem(sectionData);
+
+            // 2. Stacked: Align Viewport & Update Detail Numbers
+            var alignVpData = new PushButtonData(
+                "CmdAlignViewport",
+                "Align Viewport",
+                assemblyPath,
+                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
+            {
+                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport trên nhiều Sheet (Bản vẽ).",
+                Image = LoadImage("rebar_draw_16.png")
+            };
+
+            var updateDetailNumData = new PushButtonData(
+                "CmdUpdateDetailNumbers",
+                "Update Detail No",
+                assemblyPath,
+                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
+            {
+                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
+                Image = LoadImage("rebar_draw_16.png")
+            };
+
+            panel.AddStackedItems(alignVpData, updateDetailNumData);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // PANEL 4: PUBLISH & EXPORT
         // ══════════════════════════════════════════════════════════════════
         private static void BuildExportPanel(UIControlledApplication application, string assemblyPath)
         {
@@ -219,32 +256,42 @@ namespace KhimTools.Core
                 Image = LoadImage("export_sheet_16.png")
             };
             panel.AddItem(sheetExportData);
+        }
 
-            var alignVpData = new PushButtonData(
-                "CmdAlignViewport",
-                "Align" + Environment.NewLine + "Viewport",
-                assemblyPath,
-                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
-            {
-                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport trên nhiều Sheet (Bản vẽ).",
-                LongDescription = "Chọn một Viewport nguồn làm chuẩn, sau đó tự động căn chỉnh vị trí các Viewport trên danh sách Sheet được chọn trùng khớp 100%. Tự động bỏ qua Legends và Schedules.",
-                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("export_sheet_32.png"),
-                Image = LoadImage("rebar_draw_16.png")
-            };
-            panel.AddItem(alignVpData);
+        // ══════════════════════════════════════════════════════════════════
+        // PANEL 5: WORKSPACE & SYSTEM
+        // ══════════════════════════════════════════════════════════════════
+        private static void BuildSystemPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, SystemPanelName);
 
-            var updateDetailNumData = new PushButtonData(
-                "CmdUpdateDetailNumbers",
-                "Update" + Environment.NewLine + "Detail No",
+            // 1. Large Button: Khim Workspace (Dockable Pane)
+            var workspaceData = new PushButtonData(
+                "CmdToggleWorkspace",
+                "Khim" + Environment.NewLine + "Workspace",
                 assemblyPath,
-                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
+                "KhimTools.Tools.Workspace.Commands.CmdToggleWorkspace")
             {
-                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
-                LongDescription = "Hỗ trợ trích xuất CW, W hoặc pattern tùy biến theo Regex, tự động thêm đuôi .1, .2 chống trùng lặp trên cùng Sheet.",
-                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("export_sheet_32.png"),
-                Image = LoadImage("rebar_draw_16.png")
+                ToolTip = "Mở / Đóng bảng điều khiển KhimTools Workspace (Dockable Pane).",
+                LongDescription = "Bảng điều khiển ghim trực tiếp bên cạnh Project Browser/Properties giúp truy cập nhanh các tính năng và quản lý quy trình thiết kế.",
+                LargeImage = LoadImage("icon_join_32.png"),
+                Image = LoadImage("icon_join_16.png")
             };
-            panel.AddItem(updateDetailNumData);
+            panel.AddItem(workspaceData);
+
+            // 2. Large Button: Check Update / About
+            var updateData = new PushButtonData(
+                "CmdCheckUpdate",
+                "Check" + Environment.NewLine + "Update",
+                assemblyPath,
+                "KhimTools.Tools.Updater.Commands.CmdCheckUpdate")
+            {
+                ToolTip = "Kiểm tra phiên bản mới và thông tin cập nhật KhimTools.",
+                LongDescription = "Tự động kiểm tra bản cập nhật mới nhất, hiển thị Changelog và hỗ trợ cài đặt nhanh.",
+                LargeImage = LoadImage("export_sheet_32.png"),
+                Image = LoadImage("export_sheet_16.png")
+            };
+            panel.AddItem(updateData);
         }
 
         // ══════════════════════════════════════════════════════════════════
