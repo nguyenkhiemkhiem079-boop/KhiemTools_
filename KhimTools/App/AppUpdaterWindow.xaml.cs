@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
 using Microsoft.Win32;
-using Newtonsoft.Json.Linq;
 
 namespace KhiemToolsApp
 {
@@ -63,25 +63,15 @@ namespace KhiemToolsApp
 
                 string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
                 string json = await client.GetStringAsync(apiUrl);
-                var release = JObject.Parse(json);
 
-                string latestTag = release["tag_name"]?.ToString() ?? "v2.1.0";
+                // Trích xuất tag_name
+                Match tagMatch = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
+                string latestTag = tagMatch.Success ? tagMatch.Groups[1].Value : "v2.1.0";
                 TxtGithubVersion.Text = latestTag;
 
-                var assets = release["assets"] as JArray;
-                string downloadUrl = null;
-                if (assets != null)
-                {
-                    foreach (var asset in assets)
-                    {
-                        string name = asset["name"]?.ToString().ToLower();
-                        if (name.EndsWith(".zip") || name.EndsWith(".bundle"))
-                        {
-                            downloadUrl = asset["browser_download_url"]?.ToString();
-                            break;
-                        }
-                    }
-                }
+                // Trích xuất browser_download_url của file bundle .zip
+                Match zipMatch = Regex.Match(json, "\"browser_download_url\"\\s*:\\s*\"([^\"]+KhimTools_Bundle\\.zip|[^\"]+\\.zip)\"");
+                string downloadUrl = zipMatch.Success ? zipMatch.Groups[1].Value : null;
 
                 if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub! Bạn có muốn cài đặt/cập nhật ngay không?", 
                     "Cập nhật KhiemTools", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
