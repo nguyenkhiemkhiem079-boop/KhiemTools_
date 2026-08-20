@@ -1,0 +1,8 @@
+bin/
+obj/
+App/bin/
+App/obj/
+dist/
+*.user
+.vs/
+.vscode/
