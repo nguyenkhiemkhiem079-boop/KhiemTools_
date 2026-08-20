@@ -353,15 +353,24 @@ namespace KhimTools.GridLevel.Forms
                 BorderStyle = BorderStyle.FixedSingle,
                 RowHeadersVisible = false,
                 Font = new Font("Segoe UI", 9F),
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                EnableHeadersVisualStyles = false,
+                ColumnHeadersHeight = 34,
+                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing
             };
+
+            _dgvLevels.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(235, 240, 248);
+            _dgvLevels.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(30, 41, 59);
+            _dgvLevels.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            _dgvLevels.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _dgvLevels.RowTemplate.Height = 28;
 
             _dgvLevels.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = isEn ? "Level Name" : "Tên Tầng", Width = 170 });
             _dgvLevels.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = isEn ? "Elevation (mm)" : "Cao Độ (mm)", Width = 120 });
             _dgvLevels.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = isEn ? "Height (mm)" : "Chiều Cao (mm)", Width = 110 });
-            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Struct Plan" : "MB Kết Cấu", Width = 100 });
-            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Floor Plan" : "MB Kiến Trúc", Width = 100 });
-            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Ceiling Plan" : "MB Trần", Width = 90 });
+            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Struct Plan" : "MB Kết Cấu", Width = 110 });
+            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Floor Plan" : "MB Kiến Trúc", Width = 110 });
+            _dgvLevels.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = isEn ? "Ceiling Plan" : "MB Trần (RCP)", Width = 110 });
 
             _dgvLevels.CellValueChanged += DgvLevels_CellValueChanged;
             page.Controls.Add(_dgvLevels);
