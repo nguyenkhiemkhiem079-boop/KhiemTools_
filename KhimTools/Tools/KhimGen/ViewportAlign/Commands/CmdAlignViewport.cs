@@ -9,13 +9,12 @@ using KhimTools.Core;
 using KhimTools.ViewportAlign.Forms;
 using KhimTools.ViewportAlign.Services;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
-using View = Autodesk.Revit.DB.View;
 using DialogResult = System.Windows.Forms.DialogResult;
 
 namespace KhimTools.ViewportAlign.Commands
 {
     /// <summary>
-    /// Command: Đồng bộ và Căn chỉnh vị trí Viewport và Bảng Schedule trên nhiều Sheet.
+    /// Command: Đồng bộ và Căn chỉnh vị trí Viewport, View Titles và Bảng thống kê giữa các Sheet.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -34,121 +33,98 @@ namespace KhimTools.ViewportAlign.Commands
 
             try
             {
-                Viewport vpSource = null;
+                Viewport preSelectedVp = null;
 
                 // 1. Kiểm tra xem người dùng đã chọn sẵn Viewport trên Sheet chưa
                 var selectedIds = uidoc.Selection.GetElementIds();
                 if (selectedIds.Count == 1)
                 {
-                    vpSource = doc.GetElement(selectedIds.First()) as Viewport;
+                    preSelectedVp = doc.GetElement(selectedIds.First()) as Viewport;
                 }
 
-                // 2. Nếu chưa chọn, yêu cầu pick Viewport nguồn
-                if (vpSource == null)
-                {
-                    try
-                    {
-                        Reference pickedRef = uidoc.Selection.PickObject(
-                            ObjectType.Element,
-                            new ViewportSelectionFilter(),
-                            LanguageManager.IsEnglish
-                                ? "Select source Viewport on Sheet to use as alignment reference"
-                                : "Chọn Viewport nguồn trên Sheet để lấy vị trí mẫu");
-
-                        if (pickedRef != null)
-                        {
-                            vpSource = doc.GetElement(pickedRef) as Viewport;
-                        }
-                    }
-                    catch (Autodesk.Revit.Exceptions.OperationCanceledException)
-                    {
-                        return Result.Cancelled;
-                    }
-                }
-
-                if (vpSource == null)
-                {
-                    TaskDialog.Show("Khim Tools — Align Viewport",
-                        LanguageManager.IsEnglish ? "No valid source viewport selected." : "Chưa chọn được Viewport nguồn hợp lệ.");
-                    return Result.Cancelled;
-                }
-
-                ViewSheet sourceSheet = doc.GetElement(vpSource.SheetId) as ViewSheet;
-
-                // 3. Mở giao diện chọn Sheet mục tiêu & Tùy chọn đối tượng
-                var form = new AlignViewportForm(doc, vpSource);
+                // 2. Mở form tương tác chuyên nghiệp (tự động load viewport mẫu nếu có, hoặc cho phép pick trên form)
+                var form = new AlignViewportForm(uidoc, preSelectedVp);
                 if (form.ShowDialog() != DialogResult.OK)
                 {
                     return Result.Cancelled;
                 }
 
-                var targetSheets = form.SelectedTargetSheets;
-                var alignOptions = form.AlignOptions;
+                Viewport sourceVp = form.SourceViewport;
+                var targetViews = form.SelectedTargetViews;
+                ArrangeMode mode = form.SelectedArrangeMode;
 
-                if (!targetSheets.Any())
+                if (sourceVp == null || !targetViews.Any())
                 {
                     return Result.Cancelled;
                 }
 
-                // 4. Tiến hành căn chỉnh trên từng Sheet
+                // 3. Tiến hành căn chỉnh trên từng View/Schedule
                 int viewportCount = 0;
                 int scheduleCount = 0;
                 int failedCount = 0;
 
-                using (var tg = new TransactionGroup(doc, "Align Viewports & Schedules Across Sheets"))
+                using (var tg = new TransactionGroup(doc, "Arrange Views & Titles Across Sheets"))
                 {
                     tg.Start();
 
-                    foreach (ViewSheet sheet in targetSheets)
+                    foreach (var targetItem in targetViews)
                     {
-                        // A. Căn chỉnh Viewports
-                        var vpIds = sheet.GetAllViewports();
-                        foreach (ElementId vid in vpIds)
+                        if (targetItem.IsSchedule)
                         {
-                            if (vid == vpSource.Id) continue;
-
-                            Viewport vpTarget = doc.GetElement(vid) as Viewport;
-                            if (vpTarget == null) continue;
-
-                            View targetView = doc.GetElement(vpTarget.ViewId) as View;
-                            if (!ViewportAlignService.ShouldAlignViewport(targetView, alignOptions))
+                            // Bảng Schedule
+                            ScheduleSheetInstance targetSched = doc.GetElement(targetItem.ViewportOrScheduleId) as ScheduleSheetInstance;
+                            if (targetSched != null)
                             {
-                                continue;
-                            }
-
-                            using (var tx = new Transaction(doc, $"Move Viewport {targetView?.Name}"))
-                            {
-                                tx.Start();
-                                try
+                                using (var tx = new Transaction(doc, $"Align Schedule {targetItem.ViewName}"))
                                 {
-                                    if (ViewportAlignService.MoveViewportToSource(doc, vpTarget, vpSource))
+                                    tx.Start();
+                                    try
                                     {
-                                        viewportCount++;
+                                        // Tìm schedule mẫu trên source sheet
+                                        var sourceSchedules = new FilteredElementCollector(doc, sourceVp.SheetId)
+                                            .OfClass(typeof(ScheduleSheetInstance))
+                                            .Cast<ScheduleSheetInstance>()
+                                            .ToList();
+
+                                        var matchSource = sourceSchedules.FirstOrDefault(s => s.ScheduleId == targetSched.ScheduleId)
+                                                          ?? sourceSchedules.FirstOrDefault();
+
+                                        if (matchSource != null && ViewportAlignService.AlignSchedule(doc, targetSched, matchSource))
+                                        {
+                                            scheduleCount++;
+                                        }
+                                        tx.Commit();
                                     }
-                                    tx.Commit();
-                                }
-                                catch
-                                {
-                                    tx.RollBack();
-                                    failedCount++;
+                                    catch
+                                    {
+                                        tx.RollBack();
+                                        failedCount++;
+                                    }
                                 }
                             }
                         }
-
-                        // B. Căn chỉnh Bảng thống kê (Schedules) nếu được tick chọn
-                        if (alignOptions.AlignSchedules && sourceSheet != null)
+                        else
                         {
-                            using (var tx = new Transaction(doc, $"Move Schedules on Sheet {sheet.SheetNumber}"))
+                            // Viewport
+                            Viewport targetVp = doc.GetElement(targetItem.ViewportOrScheduleId) as Viewport;
+                            if (targetVp != null)
                             {
-                                tx.Start();
-                                try
+                                using (var tx = new Transaction(doc, $"Arrange Viewport {targetItem.ViewName}"))
                                 {
-                                    scheduleCount += ViewportAlignService.AlignSchedules(doc, sheet, sourceSheet);
-                                    tx.Commit();
-                                }
-                                catch
-                                {
-                                    tx.RollBack();
+                                    tx.Start();
+                                    try
+                                    {
+                                        if (ViewportAlignService.AlignViewport(doc, targetVp, sourceVp, mode))
+                                        {
+                                            viewportCount++;
+                                        }
+                                        tx.Commit();
+                                    }
+                                    catch
+                                    {
+                                        tx.RollBack();
+                                        failedCount++;
+                                    }
                                 }
                             }
                         }
@@ -161,18 +137,18 @@ namespace KhimTools.ViewportAlign.Commands
                 uidoc.RefreshActiveView();
 
                 string msgSummary = LanguageManager.IsEnglish
-                    ? $"🎉 Alignment Completed!\n\n" +
+                    ? $"Alignment Completed!\n\n" +
                       $"• Viewports successfully aligned: {viewportCount}\n" +
                       $"• Schedules successfully aligned: {scheduleCount}\n" +
-                      $"• Target Sheets processed: {targetSheets.Count}\n" +
+                      $"• Arrange Mode: {mode}\n" +
                       (failedCount > 0 ? $"• Errors: {failedCount}\n" : "")
-                    : $"🎉 Đã hoàn tất đồng bộ vị trí Viewport & Schedule!\n\n" +
+                    : $"Đã hoàn tất căn chỉnh vị trí Viewport & Tiêu đề bản vẽ!\n\n" +
                       $"• Số Viewport căn chỉnh thành công: {viewportCount}\n" +
                       $"• Số Bảng Schedule căn chỉnh thành công: {scheduleCount}\n" +
-                      $"• Số Sheet mục tiêu đã xử lý: {targetSheets.Count}\n" +
+                      $"• Chế độ căn chỉnh: {mode}\n" +
                       (failedCount > 0 ? $"• Lỗi: {failedCount}\n" : "");
 
-                TaskDialog.Show("Khim Tools — Align Viewport", msgSummary);
+                TaskDialog.Show("Khim Tools — Arrange Views & Title", msgSummary);
 
                 return Result.Succeeded;
             }
@@ -181,19 +157,6 @@ namespace KhimTools.ViewportAlign.Commands
                 message = ex.Message;
                 TaskDialog.Show("Khim Tools — Error", ex.Message);
                 return Result.Failed;
-            }
-        }
-
-        private class ViewportSelectionFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element elem)
-            {
-                return elem is Viewport;
-            }
-
-            public bool AllowReference(Reference reference, XYZ position)
-            {
-                return false;
             }
         }
     }

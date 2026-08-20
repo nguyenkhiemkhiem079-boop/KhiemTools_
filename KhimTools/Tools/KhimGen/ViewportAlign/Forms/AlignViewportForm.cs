@@ -4,8 +4,13 @@ using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.UI;
+using Autodesk.Revit.UI.Selection;
 using KhimTools.Core;
 using KhimTools.ViewportAlign.Services;
+using TaskDialog = Autodesk.Revit.UI.TaskDialog;
+using Color = System.Drawing.Color;
+using FontStyle = System.Drawing.FontStyle;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
 using Button = System.Windows.Forms.Button;
@@ -14,312 +19,583 @@ using TextBox = System.Windows.Forms.TextBox;
 using CheckBox = System.Windows.Forms.CheckBox;
 using RadioButton = System.Windows.Forms.RadioButton;
 using GroupBox = System.Windows.Forms.GroupBox;
-using Color = System.Drawing.Color;
-using FontStyle = System.Drawing.FontStyle;
+using TreeView = System.Windows.Forms.TreeView;
+using TreeNode = System.Windows.Forms.TreeNode;
 using View = Autodesk.Revit.DB.View;
 
 namespace KhimTools.ViewportAlign.Forms
 {
     public class AlignViewportForm : Form
     {
+        private readonly UIDocument _uidoc;
         private readonly Document _doc;
-        private readonly Viewport _sourceViewport;
-        private readonly View _sourceView;
-        private readonly ViewSheet _sourceSheet;
+        private Viewport _sourceViewport;
+        private View _sourceView;
+        private ViewSheet _sourceSheet;
         private readonly List<ViewSheet> _allSheets;
 
-        private CheckedListBox _clbSheets;
+        // UI Controls
         private TextBox _txtSearch;
-        private Button _btnSelectAll;
-        private Button _btnClearAll;
-        private Button _btnExecute;
+        private Button _btnRefresh;
+        private TreeView _treeSheets;
+        private Label _lblTemplateName;
+        private Button _btnSelectTemplate;
+
+        // Arrange Options
+        private RadioButton _rdViewsAndTitles;
+        private RadioButton _rdViewsOnly;
+        private RadioButton _rdTitlesOnly;
+
+        // Auto Select Views Checkboxes
+        private CheckBox _chkOnlyNotes;
+        private CheckBox _chkOnlyKeyplan;
+        private CheckBox _chkOnlyView;
+        private CheckBox _chkOnlySchedule;
+
+        private Button _btnOk;
         private Button _btnCancel;
 
-        // Alignment Options Controls
-        private CheckBox _chkAlignModelViews;
-        private CheckBox _chkAlignDrafting;
-        private CheckBox _chkAlignLegends;
-        private CheckBox _chkAlignSchedules;
-        private RadioButton _rdMatchSimilar;
-        private RadioButton _rdMatchAll;
-        private TextBox _txtKeywordFilter;
+        private bool _isUpdatingTree = false;
 
-        public List<ViewSheet> SelectedTargetSheets { get; private set; } = new List<ViewSheet>();
-        public ViewportAlignOptions AlignOptions { get; private set; } = new ViewportAlignOptions();
-
-        public AlignViewportForm(Document doc, Viewport sourceViewport)
+        public Viewport SourceViewport => _sourceViewport;
+        public ArrangeMode SelectedArrangeMode
         {
-            _doc = doc;
-            _sourceViewport = sourceViewport;
-            _sourceView = _doc.GetElement(_sourceViewport.ViewId) as View;
-            _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
+            get
+            {
+                if (_rdViewsOnly.Checked) return ArrangeMode.ViewsOnly;
+                if (_rdTitlesOnly.Checked) return ArrangeMode.TitlesOnly;
+                return ArrangeMode.ViewsAndTitles;
+            }
+        }
+
+        public List<TargetViewItem> SelectedTargetViews { get; private set; } = new List<TargetViewItem>();
+
+        public AlignViewportForm(UIDocument uidoc, Viewport initialSourceVp = null)
+        {
+            _uidoc = uidoc;
+            _doc = uidoc?.Document;
+            _sourceViewport = initialSourceVp;
+
+            if (_sourceViewport != null)
+            {
+                _sourceView = _doc.GetElement(_sourceViewport.ViewId) as View;
+                _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
+            }
 
             _allSheets = new FilteredElementCollector(_doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
-                .Where(s => !s.IsPlaceholder && s.Id != _sourceSheet?.Id)
+                .Where(s => !s.IsPlaceholder)
                 .OrderBy(s => s.SheetNumber)
                 .ToList();
 
-            KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
-            PopulateSheetList();
+            PopulateTree();
         }
 
         private void BuildUi()
         {
             bool isEn = LanguageManager.IsEnglish;
-            Text = isEn ? "Align Viewports & Schedules Across Sheets" : "Căn Chỉnh Vị Trí Viewport & Bảng Thống Kê Giữa Các Sheet";
-            Width = 720;
-            Height = 720;
+            Text = isEn ? "Arrange Views & Title" : "Căn Chỉnh Vị Trí Viewport & Tiêu Đề Bản Vẽ";
+            Width = 840;
+            Height = 650;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            BackColor = KhimUiStyle.FormBg;
+            BackColor = Color.FromArgb(248, 249, 250);
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
-            // 1. Info Card (Source Viewport details)
-            var pnlInfo = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 85,
-                Padding = new Padding(15, 10, 15, 5),
-                BackColor = KhimUiStyle.CardBg
-            };
-
-            var lblSourceInfo = new Label
-            {
-                Text = isEn
-                    ? $"Source View: {_sourceView?.Name ?? "Unknown"}\n" +
-                      $"On Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Unknown"}\n" +
-                      $"🎯 Purpose: Align target sheets' viewports and schedules to match the source location."
-                    : $"Khung nhìn nguồn: {_sourceView?.Name ?? "Chưa rõ"}\n" +
-                      $"Nằm tại Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Chưa rõ"}\n" +
-                      $"🎯 Mục tiêu: Đồng bộ vị trí khung nhìn và bảng thống kê trên các Sheet đích khớp với mẫu.",
-                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = KhimUiStyle.TextPrimary,
-                Dock = DockStyle.Fill
-            };
-            pnlInfo.Controls.Add(lblSourceInfo);
-            Controls.Add(pnlInfo);
-
-            // 2. Alignment Options GroupBox
-            var grpOptions = new GroupBox
-            {
-                Text = isEn ? "Options: Elements to Align" : "Tùy Chọn Đối Tượng Căn Chỉnh",
-                Dock = DockStyle.Top,
-                Height = 120,
-                Padding = new Padding(12, 6, 12, 6),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                ForeColor = KhimUiStyle.TextPrimary
-            };
-
-            var flpOptions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
-            };
-
-            _chkAlignModelViews = new CheckBox { Text = isEn ? "Model Views (Plans/Sections)" : "Mặt bằng / Mặt cắt mô hình", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
-            _chkAlignDrafting = new CheckBox { Text = isEn ? "Drafting Views" : "Bản vẽ chi tiết (Drafting)", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
-            _chkAlignLegends = new CheckBox { Text = isEn ? "Legends / Notes" : "Ghi chú (Legends / Notes)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
-            _chkAlignSchedules = new CheckBox { Text = isEn ? "Schedules (Bảng thống kê)" : "Bảng thống kê (Schedules)", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
-
-            var pnlKeyword = new Panel { Width = 660, Height = 28, Margin = new Padding(0, 4, 0, 0) };
-            var lblKeyword = new Label { Text = isEn ? "Filter by view keyword (e.g. under, arc, over...):" : "Lọc theo từ khóa tên view (VD: under, arc, over...):", AutoSize = true, Left = 3, Top = 4 };
-            _txtKeywordFilter = new TextBox { Left = 330, Top = 1, Width = 180, Font = new Font("Segoe UI", 8.5F) };
-            pnlKeyword.Controls.Add(lblKeyword);
-            pnlKeyword.Controls.Add(_txtKeywordFilter);
-
-            flpOptions.Controls.Add(_chkAlignModelViews);
-            flpOptions.Controls.Add(_chkAlignDrafting);
-            flpOptions.Controls.Add(_chkAlignLegends);
-            flpOptions.Controls.Add(_chkAlignSchedules);
-            flpOptions.Controls.Add(pnlKeyword);
-
-            grpOptions.Controls.Add(flpOptions);
-            Controls.Add(grpOptions);
-
-            // 3. Search & Filter Bar
-            var pnlFilter = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 42,
-                Padding = new Padding(15, 6, 15, 4),
-                BackColor = KhimUiStyle.FormBg
-            };
-
-            var lblSearch = new Label
-            {
-                Text = isEn ? "🔍 Search Sheets:" : "🔍 Tìm kiếm Sheet:",
-                AutoSize = true,
-                Left = 15,
-                Top = 10,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                ForeColor = KhimUiStyle.TextSecondary
-            };
-            _txtSearch = new TextBox
-            {
-                Left = 145,
-                Top = 7,
-                Width = 260,
-                Font = new Font("Segoe UI", 9F)
-            };
-            _txtSearch.TextChanged += (s, e) => PopulateSheetList(_txtSearch.Text);
-
-            _btnSelectAll = new Button
-            {
-                Text = isEn ? "Select All" : "Chọn hết",
-                Left = 415,
-                Top = 6,
-                Width = 80,
-                Height = 27,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = KhimUiStyle.SecondaryButtonBg
-            };
-            _btnSelectAll.Click += (s, e) => SetCheckAll(true);
-
-            _btnClearAll = new Button
-            {
-                Text = isEn ? "Deselect" : "Bỏ chọn",
-                Left = 500,
-                Top = 6,
-                Width = 80,
-                Height = 27,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = KhimUiStyle.SecondaryButtonBg
-            };
-            _btnClearAll.Click += (s, e) => SetCheckAll(false);
-
-            pnlFilter.Controls.AddRange(new System.Windows.Forms.Control[] { lblSearch, _txtSearch, _btnSelectAll, _btnClearAll });
-            Controls.Add(pnlFilter);
-
-            // 4. Bottom Action Panel
-            var pnlBottom = new Panel
+            // ══════════════════════════════════════════════════════════════════
+            // 1. BOTTOM ACTION BAR
+            // ══════════════════════════════════════════════════════════════════
+            var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 60,
-                Padding = new Padding(15, 10, 15, 10),
-                BackColor = KhimUiStyle.CardBg
+                Height = 55,
+                BackColor = Color.FromArgb(240, 242, 245),
+                Padding = new Padding(15, 10, 15, 10)
             };
 
-            _btnExecute = new Button
+            _btnOk = new Button
             {
-                Text = isEn ? "Align Elements" : "Căn Chỉnh Vị Trí",
-                DialogResult = DialogResult.OK,
-                Width = 160,
-                Height = 36,
-                Left = 520,
-                Top = 12,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = KhimUiStyle.PrimaryButtonBg,
+                Text = isEn ? "OK" : "Căn Chỉnh Vị Trí",
+                Width = 140,
+                Height = 35,
+                BackColor = Color.FromArgb(0, 122, 255),
                 ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
             };
-            _btnExecute.Click += BtnExecute_Click;
+            _btnOk.FlatAppearance.BorderSize = 0;
+            _btnOk.Click += (s, e) => ExecuteAlignment();
 
             _btnCancel = new Button
             {
                 Text = isEn ? "Cancel" : "Hủy",
-                DialogResult = DialogResult.Cancel,
-                Width = 80,
+                Width = 90,
+                Height = 35,
+                BackColor = Color.FromArgb(225, 228, 232),
+                FlatStyle = FlatStyle.Flat
+            };
+            _btnCancel.FlatAppearance.BorderSize = 0;
+            _btnCancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
+
+            bottomPanel.Controls.Add(_btnOk);
+            bottomPanel.Controls.Add(_btnCancel);
+            bottomPanel.Resize += (s, e) =>
+            {
+                _btnOk.Left = bottomPanel.Width - _btnOk.Width - 15;
+                _btnCancel.Left = _btnOk.Left - _btnCancel.Width - 10;
+                _btnOk.Top = 10;
+                _btnCancel.Top = 10;
+            };
+            Controls.Add(bottomPanel);
+
+            // ══════════════════════════════════════════════════════════════════
+            // 2. RIGHT PANEL: SOURCE VIEWPORT & ARRANGE OPTIONS
+            // ══════════════════════════════════════════════════════════════════
+            var rightPanel = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 330,
+                Padding = new Padding(10, 10, 15, 10),
+                BackColor = Color.FromArgb(248, 249, 250)
+            };
+
+            // 2.1 Group: Source Viewport
+            var grpSource = new GroupBox
+            {
+                Text = isEn ? "Source Viewport" : "Viewport Mẫu (Source)",
+                Dock = DockStyle.Top,
+                Height = 135,
+                Padding = new Padding(12, 10, 12, 10),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59)
+            };
+
+            var lblSourceTitle = new Label
+            {
+                Text = isEn ? "Selected Template Viewport:" : "Viewport mẫu đã chọn:",
+                Dock = DockStyle.Top,
+                Height = 18,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
+                ForeColor = Color.FromArgb(71, 85, 105)
+            };
+
+            _lblTemplateName = new Label
+            {
+                Text = GetSourceViewportDisplay(),
+                Dock = DockStyle.Top,
                 Height = 36,
-                Left = 430,
-                Top = 12,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(2, 132, 199),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(4, 0, 4, 0)
+            };
+
+            _btnSelectTemplate = new Button
+            {
+                Text = isEn ? "Select View Template" : "Chọn Viewport Mẫu Trên Sheet",
+                Dock = DockStyle.Bottom,
+                Height = 32,
+                BackColor = Color.FromArgb(2, 132, 199),
+                ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = KhimUiStyle.SecondaryButtonBg,
-                Font = new Font("Segoe UI", 9F)
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            };
+            _btnSelectTemplate.FlatAppearance.BorderSize = 0;
+            _btnSelectTemplate.Click += (s, e) => PickSourceViewportInteractively();
+
+            grpSource.Controls.Add(_btnSelectTemplate);
+            grpSource.Controls.Add(_lblTemplateName);
+            grpSource.Controls.Add(lblSourceTitle);
+            rightPanel.Controls.Add(grpSource);
+
+            // 2.2 Group: Arrange Options
+            var grpArrange = new GroupBox
+            {
+                Text = isEn ? "Arrange Options" : "Tùy Chọn Căn Chỉnh",
+                Dock = DockStyle.Top,
+                Height = 130,
+                Padding = new Padding(12, 8, 12, 8),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59),
+                Margin = new Padding(0, 10, 0, 0)
             };
 
-            pnlBottom.Controls.AddRange(new System.Windows.Forms.Control[] { _btnCancel, _btnExecute });
-            Controls.Add(pnlBottom);
-
-            // 5. Main Checklist of Sheets
-            var pnlList = new Panel
+            var flpArrange = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(15, 5, 15, 5),
-                BackColor = KhimUiStyle.FormBg
+                FlowDirection = FlowDirection.TopDown,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
 
-            _clbSheets = new CheckedListBox
+            _rdViewsAndTitles = new RadioButton
+            {
+                Text = isEn ? "Arrange Views & Titles" : "Căn chỉnh cả View & Tiêu đề (Titles)",
+                Checked = true,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                Margin = new Padding(3, 4, 3, 4)
+            };
+
+            _rdViewsOnly = new RadioButton
+            {
+                Text = isEn ? "Arrange Views Only" : "Chỉ căn chỉnh vị trí View",
+                AutoSize = true,
+                Margin = new Padding(3, 4, 3, 4)
+            };
+
+            _rdTitlesOnly = new RadioButton
+            {
+                Text = isEn ? "Arrange Titles Only" : "Chỉ căn chỉnh vị trí Tiêu đề (Titles)",
+                AutoSize = true,
+                Margin = new Padding(3, 4, 3, 4)
+            };
+
+            flpArrange.Controls.Add(_rdViewsAndTitles);
+            flpArrange.Controls.Add(_rdViewsOnly);
+            flpArrange.Controls.Add(_rdTitlesOnly);
+            grpArrange.Controls.Add(flpArrange);
+            rightPanel.Controls.Add(grpArrange);
+
+            // 2.3 Group: Auto Select Views
+            var grpAutoSelect = new GroupBox
+            {
+                Text = isEn ? "Auto Select Views" : "Chọn Nhanh Đối Tượng",
+                Dock = DockStyle.Top,
+                Height = 150,
+                Padding = new Padding(12, 8, 12, 8),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59),
+                Margin = new Padding(0, 10, 0, 0)
+            };
+
+            var flpAutoSelect = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                CheckOnClick = true,
-                Font = new Font("Segoe UI", 9.5F),
-                BorderStyle = BorderStyle.FixedSingle
+                FlowDirection = FlowDirection.TopDown,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
-            pnlList.Controls.Add(_clbSheets);
-            Controls.Add(pnlList);
+
+            _chkOnlyNotes = new CheckBox { Text = isEn ? "ONLY NOTE / LEGEND" : "CHỈ GHI CHÚ / LEGEND", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlyKeyplan = new CheckBox { Text = isEn ? "ONLY KEYPLAN" : "CHỈ MẶT BẰNG ĐỊNH VỊ (KEYPLAN)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlyView = new CheckBox { Text = isEn ? "ONLY MODEL VIEW" : "CHỈ MẶT BẰNG / MẶT CẮT MÔ HÌNH", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlySchedule = new CheckBox { Text = isEn ? "ONLY SCHEDULES" : "CHỈ BẢNG THỐNG KÊ (SCHEDULES)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+
+            _chkOnlyNotes.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
+            _chkOnlyKeyplan.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
+            _chkOnlyView.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
+            _chkOnlySchedule.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
+
+            flpAutoSelect.Controls.Add(_chkOnlyNotes);
+            flpAutoSelect.Controls.Add(_chkOnlyKeyplan);
+            flpAutoSelect.Controls.Add(_chkOnlyView);
+            flpAutoSelect.Controls.Add(_chkOnlySchedule);
+            grpAutoSelect.Controls.Add(flpAutoSelect);
+            rightPanel.Controls.Add(grpAutoSelect);
+
+            Controls.Add(rightPanel);
+
+            // ══════════════════════════════════════════════════════════════════
+            // 3. LEFT PANEL: SEARCH BAR & TREEVIEW OF SHEETS AND VIEWS
+            // ══════════════════════════════════════════════════════════════════
+            var leftPanel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(15, 10, 5, 10)
+            };
+
+            // 3.1 Search Bar Top
+            var pnlSearch = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                Padding = new Padding(0, 0, 0, 6)
+            };
+
+            _txtSearch = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Height = 28,
+                Font = new Font("Segoe UI", 9.5F)
+            };
+            _txtSearch.TextChanged += (s, e) => FilterTree();
+
+            _btnRefresh = new Button
+            {
+                Text = isEn ? "Refresh" : "Làm mới",
+                Dock = DockStyle.Right,
+                Width = 85,
+                Height = 28,
+                FlatStyle = FlatStyle.System
+            };
+            _btnRefresh.Click += (s, e) =>
+            {
+                _txtSearch.Text = "";
+                PopulateTree();
+            };
+
+            pnlSearch.Controls.Add(_txtSearch);
+            pnlSearch.Controls.Add(_btnRefresh);
+            leftPanel.Controls.Add(pnlSearch);
+
+            // 3.2 TreeView with Checkboxes
+            _treeSheets = new TreeView
+            {
+                Dock = DockStyle.Fill,
+                CheckBoxes = true,
+                ShowLines = true,
+                ShowPlusMinus = true,
+                Font = new Font("Segoe UI", 9F),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White
+            };
+            _treeSheets.AfterCheck += TreeSheets_AfterCheck;
+            leftPanel.Controls.Add(_treeSheets);
+
+            Controls.Add(leftPanel);
         }
 
-        private void PopulateSheetList(string searchFilter = "")
+        private string GetSourceViewportDisplay()
         {
-            _clbSheets.Items.Clear();
-            string keyword = (searchFilter ?? "").Trim().ToLowerInvariant();
+            if (_sourceViewport == null) return " <None>";
+            string sheetNum = _sourceSheet?.SheetNumber ?? "";
+            string viewName = _sourceView?.Name ?? "Viewport";
+            return $" [{sheetNum}] {viewName}";
+        }
+
+        private void PickSourceViewportInteractively()
+        {
+            Hide();
+            try
+            {
+                Reference pickedRef = _uidoc.Selection.PickObject(
+                    ObjectType.Element,
+                    new ViewportSelectionFilter(),
+                    LanguageManager.IsEnglish
+                        ? "Select source Viewport on Sheet to use as alignment reference"
+                        : "Chọn Viewport nguồn trên Sheet để lấy vị trí mẫu");
+
+                if (pickedRef != null && _doc.GetElement(pickedRef) is Viewport vp)
+                {
+                    _sourceViewport = vp;
+                    _sourceView = _doc.GetElement(_sourceViewport.ViewId) as View;
+                    _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
+                    _lblTemplateName.Text = GetSourceViewportDisplay();
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Khim Tools", ex.Message);
+            }
+            finally
+            {
+                Show();
+                BringToFront();
+            }
+        }
+
+        private void PopulateTree()
+        {
+            _isUpdatingTree = true;
+            _treeSheets.BeginUpdate();
+            _treeSheets.Nodes.Clear();
+
+            string search = (_txtSearch.Text ?? "").Trim().ToLowerInvariant();
 
             foreach (var sheet in _allSheets)
             {
-                string display = $"[{sheet.SheetNumber}] {sheet.Name}";
-                if (string.IsNullOrEmpty(keyword) || display.ToLowerInvariant().Contains(keyword))
+                var viewsOnSheet = ViewportAlignService.GetViewsOnSheet(_doc, sheet);
+                if (!viewsOnSheet.Any()) continue;
+
+                // Kiểm tra bộ lọc từ khóa
+                bool sheetMatches = string.IsNullOrEmpty(search) ||
+                                    sheet.SheetNumber.ToLowerInvariant().Contains(search) ||
+                                    sheet.Name.ToLowerInvariant().Contains(search);
+
+                var matchingViews = string.IsNullOrEmpty(search)
+                    ? viewsOnSheet
+                    : viewsOnSheet.Where(v => sheetMatches || v.ViewName.ToLowerInvariant().Contains(search)).ToList();
+
+                if (!matchingViews.Any()) continue;
+
+                string sheetTitle = $"{sheet.SheetNumber} - {sheet.Name}";
+                var sheetNode = new TreeNode(sheetTitle)
                 {
-                    _clbSheets.Items.Add(new SheetItem(sheet, display), true);
+                    Tag = sheet,
+                    Checked = false
+                };
+
+                foreach (var viewItem in matchingViews)
+                {
+                    // Đánh dấu nếu là viewport mẫu
+                    bool isSource = (_sourceViewport != null && viewItem.ViewportOrScheduleId == _sourceViewport.Id);
+                    string viewTitle = isSource ? $"{viewItem.ViewName} (Source Reference)" : viewItem.ViewName;
+
+                    var viewNode = new TreeNode(viewTitle)
+                    {
+                        Tag = viewItem,
+                        Checked = false,
+                        ForeColor = isSource ? Color.Gray : Color.Black
+                    };
+
+                    sheetNode.Nodes.Add(viewNode);
+                }
+
+                _treeSheets.Nodes.Add(sheetNode);
+                if (!string.IsNullOrEmpty(search)) sheetNode.Expand();
+            }
+
+            _treeSheets.EndUpdate();
+            _isUpdatingTree = false;
+        }
+
+        private void FilterTree()
+        {
+            PopulateTree();
+        }
+
+        private void TreeSheets_AfterCheck(object sender, TreeViewEventArgs e)
+        {
+            if (_isUpdatingTree) return;
+            _isUpdatingTree = true;
+
+            try
+            {
+                TreeNode node = e.Node;
+                bool isChecked = node.Checked;
+
+                // 1. Nếu tích vào Sheet cha -> Tự động tích/bỏ tích tất cả View con
+                if (node.Parent == null)
+                {
+                    foreach (TreeNode child in node.Nodes)
+                    {
+                        child.Checked = isChecked;
+                    }
+                }
+                // 2. Nếu tích vào View con -> Cập nhật trạng thái Sheet cha
+                else
+                {
+                    TreeNode parent = node.Parent;
+                    bool allChecked = true;
+                    bool anyChecked = false;
+
+                    foreach (TreeNode sibling in parent.Nodes)
+                    {
+                        if (sibling.Checked) anyChecked = true;
+                        else allChecked = false;
+                    }
+
+                    parent.Checked = anyChecked;
                 }
             }
-        }
-
-        private void SetCheckAll(bool check)
-        {
-            for (int i = 0; i < _clbSheets.Items.Count; i++)
+            finally
             {
-                _clbSheets.SetItemChecked(i, check);
+                _isUpdatingTree = false;
             }
         }
 
-        private void BtnExecute_Click(object sender, EventArgs e)
+        private void ApplyAutoSelectFilters()
         {
-            SelectedTargetSheets = _clbSheets.CheckedItems
-                .Cast<SheetItem>()
-                .Select(item => item.Sheet)
-                .ToList();
+            bool filterNotes = _chkOnlyNotes.Checked;
+            bool filterKeyplan = _chkOnlyKeyplan.Checked;
+            bool filterView = _chkOnlyView.Checked;
+            bool filterSchedule = _chkOnlySchedule.Checked;
 
-            if (!SelectedTargetSheets.Any())
+            bool anyFilterActive = filterNotes || filterKeyplan || filterView || filterSchedule;
+
+            _isUpdatingTree = true;
+            _treeSheets.BeginUpdate();
+
+            foreach (TreeNode sheetNode in _treeSheets.Nodes)
             {
-                MessageBox.Show(
-                    LanguageManager.IsEnglish ? "Please select at least one target sheet!" : "Vui lòng chọn ít nhất một Sheet mục tiêu để căn chỉnh!",
-                    LanguageManager.IsEnglish ? "No Sheet Selected" : "Chưa chọn Sheet",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                DialogResult = DialogResult.None;
+                bool anyChildChecked = false;
+
+                foreach (TreeNode viewNode in sheetNode.Nodes)
+                {
+                    if (viewNode.Tag is TargetViewItem item)
+                    {
+                        if (!anyFilterActive)
+                        {
+                            viewNode.Checked = false;
+                            continue;
+                        }
+
+                        bool check = false;
+                        string lowerName = (item.ViewName ?? "").ToLowerInvariant();
+
+                        if (filterNotes && (item.ViewType == ViewType.Legend || lowerName.Contains("note") || lowerName.Contains("legend") || lowerName.Contains("ghi chú")))
+                            check = true;
+                        if (filterKeyplan && (lowerName.Contains("keyplan") || lowerName.Contains("định vị") || lowerName.Contains("so do")))
+                            check = true;
+                        if (filterView && !item.IsSchedule && item.ViewType != ViewType.Legend && !lowerName.Contains("keyplan"))
+                            check = true;
+                        if (filterSchedule && item.IsSchedule)
+                            check = true;
+
+                        viewNode.Checked = check;
+                        if (check) anyChildChecked = true;
+                    }
+                }
+
+                sheetNode.Checked = anyChildChecked;
+                if (anyChildChecked) sheetNode.Expand();
+            }
+
+            _treeSheets.EndUpdate();
+            _isUpdatingTree = false;
+        }
+
+        private void ExecuteAlignment()
+        {
+            if (_sourceViewport == null)
+            {
+                TaskDialog.Show("Khim Tools",
+                    LanguageManager.IsEnglish
+                        ? "Please select a Source Viewport template first."
+                        : "Vui lòng chọn một Viewport mẫu trước khi căn chỉnh.");
                 return;
             }
 
-            AlignOptions = new ViewportAlignOptions
+            SelectedTargetViews.Clear();
+
+            foreach (TreeNode sheetNode in _treeSheets.Nodes)
             {
-                AlignModelViews = _chkAlignModelViews.Checked,
-                AlignDraftingViews = _chkAlignDrafting.Checked,
-                AlignLegends = _chkAlignLegends.Checked,
-                AlignSchedules = _chkAlignSchedules.Checked,
-                KeywordFilter = _txtKeywordFilter.Text.Trim()
-            };
+                foreach (TreeNode viewNode in sheetNode.Nodes)
+                {
+                    if (viewNode.Checked && viewNode.Tag is TargetViewItem item)
+                    {
+                        // Không căn chỉnh lại chính Viewport mẫu
+                        if (item.ViewportOrScheduleId != _sourceViewport.Id)
+                        {
+                            SelectedTargetViews.Add(item);
+                        }
+                    }
+                }
+            }
+
+            if (!SelectedTargetViews.Any())
+            {
+                TaskDialog.Show("Khim Tools",
+                    LanguageManager.IsEnglish
+                        ? "Please check at least one view to align."
+                        : "Vui lòng tích chọn ít nhất một Khung nhìn (View) cần căn chỉnh.");
+                return;
+            }
 
             DialogResult = DialogResult.OK;
             Close();
         }
 
-        private class SheetItem
+        private class ViewportSelectionFilter : ISelectionFilter
         {
-            public ViewSheet Sheet { get; }
-            public string Display { get; }
-
-            public SheetItem(ViewSheet sheet, string display)
-            {
-                Sheet = sheet;
-                Display = display;
-            }
-
-            public override string ToString() => Display;
+            public bool AllowElement(Element elem) => elem is Viewport;
+            public bool AllowReference(Reference reference, XYZ position) => false;
         }
     }
 }

@@ -2,159 +2,169 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
 
 namespace KhimTools.ViewportAlign.Services
 {
+    public enum ArrangeMode
+    {
+        ViewsAndTitles,
+        ViewsOnly,
+        TitlesOnly
+    }
+
     public class ViewportAlignOptions
     {
+        public ArrangeMode Mode { get; set; } = ArrangeMode.ViewsAndTitles;
         public bool AlignModelViews { get; set; } = true;
         public bool AlignDraftingViews { get; set; } = true;
         public bool AlignLegends { get; set; } = false;
         public bool AlignSchedules { get; set; } = true;
-        public bool MatchByNameOrType { get; set; } = true;
         public string KeywordFilter { get; set; } = "";
     }
 
+    public class TargetViewItem
+    {
+        public ElementId SheetId { get; set; }
+        public string SheetNumber { get; set; }
+        public string SheetName { get; set; }
+        public ElementId ViewId { get; set; }
+        public ElementId ViewportOrScheduleId { get; set; }
+        public string ViewName { get; set; }
+        public ViewType ViewType { get; set; }
+        public bool IsSchedule { get; set; }
+    }
+
     /// <summary>
-    /// Service xử lý đồng bộ vị trí Viewport và Bảng thống kê (Schedules) trên nhiều Sheet.
+    /// Service xử lý căn chỉnh và đồng bộ vị trí Viewport, View Title và Schedule theo chuẩn chuyên nghiệp.
     /// </summary>
     public static class ViewportAlignService
     {
         /// <summary>
-        /// Kiểm tra xem Viewport có thỏa mãn bộ lọc tùy chọn không.
+        /// Căn chỉnh Viewport đích theo Viewport mẫu (Vị trí BoxCenter và/hoặc View Title LabelOffset).
         /// </summary>
-        public static bool ShouldAlignViewport(View view, ViewportAlignOptions options)
+        public static bool AlignViewport(Document doc, Viewport targetVp, Viewport sourceVp, ArrangeMode mode)
         {
-            if (view == null || options == null) return false;
+            if (doc == null || targetVp == null || sourceVp == null) return false;
 
-            // 1. Kiểm tra loại View
-            ViewType vt = view.ViewType;
-            if (vt == ViewType.Legend)
+            bool moved = false;
+
+            // 1. Căn chỉnh vị trí Khung nhìn (View Location)
+            if (mode == ArrangeMode.ViewsAndTitles || mode == ArrangeMode.ViewsOnly)
             {
-                if (!options.AlignLegends) return false;
-            }
-            else if (vt == ViewType.DraftingView)
-            {
-                if (!options.AlignDraftingViews) return false;
-            }
-            else if (vt == ViewType.Schedule || vt == ViewType.PanelSchedule || vt == ViewType.ColumnSchedule)
-            {
-                if (!options.AlignSchedules) return false;
-            }
-            else
-            {
-                if (!options.AlignModelViews) return false;
+                XYZ sourceCenter = sourceVp.GetBoxCenter();
+                XYZ targetCenter = targetVp.GetBoxCenter();
+                XYZ diff = sourceCenter - targetCenter;
+
+                if (diff.GetLength() > 0.001)
+                {
+                    targetVp.SetBoxCenter(sourceCenter);
+                    moved = true;
+                }
             }
 
-            // 2. Kiểm tra bộ lọc từ khóa nếu có (ví dụ: arc, under, over, str...)
-            if (!string.IsNullOrWhiteSpace(options.KeywordFilter))
+            // 2. Căn chỉnh Tiêu đề Khung nhìn (View Title Label Offset & Line Length)
+            if (mode == ArrangeMode.ViewsAndTitles || mode == ArrangeMode.TitlesOnly)
             {
-                string keyword = options.KeywordFilter.Trim().ToLowerInvariant();
-                string viewName = (view.Name ?? "").ToLowerInvariant();
-                if (!viewName.Contains(keyword)) return false;
+                try
+                {
+                    XYZ sourceLabelOffset = sourceVp.LabelOffset;
+                    XYZ targetLabelOffset = targetVp.LabelOffset;
+
+                    if ((sourceLabelOffset - targetLabelOffset).GetLength() > 0.001)
+                    {
+                        targetVp.LabelOffset = sourceLabelOffset;
+                        moved = true;
+                    }
+
+                    double sourceLineLength = sourceVp.LabelLineLength;
+                    if (sourceLineLength > 0.001 && Math.Abs(sourceLineLength - targetVp.LabelLineLength) > 0.001)
+                    {
+                        targetVp.LabelLineLength = sourceLineLength;
+                        moved = true;
+                    }
+                }
+                catch { }
             }
 
-            return true;
+            return moved;
         }
 
         /// <summary>
-        /// Di chuyển Viewport đích (vpResult) đến đúng vị trí của Viewport nguồn (vpSource) trên Sheet.
+        /// Căn chỉnh vị trí Bảng thống kê (ScheduleSheetInstance) theo vị trí của Bảng thống kê mẫu.
         /// </summary>
-        public static bool MoveViewportToSource(Document doc, Viewport vpResult, Viewport vpSource)
+        public static bool AlignSchedule(Document doc, ScheduleSheetInstance targetSched, ScheduleSheetInstance sourceSched)
         {
-            if (doc == null || vpResult == null || vpSource == null) return false;
+            if (doc == null || targetSched == null || sourceSched == null) return false;
 
-            View viewResult = doc.GetElement(vpResult.ViewId) as View;
-            View viewSource = doc.GetElement(vpSource.ViewId) as View;
-            if (viewResult == null || viewSource == null) return false;
+            XYZ sourcePoint = sourceSched.Point;
+            XYZ targetPoint = targetSched.Point;
+            XYZ diff = sourcePoint - targetPoint;
 
-            // Lưu trạng thái CropBox ban đầu của cả 2 view
-            BoundingBoxXYZ savedBoxResult = viewResult.CropBox;
-            BoundingBoxXYZ savedBoxSource = viewSource.CropBox;
-            bool savedActiveResult = viewResult.CropBoxActive;
-            bool savedActiveSource = viewSource.CropBoxActive;
-            bool savedVisibleResult = viewResult.CropBoxVisible;
-            bool savedVisibleSource = viewSource.CropBoxVisible;
-
-            try
+            if (diff.GetLength() > 0.001)
             {
-                // Tạm thời mở rộng CropBox để tính toán chính xác gốc tọa độ
-                var tempBox = new BoundingBoxXYZ
-                {
-                    Min = new XYZ(-1000, -1000, -1000),
-                    Max = new XYZ(1000, 1000, 1000)
-                };
-
-                viewResult.CropBox = tempBox;
-                viewSource.CropBox = tempBox;
-                viewResult.CropBoxActive = true;
-                viewSource.CropBoxActive = true;
-
-                Outline outlineResult = vpResult.GetBoxOutline();
-                Outline outlineSource = vpSource.GetBoxOutline();
-
-                if (outlineResult != null && outlineSource != null)
-                {
-                    XYZ diff = outlineSource.MinimumPoint - outlineResult.MinimumPoint;
-                    if (diff.GetLength() > 0.001) // Chỉ di chuyển nếu có độ lệch
-                    {
-                        ElementTransformUtils.MoveElement(doc, vpResult.Id, diff);
-                        return true;
-                    }
-                }
-            }
-            finally
-            {
-                // Khôi phục lại trạng thái CropBox ban đầu an toàn
-                viewResult.CropBox = savedBoxResult;
-                viewSource.CropBox = savedBoxSource;
-                viewResult.CropBoxActive = savedActiveResult;
-                viewSource.CropBoxActive = savedActiveSource;
-                viewResult.CropBoxVisible = savedVisibleResult;
-                viewSource.CropBoxVisible = savedVisibleSource;
+                targetSched.Point = sourcePoint;
+                return true;
             }
 
             return false;
         }
 
         /// <summary>
-        /// Đồng bộ vị trí các Bảng thống kê (ScheduleSheetInstance) trên Sheet mục tiêu theo Sheet nguồn.
+        /// Lấy tất cả các View và Schedule đặt trên 1 Sheet.
         /// </summary>
-        public static int AlignSchedules(Document doc, ViewSheet targetSheet, ViewSheet sourceSheet)
+        public static List<TargetViewItem> GetViewsOnSheet(Document doc, ViewSheet sheet)
         {
-            if (doc == null || targetSheet == null || sourceSheet == null) return 0;
+            var result = new List<TargetViewItem>();
+            if (doc == null || sheet == null) return result;
 
-            var sourceSchedules = new FilteredElementCollector(doc, sourceSheet.Id)
-                .OfClass(typeof(ScheduleSheetInstance))
-                .Cast<ScheduleSheetInstance>()
-                .ToList();
-
-            var targetSchedules = new FilteredElementCollector(doc, targetSheet.Id)
-                .OfClass(typeof(ScheduleSheetInstance))
-                .Cast<ScheduleSheetInstance>()
-                .ToList();
-
-            if (!sourceSchedules.Any() || !targetSchedules.Any()) return 0;
-
-            int moved = 0;
-            foreach (var targetSched in targetSchedules)
+            // 1. Viewports
+            var vpIds = sheet.GetAllViewports();
+            foreach (ElementId vid in vpIds)
             {
-                // Khớp Schedule theo ScheduleId hoặc tên
-                var matchSource = sourceSchedules.FirstOrDefault(s => s.ScheduleId == targetSched.ScheduleId)
-                                  ?? sourceSchedules.FirstOrDefault();
-
-                if (matchSource != null)
+                if (doc.GetElement(vid) is Viewport vp)
                 {
-                    XYZ diff = matchSource.Point - targetSched.Point;
-                    if (diff.GetLength() > 0.001)
+                    View v = doc.GetElement(vp.ViewId) as View;
+                    if (v != null)
                     {
-                        ElementTransformUtils.MoveElement(doc, targetSched.Id, diff);
-                        moved++;
+                        result.Add(new TargetViewItem
+                        {
+                            SheetId = sheet.Id,
+                            SheetNumber = sheet.SheetNumber,
+                            SheetName = sheet.Name,
+                            ViewId = v.Id,
+                            ViewportOrScheduleId = vp.Id,
+                            ViewName = v.Name,
+                            ViewType = v.ViewType,
+                            IsSchedule = false
+                        });
                     }
                 }
             }
 
-            return moved;
+            // 2. ScheduleSheetInstances
+            var schedules = new FilteredElementCollector(doc, sheet.Id)
+                .OfClass(typeof(ScheduleSheetInstance))
+                .Cast<ScheduleSheetInstance>()
+                .ToList();
+
+            foreach (var sched in schedules)
+            {
+                ViewSchedule vs = doc.GetElement(sched.ScheduleId) as ViewSchedule;
+                result.Add(new TargetViewItem
+                {
+                    SheetId = sheet.Id,
+                    SheetNumber = sheet.SheetNumber,
+                    SheetName = sheet.Name,
+                    ViewId = vs?.Id ?? sched.Id,
+                    ViewportOrScheduleId = sched.Id,
+                    ViewName = vs?.Name ?? (LanguageManager.IsEnglish ? "Schedule" : "Bảng thống kê"),
+                    ViewType = ViewType.Schedule,
+                    IsSchedule = true
+                });
+            }
+
+            return result;
         }
     }
 }
