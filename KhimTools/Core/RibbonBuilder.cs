@@ -70,6 +70,20 @@ namespace KhimTools.Core
             };
             panel.AddItem(gridPlanData);
 
+            // 1.6 Copy Elements from Revit Link
+            var copyLinkData = new PushButtonData(
+                "CmdCopyLinkElements",
+                "Copy" + Environment.NewLine + "Link",
+                assemblyPath,
+                "KhimTools.CopyLink.Commands.CmdCopyLinkElements")
+            {
+                ToolTip = "Sao chép đối tượng từ file Revit Link sang dự án chính chuẩn 100% tọa độ.",
+                LongDescription = "Tự động quét toàn bộ Category có đối tượng trong file Link, áp dụng ma trận biến đổi tọa độ (Transform) chính xác tuyệt đối.",
+                LargeImage = LoadImage("icon_copylink_32.png"),
+                Image = LoadImage("icon_copylink_16.png")
+            };
+            panel.AddItem(copyLinkData);
+
             // 2. Join Elements
             var joinElementsData = new PushButtonData(
                 "CmdJoinElements",
