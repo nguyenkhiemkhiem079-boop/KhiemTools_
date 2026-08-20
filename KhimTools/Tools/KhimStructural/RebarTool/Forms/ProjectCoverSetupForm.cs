@@ -51,7 +51,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "⚙️ KHIM TOOLS — Project Concrete Cover Setup";
+            Text = "KHIM TOOLS — Project Concrete Cover Setup";
             Width = 600;
             Height = 490;
             StartPosition = FormStartPosition.CenterScreen;
@@ -92,7 +92,7 @@ namespace KhimTools.RebarTool.Forms
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             _btnApply = new Button
             {
-                Text = "⚡ Áp Dụng Cho Dự Án",
+                Text = "Áp Dụng Cho Dự Án",
                 Width = 160,
                 Height = 36,
                 Top = 10,
@@ -156,7 +156,7 @@ namespace KhimTools.RebarTool.Forms
             // 4. Móng
             _chkFoundations = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
             _numFoundationCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 50, Increment = 5, Width = 90 };
-            AddRow(table, "📐 Móng (Structural Foundations)", _numFoundationCover, _chkFoundations);
+            AddRow(table, "Móng (Structural Foundations)", _numFoundationCover, _chkFoundations);
 
             grpCategory.Controls.Add(table);
             Controls.Add(grpCategory);

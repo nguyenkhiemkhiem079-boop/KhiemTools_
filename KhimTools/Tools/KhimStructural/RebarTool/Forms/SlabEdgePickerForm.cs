@@ -82,7 +82,7 @@ namespace KhimTools.RebarTool.Forms
             var pnlRight = new System.Windows.Forms.Panel { Left = 445, Top = 65, Width = 350, Height = 430 };
             _lblInfo = new Label
             {
-                Text = "📋 Danh sách 4 cạnh của Panel:",
+                Text = "Danh sách 4 cạnh của Panel:",
                 Top = 5,
                 Left = 5,
                 AutoSize = true,

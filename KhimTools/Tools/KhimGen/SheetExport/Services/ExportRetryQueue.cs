@@ -99,7 +99,7 @@ namespace KhimTools.SheetExport.Services
             while (failedQueue.Any() && currentRetry <= _maxRetries)
             {
                 int count = failedQueue.Count;
-                logProgress?.Invoke($"🔄 Retry {currentRetry}/{_maxRetries} ({count} sheets)...");
+                logProgress?.Invoke($"Retry {currentRetry}/{_maxRetries} ({count} sheets)...");
 
                 for (int i = 0; i < count; i++)
                 {

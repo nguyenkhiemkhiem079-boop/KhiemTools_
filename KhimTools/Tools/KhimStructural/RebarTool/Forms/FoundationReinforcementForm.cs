@@ -90,7 +90,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🧱 KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.5)";
+            Text = "KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.5)";
             Width = 920;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -107,13 +107,13 @@ namespace KhimTools.RebarTool.Forms
 
             // Bottom Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14 };
-            _cmbLanguage.Items.Add("🇻🇳 Tiếng Việt");
-            _cmbLanguage.Items.Add("🇬🇧 English");
+            _cmbLanguage.Items.Add("Tiếng Việt");
+            _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnCreateRebar = new Button { Text = "⚡ Create Rebar", Width = 135, Height = 36, Top = 10 };
+            _btnCreateRebar = new Button { Text = "Create Rebar", Width = 135, Height = 36, Top = 10 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
 
             _btnClose = new Button { Text = "Close", Width = 90, Height = 36, Top = 10 };
@@ -136,11 +136,11 @@ namespace KhimTools.RebarTool.Forms
 
             // Right Panel (Selection List & Live Preview)
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 260, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            var lblFdnTitle = new Label { Text = "📋 Danh Sách Móng", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            var lblFdnTitle = new Label { Text = "Danh Sách Móng", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
 
             _foundationListBox = new ListBox { Dock = DockStyle.Top, Height = 200, SelectionMode = SelectionMode.MultiExtended };
 
-            var lblPreviewTitle = new Label { Text = "👁️ Live 2D Footing Preview", Dock = DockStyle.Top, Height = 25, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue };
+            var lblPreviewTitle = new Label { Text = "Live 2D Footing Preview", Dock = DockStyle.Top, Height = 25, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue };
 
             _previewPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
             _previewPanel.Paint += PreviewPanel_Paint;
@@ -155,7 +155,7 @@ namespace KhimTools.RebarTool.Forms
             var tabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Point(12, 6) };
 
             // TAB 1: Lớp Thép Dưới (Bottom Mesh)
-            var tabBot = new TabPage("1️⃣ Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
+            var tabBot = new TabPage("Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
             var grpBotX = new GroupBox { Text = "Phương X (Dưới)", Left = 15, Top = 15, Width = 520, Height = 110 };
             KhimUiStyle.ApplyCardStyle(grpBotX);
             var lblBotXDia = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
@@ -189,7 +189,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabBot);
 
             // TAB 2: Lớp Thép Trên (Top Mesh)
-            var tabTop = new TabPage("2️⃣ Thép Lưới Trên") { BackColor = KhimUiStyle.FormBg };
+            var tabTop = new TabPage("Thép Lưới Trên") { BackColor = KhimUiStyle.FormBg };
             _chkEnableTopMesh = new CheckBox { Text = "Bật bố trí Thép Lớp Trên (Cho Đài Móng / Móng Sâu)", Left = 15, Top = 15, AutoSize = true, Checked = false };
 
             var grpTopX = new GroupBox { Text = "Phương X (Trên)", Left = 15, Top = 45, Width = 520, Height = 100 };
@@ -222,7 +222,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabTop);
 
             // TAB 3: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
-            var tabDowel = new TabPage("3️⃣ Thép Chờ & Thép Đai") { BackColor = KhimUiStyle.FormBg };
+            var tabDowel = new TabPage("Thép Chờ & Thép Đai") { BackColor = KhimUiStyle.FormBg };
             _chkEnableDowels = new CheckBox { Text = "Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)", Left = 15, Top = 12, AutoSize = true, Checked = true };
 
             var grpDowel = new GroupBox { Text = "Thông Số Thép Chờ Cột & Đai Lồng Chân Cột", Left = 15, Top = 38, Width = 520, Height = 240 };
@@ -265,7 +265,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabDowel);
 
             // TAB 4: Tiêu Chuẩn & Template
-            var tabDesign = new TabPage("4️⃣ Tiêu Chuẩn & Template") { BackColor = KhimUiStyle.FormBg };
+            var tabDesign = new TabPage("Tiêu Chuẩn & Template") { BackColor = KhimUiStyle.FormBg };
             var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Cấp Độ Bền", Left = 15, Top = 15, Width = 520, Height = 140 };
             KhimUiStyle.ApplyCardStyle(grpCode);
 

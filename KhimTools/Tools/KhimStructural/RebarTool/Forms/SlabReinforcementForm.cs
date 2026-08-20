@@ -118,7 +118,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🧱 KHIM TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
+            Text = "KHIM TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
             Width = 1080;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -135,17 +135,17 @@ namespace KhimTools.RebarTool.Forms
 
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 58, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 16 };
-            _cmbLanguage.Items.Add("🇻🇳 Tiếng Việt");
-            _cmbLanguage.Items.Add("🇬🇧 English");
+            _cmbLanguage.Items.Add("Tiếng Việt");
+            _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
             _btnAssignData = new Button { Text = "💾 Gán Thông Số", Width = 135, Height = 36, Top = 11, Left = 620 };
             KhimUiStyle.ApplySecondaryButton(_btnAssignData);
             _btnAssignData.Click += BtnAssignData_Click;
 
-            _btnCreateRebar = new Button { Text = "⚡ Tạo Thép Sàn", Width = 140, Height = 36, Top = 11, Left = 765 };
+            _btnCreateRebar = new Button { Text = "Tạo Thép Sàn", Width = 140, Height = 36, Top = 11, Left = 765 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
             _btnCreateRebar.Click += BtnCreateRebar_Click;
 
@@ -167,27 +167,27 @@ namespace KhimTools.RebarTool.Forms
             var tabControl = new TabControl { Left = 15, Top = 70, Width = 560, Height = 525, Font = new Font("Segoe UI", 9F) };
 
             // TAB 1: 🔽 Lớp Dưới (Bottom Layer)
-            var tabBottom = new TabPage("1️⃣ Lưới Đáy") { BackColor = KhimUiStyle.FormBg };
+            var tabBottom = new TabPage("Lưới Đáy") { BackColor = KhimUiStyle.FormBg };
             BuildTabBottom(tabBottom);
             tabControl.TabPages.Add(tabBottom);
 
             // TAB 2: 🔼 Lớp Trên (Top Layer Full)
-            var tabTop = new TabPage("2️⃣ Lưới Trên") { BackColor = KhimUiStyle.FormBg };
+            var tabTop = new TabPage("Lưới Trên") { BackColor = KhimUiStyle.FormBg };
             BuildTabTop(tabTop);
             tabControl.TabPages.Add(tabTop);
 
             // TAB 3: 🎓 Mũ Gối & Thép Phân Bố (Hat & Top Dist)
-            var tabHat = new TabPage("3️⃣ Mũ Gối & Phân Bố") { BackColor = KhimUiStyle.FormBg };
+            var tabHat = new TabPage("Mũ Gối & Phân Bố") { BackColor = KhimUiStyle.FormBg };
             BuildTabHat(tabHat);
             tabControl.TabPages.Add(tabHat);
 
             // TAB 4: 🪑 Spacer & Neo Cạnh (Spacer & Anchors)
-            var tabAccessories = new TabPage("4️⃣ Spacer & Neo Cạnh") { BackColor = KhimUiStyle.FormBg };
+            var tabAccessories = new TabPage("Spacer & Neo Cạnh") { BackColor = KhimUiStyle.FormBg };
             BuildTabAccessories(tabAccessories);
             tabControl.TabPages.Add(tabAccessories);
 
-            // TAB 5: 📋 Tiêu Chuẩn & Template
-            var tabDesign = new TabPage("5️⃣ Tiêu Chuẩn & Mẫu") { BackColor = KhimUiStyle.FormBg };
+            // TAB 5: Tiêu Chuẩn & Template
+            var tabDesign = new TabPage("Tiêu Chuẩn & Mẫu") { BackColor = KhimUiStyle.FormBg };
             BuildTabDesign(tabDesign);
             tabControl.TabPages.Add(tabDesign);
 
@@ -432,18 +432,18 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildPanelGridSection(Panel pnl)
         {
-            var lblTitle = new Label { Text = "📋 DANH SÁCH PANEL SÀN", Top = 5, Left = 5, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59) };
+            var lblTitle = new Label { Text = "DANH SÁCH PANEL SÀN", Top = 5, Left = 5, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59) };
 
             var pnlToolBar = new Panel { Top = 30, Left = 0, Width = 465, Height = 32 };
-            _btnAutoMerge = new Button { Text = "⚡ Auto Merge", Left = 0, Top = 0, Width = 110, Height = 30 };
+            _btnAutoMerge = new Button { Text = "Auto Merge", Left = 0, Top = 0, Width = 110, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnAutoMerge);
             _btnAutoMerge.Click += (s, e) => { _panelManager.AutoMergeAdjacent(); RefreshGridPanels(); };
 
-            _btnMergeSelected = new Button { Text = "🔗 Merge", Left = 115, Top = 0, Width = 90, Height = 30 };
+            _btnMergeSelected = new Button { Text = "Merge", Left = 115, Top = 0, Width = 90, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnMergeSelected);
             _btnMergeSelected.Click += BtnMergeSelected_Click;
 
-            _btnDeletePanel = new Button { Text = "🗑️ Xóa", Left = 210, Top = 0, Width = 80, Height = 30 };
+            _btnDeletePanel = new Button { Text = "Xóa", Left = 210, Top = 0, Width = 80, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnDeletePanel);
             _btnDeletePanel.Click += BtnDeletePanel_Click;
 

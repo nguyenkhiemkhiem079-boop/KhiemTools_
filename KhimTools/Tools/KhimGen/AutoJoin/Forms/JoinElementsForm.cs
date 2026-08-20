@@ -63,7 +63,7 @@ namespace KhimTools.SlabJoin.Forms
 
         private void BuildUi()
         {
-            Text = "🔗 KHIM TOOLS — Geometry Join & Order Manager";
+            Text = "KHIM TOOLS — Geometry Join & Order Manager";
             Width = 920;
             Height = 630;
             StartPosition = FormStartPosition.CenterScreen;

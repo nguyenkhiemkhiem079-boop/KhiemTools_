@@ -123,7 +123,7 @@ namespace KhimTools.SheetExport.Forms
             var tempObj = new NamingTemplate { Expression = _txtExpression.Text, RegexPattern = _txtRegex.Text };
             string computed = Services.NamingTemplateManager.ComputeFileName(dummyItem, tempObj, "PROJ2026");
 
-            _lblPreview.Text = "📄 File preview: " + computed;
+            _lblPreview.Text = "File preview: " + computed;
 
             bool isRegexOk = Services.NamingTemplateManager.ValidateFileNameRegex(computed, tempObj, out string err);
             if (isRegexOk)

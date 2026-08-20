@@ -71,7 +71,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
             var lblPattern = new Label
             {
-                Text = "⚙️ Quy tắc Regex trích xuất mã (Pattern):",
+                Text = "Quy tắc Regex trích xuất mã (Pattern):",
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 ForeColor = KhimUiStyle.TextPrimary,
                 AutoSize = true,
@@ -91,7 +91,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
             _btnRefresh = new Button
             {
-                Text = "🔄 Xem trước lại",
+                Text = "Xem trước lại",
                 Left = 505,
                 Top = 30,
                 Width = 115,
@@ -161,7 +161,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
             _btnApply = new Button
             {
-                Text = "⚡ Cập Nhật Detail Number",
+                Text = "Cập Nhật Detail Number",
                 Width = 190,
                 Height = 36,
                 Left = 555,

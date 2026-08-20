@@ -69,7 +69,7 @@ namespace KhimTools.ViewportAlign.Forms
         private void BuildUi()
         {
             bool isEn = LanguageManager.IsEnglish;
-            Text = isEn ? "📐 Align Viewports & Schedules Across Sheets" : "📐 Căn Chỉnh Vị Trí Viewport & Bảng Thống Kê Giữa Các Sheet";
+            Text = isEn ? "Align Viewports & Schedules Across Sheets" : "Căn Chỉnh Vị Trí Viewport & Bảng Thống Kê Giữa Các Sheet";
             Width = 720;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -90,11 +90,11 @@ namespace KhimTools.ViewportAlign.Forms
             var lblSourceInfo = new Label
             {
                 Text = isEn
-                    ? $"📌 Source View: {_sourceView?.Name ?? "Unknown"}\n" +
-                      $"📄 On Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Unknown"}\n" +
+                    ? $"Source View: {_sourceView?.Name ?? "Unknown"}\n" +
+                      $"On Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Unknown"}\n" +
                       $"🎯 Purpose: Align target sheets' viewports and schedules to match the source location."
-                    : $"📌 Khung nhìn nguồn: {_sourceView?.Name ?? "Chưa rõ"}\n" +
-                      $"📄 Nằm tại Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Chưa rõ"}\n" +
+                    : $"Khung nhìn nguồn: {_sourceView?.Name ?? "Chưa rõ"}\n" +
+                      $"Nằm tại Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Chưa rõ"}\n" +
                       $"🎯 Mục tiêu: Đồng bộ vị trí khung nhìn và bảng thống kê trên các Sheet đích khớp với mẫu.",
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = KhimUiStyle.TextPrimary,
@@ -207,7 +207,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnExecute = new Button
             {
-                Text = isEn ? "⚡ Align Elements" : "⚡ Căn Chỉnh Vị Trí",
+                Text = isEn ? "Align Elements" : "Căn Chỉnh Vị Trí",
                 DialogResult = DialogResult.OK,
                 Width = 160,
                 Height = 36,

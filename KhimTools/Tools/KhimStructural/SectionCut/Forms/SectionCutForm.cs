@@ -126,7 +126,7 @@ namespace KhimTools.SectionCutTool.Forms
 
         private void BuildUi()
         {
-            Text = "📐 KHIM TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
+            Text = "KHIM TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
             Width = 980;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -136,7 +136,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             // 1. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "📐 TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
+                "TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
                 "Auto Longitudinal & Cross-Section View Generator for Rebar Detailing",
                 "v2.0");
             Controls.Add(header);
@@ -268,7 +268,7 @@ namespace KhimTools.SectionCutTool.Forms
                 Width = 110,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _cmbLanguage.Items.AddRange(new object[] { "🇻🇳 Tiếng Việt", "🇬🇧 English" });
+            _cmbLanguage.Items.AddRange(new object[] { "Tiếng Việt", "English" });
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
             _cmbLanguage.SelectedIndexChanged += (s, e) =>
             {
@@ -278,7 +278,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnPreview = new Button
             {
-                Text = "👁️ Xem trước số view",
+                Text = "Xem trước số view",
                 Left = 460,
                 Top = 9,
                 Width = 150,
@@ -289,7 +289,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnGenerate = new Button
             {
-                Text = "⚡ TẠO MẶT CẮT HÀNG LOẠT",
+                Text = "TẠO MẶT CẮT HÀNG LOẠT",
                 Left = 620,
                 Top = 9,
                 Width = 230,
@@ -427,7 +427,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _rdModeRelative = new RadioButton
             {
-                Text = "📐 Theo danh sách vị trí % (cách nhau bởi dấu phẩy):",
+                Text = "Theo danh sách vị trí % (cách nhau bởi dấu phẩy):",
                 Left = 15,
                 Top = 150,
                 Width = 440
@@ -560,7 +560,7 @@ namespace KhimTools.SectionCutTool.Forms
             var lblVft = new Label { Text = "View Template chung (khi không đặt riêng):", Left = 20, Top = 65, AutoSize = true };
             _cmbViewTemplateGeneral = new ComboBox { Left = 20, Top = 88, Width = 310, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            _btnRefreshTemplates = new Button { Text = "🔄 Làm mới", Left = 340, Top = 86, Width = 100, Height = 26 };
+            _btnRefreshTemplates = new Button { Text = "Làm mới", Left = 340, Top = 86, Width = 100, Height = 26 };
             KhimUiStyle.ApplySecondaryButton(_btnRefreshTemplates);
             _btnRefreshTemplates.Click += (s, e) =>
             {
@@ -651,7 +651,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnSaveTemplate = new Button { Text = "💾 Lưu Mẫu Hiện Tại", Left = 20, Top = 95, Width = 150, Height = 32 };
             _btnApplyTemplate = new Button { Text = "📂 Áp Dụng Mẫu", Left = 180, Top = 95, Width = 140, Height = 32 };
-            _btnDeleteTemplate = new Button { Text = "🗑️ Xóa", Left = 330, Top = 95, Width = 95, Height = 32 };
+            _btnDeleteTemplate = new Button { Text = "Xóa", Left = 330, Top = 95, Width = 95, Height = 32 };
 
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
             KhimUiStyle.ApplySecondaryButton(_btnApplyTemplate);
@@ -1031,7 +1031,7 @@ namespace KhimTools.SectionCutTool.Forms
 
                 Cursor = Cursors.Default;
                 _btnGenerate.Enabled = true;
-                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "CREATE BATCH SECTIONS" : "TẠO MẶT CẮT HÀNG LOẠT";
 
                 var createdViews = report.Items.Where(x => x.Success && x.CreatedView != null).Select(x => x.CreatedView).ToList();
                 if (_uidoc != null && createdViews.Any())
@@ -1086,7 +1086,7 @@ namespace KhimTools.SectionCutTool.Forms
             {
                 Cursor = Cursors.Default;
                 _btnGenerate.Enabled = true;
-                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "CREATE BATCH SECTIONS" : "TẠO MẶT CẮT HÀNG LOẠT";
                 KhimDialogHelper.ShowError(
                     LanguageManager.IsEnglish ? "Error Creating Sections" : "Lỗi Tạo Mặt Cắt",
                     ex.Message,
@@ -1152,8 +1152,8 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnSelectAll.Text = en ? "Select All" : "Tất cả";
             _btnDeselectAll.Text = en ? "Deselect" : "Bỏ chọn";
-            _btnPreview.Text = en ? "👁️ Preview Count" : "👁️ Xem trước số view";
-            _btnGenerate.Text = en ? "⚡ GENERATE SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+            _btnPreview.Text = en ? "Preview Count" : "Xem trước số view";
+            _btnGenerate.Text = en ? "GENERATE SECTIONS" : "TẠO MẶT CẮT HÀNG LOẠT";
             _btnClose.Text = en ? "Close" : "Đóng";
         }
     }

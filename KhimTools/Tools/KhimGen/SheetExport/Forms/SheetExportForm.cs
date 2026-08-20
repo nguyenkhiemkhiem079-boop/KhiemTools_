@@ -123,7 +123,7 @@ namespace KhimTools.SheetExport.Forms
 
         private void InitializeComponentsCustom()
         {
-            Text = "📄 KHIM TOOLS — Sheet Batch Export & Print Manager";
+            Text = "KHIM TOOLS — Sheet Batch Export & Print Manager";
             Width = 1360;
             Height = 820;
             StartPosition = FormStartPosition.CenterScreen;
@@ -173,7 +173,7 @@ namespace KhimTools.SheetExport.Forms
             };
 
             _btnNavSelect = CreateSidebarButton("☑\nSelect", 0);
-            _btnNavSettings = CreateSidebarButton("⚙\nSettings", 1);
+            _btnNavSettings = CreateSidebarButton("\nSettings", 1);
             _btnNavFilter = CreateSidebarButton("🔍\nFilter", 2);
 
             _btnNavSelect.Top = 15;
@@ -371,7 +371,7 @@ namespace KhimTools.SheetExport.Forms
             _btnClearAll.Click += (s, e) => SetAllGridItems(false);
             _btnInvert.Click += (s, e) => InvertGridItems();
 
-            _btnRefreshList = new Button { Text = "🔄 Nạp lại", Left = 740, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnRefreshList = new Button { Text = "Nạp lại", Left = 740, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
             _btnRefreshList.Click += (s, e) => LoadDataFromRevit();
 
             pnlToolbar.Controls.AddRange(new System.Windows.Forms.Control[] {
@@ -688,7 +688,7 @@ namespace KhimTools.SheetExport.Forms
 
             _btnPrint = new Button
             {
-                Text = "⚡ XUẤT IN BẢN VẼ",
+                Text = "XUẤT IN BẢN VẼ",
                 Width = 180,
                 Height = 44,
                 Left = 1130,
@@ -1009,7 +1009,7 @@ namespace KhimTools.SheetExport.Forms
             {
                 Cursor = Cursors.Default;
                 _btnPrint.Enabled = true;
-                _btnPrint.Text = "⚡ XUẤT IN BẢN VẼ";
+                _btnPrint.Text = "XUẤT IN BẢN VẼ";
                 RefreshGridRows();
             }
         }

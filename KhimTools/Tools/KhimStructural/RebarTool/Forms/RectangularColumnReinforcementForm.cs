@@ -150,7 +150,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🏗️ KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật";
+            Text = "KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật";
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -160,10 +160,10 @@ namespace KhimTools.RebarTool.Forms
 
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14, Font = new Font("Segoe UI", 8.5F) };
-            _cmbLanguage.Items.Add("🇻🇳 Tiếng Việt");
-            _cmbLanguage.Items.Add("🇬🇧 English");
+            _cmbLanguage.Items.Add("Tiếng Việt");
+            _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
             _cmbLanguage.SelectedIndexChanged += (s, e) =>
             {
@@ -173,7 +173,7 @@ namespace KhimTools.RebarTool.Forms
 
             _btnCreateRebar = new Button
             {
-                Text = "⚡ Create Rebar",
+                Text = "Create Rebar",
                 Width = 130,
                 Height = 36,
                 Top = 10,
@@ -211,7 +211,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 2. Right Column Selection Panel
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            _lblColTitle = new Label { Text = "📋 Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            _lblColTitle = new Label { Text = "Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
 
             var scopePanel = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.FromArgb(240, 243, 248), Padding = new Padding(4) };
             _rdScopeSelected = new RadioButton { Text = $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})", Checked = _preSelectedColumns.Any(), AutoSize = true, Top = 4, Left = 4, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
@@ -255,7 +255,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 2.5 Top Template Configuration Panel
             var templatePanel = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.FromArgb(240, 240, 243), Padding = new Padding(6) };
-            _lblTemplate = new Label { Text = "📋 Mẫu Thiết Lập:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _lblTemplate = new Label { Text = "Mẫu Thiết Lập:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Left = 140, Top = 10 };
             
             _btnSaveTemplate = new Button { Text = "Save As...", Width = 90, Height = 26, Left = 350, Top = 9, FlatStyle = FlatStyle.System };
@@ -277,7 +277,7 @@ namespace KhimTools.RebarTool.Forms
             var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
 
             // --- TAB 1: THÉP CHỦ & REVIEW ---
-            _tabMain = new TabPage { Text = "📌 Thép Chủ & Review", Padding = new Padding(8), BackColor = Color.White };
+            _tabMain = new TabPage { Text = "Thép Chủ & Review", Padding = new Padding(8), BackColor = Color.White };
             var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
 
             _grpMainSection = new GroupBox { Text = "Bố trí Thép Chủ Tiết Diện", Dock = DockStyle.Top, Height = 135, Padding = new Padding(8) };
@@ -296,7 +296,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbMainDia.SelectedIndexChanged += (s, e) => _previewPanel?.Invalidate();
             _grpMainSection.Controls.Add(layoutMainSec);
 
-            _grpCover = new GroupBox { Text = "🛡️ Cover Bê Tông", Dock = DockStyle.Top, Height = 95, Padding = new Padding(8) };
+            _grpCover = new GroupBox { Text = "Cover Bê Tông", Dock = DockStyle.Top, Height = 95, Padding = new Padding(8) };
             var layoutCover = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -304,7 +304,7 @@ namespace KhimTools.RebarTool.Forms
             _numCustomCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 70, Enabled = false };
             _chkCustomCover.CheckedChanged += (s, e) => _numCustomCover.Enabled = _chkCustomCover.Checked;
 
-            _btnProjectCover = new Button { Text = "⚙️ Cover Dự Án", Width = 105, Height = 25, FlatStyle = FlatStyle.System };
+            _btnProjectCover = new Button { Text = "Cover Dự Án", Width = 105, Height = 25, FlatStyle = FlatStyle.System };
             _btnProjectCover.Click += (s, e) => new ProjectCoverSetupForm(_doc).ShowDialog();
 
             _lblCustomCover = AddRowToLayout(layoutCover, "Cover tùy chỉnh (mm):", _numCustomCover);
@@ -354,7 +354,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(_tabMain);
 
             // --- TAB 2: THÉP ĐAI ---
-            _tabStirrup = new TabPage { Text = "🌀 Thép Đai (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
+            _tabStirrup = new TabPage { Text = "Thép Đai (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
 
             _grpStirrupZone = new GroupBox { Text = "Phân Vùng Đai A1 / A2 / A1 (Chuẩn Kết Cấu)", Dock = DockStyle.Top, Height = 175, Padding = new Padding(10) };
             var layoutStirrupZone = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
@@ -383,7 +383,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(_tabStirrup);
 
             // --- TAB 3: GENERAL SETTINGS ---
-            _tabGenSettings = new TabPage { Text = "⚙️ General Settings", Padding = new Padding(10), BackColor = Color.White };
+            _tabGenSettings = new TabPage { Text = "General Settings", Padding = new Padding(10), BackColor = Color.White };
             var layoutGenSettings = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3 };
             layoutGenSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutGenSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -445,7 +445,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(_tabGenSettings);
 
             // --- TAB 4: BẢN VẼ & VIEW 3D ---
-            _tabViews = new TabPage { Text = "🖼️ Bản Vẽ & View 3D", Padding = new Padding(12), BackColor = Color.White };
+            _tabViews = new TabPage { Text = "Bản Vẽ & View 3D", Padding = new Padding(12), BackColor = Color.White };
             _grpViews = new GroupBox { Text = "Tự động Tạo View & Triển khai Bản vẽ", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
@@ -971,12 +971,12 @@ namespace KhimTools.RebarTool.Forms
         {
             bool isEn = LanguageManager.IsEnglish;
 
-            Text = isEn ? "🏗️ Rectangular Column Reinforcement" : "🏗️ Bố trí Thép Cột Vuông / Chữ Nhật";
+            Text = isEn ? "Rectangular Column Reinforcement" : "Bố trí Thép Cột Vuông / Chữ Nhật";
 
-            if (_tabMain != null) _tabMain.Text = isEn ? "📌 Main Rebar & Preview" : "📌 Thép Chủ & Xem Trước";
-            if (_tabStirrup != null) _tabStirrup.Text = isEn ? "🌀 Stirrups" : "🌀 Thép Đai";
-            if (_tabGenSettings != null) _tabGenSettings.Text = isEn ? "⚙️ General Settings" : "⚙️ Cài Đặt Chung";
-            if (_tabViews != null) _tabViews.Text = isEn ? "🖼️ Drawing & Views" : "🖼️ Bản Vẽ & Khung Nhìn";
+            if (_tabMain != null) _tabMain.Text = isEn ? "Main Rebar & Preview" : "Thép Chủ & Xem Trước";
+            if (_tabStirrup != null) _tabStirrup.Text = isEn ? "Stirrups" : "Thép Đai";
+            if (_tabGenSettings != null) _tabGenSettings.Text = isEn ? "General Settings" : "Cài Đặt Chung";
+            if (_tabViews != null) _tabViews.Text = isEn ? "Drawing & Views" : "Bản Vẽ & Khung Nhìn";
 
             // Tab 1 Main
             if (_grpMainSection != null) _grpMainSection.Text = isEn ? "Main Rebar Arrangement" : "Bố trí Thép Chủ Tiết Diện";
@@ -987,7 +987,7 @@ namespace KhimTools.RebarTool.Forms
             if (_grpCover != null) _grpCover.Text = isEn ? "Concrete Cover" : "Lớp Bê Tông Bảo Vệ";
             if (_chkCustomCover != null) _chkCustomCover.Text = isEn ? "Custom Cover (mm)" : "Nhập tay Lớp Bảo Vệ (mm)";
             if (_lblCustomCover != null) _lblCustomCover.Text = isEn ? "Custom Cover (mm):" : "Lớp bảo vệ tùy chỉnh (mm):";
-            if (_btnProjectCover != null) _btnProjectCover.Text = isEn ? "⚙️ Project Cover" : "⚙️ Lớp Bảo Vệ Dự Án";
+            if (_btnProjectCover != null) _btnProjectCover.Text = isEn ? "Project Cover" : "Lớp Bảo Vệ Dự Án";
 
             if (_grpMainAnchor != null) _grpMainAnchor.Text = isEn ? "Anchorage & Lap Splice Detailing" : "Cấu tạo Neo & Nối Thép";
             if (_rdBaseStandardLevel != null) _rdBaseStandardLevel.Text = isEn ? "Typical / Floor Column (Continuous dowel)" : "Cột tầng sàn / điển hình (Thép chờ nối tầng)";
@@ -1036,8 +1036,8 @@ namespace KhimTools.RebarTool.Forms
             if (_chkAutoSection3D != null) _chkAutoSection3D.Text = isEn ? "Create 3D Inspection Views (Plan View + 3D View)" : "Tự động tạo Khung nhìn xem thép 3D (Mặt bằng + 3D)";
 
             // Right & Bottom Panels
-            if (_lblColTitle != null) _lblColTitle.Text = isEn ? "📋 Column List" : "📋 Danh Sách Cột";
-            if (_lblTemplate != null) _lblTemplate.Text = isEn ? "📋 Configuration Template:" : "📋 Mẫu Thiết Lập:";
+            if (_lblColTitle != null) _lblColTitle.Text = isEn ? "Column List" : "Danh Sách Cột";
+            if (_lblTemplate != null) _lblTemplate.Text = isEn ? "Configuration Template:" : "Mẫu Thiết Lập:";
             if (_btnSaveTemplate != null) _btnSaveTemplate.Text = isEn ? "Save..." : "Lưu mẫu...";
             if (_btnApplyTemplate != null) _btnApplyTemplate.Text = isEn ? "Apply" : "Áp dụng";
             if (_btnDeleteTemplate != null) _btnDeleteTemplate.Text = isEn ? "Delete" : "Xóa mẫu";
@@ -1046,7 +1046,7 @@ namespace KhimTools.RebarTool.Forms
             if (_btnSelectAll != null) _btnSelectAll.Text = isEn ? "Select All" : "Chọn Tất Cả";
             if (_btnDeselectAll != null) _btnDeselectAll.Text = isEn ? "Deselect All" : "Bỏ Chọn";
 
-            if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "⚡ Create Rebar" : "⚡ Tạo Thép";
+            if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "Create Rebar" : "Tạo Thép";
             if (_btnClose != null) _btnClose.Text = isEn ? "Close" : "Đóng";
 
             UpdateSelectedCount();
