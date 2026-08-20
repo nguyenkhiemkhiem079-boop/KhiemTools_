@@ -22,18 +22,15 @@ jobs:
           dotnet-version: |
             8.0.x
 
-      - name: Build C# Revit Addin DLLs
-        run: |
-          dotnet build KhimTools.csproj -c Release
-
       - name: Publish Standalone KhiemTools Desktop App (.exe)
         run: |
           dotnet publish App/KhiemToolsApp.csproj -f net8.0-windows -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o dist
 
-      - name: Archive Addin Bundle & Executable (ZIP)
+      - name: Archive Revit Addin Bundle & App
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/KhiemTools.exe -DestinationPath dist/KhiemTools_App.zip
+          Compress-Archive -Path Deploy/* -DestinationPath dist/KhimTools_Bundle.zip -Force
+          Compress-Archive -Path dist/KhiemTools.exe -DestinationPath dist/KhiemTools_App.zip -Force
 
       - name: Create GitHub Release & Upload Assets
         uses: softprops/action-gh-release@v2
@@ -46,6 +43,7 @@ jobs:
           files: |
             dist/KhiemTools.exe
             dist/KhiemTools_App.zip
+            dist/KhimTools_Bundle.zip
             update_info.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
