@@ -180,6 +180,9 @@ namespace KhimTools.GridLevel.Services
         {
             try
             {
+                double angleRad = settings.RotationDegrees * Math.PI / 180.0;
+                Transform rotTrans = Transform.CreateRotationAtPoint(XYZ.BasisZ, angleRad, settings.Origin);
+
                 // 1. Dimension phương X (Đo các trục dọc X)
                 if (xGrids.Count >= 2)
                 {
@@ -192,6 +195,13 @@ namespace KhimTools.GridLevel.Services
                     double dimY = -yExt * 0.5;
                     XYZ p1 = settings.Origin + new XYZ(0, dimY, 0);
                     XYZ p2 = settings.Origin + new XYZ(totalW, dimY, 0);
+
+                    if (Math.Abs(angleRad) > 0.0001)
+                    {
+                        p1 = rotTrans.OfPoint(p1);
+                        p2 = rotTrans.OfPoint(p2);
+                    }
+
                     Line dimLine = Line.CreateBound(p1, p2);
                     doc.Create.NewDimension(view, dimLine, refArray);
                 }
@@ -208,6 +218,13 @@ namespace KhimTools.GridLevel.Services
                     double dimX = -xExt * 0.5;
                     XYZ p1 = settings.Origin + new XYZ(dimX, 0, 0);
                     XYZ p2 = settings.Origin + new XYZ(dimX, totalH, 0);
+
+                    if (Math.Abs(angleRad) > 0.0001)
+                    {
+                        p1 = rotTrans.OfPoint(p1);
+                        p2 = rotTrans.OfPoint(p2);
+                    }
+
                     Line dimLine = Line.CreateBound(p1, p2);
                     doc.Create.NewDimension(view, dimLine, refArray);
                 }

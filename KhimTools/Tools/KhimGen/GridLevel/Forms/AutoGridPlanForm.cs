@@ -267,20 +267,20 @@ namespace KhimTools.GridLevel.Forms
             };
 
             var lblOrigX = new Label { Text = "X0 (mm):", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
-            _numOriginX = new NumericUpDown { Minimum = -1000000, Maximum = 1000000, Value = 0, Increment = 1000, Left = 80, Top = 25, Width = 85 };
+            _numOriginX = new NumericUpDown { Minimum = -999999999, Maximum = 999999999, Value = 0, Increment = 1000, Left = 75, Top = 25, Width = 95 };
 
-            var lblOrigY = new Label { Text = "Y0 (mm):", Left = 180, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
-            _numOriginY = new NumericUpDown { Minimum = -1000000, Maximum = 1000000, Value = 0, Increment = 1000, Left = 245, Top = 25, Width = 85 };
+            var lblOrigY = new Label { Text = "Y0 (mm):", Left = 175, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
+            _numOriginY = new NumericUpDown { Minimum = -999999999, Maximum = 999999999, Value = 0, Increment = 1000, Left = 235, Top = 25, Width = 95 };
 
-            var lblRot = new Label { Text = isEn ? "Rotation (°):" : "Góc xoay (°):", Left = 350, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
-            _numRotation = new NumericUpDown { Minimum = -360, Maximum = 360, Value = 0, Increment = 15, Left = 445, Top = 25, Width = 65 };
+            var lblRot = new Label { Text = isEn ? "Rotation (°):" : "Góc xoay (°):", Left = 335, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
+            _numRotation = new NumericUpDown { Minimum = -360, Maximum = 360, Value = 0, Increment = 15, Left = 425, Top = 25, Width = 65 };
 
             _btnPickPoint = new Button
             {
                 Text = isEn ? "Pick Point on View" : "Pick Điểm Gốc",
-                Left = 530,
+                Left = 505,
                 Top = 22,
-                Width = 140,
+                Width = 150,
                 Height = 28,
                 FlatStyle = FlatStyle.System
             };
@@ -457,14 +457,37 @@ namespace KhimTools.GridLevel.Forms
             Hide();
             try
             {
-                XYZ pt = _uidoc.Selection.PickPoint("Pick điểm gốc tọa độ chèn hệ trục (X0, Y0):");
+                // Cho phép bắt điểm đa dạng (Endpoints, Intersections, Midpoints, Centers, Nearest)
+                ObjectSnapTypes snapTypes = ObjectSnapTypes.Endpoints |
+                                            ObjectSnapTypes.Intersections |
+                                            ObjectSnapTypes.Midpoints |
+                                            ObjectSnapTypes.Centers |
+                                            ObjectSnapTypes.Nearest;
+
+                XYZ pt = _uidoc.Selection.PickPoint(snapTypes, "Pick điểm gốc tọa độ chèn hệ trục (X0, Y0):");
                 if (pt != null)
                 {
-                    _numOriginX.Value = (decimal)UnitUtils.ConvertFromInternalUnits(pt.X, UnitTypeId.Millimeters);
-                    _numOriginY.Value = (decimal)UnitUtils.ConvertFromInternalUnits(pt.Y, UnitTypeId.Millimeters);
+                    double xMm = UnitUtils.ConvertFromInternalUnits(pt.X, UnitTypeId.Millimeters);
+                    double yMm = UnitUtils.ConvertFromInternalUnits(pt.Y, UnitTypeId.Millimeters);
+
+                    decimal decX = (decimal)Math.Round(xMm, 1);
+                    decimal decY = (decimal)Math.Round(yMm, 1);
+
+                    if (decX < _numOriginX.Minimum) _numOriginX.Minimum = decX - 10000000m;
+                    if (decX > _numOriginX.Maximum) _numOriginX.Maximum = decX + 10000000m;
+                    _numOriginX.Value = decX;
+
+                    if (decY < _numOriginY.Minimum) _numOriginY.Minimum = decY - 10000000m;
+                    if (decY > _numOriginY.Maximum) _numOriginY.Maximum = decY + 10000000m;
+                    _numOriginY.Value = decY;
                 }
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Khim Tools — Pick Point",
+                    "Không thể pick điểm trên khung nhìn hiện tại. Vui lòng mở Mặt Bằng (Floor Plan / Structural Plan) để pick điểm gốc chèn hệ trục.\n\nChi tiết: " + ex.Message);
+            }
             finally
             {
                 Show();
