@@ -362,6 +362,7 @@ namespace KhimTools.RebarTool.Forms
             layoutStirrupZone.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
 
             _lblStirrupDia = AddRowToLayout(layoutStirrupZone, "Đường kính thép đai:", _cmbStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
+            _cmbStirrupDia.SelectedIndexChanged += (s, e) => _previewPanel?.Invalidate();
             _lblStirrupA1 = AddRowToLayout(layoutStirrupZone, "Khoảng cách đai dầy A1 (mm):", _numStirrupSpacingA1 = new NumericUpDown { Minimum = 50, Maximum = 300, Value = 100, Increment = 10, Width = 90 });
             _lblStirrupA2 = AddRowToLayout(layoutStirrupZone, "Khoảng cách đai thưa A2 (mm):", _numStirrupSpacingA2 = new NumericUpDown { Minimum = 100, Maximum = 500, Value = 200, Increment = 10, Width = 90 });
             _lblZoneA1Len = AddRowToLayout(layoutStirrupZone, "Chiều dài vùng dầy A1 (mm):", _numZoneA1Length = new NumericUpDown { Minimum = 300, Maximum = 2000, Value = 600, Increment = 50, Width = 90 });
@@ -371,6 +372,8 @@ namespace KhimTools.RebarTool.Forms
             var pnlInnerStirrup = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _chkInnerDiamond = new CheckBox { Text = "Tạo đai lồng / đai thoi JP_T80 (khi ≥3 thanh/cạnh)", Checked = true, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
             _chkCrossLinks = new CheckBox { Text = "Tạo đai móc phụ / Crosslink JP_T68", Checked = true, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
+            _chkInnerDiamond.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
+            _chkCrossLinks.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
             pnlInnerStirrup.Controls.Add(_chkInnerDiamond);
             pnlInnerStirrup.Controls.Add(_chkCrossLinks);
             _grpInnerStirrup.Controls.Add(pnlInnerStirrup);
@@ -687,9 +690,11 @@ namespace KhimTools.RebarTool.Forms
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-            var fontTitle = new Font("Segoe UI", 9F, FontStyle.Bold);
-            g.DrawString(LanguageManager.IsEnglish ? "COLUMN ELEVATION PREVIEW" : "MẶT ĐỨNG CỐT THÉP CỘT", fontTitle, Brushes.DarkRed, 10, 8);
+            bool isEn = LanguageManager.IsEnglish;
 
+            // ══════════════════════════════════════════════════════════════════
+            // 1. DỮ LIỆU CỘT & THIẾT LẬP THÉP
+            // ══════════════════════════════════════════════════════════════════
             var selectedItem = _columnListBox.SelectedItem as ColumnListItem;
             FamilyInstance col = selectedItem?.Column ?? _preSelectedColumns.FirstOrDefault() ?? _availableColumns.FirstOrDefault();
 
@@ -697,7 +702,7 @@ namespace KhimTools.RebarTool.Forms
             double bMm = 600;
             double hMm = 700;
             string mark = "<not set>";
-            string levelName = LanguageManager.IsEnglish ? "Level" : "Tầng";
+            string levelName = isEn ? "Level 1" : "Tầng 1";
 
             if (col != null)
             {
@@ -708,108 +713,258 @@ namespace KhimTools.RebarTool.Forms
                     bMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters));
                     hMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters));
                     mark = col.LookupParameter("Mark")?.AsString() ?? "<not set>";
-                    levelName = _doc.GetElement(col.LevelId)?.Name ?? (LanguageManager.IsEnglish ? "Level" : "Tầng");
+                    levelName = _doc.GetElement(col.LevelId)?.Name ?? (isEn ? "Level" : "Tầng");
                 }
                 catch { }
             }
 
-            int totalBars = 2 * ((int)_numBarsB.Value + (int)_numBarsH.Value - 2);
+            int barsB = (int)_numBarsB.Value;
+            int barsH = (int)_numBarsH.Value;
+            int totalBars = 2 * (barsB + barsH - 2);
+            string diaStr = _cmbMainDia?.Text ?? "18";
+            string stirrupDiaStr = _cmbStirrupDia?.Text ?? "8";
+            double coverVal = _chkCustomCover.Checked ? (double)_numCustomCover.Value : 25;
 
-            int colWidth = 55;
-            int colHeight = 220;
-            int cx = Math.Max(_previewPanel.Width / 2, 120);
-            int cy = 150;
+            var fontTitle = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            var fontSmall = new Font("Segoe UI", 7.5F);
+            var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+
+            // ══════════════════════════════════════════════════════════════════
+            // 2. PHẦN TRÊN: MẶT ĐỨNG CỐT THÉP CỘT (ELEVATION PREVIEW)
+            // ══════════════════════════════════════════════════════════════════
+            g.DrawString(isEn ? "1. COLUMN ELEVATION PREVIEW" : "1. MẶT ĐỨNG CỐT THÉP CỘT", fontTitle, Brushes.DarkRed, 10, 6);
+
+            int colWidth = 45;
+            int colHeight = 180;
+            int cx = Math.Max(_previewPanel.Width / 2, 110);
+            int cy = 115;
             int x0 = cx - colWidth / 2;
             int y0 = cy - colHeight / 2;
 
-            // Green Column Body Fill
-            using var fillBrush = new SolidBrush(Color.FromArgb(40, 140, 70));
-            g.FillRectangle(fillBrush, x0, y0, colWidth, colHeight);
-            using var outlinePen = new Pen(Color.Black, 2);
-            g.DrawRectangle(outlinePen, x0, y0, colWidth, colHeight);
+            // Thân bê tông mặt đứng
+            using (var fillBrush = new SolidBrush(Color.FromArgb(40, 140, 70)))
+                g.FillRectangle(fillBrush, x0, y0, colWidth, colHeight);
+            using (var outlinePen = new Pen(Color.Black, 1.5f))
+                g.DrawRectangle(outlinePen, x0, y0, colWidth, colHeight);
 
-            // Red Horizontal Stirrup Lines (Dense A1 at top/bottom, Sparse A2 at mid)
-            using var stirrupPen = new Pen(Color.Red, 1.5f);
-            for (int y = y0 + colHeight - 5; y >= y0 + colHeight - 45; y -= 6)
-                g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
-
-            for (int y = y0 + colHeight - 55; y >= y0 + 55; y -= 12)
-                g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
-
-            for (int y = y0 + 45; y >= y0 + 5; y -= 6)
-                g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
-
-            // Vertical Main Rebars with Cranked 1:6 splices, Top Hooks & Foundation L-bends
-            using var rebarPen = new Pen(Color.Navy, 2);
-            bool isFoundation = _rdBaseFoundation != null && _rdBaseFoundation.Checked;
-            bool isTopHook = _chkTopAnchor != null && _chkTopAnchor.Checked;
-            bool isCranked = _chkCrankedSplice != null && _chkCrankedSplice.Checked;
-
-            int[] barXs = new int[] { x0 + 8, x0 + colWidth / 2, x0 + colWidth - 8 };
-
-            foreach (int bx in barXs)
+            // Các đường đai ngang màu đỏ (Dày A1 ở 2 đầu, thưa A2 ở giữa)
+            using (var stirrupPen = new Pen(Color.Red, 1.2f))
             {
-                int bY = y0 + colHeight;
-                int tY = y0;
+                for (int y = y0 + colHeight - 4; y >= y0 + colHeight - 38; y -= 5)
+                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
 
-                // 1. Base Footing Anchor (Nối móng chân quỳ)
-                if (isFoundation)
-                {
-                    int footDir = (bx < cx) ? -15 : 15;
-                    g.DrawLine(rebarPen, bx + footDir, bY + 15, bx, bY + 15);
-                    g.DrawLine(rebarPen, bx, bY + 15, bx, bY);
-                }
-                else
-                {
-                    g.DrawLine(rebarPen, bx, bY + 15, bx, bY);
-                }
+                for (int y = y0 + colHeight - 46; y >= y0 + 46; y -= 10)
+                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
 
-                // 2. Main vertical body with Cranked 1:6 Splice
-                if (isCranked && !isTopHook)
-                {
-                    int crankY1 = y0 + 15;
-                    int crankY2 = y0 - 5;
-                    int crankX = (bx < cx) ? bx + 5 : (bx > cx ? bx - 5 : bx);
+                for (int y = y0 + 38; y >= y0 + 4; y -= 5)
+                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
+            }
 
-                    g.DrawLine(rebarPen, bx, bY, bx, crankY1);
-                    g.DrawLine(rebarPen, bx, crankY1, crankX, crankY2);
-                    g.DrawLine(rebarPen, crankX, crankY2, crankX, y0 - 25);
-                }
-                else
-                {
-                    g.DrawLine(rebarPen, bx, bY, bx, tY);
-                }
+            // Thép chủ đứng (Cranked 1:6 / Móc đỉnh / Chân quỳ)
+            using (var rebarPen = new Pen(Color.Navy, 2))
+            {
+                bool isFoundation = _rdBaseFoundation != null && _rdBaseFoundation.Checked;
+                bool isTopHook = _chkTopAnchor != null && _chkTopAnchor.Checked;
+                bool isCranked = _chkCrankedSplice != null && _chkCrankedSplice.Checked;
 
-                // 3. Top Roof 90° Hook Termination
-                if (isTopHook)
+                int[] barXs = new int[] { x0 + 6, x0 + colWidth / 2, x0 + colWidth - 6 };
+
+                foreach (int bx in barXs)
                 {
-                    int hookDir = (bx < cx) ? 12 : (bx > cx ? -12 : -6);
-                    g.DrawLine(rebarPen, bx, tY, bx, tY + 2);
-                    g.DrawLine(rebarPen, bx, tY + 2, bx + hookDir, tY + 2);
+                    int bY = y0 + colHeight;
+                    int tY = y0;
+
+                    // Base anchor
+                    if (isFoundation)
+                    {
+                        int footDir = (bx < cx) ? -12 : 12;
+                        g.DrawLine(rebarPen, bx + footDir, bY + 12, bx, bY + 12);
+                        g.DrawLine(rebarPen, bx, bY + 12, bx, bY);
+                    }
+                    else
+                    {
+                        g.DrawLine(rebarPen, bx, bY + 12, bx, bY);
+                    }
+
+                    // Body
+                    if (isCranked && !isTopHook)
+                    {
+                        int crankY1 = y0 + 12;
+                        int crankY2 = y0 - 4;
+                        int crankX = (bx < cx) ? bx + 4 : (bx > cx ? bx - 4 : bx);
+
+                        g.DrawLine(rebarPen, bx, bY, bx, crankY1);
+                        g.DrawLine(rebarPen, bx, crankY1, crankX, crankY2);
+                        g.DrawLine(rebarPen, crankX, crankY2, crankX, y0 - 20);
+                    }
+                    else
+                    {
+                        g.DrawLine(rebarPen, bx, bY, bx, tY);
+                    }
+
+                    // Top Hook
+                    if (isTopHook)
+                    {
+                        int hookDir = (bx < cx) ? 10 : (bx > cx ? -10 : -5);
+                        g.DrawLine(rebarPen, bx, tY, bx, tY + 2);
+                        g.DrawLine(rebarPen, bx, tY + 2, bx + hookDir, tY + 2);
+                    }
                 }
             }
 
-            // Base Level Line
-            using var levelPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot };
-            g.DrawLine(levelPen, x0 - 20, y0 + colHeight, x0 + colWidth + 25, y0 + colHeight);
-            var fontSmall = new Font("Segoe UI", 7.5F);
+            // Đường tim cao độ tầng
+            using (var levelPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot })
+                g.DrawLine(levelPen, x0 - 15, y0 + colHeight, x0 + colWidth + 20, y0 + colHeight);
             g.DrawString($"▼ {levelName}", fontSmall, Brushes.Black, x0 + colWidth + 2, y0 + colHeight + 2);
 
-            // Text Info Overlay
-            var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            // Thông số mặt đứng
             int leftX = 6;
-            int rightX = x0 + colWidth + 8;
+            int rightX = x0 + colWidth + 6;
             int textY = y0 + colHeight / 2 - 25;
 
-            string heightLabel = LanguageManager.IsEnglish ? "Height" : "Chiều cao";
-            string markLabel = LanguageManager.IsEnglish ? "Mark" : "Ký hiệu";
-            string mainRebarLabel = LanguageManager.IsEnglish ? "Main Rebar" : "Thép chủ";
-            string distLabel = LanguageManager.IsEnglish ? "Distribute" : "Phân bố";
+            string heightLabel = isEn ? "Height" : "Chiều cao";
+            string markLabel = isEn ? "Mark" : "Ký hiệu";
+            string mainRebarLabel = isEn ? "Main Rebar" : "Thép chủ";
+            string distLabel = isEn ? "Distribute" : "Phân bố";
 
             g.DrawString($"{heightLabel} = {heightMm} (mm)\nBxH = {bMm}x{hMm}\n{markLabel}: {mark}", fontSmall, Brushes.Black, leftX, textY);
-
-            string diaStr = _cmbMainDia?.Text ?? "18";
             g.DrawString($"{mainRebarLabel}:\n  {totalBars}Φ{diaStr}\n{distLabel}:\n  A1, A2, A1", fontRed, Brushes.Red, rightX, textY);
+
+            // ══════════════════════════════════════════════════════════════════
+            // 3. ĐƯỜNG PHÂN CÁCH (DIVIDER)
+            // ══════════════════════════════════════════════════════════════════
+            int dividerY = y0 + colHeight + 25;
+            using (var divPen = new Pen(Color.FromArgb(220, 220, 230), 1))
+                g.DrawLine(divPen, 8, dividerY, _previewPanel.Width - 8, dividerY);
+
+            // ══════════════════════════════════════════════════════════════════
+            // 4. PHẦN DƯỚI: MẶT CẮT NGANG TIẾT DIỆN (CROSS SECTION BxH PREVIEW)
+            // ══════════════════════════════════════════════════════════════════
+            int secTitleY = dividerY + 6;
+            g.DrawString(isEn ? "2. CROSS SECTION PREVIEW (B x H)" : "2. MẶT CẮT TIẾT DIỆN THÉP CỘT (B x H)", fontTitle, Brushes.DarkBlue, 10, secTitleY);
+
+            // Tính kích thước vẽ tiết diện theo tỷ lệ B / H
+            int secAreaY = secTitleY + 22;
+            int maxBoxW = 140;
+            int maxBoxH = 120;
+            double ratio = (hMm > 0) ? (bMm / hMm) : 1.0;
+            int secW = ratio >= 1.0 ? maxBoxW : (int)(maxBoxH * ratio);
+            int secH = ratio >= 1.0 ? (int)(maxBoxW / ratio) : maxBoxH;
+            secW = Math.Max(secW, 70);
+            secH = Math.Max(secH, 70);
+
+            int secX = (_previewPanel.Width - secW) / 2;
+            int secY = secAreaY + (maxBoxH - secH) / 2;
+
+            // 4.1 Bê tông cột (Nền xanh nhạt + viền đen)
+            using (var secFill = new SolidBrush(Color.FromArgb(235, 245, 235)))
+                g.FillRectangle(secFill, secX, secY, secW, secH);
+            using (var secBorder = new Pen(Color.Black, 2))
+                g.DrawRectangle(secBorder, secX, secY, secW, secH);
+
+            // 4.2 Lớp bảo vệ bê tông (Cover offset)
+            int coverPx = 10;
+            int inX = secX + coverPx;
+            int inY = secY + coverPx;
+            int inW = secW - coverPx * 2;
+            int inH = secH - coverPx * 2;
+
+            // 4.3 Đai ngoài chữ nhật kín màu đỏ (Outer Hoop)
+            using (var outerStirrupPen = new Pen(Color.Red, 2))
+                g.DrawRectangle(outerStirrupPen, inX, inY, inW, inH);
+
+            // 4.4 Đai thoi / Đai lồng (Diamond Hoop) nếu có từ 3 thanh/cạnh
+            if (_chkInnerDiamond != null && _chkInnerDiamond.Checked && barsB >= 3 && barsH >= 3)
+            {
+                using var diamondPen = new Pen(Color.OrangeRed, 1.5f);
+                Point[] diamondPts = new Point[]
+                {
+                    new Point(inX + inW / 2, inY),
+                    new Point(inX + inW, inY + inH / 2),
+                    new Point(inX + inW / 2, inY + inH),
+                    new Point(inX, inY + inH / 2)
+                };
+                g.DrawPolygon(diamondPen, diamondPts);
+            }
+
+            // 4.5 Đai C / Crosslink nếu có
+            if (_chkCrossLinks != null && _chkCrossLinks.Checked)
+            {
+                using var crossPen = new Pen(Color.Purple, 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+                if (barsB >= 3)
+                {
+                    for (int i = 1; i < barsB - 1; i++)
+                    {
+                        int lx = inX + (int)((double)i / (barsB - 1) * inW);
+                        g.DrawLine(crossPen, lx, inY, lx, inY + inH);
+                    }
+                }
+                if (barsH >= 3)
+                {
+                    for (int j = 1; j < barsH - 1; j++)
+                    {
+                        int ly = inY + (int)((double)j / (barsH - 1) * inH);
+                        g.DrawLine(crossPen, inX, ly, inX + inW, ly);
+                    }
+                }
+            }
+
+            // 4.6 Các chấm tròn thép chủ (Main Rebar Dots)
+            int dotR = 8;
+            using var barFill = new SolidBrush(Color.Navy);
+            using var barBorder = new Pen(Color.White, 1.2f);
+
+            var barPts = new List<Point>();
+
+            // Cạnh trên & dưới
+            for (int i = 0; i < barsB; i++)
+            {
+                int x = inX + (int)((double)i / (barsB - 1) * inW);
+                barPts.Add(new Point(x, inY));
+                barPts.Add(new Point(x, inY + inH));
+            }
+
+            // Cạnh trái & phải
+            for (int j = 1; j < barsH - 1; j++)
+            {
+                int y = inY + (int)((double)j / (barsH - 1) * inH);
+                barPts.Add(new Point(inX, y));
+                barPts.Add(new Point(inX + inW, y));
+            }
+
+            foreach (var pt in barPts)
+            {
+                g.FillEllipse(barFill, pt.X - dotR / 2, pt.Y - dotR / 2, dotR, dotR);
+                g.DrawEllipse(barBorder, pt.X - dotR / 2, pt.Y - dotR / 2, dotR, dotR);
+            }
+
+            // 4.7 Kích thước & Chú thích tiết diện
+            using (var dimPen = new Pen(Color.DarkSlateGray, 1))
+            {
+                // Dim B (Top)
+                g.DrawLine(dimPen, secX, secY - 6, secX + secW, secY - 6);
+                g.DrawLine(dimPen, secX, secY - 9, secX, secY - 3);
+                g.DrawLine(dimPen, secX + secW, secY - 9, secX + secW, secY - 3);
+                using var sfCenter = new StringFormat { Alignment = StringAlignment.Center };
+                g.DrawString($"B = {bMm}", fontSmall, Brushes.Black, secX + secW / 2, secY - 20, sfCenter);
+
+                // Dim H (Right)
+                g.DrawLine(dimPen, secX + secW + 6, secY, secX + secW + 6, secY + secH);
+                g.DrawLine(dimPen, secX + secW + 3, secY, secX + secW + 9, secY);
+                g.DrawLine(dimPen, secX + secW + 3, secY + secH, secX + secW + 9, secY + secH);
+                g.DrawString($"H = {hMm}", fontSmall, Brushes.Black, secX + secW + 10, secY + secH / 2 - 6);
+            }
+
+            // Legend ghi chú dưới cùng
+            int legendY = secY + secH + 8;
+            string secLegend = isEn
+                ? $"Section: {totalBars}Φ{diaStr} ({barsB}xB + {barsH}xH) | Stirrup: Φ{stirrupDiaStr} | Cover: {coverVal}mm"
+                : $"Tiết diện: {totalBars}Φ{diaStr} ({barsB}xB + {barsH}xH) | Đai: Φ{stirrupDiaStr} | Lớp bảo vệ: {coverVal}mm";
+
+            using (var sfLeg = new StringFormat { Alignment = StringAlignment.Center })
+            {
+                g.DrawString(secLegend, fontSmall, Brushes.DarkBlue, _previewPanel.Width / 2, legendY, sfLeg);
+            }
         }
 
         private void ApplyLanguage()

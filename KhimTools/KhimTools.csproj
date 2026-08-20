@@ -56,13 +56,18 @@
 
   <ItemGroup>
     <Compile Remove="App\**" />
+    <Compile Remove="Tools\IconGen\**" />
     <Page Remove="App\**" />
     <Resource Remove="App\**" />
     <ApplicationDefinition Remove="App\**" />
     <None Remove="App\**" />
+    <None Remove="Tools\IconGen\**" />
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Resources\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
     <Resource Include="Resources\*.png" />
   </ItemGroup>
 
