@@ -5,12 +5,15 @@ using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
+using KhimTools.ViewportAlign.Services;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
 using Button = System.Windows.Forms.Button;
 using Label = System.Windows.Forms.Label;
 using TextBox = System.Windows.Forms.TextBox;
 using CheckBox = System.Windows.Forms.CheckBox;
+using RadioButton = System.Windows.Forms.RadioButton;
+using GroupBox = System.Windows.Forms.GroupBox;
 using Color = System.Drawing.Color;
 using FontStyle = System.Drawing.FontStyle;
 using View = Autodesk.Revit.DB.View;
@@ -27,14 +30,22 @@ namespace KhimTools.ViewportAlign.Forms
 
         private CheckedListBox _clbSheets;
         private TextBox _txtSearch;
-        private CheckBox _chkSkipLegends;
         private Button _btnSelectAll;
         private Button _btnClearAll;
         private Button _btnExecute;
         private Button _btnCancel;
 
+        // Alignment Options Controls
+        private CheckBox _chkAlignModelViews;
+        private CheckBox _chkAlignDrafting;
+        private CheckBox _chkAlignLegends;
+        private CheckBox _chkAlignSchedules;
+        private RadioButton _rdMatchSimilar;
+        private RadioButton _rdMatchAll;
+        private TextBox _txtKeywordFilter;
+
         public List<ViewSheet> SelectedTargetSheets { get; private set; } = new List<ViewSheet>();
-        public bool SkipLegends => _chkSkipLegends.Checked;
+        public ViewportAlignOptions AlignOptions { get; private set; } = new ViewportAlignOptions();
 
         public AlignViewportForm(Document doc, Viewport sourceViewport)
         {
@@ -57,23 +68,17 @@ namespace KhimTools.ViewportAlign.Forms
 
         private void BuildUi()
         {
-            Text = "📐 KHIM TOOLS — Align Viewport Across Sheets";
-            Width = 620;
-            Height = 650;
+            bool isEn = LanguageManager.IsEnglish;
+            Text = isEn ? "📐 Align Viewports & Schedules Across Sheets" : "📐 Căn Chỉnh Vị Trí Viewport & Bảng Thống Kê Giữa Các Sheet";
+            Width = 720;
+            Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             BackColor = KhimUiStyle.FormBg;
 
-            // 1. Header Banner
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Viewport Alignment",
-                "Đồng bộ vị trí khung nhìn (Viewport) chuẩn xác trên nhiều Sheet",
-                "v2.5 Pro");
-            Controls.Add(header);
-
-            // 2. Info Box (Source Viewport details)
+            // 1. Info Card (Source Viewport details)
             var pnlInfo = new Panel
             {
                 Dock = DockStyle.Top,
@@ -84,9 +89,13 @@ namespace KhimTools.ViewportAlign.Forms
 
             var lblSourceInfo = new Label
             {
-                Text = $"📌 Khung nhìn nguồn (Source View): {_sourceView?.Name ?? "Unknown"}\n" +
-                       $"📄 Nằm tại Sheet: {_sourceSheet?.SheetNumber} - {_sourceSheet?.Name ?? "Unknown"}\n" +
-                       $"🎯 Mục tiêu: Căn chỉnh vị trí các viewport trên các Sheet được chọn trùng khớp với Sheet nguồn.",
+                Text = isEn
+                    ? $"📌 Source View: {_sourceView?.Name ?? "Unknown"}\n" +
+                      $"📄 On Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Unknown"}\n" +
+                      $"🎯 Purpose: Align target sheets' viewports and schedules to match the source location."
+                    : $"📌 Khung nhìn nguồn: {_sourceView?.Name ?? "Chưa rõ"}\n" +
+                      $"📄 Nằm tại Sheet: [{_sourceSheet?.SheetNumber}] {_sourceSheet?.Name ?? "Chưa rõ"}\n" +
+                      $"🎯 Mục tiêu: Đồng bộ vị trí khung nhìn và bảng thống kê trên các Sheet đích khớp với mẫu.",
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = KhimUiStyle.TextPrimary,
                 Dock = DockStyle.Fill
@@ -94,28 +103,67 @@ namespace KhimTools.ViewportAlign.Forms
             pnlInfo.Controls.Add(lblSourceInfo);
             Controls.Add(pnlInfo);
 
+            // 2. Alignment Options GroupBox
+            var grpOptions = new GroupBox
+            {
+                Text = isEn ? "Options: Elements to Align" : "Tùy Chọn Đối Tượng Căn Chỉnh",
+                Dock = DockStyle.Top,
+                Height = 120,
+                Padding = new Padding(12, 6, 12, 6),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = KhimUiStyle.TextPrimary
+            };
+
+            var flpOptions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
+            };
+
+            _chkAlignModelViews = new CheckBox { Text = isEn ? "Model Views (Plans/Sections)" : "Mặt bằng / Mặt cắt mô hình", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
+            _chkAlignDrafting = new CheckBox { Text = isEn ? "Drafting Views" : "Bản vẽ chi tiết (Drafting)", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
+            _chkAlignLegends = new CheckBox { Text = isEn ? "Legends / Notes" : "Ghi chú (Legends / Notes)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
+            _chkAlignSchedules = new CheckBox { Text = isEn ? "Schedules (Bảng thống kê)" : "Bảng thống kê (Schedules)", Checked = true, AutoSize = true, Margin = new Padding(3, 4, 15, 4) };
+
+            var pnlKeyword = new Panel { Width = 660, Height = 28, Margin = new Padding(0, 4, 0, 0) };
+            var lblKeyword = new Label { Text = isEn ? "Filter by view keyword (e.g. under, arc, over...):" : "Lọc theo từ khóa tên view (VD: under, arc, over...):", AutoSize = true, Left = 3, Top = 4 };
+            _txtKeywordFilter = new TextBox { Left = 330, Top = 1, Width = 180, Font = new Font("Segoe UI", 8.5F) };
+            pnlKeyword.Controls.Add(lblKeyword);
+            pnlKeyword.Controls.Add(_txtKeywordFilter);
+
+            flpOptions.Controls.Add(_chkAlignModelViews);
+            flpOptions.Controls.Add(_chkAlignDrafting);
+            flpOptions.Controls.Add(_chkAlignLegends);
+            flpOptions.Controls.Add(_chkAlignSchedules);
+            flpOptions.Controls.Add(pnlKeyword);
+
+            grpOptions.Controls.Add(flpOptions);
+            Controls.Add(grpOptions);
+
             // 3. Search & Filter Bar
             var pnlFilter = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 45,
-                Padding = new Padding(15, 8, 15, 5),
+                Height = 42,
+                Padding = new Padding(15, 6, 15, 4),
                 BackColor = KhimUiStyle.FormBg
             };
 
             var lblSearch = new Label
             {
-                Text = "🔍 Tìm kiếm Sheet:",
+                Text = isEn ? "🔍 Search Sheets:" : "🔍 Tìm kiếm Sheet:",
                 AutoSize = true,
                 Left = 15,
-                Top = 12,
+                Top = 10,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 ForeColor = KhimUiStyle.TextSecondary
             };
             _txtSearch = new TextBox
             {
                 Left = 145,
-                Top = 9,
+                Top = 7,
                 Width = 260,
                 Font = new Font("Segoe UI", 9F)
             };
@@ -123,9 +171,9 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnSelectAll = new Button
             {
-                Text = "Chọn hết",
+                Text = isEn ? "Select All" : "Chọn hết",
                 Left = 415,
-                Top = 8,
+                Top = 6,
                 Width = 80,
                 Height = 27,
                 FlatStyle = FlatStyle.Flat,
@@ -135,9 +183,9 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnClearAll = new Button
             {
-                Text = "Bỏ chọn",
+                Text = isEn ? "Deselect" : "Bỏ chọn",
                 Left = 500,
-                Top = 8,
+                Top = 6,
                 Width = 80,
                 Height = 27,
                 FlatStyle = FlatStyle.Flat,
@@ -152,30 +200,19 @@ namespace KhimTools.ViewportAlign.Forms
             var pnlBottom = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 70,
+                Height = 60,
                 Padding = new Padding(15, 10, 15, 10),
                 BackColor = KhimUiStyle.CardBg
             };
 
-            _chkSkipLegends = new CheckBox
-            {
-                Text = "Bỏ qua Ghi chú (Notes) & Bảng thống kê (Schedules/Legends)",
-                Checked = true,
-                AutoSize = true,
-                Left = 15,
-                Top = 20,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                ForeColor = KhimUiStyle.TextPrimary
-            };
-
             _btnExecute = new Button
             {
-                Text = "⚡ Căn Chỉnh Vị Trí",
+                Text = isEn ? "⚡ Align Elements" : "⚡ Căn Chỉnh Vị Trí",
                 DialogResult = DialogResult.OK,
-                Width = 150,
+                Width = 160,
                 Height = 36,
-                Left = 425,
-                Top = 15,
+                Left = 520,
+                Top = 12,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = KhimUiStyle.PrimaryButtonBg,
                 ForeColor = Color.White,
@@ -185,18 +222,18 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnCancel = new Button
             {
-                Text = "Hủy",
+                Text = isEn ? "Cancel" : "Hủy",
                 DialogResult = DialogResult.Cancel,
                 Width = 80,
                 Height = 36,
-                Left = 335,
-                Top = 15,
+                Left = 430,
+                Top = 12,
                 FlatStyle = FlatStyle.Flat,
                 BackColor = KhimUiStyle.SecondaryButtonBg,
                 Font = new Font("Segoe UI", 9F)
             };
 
-            pnlBottom.Controls.AddRange(new System.Windows.Forms.Control[] { _chkSkipLegends, _btnCancel, _btnExecute });
+            pnlBottom.Controls.AddRange(new System.Windows.Forms.Control[] { _btnCancel, _btnExecute });
             Controls.Add(pnlBottom);
 
             // 5. Main Checklist of Sheets
@@ -250,11 +287,22 @@ namespace KhimTools.ViewportAlign.Forms
 
             if (!SelectedTargetSheets.Any())
             {
-                MessageBox.Show("Vui lòng chọn ít nhất một Sheet mục tiêu để căn chỉnh!",
-                    "Chưa chọn Sheet", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(
+                    LanguageManager.IsEnglish ? "Please select at least one target sheet!" : "Vui lòng chọn ít nhất một Sheet mục tiêu để căn chỉnh!",
+                    LanguageManager.IsEnglish ? "No Sheet Selected" : "Chưa chọn Sheet",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 DialogResult = DialogResult.None;
                 return;
             }
+
+            AlignOptions = new ViewportAlignOptions
+            {
+                AlignModelViews = _chkAlignModelViews.Checked,
+                AlignDraftingViews = _chkAlignDrafting.Checked,
+                AlignLegends = _chkAlignLegends.Checked,
+                AlignSchedules = _chkAlignSchedules.Checked,
+                KeywordFilter = _txtKeywordFilter.Text.Trim()
+            };
 
             DialogResult = DialogResult.OK;
             Close();
