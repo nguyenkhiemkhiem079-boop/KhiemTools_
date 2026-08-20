@@ -14,7 +14,7 @@ namespace KhiemToolsApp
     {
         private const string RepoOwner = "nguyenkhiemkhiem079-boop";
         private const string RepoName = "KhiemTools_";
-        private const string RegistryKeyName = "KhiemToolsUpdater";
+        private const string RegistryKeyName = "KhimToolsUpdater";
 
         // Thư mục cài đặt Revit Addin Bundle chuẩn của Autodesk
         private readonly string _revitBundlePath = Path.Combine(
@@ -62,7 +62,7 @@ namespace KhiemToolsApp
                 string downloadUrl = null;
 
                 using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("KhiemToolsUpdater/1.0");
+                client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/1.0");
 
                 // Lớp 1: Đọc trực tiếp từ update_info.json trên nhánh master
                 try
@@ -99,7 +99,7 @@ namespace KhiemToolsApp
                 TxtGithubVersion.Text = latestTag;
 
                 if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub!\nBạn có muốn tự động cài đặt / cập nhật vào Revit ngay không?", 
-                    "Cập nhật KhiemTools", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                    "Cập nhật KhimTools", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 {
                     TxtGithubVersion.Text = "Đang cài đặt...";
                     await PerformInstallOrUpdateAsync(latestTag, downloadUrl);
@@ -231,7 +231,7 @@ namespace KhiemToolsApp
 
         private void BtnUninstall_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("Bạn có chắc chắn muốn gỡ cài đặt KhiemTools khỏi máy tính không?", 
+            if (MessageBox.Show("Bạn có chắc chắn muốn gỡ cài đặt KhimTools khỏi máy tính không?", 
                 "Xác nhận gỡ bỏ", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 try

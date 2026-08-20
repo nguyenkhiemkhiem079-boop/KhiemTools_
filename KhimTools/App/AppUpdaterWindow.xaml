@@ -1,7 +1,7 @@
 <Window x:Class="KhiemToolsApp.AppUpdaterWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="KhiemTools Updater" 
+        Title="KhimTools Updater" 
         Height="620" Width="430"
         WindowStartupLocation="CenterScreen"
         Background="#F8FAFC"
@@ -42,7 +42,7 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="KhiemTools" FontSize="26" FontWeight="Bold" Foreground="#0F172A"/>
+                <TextBlock Text="KhimTools" FontSize="26" FontWeight="Bold" Foreground="#0F172A"/>
                 <TextBlock Text="Quản lý cập nhật tự động" FontSize="13.5" Foreground="#64748B" Margin="0,2,0,0"/>
             </StackPanel>
 
@@ -167,7 +167,7 @@
                             BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock Text="🗑 " FontSize="13"/>
-                            <TextBlock Text="Gỡ cài đặt KhiemTools"/>
+                            <TextBlock Text="Gỡ cài đặt KhimTools"/>
                         </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>

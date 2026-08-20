@@ -5,8 +5,8 @@
     <TargetFrameworks>net8.0-windows;net48</TargetFrameworks>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <RootNamespace>KhiemToolsApp</RootNamespace>
-    <AssemblyName>KhiemTools_Installer</AssemblyName>
+    <RootNamespace>KhimToolsApp</RootNamespace>
+    <AssemblyName>KhimTools_Installer</AssemblyName>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>

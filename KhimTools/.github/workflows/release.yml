@@ -40,7 +40,7 @@ jobs:
           prerelease: false
           generate_release_notes: true
           files: |
-            dist/KhiemTools_Installer.exe
+            dist/KhimTools_Installer.exe
             dist/KhimTools_Bundle.zip
             update_info.json
         env:
