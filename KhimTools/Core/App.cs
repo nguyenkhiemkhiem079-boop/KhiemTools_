@@ -1,4 +1,5 @@
-﻿using Autodesk.Revit.UI;
+using System;
+using Autodesk.Revit.UI;
 
 namespace KhimTools.Core
 {
@@ -14,9 +15,17 @@ namespace KhimTools.Core
 
         public Result OnStartup(UIControlledApplication application)
         {
-            EventHandler = new ActionEventHandler();
-            RibbonBuilder.BuildRibbon(application);
-            return Result.Succeeded;
+            try
+            {
+                EventHandler = new ActionEventHandler();
+                RibbonBuilder.BuildRibbon(application);
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("K-TOOLS Startup Error", ex.ToString());
+                return Result.Failed;
+            }
         }
 
         public Result OnShutdown(UIControlledApplication application)

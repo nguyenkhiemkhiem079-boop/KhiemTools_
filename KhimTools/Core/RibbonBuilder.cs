@@ -124,6 +124,8 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_fdn_32.png"),
                 Image = LoadImage("rebar_fdn_16.png")
             };
+            panel.AddItem(fdnData);
+
             // 5. Large button: Section Cut
             var sectionData = new PushButtonData(
                 "CmdSectionCut",
