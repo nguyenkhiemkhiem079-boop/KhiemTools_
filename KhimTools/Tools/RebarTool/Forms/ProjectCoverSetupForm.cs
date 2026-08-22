@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -51,7 +51,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "⚙️ KHIM TOOLS — Project Concrete Cover Setup";
+            Text = "⚙️ K-TOOLS — Project Concrete Cover Setup";
             Width = 600;
             Height = 490;
             StartPosition = FormStartPosition.CenterScreen;
@@ -60,7 +60,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Project Cover Setup",
+                "K-TOOLS — Project Cover Setup",
                 "Synchronize Concrete Cover Settings across All Project Structural Categories",
                 "v2.5 Pro");
             Controls.Add(header);

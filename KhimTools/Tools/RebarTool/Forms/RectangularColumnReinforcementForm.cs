@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -150,7 +150,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🏗️ KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật";
+            Text = "🏗️ K-TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật";
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -160,7 +160,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Rectangular Column Detailing",
+                "K-TOOLS — Rectangular Column Detailing",
                 "Automated Column Reinforcement Engine & 2D/3D Inspection Views",
                 "v2.5 Pro");
             Controls.Add(header);
@@ -818,7 +818,7 @@ namespace KhimTools.RebarTool.Forms
         {
             bool isEn = LanguageManager.IsEnglish;
 
-            Text = isEn ? "🏗️ KHIM TOOLS — Rectangular Column Reinforcement (v2.0)" : "🏗️ KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật (v2.0)";
+            Text = isEn ? "🏗️ K-TOOLS — Rectangular Column Reinforcement (v2.0)" : "🏗️ K-TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật (v2.0)";
 
             if (_tabMain != null) _tabMain.Text = isEn ? "📌 Main Rebar & Review" : "📌 Thép Chủ & Review";
             if (_tabStirrup != null) _tabStirrup.Text = isEn ? "🌀 Stirrups" : "🌀 Thép Đai (Stirrups)";

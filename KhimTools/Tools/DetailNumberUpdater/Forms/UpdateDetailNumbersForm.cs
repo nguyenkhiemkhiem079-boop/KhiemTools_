@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -45,7 +45,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
         private void BuildUi()
         {
-            Text = "🔢 KHIM TOOLS — Update Detail Numbers";
+            Text = "🔢 K-TOOLS — Update Detail Numbers";
             Width = 780;
             Height = 620;
             StartPosition = FormStartPosition.CenterScreen;
@@ -55,7 +55,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
             // 1. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Update Detail Numbers",
+                "K-TOOLS — Update Detail Numbers",
                 $"Tự động trích xuất & cập nhật số hiệu chi tiết (Detail Number) cho Sheet [{_sheet?.SheetNumber}] {_sheet?.Name}",
                 "v2.5 Pro");
             Controls.Add(header);

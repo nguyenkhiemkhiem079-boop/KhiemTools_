@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -57,7 +57,7 @@ namespace KhimTools.ViewportAlign.Forms
 
         private void BuildUi()
         {
-            Text = "📐 KHIM TOOLS — Align Viewport Across Sheets";
+            Text = "📐 K-TOOLS — Align Viewport Across Sheets";
             Width = 620;
             Height = 650;
             StartPosition = FormStartPosition.CenterScreen;
@@ -68,7 +68,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             // 1. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Viewport Alignment",
+                "K-TOOLS — Viewport Alignment",
                 "Đồng bộ vị trí khung nhìn (Viewport) chuẩn xác trên nhiều Sheet",
                 "v2.5 Pro");
             Controls.Add(header);

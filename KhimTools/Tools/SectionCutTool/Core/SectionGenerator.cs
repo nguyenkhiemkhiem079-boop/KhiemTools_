@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -67,7 +67,7 @@ namespace KhimTools.SectionCutTool.Core
 
             int totalElements = selectedItems.Count;
 
-            using (var tx = new Transaction(_doc, "KHIM TOOLS — Auto Create Section Views"))
+            using (var tx = new Transaction(_doc, "K-TOOLS — Auto Create Section Views"))
             {
                 tx.Start();
                 var failOptions = tx.GetFailureHandlingOptions();

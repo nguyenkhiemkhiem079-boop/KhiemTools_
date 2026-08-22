@@ -1,9 +1,9 @@
-using Autodesk.Revit.UI;
+﻿using Autodesk.Revit.UI;
 
 namespace KhimTools.Core
 {
     /// <summary>
-    /// Application-level entry point cho toàn bộ Khim Tools (Slab Join/Unjoin, Rebar).
+    /// Application-level entry point cho toàn bộ K-TOOLS (Slab Join/Unjoin, Rebar).
     /// Chỉ chịu trách nhiệm dựng ribbon + khởi tạo ActionEventHandler dùng chung lúc khởi
     /// động; logic nghiệp vụ nằm ở từng module con (KhimTools.SlabJoin.*, KhimTools.RebarTool.*).
     /// </summary>

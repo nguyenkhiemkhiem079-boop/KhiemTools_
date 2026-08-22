@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -118,7 +118,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🧱 KHIM TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
+            Text = "🧱 K-TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
             Width = 1080;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -128,7 +128,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Multi-Panel Slab Detailing Engine",
+                "K-TOOLS — Multi-Panel Slab Detailing Engine",
                 "Panel System, Bottom/Top Mesh, Support Hats, Distribution Bars & Spacers",
                 "v3.0 Pro");
             Controls.Add(header);
@@ -687,7 +687,7 @@ namespace KhimTools.RebarTool.Forms
             var report = new RebarGenerationReport();
             var generator = new SlabRebarGenerator(_doc);
 
-            using (var trans = new Transaction(_doc, "KHIM TOOLS — Tạo Thép Sàn Theo Panel"))
+            using (var trans = new Transaction(_doc, "K-TOOLS — Tạo Thép Sàn Theo Panel"))
             {
                 trans.Start();
                 FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();

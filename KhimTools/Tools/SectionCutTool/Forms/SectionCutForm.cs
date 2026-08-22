@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -126,7 +126,7 @@ namespace KhimTools.SectionCutTool.Forms
 
         private void BuildUi()
         {
-            Text = "📐 KHIM TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
+            Text = "📐 K-TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
             Width = 980;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;

@@ -1,28 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ApplicationPackage SchemaVersion="1.0" AppVersion="1.0.0"
-                    Name="KhimTools"
+                    Name="K-TOOLS"
                     AppNameSpace="KhimTools"
                     AutodeskProduct="Revit"
                     ProductType="Application"
                     ProductCode="{4F1B2C3D-5E6F-4A7B-8C9D-0E1F2A3B4C5D}"
-                    Description="KhimTools - Comprehensive Revit Automation Suite (Slab, Column, Beam, Foundation, Export)">
-  <CompanyDetails Name="KhimTools" />
+                    Description="K-TOOLS - Comprehensive Revit Automation Suite (Slab, Column, Beam, Foundation, Export)">
+  <CompanyDetails Name="K-TOOLS" />
   <RuntimeRequirements OS="Win64" Platform="Revit" />
 
   <!-- Revit 2020 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
-  <Components Description="KhimTools for Revit 2020-2024">
+  <Components Description="K-TOOLS for Revit 2020-2024">
     <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2020" SeriesMax="R2024" />
-    <ComponentEntry AppName="KhimTools"
+    <ComponentEntry AppName="K-TOOLS"
                     ModuleName="./Contents/Legacy/KhimTools.addin"
-                    AppDescription="KhimTools for Revit 2020, 2021, 2022, 2023, 2024" />
+                    AppDescription="K-TOOLS for Revit 2020, 2021, 2022, 2023, 2024" />
   </Components>
 
   <!-- Revit 2025 - 2028+ (.NET 8.0 / Modern Architecture) -->
-  <Components Description="KhimTools for Revit 2025-2028">
+  <Components Description="K-TOOLS for Revit 2025-2028">
     <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2025" SeriesMax="R2028" />
-    <ComponentEntry AppName="KhimTools"
+    <ComponentEntry AppName="K-TOOLS"
                     ModuleName="./Contents/Modern/KhimTools.addin"
-                    AppDescription="KhimTools for Revit 2025, 2026, 2027, 2028" />
+                    AppDescription="K-TOOLS for Revit 2025, 2026, 2027, 2028" />
   </Components>
 
 </ApplicationPackage>
+

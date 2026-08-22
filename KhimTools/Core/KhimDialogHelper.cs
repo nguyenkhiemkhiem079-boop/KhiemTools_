@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 using Autodesk.Revit.UI;
 
@@ -12,7 +12,7 @@ namespace KhimTools.Core
     {
         public static void ShowSuccess(string mainInstruction, string mainContent, string expandedContent = null)
         {
-            var dialog = new TaskDialog("KHIM TOOLS")
+            var dialog = new TaskDialog("K-TOOLS")
             {
                 MainInstruction = mainInstruction,
                 MainContent = mainContent,
@@ -36,7 +36,7 @@ namespace KhimTools.Core
 
         public static void ShowWarning(string mainInstruction, string mainContent = "")
         {
-            var dialog = new TaskDialog("KHIM TOOLS")
+            var dialog = new TaskDialog("K-TOOLS")
             {
                 MainInstruction = mainInstruction,
                 MainContent = mainContent ?? "",
@@ -48,7 +48,7 @@ namespace KhimTools.Core
 
         public static void ShowError(string mainInstruction, string mainContent = "", string details = null)
         {
-            var dialog = new TaskDialog("KHIM TOOLS — Error")
+            var dialog = new TaskDialog("K-TOOLS — Error")
             {
                 MainInstruction = mainInstruction,
                 MainContent = mainContent ?? "",
@@ -179,7 +179,7 @@ namespace KhimTools.Core
                     sbDetails.AppendLine(err.ToString());
                 }
 
-                var dialog = new TaskDialog("KHIM TOOLS — Rebar Generation Report")
+                var dialog = new TaskDialog("K-TOOLS — Rebar Generation Report")
                 {
                     MainInstruction = mainInstruction,
                     MainContent = sbMain.ToString(),

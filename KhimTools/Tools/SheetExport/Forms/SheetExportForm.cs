@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -123,7 +123,7 @@ namespace KhimTools.SheetExport.Forms
 
         private void InitializeComponentsCustom()
         {
-            Text = "📄 KHIM TOOLS — Sheet Batch Export & Print Manager";
+            Text = "📄 K-TOOLS — Sheet Batch Export & Print Manager";
             Width = 1360;
             Height = 820;
             StartPosition = FormStartPosition.CenterScreen;
@@ -133,7 +133,7 @@ namespace KhimTools.SheetExport.Forms
 
             // 0. Top Banner Header
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Sheet Batch Export & Print Manager",
+                "K-TOOLS — Sheet Batch Export & Print Manager",
                 "Bộ công cụ xuất in PDF & AutoCAD DWG hàng loạt, tự động nhận diện khổ giấy và quản lý bộ bản vẽ",
                 "v2.5 Pro");
             Controls.Add(header);

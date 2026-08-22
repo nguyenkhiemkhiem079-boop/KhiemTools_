@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -23,7 +23,7 @@ namespace KhimTools.DetailNumberUpdater.Commands
 
             if (doc == null)
             {
-                TaskDialog.Show("Khim Tools", "Không tìm thấy tài liệu Revit đang mở.");
+                TaskDialog.Show("K-TOOLS", "Không tìm thấy tài liệu Revit đang mở.");
                 return Result.Cancelled;
             }
 
@@ -44,7 +44,7 @@ namespace KhimTools.DetailNumberUpdater.Commands
 
                     if (!allSheets.Any())
                     {
-                        TaskDialog.Show("Khim Tools — Update Detail Numbers",
+                        TaskDialog.Show("K-TOOLS — Update Detail Numbers",
                             "Dự án không có Sheet nào hoặc bạn chưa mở Sheet. Vui lòng mở 1 Sheet để sử dụng tool.");
                         return Result.Cancelled;
                     }
@@ -54,7 +54,7 @@ namespace KhimTools.DetailNumberUpdater.Commands
 
                 if (sheet == null)
                 {
-                    TaskDialog.Show("Khim Tools — Update Detail Numbers",
+                    TaskDialog.Show("K-TOOLS — Update Detail Numbers",
                         "Vui lòng mở một Sheet view để chạy công cụ cập nhật Detail Number.");
                     return Result.Cancelled;
                 }
@@ -67,7 +67,7 @@ namespace KhimTools.DetailNumberUpdater.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Khim Tools — Lỗi Update Detail Numbers", $"Lỗi không mong đợi:\n{ex.Message}");
+                TaskDialog.Show("K-TOOLS — Lỗi Update Detail Numbers", $"Lỗi không mong đợi:\n{ex.Message}");
                 return Result.Failed;
             }
         }

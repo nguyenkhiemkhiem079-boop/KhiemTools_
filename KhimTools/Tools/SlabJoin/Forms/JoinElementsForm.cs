@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -63,7 +63,7 @@ namespace KhimTools.SlabJoin.Forms
 
         private void BuildUi()
         {
-            Text = "🔗 KHIM TOOLS — Geometry Join & Order Manager";
+            Text = "🔗 K-TOOLS — Geometry Join & Order Manager";
             Width = 920;
             Height = 630;
             StartPosition = FormStartPosition.CenterScreen;
@@ -73,7 +73,7 @@ namespace KhimTools.SlabJoin.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Geometry Join Manager",
+                "K-TOOLS — Geometry Join Manager",
                 "Cross-Category Join, Unjoin & Join Order Switch Engine",
                 "v2.5 Pro");
             Controls.Add(header);

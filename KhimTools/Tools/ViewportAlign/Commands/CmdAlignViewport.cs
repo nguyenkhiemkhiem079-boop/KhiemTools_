@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.Attributes;
@@ -27,7 +27,7 @@ namespace KhimTools.ViewportAlign.Commands
 
             if (doc == null)
             {
-                TaskDialog.Show("Khim Tools", "Không tìm thấy tài liệu Revit đang mở.");
+                TaskDialog.Show("K-TOOLS", "Không tìm thấy tài liệu Revit đang mở.");
                 return Result.Cancelled;
             }
 
@@ -65,7 +65,7 @@ namespace KhimTools.ViewportAlign.Commands
 
                 if (vpSource == null)
                 {
-                    TaskDialog.Show("Khim Tools — Align Viewport", "Chưa chọn được Viewport nguồn hợp lệ.");
+                    TaskDialog.Show("K-TOOLS — Align Viewport", "Chưa chọn được Viewport nguồn hợp lệ.");
                     return Result.Cancelled;
                 }
 
@@ -134,7 +134,7 @@ namespace KhimTools.ViewportAlign.Commands
                 // Làm mới giao diện Active View
                 uidoc.RefreshActiveView();
 
-                TaskDialog.Show("Khim Tools — Hoàn tất căn chỉnh Viewport",
+                TaskDialog.Show("K-TOOLS — Hoàn tất căn chỉnh Viewport",
                     $"🎉 Đã hoàn tất đồng bộ vị trí Viewport!\n\n" +
                     $"• Số Viewport căn chỉnh thành công: {successCount}\n" +
                     $"• Số Sheet mục tiêu: {targetSheets.Count}\n" +
@@ -146,7 +146,7 @@ namespace KhimTools.ViewportAlign.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Khim Tools — Lỗi Align Viewport", $"Lỗi không mong đợi:\n{ex.Message}");
+                TaskDialog.Show("K-TOOLS — Lỗi Align Viewport", $"Lỗi không mong đợi:\n{ex.Message}");
                 return Result.Failed;
             }
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -1700,7 +1700,7 @@ namespace KhimTools.RebarTool.Forms
             try
             {
                 int successCount = 0;
-                using var transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
+                using var transGroup = new TransactionGroup(_doc, "K-TOOLS — Generate Beam Rebars");
                 transGroup.Start();
 
                 foreach (var beam in _selectedBeams)

@@ -9,14 +9,14 @@ namespace KhimTools.Core
 {
     /// <summary>
     /// Class chịu trách nhiệm duy nhất cho việc dựng Ribbon UI cho KhimTools theo chuẩn chuyên nghiệp:
-    ///   Tab: "Khim Tools"
+    ///   Tab: "K-TOOLS"
     ///   Panel 1: "Rebar"            — SplitButton (Column Rebar main + sub-items), Beam Rebar, Cover Setup
     ///   Panel 2: "Join / Geometry"  — Join Elements (large), Join Slabs + Unjoin Slabs (stacked legacy)
     /// </summary>
     public static class RibbonBuilder
     {
         // Ribbon Names Constants
-        public const string TabName = "Khim Tools";
+        public const string TabName = "K-TOOLS";
         public const string RebarPanelName = "Rebar";
         public const string JoinPanelName = "Join / Geometry";
         public const string ExportPanelName = "Publish / Export";

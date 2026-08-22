@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text.RegularExpressions;
@@ -33,7 +33,7 @@ namespace KhimTools.SheetExport.Forms
 
         private void InitializeUi()
         {
-            Text = "✏️ KHIM TOOLS — Cấu Hình Naming Template";
+            Text = "✏️ K-TOOLS — Cấu Hình Naming Template";
             Width = 540;
             Height = 490;
             StartPosition = FormStartPosition.CenterParent;
@@ -43,7 +43,7 @@ namespace KhimTools.SheetExport.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Naming Template Editor",
+                "K-TOOLS — Naming Template Editor",
                 "Configure File Naming Token Expressions & Regex Validation Patterns",
                 "v2.5 Pro");
             Controls.Add(header);

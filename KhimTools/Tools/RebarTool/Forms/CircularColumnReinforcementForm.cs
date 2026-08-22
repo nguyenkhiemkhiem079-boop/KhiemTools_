@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -110,7 +110,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "⭕ KHIM TOOLS — Bố trí Thép Cột Tròn";
+            Text = "⭕ K-TOOLS — Bố trí Thép Cột Tròn";
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -120,7 +120,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Circular Column Detailing",
+                "K-TOOLS — Circular Column Detailing",
                 "Automated Round Column Reinforcement Engine",
                 "v2.5 Pro");
             Controls.Add(header);

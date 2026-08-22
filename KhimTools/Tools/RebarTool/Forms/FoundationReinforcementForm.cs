@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -90,7 +90,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🧱 KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.5)";
+            Text = "🧱 K-TOOLS — Bố trí Thép Móng (Foundation Rebar v2.5)";
             Width = 920;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -100,7 +100,7 @@ namespace KhimTools.RebarTool.Forms
 
             // Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Foundation Reinforcement Engine",
+                "K-TOOLS — Foundation Reinforcement Engine",
                 "Automated Bottom/Top Meshes, Column Starter Bars & Edge Ties (TCVN 5574 & Eurocode 2/7)",
                 "v2.5 Pro");
             Controls.Add(header);

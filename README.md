@@ -1,4 +1,4 @@
-# Khim Tools v2 — Kiến trúc theo OS Tool DEV_GUIDE.md
+# K-TOOLS v2 — Kiến trúc theo OS Tool DEV_GUIDE.md
 
 ## Đổi gì so với bản trước (KhimTools v1 — .csproj cũ, copy tay vào Addins)
 
@@ -24,7 +24,7 @@
 
 ## CẦN VERIFY khi build (chưa test được vì môi trường này không có Visual Studio/Revit)
 
-1. **`PackageContents.xml`** (`Deploy/PackageContents.xml`) — mình viết theo đúng cấu trúc bundle phổ biến của Autodesk (`ApplicationPackage` > `Components` > `RuntimeRequirements` + `ComponentEntry`), nhưng **chưa test thật**. Nếu Revit không nhận bundle (không thấy tab Khim Tools dù build xong), khả năng cao lỗi ở file này — so sánh lại với 1 bundle mẫu thật (Autodesk App Store có nhiều add-in mã nguồn mở dùng format này để đối chiếu).
+1. **`PackageContents.xml`** (`Deploy/PackageContents.xml`) — mình viết theo đúng cấu trúc bundle phổ biến của Autodesk (`ApplicationPackage` > `Components` > `RuntimeRequirements` + `ComponentEntry`), nhưng **chưa test thật**. Nếu Revit không nhận bundle (không thấy tab K-TOOLS dù build xong), khả năng cao lỗi ở file này — so sánh lại với 1 bundle mẫu thật (Autodesk App Store có nhiều add-in mã nguồn mở dùng format này để đối chiếu).
 2. **Post-build target `DeployKhimToolsBundle`** trong `.csproj` — copy đúng file build ra vào đúng `Contents/Legacy/` hoặc `Contents/Modern/`, dựa theo `$(TargetFramework)`. Nếu build lỗi ngay bước này (không phải lỗi code), có thể do quyền ghi vào `%ProgramData%` — thử chạy Visual Studio **as Administrator**.
 3. Build 2 TargetFramework cùng lúc (`dotnet build` hoặc Ctrl+Shift+B trong VS) sẽ chạy `DeployKhimToolsBundle` **2 lần** (1 lần mỗi TFM) — bình thường, đúng như thiết kế (mỗi lần đổ vào đúng subfolder Legacy/Modern riêng).
 
@@ -49,3 +49,4 @@ KhimTools.bundle\
         └── RebarShapes\*.rfa
 ```
 Nếu thiếu file nào, báo mình biết đang thiếu gì để sửa target `DeployKhimToolsBundle`.
+

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace KhimTools.Core
 {
@@ -9,7 +9,7 @@ namespace KhimTools.Core
     }
 
     /// <summary>
-    /// Quản lý chuyển đổi ngôn ngữ (Song ngữ Việt - Anh) toàn hệ thống Khim Tools.
+    /// Quản lý chuyển đổi ngôn ngữ (Song ngữ Việt - Anh) toàn hệ thống K-TOOLS.
     /// Cho phép người dùng chuyển đổi ngôn ngữ linh hoạt trên giao diện.
     /// </summary>
     public static class LanguageManager
