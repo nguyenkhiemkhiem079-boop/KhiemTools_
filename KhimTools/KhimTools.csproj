@@ -19,19 +19,24 @@
   </PropertyGroup>
 
   <!-- ==== Đường dẫn RevitAPI theo từng TFM ====
-       net48 build tham chiếu RevitAPI của 1 bản 2022-2024 (API ổn định, dùng chung được).
-       net8.0-windows build tham chiếu 1 bản 2025-2026.
-       ĐỔI RevitVersionForReference nếu máy bạn cài Revit ở path/năm khác. -->
+       net48 build tự tìm Revit 2024/2023/2022 trên máy, hoặc fallback sang 2023.
+       net8.0-windows nếu có Revit 2025/2026 local thì dùng, không thì tự nạp từ NuGet Nice3point.Revit.Api -->
   <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
-    <RevitVersionForReference>2024</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll')">2024</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll')">2023</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2022\RevitAPI.dll')">2022</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2023</RevitVersionForReference>
     <VersionFolder>Legacy</VersionFolder>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
-    <RevitVersionForReference>2026</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll')">2026</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll')">2025</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2025</RevitVersionForReference>
     <VersionFolder>Modern</VersionFolder>
   </PropertyGroup>
 
-  <ItemGroup>
+  <!-- Dùng reference local nếu có file DLL trên máy -->
+  <ItemGroup Condition="Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll</HintPath>
       <Private>false</Private>
@@ -40,6 +45,12 @@
       <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPIUI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+
+  <!-- Fallback sang NuGet package Nice3point cho net8.0-windows nếu máy chưa cài Revit 2025/2026 -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows' and !Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">

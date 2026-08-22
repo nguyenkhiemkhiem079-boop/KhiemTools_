@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -365,7 +365,6 @@ namespace KhimTools.SheetExport.Forms
             _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => ApplySearchAndFilter();
 
             _txtSearchSheet = new TextBox { Left = 210, Top = 7, Width = 260, Font = new Font("Segoe UI", 9F) };
-            _txtSearchSheet.PlaceholderText = "🔍 Tìm kiếm số hiệu / tên sheet...";
             _txtSearchSheet.TextChanged += (s, e) => ApplySearchAndFilter();
 
             _btnSelectAll = new Button { Text = "Chọn hết", Left = 480, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };

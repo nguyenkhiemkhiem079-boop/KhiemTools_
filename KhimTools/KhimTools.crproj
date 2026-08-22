@@ -49,92 +49,25 @@
     </rule>
 
     <!-- ================================================================
-         EXCLUSIONS — Revit Entry Points (KHÔNG được đổi tên)
-         Revit dùng reflection để tìm class theo full name trong .addin.
-         Nếu bị rename → Revit không load được plugin → crash khi khởi động.
+         EXCLUSIONS — Revit Entry Points & Reflection Types
+         (Revit tìm class theo full name trong .addin và qua reflection)
     ================================================================ -->
 
-    <!-- IExternalApplication — entry point chính khai báo trong .addin -->
-    <rule pattern="type('KhimTools.Core.App')" inherit="false">
+    <!-- IExternalApplication & Core Reflection Proxies -->
+    <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
+    <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
       <protection id="rename" action="remove" />
     </rule>
 
-    <!-- KhimCmdProxy — abstract base dùng Activator.CreateInstance (reflection) -->
-    <rule pattern="type('KhimTools.Core.KhimCmdProxy')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── RebarTool Commands ──────────────────────────────────────── -->
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdColumnRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdColumnRebarV2')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdMultiColumnRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdMultiRoundColumnRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdBeamRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdSlabRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdFoundationRebar')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdColumnDrawing')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdUpdateColumnDrawing')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.RebarTool.Commands.CmdProjectCoverSetup')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── SlabJoin Commands ──────────────────────────────────────── -->
-    <rule pattern="type('KhimTools.SlabJoin.Commands.CmdJoinElements')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.SlabJoin.Commands.JoinSlabsCommand')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="type('KhimTools.SlabJoin.Commands.UnjoinSlabsCommand')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── SheetExport Commands ───────────────────────────────────── -->
-    <rule pattern="type('KhimTools.SheetExport.Commands.CmdSheetExport')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── ViewportAlign Commands ─────────────────────────────────── -->
-    <rule pattern="type('KhimTools.ViewportAlign.Commands.CmdAlignViewport')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── SectionCutTool Commands ────────────────────────────────── -->
-    <rule pattern="type('KhimTools.SectionCutTool.Commands.CmdSectionCut')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- ── DetailNumberUpdater Commands ──────────────────────────── -->
-    <rule pattern="type('KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-
-    <!-- Safety net: bắt tất cả IExternalCommand/IExternalApplication còn lại -->
-    <rule pattern="implements('Autodesk.Revit.UI.IExternalCommand')" inherit="false">
-      <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="implements('Autodesk.Revit.UI.IExternalApplication')" inherit="false">
+    <!-- Tất cả External Commands (tất cả class trong namespace .Commands.*) -->
+    <rule pattern="match('\.Commands\.')" inherit="false">
       <protection id="rename" action="remove" />
     </rule>
 
   </module>
+
+  {PROBE_PATHS}
 
 </project>
