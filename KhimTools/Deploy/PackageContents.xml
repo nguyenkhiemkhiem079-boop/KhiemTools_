@@ -11,7 +11,7 @@
 
   <!-- Revit 2020 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
   <Components Description="K-TOOLS for Revit 2020-2024">
-    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2020" SeriesMax="R2024" />
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="2020" SeriesMax="2024" />
     <ComponentEntry AppName="K-TOOLS"
                     ModuleName="./Contents/Legacy/KhimTools.addin"
                     AppDescription="K-TOOLS for Revit 2020, 2021, 2022, 2023, 2024" />
@@ -19,7 +19,7 @@
 
   <!-- Revit 2025 - 2028+ (.NET 8.0 / Modern Architecture) -->
   <Components Description="K-TOOLS for Revit 2025-2028">
-    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2025" SeriesMax="R2028" />
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="2025" SeriesMax="2028" />
     <ComponentEntry AppName="K-TOOLS"
                     ModuleName="./Contents/Modern/KhimTools.addin"
                     AppDescription="K-TOOLS for Revit 2025, 2026, 2027, 2028" />

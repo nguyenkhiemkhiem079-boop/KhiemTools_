@@ -305,35 +305,14 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Cách 3: Fallback tải master repository zip
-            if (!downloaded)
-            {
-                string masterZipUrl = $"https://github.com/{RepoOwner}/{RepoName}/archive/refs/heads/master.zip";
-                byte[] repoData = await client.GetByteArrayAsync(masterZipUrl);
-                string repoZipPath = Path.Combine(tempDir, "master.zip");
-                File.WriteAllBytes(repoZipPath, repoData);
-
-                string extractDir = Path.Combine(tempDir, "extracted");
-                ExtractZipSafely(repoZipPath, extractDir);
-
-                // Tìm thư mục Deploy trong repo
-                string[] deployDirs = Directory.GetDirectories(extractDir, "Deploy", SearchOption.AllDirectories);
-                if (deployDirs.Length > 0)
-                {
-                    string deploySrc = deployDirs[0];
-                    DeployDirectoryToTargets(deploySrc, tag);
-                    return;
-                }
-            }
-
             // Nếu tải được file KhimTools_Bundle.zip
-            if (File.Exists(bundleZipPath))
+            if (File.Exists(bundleZipPath) && downloaded)
             {
                 DeployZipToTargets(bundleZipPath, tag);
             }
             else
             {
-                throw new FileNotFoundException("Không thể tải bộ cài đặt K-TOOLS từ máy chủ.");
+                throw new FileNotFoundException($"Không thể tải bộ cài đặt K-TOOLS ({tag}) từ GitHub server. Vui lòng kiểm tra lại kết nối mạng.");
             }
         }
 
@@ -364,12 +343,44 @@ namespace KhiemToolsApp
 
             foreach (var target in targetPaths)
             {
-                ExtractZipSafely(zipFilePath, target);
+                string backupDir = target + "_backup";
+                if (Directory.Exists(target))
+                {
+                    try
+                    {
+                        if (Directory.Exists(backupDir)) Directory.Delete(backupDir, true);
+                        CopyDirectory(target, backupDir);
+                    }
+                    catch { }
+                }
+
                 try
                 {
+                    ExtractZipSafely(zipFilePath, target);
+
+                    // Verify: Kiểm tra xem KhimTools.dll có thực sự tồn tại trong bundle mới giải nén không
+                    bool legacyDllExists = File.Exists(Path.Combine(target, "Contents", "Legacy", "KhimTools.dll"));
+                    bool modernDllExists = File.Exists(Path.Combine(target, "Contents", "Modern", "KhimTools.dll"));
+
+                    if (!legacyDllExists && !modernDllExists)
+                    {
+                        // Khôi phục lại từ bản backup nếu giải nén thiếu file
+                        if (Directory.Exists(backupDir))
+                        {
+                            CopyDirectory(backupDir, target);
+                        }
+                        throw new InvalidDataException("Bộ cài đặt tải về bị hỏng hoặc thiếu KhimTools.dll! Đã tự động khôi phục lại phiên bản trước đó.");
+                    }
+
                     File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
                 }
-                catch { }
+                finally
+                {
+                    if (Directory.Exists(backupDir))
+                    {
+                        try { Directory.Delete(backupDir, true); } catch { }
+                    }
+                }
             }
 
             // Dọn dẹp các file .addin rác cũ ở %APPDATA% và %PROGRAMDATA% để tránh xung đột với KhimTools.bundle

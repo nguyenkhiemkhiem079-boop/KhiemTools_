@@ -267,16 +267,33 @@ namespace KhimTools.Core
 
         private static void CreateTabSafely(UIControlledApplication application, string tabName)
         {
-            try { application.CreateRibbonTab(tabName); }
-            catch (Autodesk.Revit.Exceptions.ArgumentException) { }
+            try
+            {
+                application.CreateRibbonTab(tabName);
+            }
+            catch (Autodesk.Revit.Exceptions.ArgumentException)
+            {
+                // Tab "K-TOOLS" đã được khởi tạo trước đó — không làm gì
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("K-TOOLS Ribbon Error", $"Không thể tạo Ribbon Tab '{tabName}':\n{ex.Message}");
+            }
         }
 
         private static RibbonPanel GetOrCreatePanel(UIControlledApplication application, string tabName, string panelName)
         {
-            var existingPanel = application
-                .GetRibbonPanels(tabName)
-                .FirstOrDefault(p => string.Equals(p.Name, panelName, StringComparison.OrdinalIgnoreCase));
-            return existingPanel ?? application.CreateRibbonPanel(tabName, panelName);
+            try
+            {
+                var existingPanels = application.GetRibbonPanels(tabName);
+                var existingPanel = existingPanels?.FirstOrDefault(p => string.Equals(p.Name, panelName, StringComparison.OrdinalIgnoreCase));
+                return existingPanel ?? application.CreateRibbonPanel(tabName, panelName);
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("K-TOOLS Ribbon Error", $"Lỗi khi tạo Panel '{panelName}' trên Tab '{tabName}':\n{ex.Message}");
+                throw;
+            }
         }
 
         private static BitmapImage LoadImage(string resourceOrFileName)
