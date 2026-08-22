@@ -36,8 +36,6 @@ namespace KhiemToolsApp
 
         private string GetEffectiveBundlePath()
         {
-            if (Directory.Exists(_programDataBundlePath)) return _programDataBundlePath;
-            if (Directory.Exists(_appDataBundlePath)) return _appDataBundlePath;
             return _programDataBundlePath;
         }
 
@@ -318,105 +316,65 @@ namespace KhiemToolsApp
 
         private void DeployZipToTargets(string zipFilePath, string tag)
         {
-            var targetPaths = new List<string>();
-
-            // Target 1: ProgramData (All users)
-            try
-            {
-                Directory.CreateDirectory(_programDataBundlePath);
-                targetPaths.Add(_programDataBundlePath);
-            }
-            catch { }
-
-            // Target 2: AppData (Current user fallback)
-            try
-            {
-                Directory.CreateDirectory(_appDataBundlePath);
-                targetPaths.Add(_appDataBundlePath);
-            }
-            catch { }
-
-            if (targetPaths.Count == 0)
-            {
-                throw new UnauthorizedAccessException("Không có quyền ghi vào thư mục cài đặt Add-in.");
-            }
-
-            foreach (var target in targetPaths)
-            {
-                string backupDir = target + "_backup";
-                if (Directory.Exists(target))
-                {
-                    try
-                    {
-                        if (Directory.Exists(backupDir)) Directory.Delete(backupDir, true);
-                        CopyDirectory(target, backupDir);
-                    }
-                    catch { }
-                }
-
-                try
-                {
-                    ExtractZipSafely(zipFilePath, target);
-
-                    // Verify: Kiểm tra xem KhimTools.dll có thực sự tồn tại trong bundle mới giải nén không
-                    bool legacyDllExists = File.Exists(Path.Combine(target, "Contents", "Legacy", "KhimTools.dll"));
-                    bool modernDllExists = File.Exists(Path.Combine(target, "Contents", "Modern", "KhimTools.dll"));
-
-                    if (!legacyDllExists && !modernDllExists)
-                    {
-                        // Khôi phục lại từ bản backup nếu giải nén thiếu file
-                        if (Directory.Exists(backupDir))
-                        {
-                            CopyDirectory(backupDir, target);
-                        }
-                        throw new InvalidDataException("Bộ cài đặt tải về bị hỏng hoặc thiếu KhimTools.dll! Đã tự động khôi phục lại phiên bản trước đó.");
-                    }
-
-                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
-                }
-                finally
-                {
-                    if (Directory.Exists(backupDir))
-                    {
-                        try { Directory.Delete(backupDir, true); } catch { }
-                    }
-                }
-            }
-
-            // Dọn dẹp các file .addin rác cũ ở %APPDATA% và %PROGRAMDATA% để tránh xung đột với KhimTools.bundle
+            // Dọn dẹp các file .addin rác cũ và bundle AppData thừa trước khi cài
             CleanLegacyAddinFiles();
-        }
 
-        private void DeployDirectoryToTargets(string sourceDir, string tag)
-        {
-            var targetPaths = new List<string>();
+            string target = _programDataBundlePath;
+            Directory.CreateDirectory(target);
 
-            try
+            string backupDir = target + "_backup";
+            if (Directory.Exists(target))
             {
-                Directory.CreateDirectory(_programDataBundlePath);
-                targetPaths.Add(_programDataBundlePath);
-            }
-            catch { }
-
-            try
-            {
-                Directory.CreateDirectory(_appDataBundlePath);
-                targetPaths.Add(_appDataBundlePath);
-            }
-            catch { }
-
-            foreach (var target in targetPaths)
-            {
-                CopyDirectory(sourceDir, target);
                 try
                 {
-                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+                    if (Directory.Exists(backupDir)) Directory.Delete(backupDir, true);
+                    CopyDirectory(target, backupDir);
                 }
                 catch { }
             }
 
-            // Dọn dẹp các file .addin rác cũ ở %APPDATA% và %PROGRAMDATA% để tránh xung đột với KhimTools.bundle
+            try
+            {
+                ExtractZipSafely(zipFilePath, target);
+
+                // Verify: Kiểm tra xem KhimTools.dll có thực sự tồn tại trong bundle mới giải nén không
+                bool legacyDllExists = File.Exists(Path.Combine(target, "Contents", "Legacy", "KhimTools.dll"));
+                bool modernDllExists = File.Exists(Path.Combine(target, "Contents", "Modern", "KhimTools.dll"));
+
+                if (!legacyDllExists && !modernDllExists)
+                {
+                    // Khôi phục lại từ bản backup nếu giải nén thiếu file
+                    if (Directory.Exists(backupDir))
+                    {
+                        CopyDirectory(backupDir, target);
+                    }
+                    throw new InvalidDataException("Bộ cài đặt tải về bị hỏng hoặc thiếu KhimTools.dll! Đã tự động khôi phục lại phiên bản trước đó.");
+                }
+
+                File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+            }
+            finally
+            {
+                if (Directory.Exists(backupDir))
+                {
+                    try { Directory.Delete(backupDir, true); } catch { }
+                }
+            }
+        }
+
+        private void DeployDirectoryToTargets(string sourceDir, string tag)
+        {
             CleanLegacyAddinFiles();
+
+            string target = _programDataBundlePath;
+            Directory.CreateDirectory(target);
+
+            CopyDirectory(sourceDir, target);
+            try
+            {
+                File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+            }
+            catch { }
         }
 
         private static void DeployToClassicAddinFolders(string bundleSourceRoot, string tag)
@@ -536,8 +494,16 @@ namespace KhiemToolsApp
         {
             try
             {
-                // Dọn dẹp file .addin cũ trong %APPDATA%\Autodesk\Revit\Addins và %PROGRAMDATA%\Autodesk\Revit\Addins
-                // để tránh lỗi Duplicate AddIn GUID khi Revit nạp từ KhimTools.bundle
+                // 1. Xóa thư mục KhimTools.bundle tàn dư trong %APPDATA%\Autodesk\ApplicationPlugins\ (tránh trùng AddInId với ProgramData)
+                string appDataBundle = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    @"Autodesk\ApplicationPlugins\KhimTools.bundle");
+                if (Directory.Exists(appDataBundle))
+                {
+                    try { Directory.Delete(appDataBundle, true); } catch { }
+                }
+
+                // 2. Dọn dẹp file .addin cũ trong %APPDATA%\Autodesk\Revit\Addins và %PROGRAMDATA%\Autodesk\Revit\Addins
                 string[] baseAddinFolders = new string[]
                 {
                     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
@@ -559,6 +525,12 @@ namespace KhiemToolsApp
                         if (File.Exists(addinFile))
                         {
                             try { File.Delete(addinFile); } catch { }
+                        }
+
+                        string pluginDir = Path.Combine(yearFolder, "KhimTools");
+                        if (Directory.Exists(pluginDir))
+                        {
+                            try { Directory.Delete(pluginDir, true); } catch { }
                         }
                     }
                 }
