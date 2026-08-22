@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -36,7 +36,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayout()
         {
-            Text = $"🔍 Pick & Skip Edge — Panel {_panel.PanelId} ({_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm)";
+            Text = $"≡ƒöì Pick & Skip Edge ΓÇö Panel {_panel.PanelId} ({_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm)";
             Width = 820;
             Height = 560;
             StartPosition = FormStartPosition.CenterParent;
@@ -46,18 +46,18 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. Header
             var header = KhimUiStyle.CreateHeaderBanner(
-                $"Cấu Hình Từng Cạnh — Panel {_panel.PanelId}",
-                "Click chọn cạnh để Bật/Tắt Thép Mũ Gối (Skip Top Hat) hoặc Thép Đáy (Skip Bottom)",
+                $"Cß║Ñu H├¼nh Tß╗½ng Cß║ính ΓÇö Panel {_panel.PanelId}",
+                "Click chß╗ìn cß║ính ─æß╗â Bß║¡t/Tß║»t Th├⌐p M┼⌐ Gß╗æi (Skip Top Hat) hoß║╖c Th├⌐p ─É├íy (Skip Bottom)",
                 "2D Interactive");
             Controls.Add(header);
 
             // 1. Bottom
             var bottom = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(245, 245, 247) };
-            _btnApply = new Button { Text = "✓ Áp Dụng", Width = 110, Height = 32, Top = 9, Left = 570 };
+            _btnApply = new Button { Text = "Γ£ô ├üp Dß╗Ñng", Width = 110, Height = 32, Top = 9, Left = 570 };
             KhimUiStyle.ApplyPrimaryButton(_btnApply, KhimUiStyle.CreateButtonBg);
             _btnApply.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
 
-            _btnClose = new Button { Text = "Đóng", Width = 90, Height = 32, Top = 9, Left = 690 };
+            _btnClose = new Button { Text = "─É├│ng", Width = 90, Height = 32, Top = 9, Left = 690 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
 
@@ -82,7 +82,7 @@ namespace KhimTools.RebarTool.Forms
             var pnlRight = new System.Windows.Forms.Panel { Left = 445, Top = 65, Width = 350, Height = 430 };
             _lblInfo = new Label
             {
-                Text = "📋 Danh sách 4 cạnh của Panel:",
+                Text = "Danh s├ích 4 cß║ính cß╗ºa Panel:",
                 Top = 5,
                 Left = 5,
                 AutoSize = true,
@@ -103,12 +103,12 @@ namespace KhimTools.RebarTool.Forms
                 BackgroundColor = Color.White
             };
 
-            var colIdx = new DataGridViewTextBoxColumn { HeaderText = "Cạnh", Width = 55, ReadOnly = true };
-            var colType = new DataGridViewComboBoxColumn { HeaderText = "Loại Tựa", Width = 120 };
+            var colIdx = new DataGridViewTextBoxColumn { HeaderText = "Cß║ính", Width = 55, ReadOnly = true };
+            var colType = new DataGridViewComboBoxColumn { HeaderText = "Loß║íi Tß╗▒a", Width = 120 };
             colType.Items.AddRange("Beam Support", "Slab Adjacent", "Free Edge");
 
-            var colSkipTop = new DataGridViewCheckBoxColumn { HeaderText = "Skip Mũ", Width = 80 };
-            var colSkipBot = new DataGridViewCheckBoxColumn { HeaderText = "Skip Đáy", Width = 80 };
+            var colSkipTop = new DataGridViewCheckBoxColumn { HeaderText = "Skip M┼⌐", Width = 80 };
+            var colSkipBot = new DataGridViewCheckBoxColumn { HeaderText = "Skip ─É├íy", Width = 80 };
 
             _gridEdges.Columns.AddRange(colIdx, colType, colSkipTop, colSkipBot);
             _gridEdges.CellValueChanged += (s, e) => { ReadGridData(); _canvas.Invalidate(); };
@@ -131,7 +131,7 @@ namespace KhimTools.RebarTool.Forms
             _gridEdges.Rows.Clear();
             if (_panel.Edges == null || !_panel.Edges.Any())
             {
-                // Mặc định tạo 4 cạnh chuẩn chữ nhật nếu chưa có
+                // Mß║╖c ─æß╗ïnh tß║ío 4 cß║ính chuß║⌐n chß╗» nhß║¡t nß║┐u ch╞░a c├│
                 _panel.Edges = new List<SlabPanelEdge>
                 {
                     new SlabPanelEdge { EdgeIndex = 0, EdgeType = SlabPanelEdgeType.BeamSupport },
@@ -145,7 +145,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 var edge = _panel.Edges[i];
                 int r = _gridEdges.Rows.Add();
-                _gridEdges.Rows[r].Cells[0].Value = $"Cạnh {i + 1}";
+                _gridEdges.Rows[r].Cells[0].Value = $"Cß║ính {i + 1}";
                 _gridEdges.Rows[r].Cells[1].Value = edge.EdgeType == SlabPanelEdgeType.BeamSupport ? "Beam Support" : (edge.EdgeType == SlabPanelEdgeType.SlabAdjacent ? "Slab Adjacent" : "Free Edge");
                 _gridEdges.Rows[r].Cells[2].Value = edge.SkipTopHat;
                 _gridEdges.Rows[r].Cells[3].Value = edge.SkipBottomMesh;
@@ -173,7 +173,7 @@ namespace KhimTools.RebarTool.Forms
             int w = _canvas.Width;
             int h = _canvas.Height;
 
-            // Vẽ khung Panel tỷ lệ
+            // Vß║╜ khung Panel tß╗╖ lß╗ç
             Rectangle rect = new Rectangle(50, 50, w - 100, h - 100);
 
             using (Brush b = new SolidBrush(Color.FromArgb(240, 249, 255)))
@@ -181,7 +181,7 @@ namespace KhimTools.RebarTool.Forms
                 g.FillRectangle(b, rect);
             }
 
-            // Vẽ 4 cạnh
+            // Vß║╜ 4 cß║ính
             Point[] pts = new Point[]
             {
                 new Point(rect.Left, rect.Top),       // P0 (Top-Left)
@@ -207,10 +207,10 @@ namespace KhimTools.RebarTool.Forms
                     g.DrawLine(p, pStart, pEnd);
                 }
 
-                // Nhãn cạnh (Cạnh 1, Cạnh 2...)
+                // Nh├ún cß║ính (Cß║ính 1, Cß║ính 2...)
                 int midX = (pStart.X + pEnd.X) / 2;
                 int midY = (pStart.Y + pEnd.Y) / 2;
-                string label = $"Cạnh {i + 1}" + (isSkipTop ? " (Skip Mũ)" : "");
+                string label = $"Cß║ính {i + 1}" + (isSkipTop ? " (Skip M┼⌐)" : "");
                 using (Font font = new Font("Segoe UI", 8.5F, isSelected ? FontStyle.Bold : FontStyle.Regular))
                 using (Brush brush = new SolidBrush(edgeColor))
                 {
@@ -218,7 +218,7 @@ namespace KhimTools.RebarTool.Forms
                 }
             }
 
-            // Ghi chú tâm Panel
+            // Ghi ch├║ t├óm Panel
             using (Font f = new Font("Segoe UI", 10F, FontStyle.Bold))
             using (Brush br = new SolidBrush(Color.FromArgb(71, 85, 105)))
             {
@@ -231,7 +231,7 @@ namespace KhimTools.RebarTool.Forms
         {
             Rectangle rect = new Rectangle(50, 50, _canvas.Width - 100, _canvas.Height - 100);
 
-            // Kiểm tra xem click gần cạnh nào
+            // Kiß╗âm tra xem click gß║ºn cß║ính n├áo
             if (Math.Abs(e.Y - rect.Top) < 20 && e.X >= rect.Left && e.X <= rect.Right) _selectedEdgeIndex = 0; // Top
             else if (Math.Abs(e.X - rect.Right) < 20 && e.Y >= rect.Top && e.Y <= rect.Bottom) _selectedEdgeIndex = 1; // Right
             else if (Math.Abs(e.Y - rect.Bottom) < 20 && e.X >= rect.Left && e.X <= rect.Right) _selectedEdgeIndex = 2; // Bottom
@@ -239,7 +239,7 @@ namespace KhimTools.RebarTool.Forms
 
             if (_selectedEdgeIndex >= 0 && _selectedEdgeIndex < _gridEdges.Rows.Count)
             {
-                // Toggle SkipTop khi click trực tiếp
+                // Toggle SkipTop khi click trß╗▒c tiß║┐p
                 bool currentSkip = Convert.ToBoolean(_gridEdges.Rows[_selectedEdgeIndex].Cells[2].Value);
                 _gridEdges.Rows[_selectedEdgeIndex].Cells[2].Value = !currentSkip;
                 _gridEdges.Rows[_selectedEdgeIndex].Selected = true;

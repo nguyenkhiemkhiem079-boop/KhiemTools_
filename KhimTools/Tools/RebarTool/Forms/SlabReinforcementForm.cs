@@ -57,7 +57,7 @@ namespace KhimTools.RebarTool.Forms
         private ComboBox _cmbTopYDia;
         private NumericUpDown _numTopYSpacing;
 
-        // Tab 3: Hat (Mũ Gối) & Top Distribution
+        // Tab 3: Hat (M┼⌐ Gß╗æi) & Top Distribution
         private CheckBox _chkHatDraw;
         private ComboBox _cmbHatXDia;
         private NumericUpDown _numHatXSpacing;
@@ -109,7 +109,7 @@ namespace KhimTools.RebarTool.Forms
             BuildUi();
             PopulateBarCombos();
 
-            // Khởi tạo danh sách panel từ sàn được chọn hoặc toàn bộ sàn
+            // Khß╗ƒi tß║ío danh s├ích panel tß╗½ s├án ─æ╞░ß╗úc chß╗ìn hoß║╖c to├án bß╗Ö s├án
             var initialFloors = _preSelectedFloors.Any() ? _preSelectedFloors : _availableFloors;
             _panelManager.InitializeFromFloors(_doc, initialFloors);
             RefreshGridPanels();
@@ -118,7 +118,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "🧱 K-TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
+            Text = "KHIM TOOLS ΓÇö Bß╗æ tr├¡ Th├⌐p S├án theo Panel (Slab Rebar v3.0)";
             Width = 1080;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -128,28 +128,28 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Multi-Panel Slab Detailing Engine",
+                "KHIM TOOLS ΓÇö Multi-Panel Slab Detailing Engine",
                 "Panel System, Bottom/Top Mesh, Support Hats, Distribution Bars & Spacers",
                 "v3.0 Pro");
             Controls.Add(header);
 
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 58, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "🌐 Language:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 16 };
-            _cmbLanguage.Items.Add("🇻🇳 Tiếng Việt");
-            _cmbLanguage.Items.Add("🇬🇧 English");
+            _cmbLanguage.Items.Add("Tiß║┐ng Viß╗çt");
+            _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnAssignData = new Button { Text = "💾 Gán Thông Số", Width = 135, Height = 36, Top = 11, Left = 620 };
+            _btnAssignData = new Button { Text = "≡ƒÆ╛ G├ín Th├┤ng Sß╗æ", Width = 135, Height = 36, Top = 11, Left = 620 };
             KhimUiStyle.ApplySecondaryButton(_btnAssignData);
             _btnAssignData.Click += BtnAssignData_Click;
 
-            _btnCreateRebar = new Button { Text = "⚡ Tạo Thép Sàn", Width = 140, Height = 36, Top = 11, Left = 765 };
+            _btnCreateRebar = new Button { Text = "Tß║ío Th├⌐p S├án", Width = 140, Height = 36, Top = 11, Left = 765 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
             _btnCreateRebar.Click += BtnCreateRebar_Click;
 
-            _btnClose = new Button { Text = "Đóng", Width = 90, Height = 36, Top = 11, Left = 915 };
+            _btnClose = new Button { Text = "─É├│ng", Width = 90, Height = 36, Top = 11, Left = 915 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
 
@@ -163,37 +163,37 @@ namespace KhimTools.RebarTool.Forms
             // 2. Main Content Split (Left: Tabs 580px, Right: Panel DataGridView)
             var pnlMain = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 65, 15, 5) };
 
-            // ── LEFT: TabControl (Thông số cốt thép)
+            // ΓöÇΓöÇ LEFT: TabControl (Th├┤ng sß╗æ cß╗æt th├⌐p)
             var tabControl = new TabControl { Left = 15, Top = 70, Width = 560, Height = 525, Font = new Font("Segoe UI", 9F) };
 
-            // TAB 1: 🔽 Lớp Dưới (Bottom Layer)
-            var tabBottom = new TabPage("1️⃣ Lưới Đáy") { BackColor = KhimUiStyle.FormBg };
+            // TAB 1: ≡ƒö╜ Lß╗¢p D╞░ß╗¢i (Bottom Layer)
+            var tabBottom = new TabPage("L╞░ß╗¢i ─É├íy") { BackColor = KhimUiStyle.FormBg };
             BuildTabBottom(tabBottom);
             tabControl.TabPages.Add(tabBottom);
 
-            // TAB 2: 🔼 Lớp Trên (Top Layer Full)
-            var tabTop = new TabPage("2️⃣ Lưới Trên") { BackColor = KhimUiStyle.FormBg };
+            // TAB 2: ≡ƒö╝ Lß╗¢p Tr├¬n (Top Layer Full)
+            var tabTop = new TabPage("L╞░ß╗¢i Tr├¬n") { BackColor = KhimUiStyle.FormBg };
             BuildTabTop(tabTop);
             tabControl.TabPages.Add(tabTop);
 
-            // TAB 3: 🎓 Mũ Gối & Thép Phân Bố (Hat & Top Dist)
-            var tabHat = new TabPage("3️⃣ Mũ Gối & Phân Bố") { BackColor = KhimUiStyle.FormBg };
+            // TAB 3: ≡ƒÄô M┼⌐ Gß╗æi & Th├⌐p Ph├ón Bß╗æ (Hat & Top Dist)
+            var tabHat = new TabPage("M┼⌐ Gß╗æi & Ph├ón Bß╗æ") { BackColor = KhimUiStyle.FormBg };
             BuildTabHat(tabHat);
             tabControl.TabPages.Add(tabHat);
 
-            // TAB 4: 🪑 Spacer & Neo Cạnh (Spacer & Anchors)
-            var tabAccessories = new TabPage("4️⃣ Spacer & Neo Cạnh") { BackColor = KhimUiStyle.FormBg };
+            // TAB 4: ≡ƒ¬æ Spacer & Neo Cß║ính (Spacer & Anchors)
+            var tabAccessories = new TabPage("Spacer & Neo Cß║ính") { BackColor = KhimUiStyle.FormBg };
             BuildTabAccessories(tabAccessories);
             tabControl.TabPages.Add(tabAccessories);
 
-            // TAB 5: 📋 Tiêu Chuẩn & Template
-            var tabDesign = new TabPage("5️⃣ Tiêu Chuẩn & Mẫu") { BackColor = KhimUiStyle.FormBg };
+            // TAB 5: Ti├¬u Chuß║⌐n & Template
+            var tabDesign = new TabPage("Ti├¬u Chuß║⌐n & Mß║½u") { BackColor = KhimUiStyle.FormBg };
             BuildTabDesign(tabDesign);
             tabControl.TabPages.Add(tabDesign);
 
             pnlMain.Controls.Add(tabControl);
 
-            // ── RIGHT: Panel List DataGridView (460px)
+            // ΓöÇΓöÇ RIGHT: Panel List DataGridView (460px)
             var pnlRight = new Panel { Left = 585, Top = 70, Width = 465, Height = 525 };
             BuildPanelGridSection(pnlRight);
             pnlMain.Controls.Add(pnlRight);
@@ -203,26 +203,26 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildTabBottom(TabPage page)
         {
-            var grp = new GroupBox { Text = "Bố Trí Thép Lưới Đáy (Bottom Layer)", Left = 15, Top = 15, Width = 525, Height = 250 };
+            var grp = new GroupBox { Text = "Bß╗æ Tr├¡ Th├⌐p L╞░ß╗¢i ─É├íy (Bottom Layer)", Left = 15, Top = 15, Width = 525, Height = 250 };
             KhimUiStyle.ApplyCardStyle(grp);
 
-            _chkBotDraw = new CheckBox { Text = "Bật tạo thép lưới đáy (Draw Bottom)", Left = 20, Top = 30, Width = 260, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _chkBotInvert = new CheckBox { Text = "Đảo phương chịu lực (Invert Layer: Y nằm dưới X)", Left = 20, Top = 60, Width = 360, Checked = false };
+            _chkBotDraw = new CheckBox { Text = "Bß║¡t tß║ío th├⌐p l╞░ß╗¢i ─æ├íy (Draw Bottom)", Left = 20, Top = 30, Width = 260, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _chkBotInvert = new CheckBox { Text = "─Éß║úo ph╞░╞íng chß╗ïu lß╗▒c (Invert Layer: Y nß║▒m d╞░ß╗¢i X)", Left = 20, Top = 60, Width = 360, Checked = false };
 
-            var grpX = new GroupBox { Text = "Phương X", Left = 20, Top = 95, Width = 235, Height = 135 };
-            var lblDiaX = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpX = new GroupBox { Text = "Ph╞░╞íng X", Left = 20, Top = 95, Width = 235, Height = 135 };
+            var lblDiaX = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbBotXDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpX = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpX = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numBotXSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpX.Controls.Add(lblDiaX);
             grpX.Controls.Add(_cmbBotXDia);
             grpX.Controls.Add(lblSpX);
             grpX.Controls.Add(_numBotXSpacing);
 
-            var grpY = new GroupBox { Text = "Phương Y", Left = 270, Top = 95, Width = 235, Height = 135 };
-            var lblDiaY = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpY = new GroupBox { Text = "Ph╞░╞íng Y", Left = 270, Top = 95, Width = 235, Height = 135 };
+            var lblDiaY = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbBotYDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpY = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpY = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numBotYSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpY.Controls.Add(lblDiaY);
             grpY.Controls.Add(_cmbBotYDia);
@@ -238,26 +238,26 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildTabTop(TabPage page)
         {
-            var grp = new GroupBox { Text = "Bố Trí Thép Lưới Trên Full Nhịp (Top Layer Mesh)", Left = 15, Top = 15, Width = 525, Height = 250 };
+            var grp = new GroupBox { Text = "Bß╗æ Tr├¡ Th├⌐p L╞░ß╗¢i Tr├¬n Full Nhß╗ïp (Top Layer Mesh)", Left = 15, Top = 15, Width = 525, Height = 250 };
             KhimUiStyle.ApplyCardStyle(grp);
 
-            _chkTopDraw = new CheckBox { Text = "Bật tạo thép lưới trên chạy full nhịp (Draw Top Mesh)", Left = 20, Top = 30, Width = 380, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _chkTopInvert = new CheckBox { Text = "Đảo phương chịu lực (Invert Layer: Y nằm ngoài X)", Left = 20, Top = 60, Width = 360, Checked = false };
+            _chkTopDraw = new CheckBox { Text = "Bß║¡t tß║ío th├⌐p l╞░ß╗¢i tr├¬n chß║íy full nhß╗ïp (Draw Top Mesh)", Left = 20, Top = 30, Width = 380, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _chkTopInvert = new CheckBox { Text = "─Éß║úo ph╞░╞íng chß╗ïu lß╗▒c (Invert Layer: Y nß║▒m ngo├ái X)", Left = 20, Top = 60, Width = 360, Checked = false };
 
-            var grpX = new GroupBox { Text = "Phương X", Left = 20, Top = 95, Width = 235, Height = 135 };
-            var lblDiaX = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpX = new GroupBox { Text = "Ph╞░╞íng X", Left = 20, Top = 95, Width = 235, Height = 135 };
+            var lblDiaX = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbTopXDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpX = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpX = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numTopXSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpX.Controls.Add(lblDiaX);
             grpX.Controls.Add(_cmbTopXDia);
             grpX.Controls.Add(lblSpX);
             grpX.Controls.Add(_numTopXSpacing);
 
-            var grpY = new GroupBox { Text = "Phương Y", Left = 270, Top = 95, Width = 235, Height = 135 };
-            var lblDiaY = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpY = new GroupBox { Text = "Ph╞░╞íng Y", Left = 270, Top = 95, Width = 235, Height = 135 };
+            var lblDiaY = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbTopYDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpY = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpY = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numTopYSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpY.Controls.Add(lblDiaY);
             grpY.Controls.Add(_cmbTopYDia);
@@ -273,34 +273,34 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildTabHat(TabPage page)
         {
-            var grpHat = new GroupBox { Text = "Thép Mũ Gối (Hat / Reinforce)", Left = 15, Top = 10, Width = 525, Height = 280 };
+            var grpHat = new GroupBox { Text = "Th├⌐p M┼⌐ Gß╗æi (Hat / Reinforce)", Left = 15, Top = 10, Width = 525, Height = 280 };
             KhimUiStyle.ApplyCardStyle(grpHat);
 
-            _chkHatDraw = new CheckBox { Text = "Bật bố trí thép mũ gối (Draw Support Hats)", Left = 20, Top = 25, Width = 300, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _chkHatFullSpan = new CheckBox { Text = "Chạy suốt nhịp (Full Span)", Left = 330, Top = 25, Width = 180, Checked = false };
+            _chkHatDraw = new CheckBox { Text = "Bß║¡t bß╗æ tr├¡ th├⌐p m┼⌐ gß╗æi (Draw Support Hats)", Left = 20, Top = 25, Width = 300, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _chkHatFullSpan = new CheckBox { Text = "Chß║íy suß╗æt nhß╗ïp (Full Span)", Left = 330, Top = 25, Width = 180, Checked = false };
 
-            var lblFac = new Label { Text = "Tỷ lệ vươn (Hat Fac):", Left = 20, Top = 58, AutoSize = true };
+            var lblFac = new Label { Text = "Tß╗╖ lß╗ç v╞░╞ín (Hat Fac):", Left = 20, Top = 58, AutoSize = true };
             _cmbHatFactor = new ComboBox { Left = 160, Top = 55, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbHatFactor.Items.AddRange(new object[] { "L/4", "L/3", "L/5" });
             _cmbHatFactor.SelectedIndex = 0;
 
-            _chkHatHookDown = new CheckBox { Text = "Bẻ móc mép biên:", Left = 270, Top = 57, Width = 130, Checked = true };
+            _chkHatHookDown = new CheckBox { Text = "Bß║╗ m├│c m├⌐p bi├¬n:", Left = 270, Top = 57, Width = 130, Checked = true };
             _numHatHookDownLen = new NumericUpDown { Left = 405, Top = 55, Width = 80, Minimum = 50, Maximum = 300, Value = 100, Increment = 10 };
 
-            var grpX = new GroupBox { Text = "Mũ Gối Phương X", Left = 20, Top = 90, Width = 235, Height = 120 };
-            var lblDiaX = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpX = new GroupBox { Text = "M┼⌐ Gß╗æi Ph╞░╞íng X", Left = 20, Top = 90, Width = 235, Height = 120 };
+            var lblDiaX = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbHatXDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpX = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpX = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numHatXSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpX.Controls.Add(lblDiaX);
             grpX.Controls.Add(_cmbHatXDia);
             grpX.Controls.Add(lblSpX);
             grpX.Controls.Add(_numHatXSpacing);
 
-            var grpY = new GroupBox { Text = "Mũ Gối Phương Y", Left = 270, Top = 90, Width = 235, Height = 120 };
-            var lblDiaY = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
+            var grpY = new GroupBox { Text = "M┼⌐ Gß╗æi Ph╞░╞íng Y", Left = 270, Top = 90, Width = 235, Height = 120 };
+            var lblDiaY = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
             _cmbHatYDia = new ComboBox { Left = 110, Top = 30, Width = 105, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblSpY = new Label { Text = "Khoảng rải (s):", Left = 15, Top = 75, AutoSize = true };
+            var lblSpY = new Label { Text = "Khoß║úng rß║úi (s):", Left = 15, Top = 75, AutoSize = true };
             _numHatYSpacing = new NumericUpDown { Left = 110, Top = 72, Width = 105, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
             grpY.Controls.Add(lblDiaY);
             grpY.Controls.Add(_cmbHatYDia);
@@ -318,12 +318,12 @@ namespace KhimTools.RebarTool.Forms
             page.Controls.Add(grpHat);
 
             // Group Top Distribution Rebar
-            var grpDist = new GroupBox { Text = "Thép Phân Bố Vuông Góc Mũ Gối (Top Distribution Rebar)", Left = 15, Top = 300, Width = 525, Height = 110 };
+            var grpDist = new GroupBox { Text = "Th├⌐p Ph├ón Bß╗æ Vu├┤ng G├│c M┼⌐ Gß╗æi (Top Distribution Rebar)", Left = 15, Top = 300, Width = 525, Height = 110 };
             KhimUiStyle.ApplyCardStyle(grpDist);
-            _chkDistDraw = new CheckBox { Text = "Bật bố trí thép phân bố mũ gối", Left = 20, Top = 30, Width = 250, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            var lblDistDia = new Label { Text = "Đường kính:", Left = 20, Top = 65, AutoSize = true };
+            _chkDistDraw = new CheckBox { Text = "Bß║¡t bß╗æ tr├¡ th├⌐p ph├ón bß╗æ m┼⌐ gß╗æi", Left = 20, Top = 30, Width = 250, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblDistDia = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 20, Top = 65, AutoSize = true };
             _cmbDistDia = new ComboBox { Left = 115, Top = 60, Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblDistSp = new Label { Text = "Khoảng rải (s):", Left = 250, Top = 65, AutoSize = true };
+            var lblDistSp = new Label { Text = "Khoß║úng rß║úi (s):", Left = 250, Top = 65, AutoSize = true };
             _numDistSpacing = new NumericUpDown { Left = 350, Top = 62, Width = 100, Minimum = 50, Maximum = 400, Value = 200, Increment = 10 };
 
             grpDist.Controls.Add(_chkDistDraw);
@@ -337,17 +337,17 @@ namespace KhimTools.RebarTool.Forms
         private void BuildTabAccessories(TabPage page)
         {
             // Group Spacer
-            var grpSpacer = new GroupBox { Text = "Con Kê / Thép Chân Chó (Spacer / High Chair)", Left = 15, Top = 10, Width = 525, Height = 150 };
+            var grpSpacer = new GroupBox { Text = "Con K├¬ / Th├⌐p Ch├ón Ch├│ (Spacer / High Chair)", Left = 15, Top = 10, Width = 525, Height = 150 };
             KhimUiStyle.ApplyCardStyle(grpSpacer);
-            _chkSpacerDraw = new CheckBox { Text = "Bật bố trí con kê / thép chân chó", Left = 20, Top = 25, Width = 280, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            var lblSpDia = new Label { Text = "Đường kính:", Left = 20, Top = 60, AutoSize = true };
+            _chkSpacerDraw = new CheckBox { Text = "Bß║¡t bß╗æ tr├¡ con k├¬ / th├⌐p ch├ón ch├│", Left = 20, Top = 25, Width = 280, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var lblSpDia = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 20, Top = 60, AutoSize = true };
             _cmbSpacerDia = new ComboBox { Left = 110, Top = 55, Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblHookLen = new Label { Text = "Chiều dài móc chân (mm):", Left = 240, Top = 60, AutoSize = true };
+            var lblHookLen = new Label { Text = "Chiß╗üu d├ái m├│c ch├ón (mm):", Left = 240, Top = 60, AutoSize = true };
             _numSpacerHookLen = new NumericUpDown { Left = 400, Top = 57, Width = 90, Minimum = 50, Maximum = 300, Value = 100, Increment = 10 };
 
-            var lblStepX = new Label { Text = "Bước X (mm):", Left = 20, Top = 100, AutoSize = true };
+            var lblStepX = new Label { Text = "B╞░ß╗¢c X (mm):", Left = 20, Top = 100, AutoSize = true };
             _numSpacerStepX = new NumericUpDown { Left = 110, Top = 97, Width = 100, Minimum = 300, Maximum = 2000, Value = 800, Increment = 50 };
-            var lblStepY = new Label { Text = "Bước Y (mm):", Left = 240, Top = 100, AutoSize = true };
+            var lblStepY = new Label { Text = "B╞░ß╗¢c Y (mm):", Left = 240, Top = 100, AutoSize = true };
             _numSpacerStepY = new NumericUpDown { Left = 400, Top = 97, Width = 90, Minimum = 300, Maximum = 2000, Value = 800, Increment = 50 };
 
             grpSpacer.Controls.Add(_chkSpacerDraw);
@@ -362,19 +362,19 @@ namespace KhimTools.RebarTool.Forms
             page.Controls.Add(grpSpacer);
 
             // Group Anchors & Tolerances
-            var grpAnchor = new GroupBox { Text = "Chiều Dài Neo & Dung Sai Nhịp", Left = 15, Top = 170, Width = 525, Height = 170 };
+            var grpAnchor = new GroupBox { Text = "Chiß╗üu D├ái Neo & Dung Sai Nhß╗ïp", Left = 15, Top = 170, Width = 525, Height = 170 };
             KhimUiStyle.ApplyCardStyle(grpAnchor);
 
-            var lblBeamA = new Label { Text = "Beam Anchor A (mm) [Neo Dầm]:", Left = 20, Top = 35, AutoSize = true };
+            var lblBeamA = new Label { Text = "Beam Anchor A (mm) [Neo Dß║ºm]:", Left = 20, Top = 35, AutoSize = true };
             _numBeamAnchorA = new NumericUpDown { Left = 250, Top = 30, Width = 100, Minimum = 100, Maximum = 1000, Value = 250, Increment = 10 };
 
-            var lblSlabB = new Label { Text = "Slab Anchor B (mm) [Neo Giáp Sàn]:", Left = 20, Top = 70, AutoSize = true };
+            var lblSlabB = new Label { Text = "Slab Anchor B (mm) [Neo Gi├íp S├án]:", Left = 20, Top = 70, AutoSize = true };
             _numSlabAnchorB = new NumericUpDown { Left = 250, Top = 67, Width = 100, Minimum = 100, Maximum = 1000, Value = 300, Increment = 10 };
 
-            var lblRound = new Label { Text = "Làm tròn chiều dài thép (mm):", Left = 20, Top = 110, AutoSize = true };
+            var lblRound = new Label { Text = "L├ám tr├▓n chiß╗üu d├ái th├⌐p (mm):", Left = 20, Top = 110, AutoSize = true };
             _numRounding = new NumericUpDown { Left = 250, Top = 107, Width = 100, Minimum = 1, Maximum = 100, Value = 10, Increment = 5 };
 
-            var lblMinSpan = new Label { Text = "Min Span ngưỡng chạy suốt (mm):", Left = 20, Top = 140, AutoSize = true };
+            var lblMinSpan = new Label { Text = "Min Span ng╞░ß╗íng chß║íy suß╗æt (mm):", Left = 20, Top = 140, AutoSize = true };
             _numMinSpan = new NumericUpDown { Left = 250, Top = 137, Width = 100, Minimum = 500, Maximum = 3000, Value = 1200, Increment = 50 };
 
             grpAnchor.Controls.Add(lblBeamA);
@@ -390,18 +390,18 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildTabDesign(TabPage page)
         {
-            var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Vật Liệu", Left = 15, Top = 15, Width = 525, Height = 130 };
+            var grpCode = new GroupBox { Text = "Ti├¬u Chuß║⌐n Thiß║┐t Kß║┐ & Vß║¡t Liß╗çu", Left = 15, Top = 15, Width = 525, Height = 130 };
             KhimUiStyle.ApplyCardStyle(grpCode);
-            var lblCode = new Label { Text = "Tiêu chuẩn neo:", Left = 15, Top = 35, AutoSize = true };
+            var lblCode = new Label { Text = "Ti├¬u chuß║⌐n neo:", Left = 15, Top = 35, AutoSize = true };
             _cmbDesignCode = new ComboBox { Left = 130, Top = 30, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbDesignCode.Items.Add("TCVN 5574:2018");
             _cmbDesignCode.Items.Add("Eurocode 2");
             _cmbDesignCode.SelectedIndex = 0;
 
-            var lblConc = new Label { Text = "Mác bê tông:", Left = 15, Top = 75, AutoSize = true };
+            var lblConc = new Label { Text = "M├íc b├¬ t├┤ng:", Left = 15, Top = 75, AutoSize = true };
             _cmbConcreteGrade = new ComboBox { Left = 130, Top = 70, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            var lblSteel = new Label { Text = "Mác thép:", Left = 310, Top = 75, AutoSize = true };
+            var lblSteel = new Label { Text = "M├íc th├⌐p:", Left = 310, Top = 75, AutoSize = true };
             _cmbSteelGrade = new ComboBox { Left = 380, Top = 70, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
 
             _cmbDesignCode.SelectedIndexChanged += (s, e) => UpdateGradeCombos();
@@ -414,12 +414,12 @@ namespace KhimTools.RebarTool.Forms
             grpCode.Controls.Add(lblSteel);
             grpCode.Controls.Add(_cmbSteelGrade);
 
-            var grpTpl = new GroupBox { Text = "Quản Lý Mẫu Thiết Lập (Template JSON)", Left = 15, Top = 160, Width = 525, Height = 100 };
+            var grpTpl = new GroupBox { Text = "Quß║ún L├╜ Mß║½u Thiß║┐t Lß║¡p (Template JSON)", Left = 15, Top = 160, Width = 525, Height = 100 };
             KhimUiStyle.ApplyCardStyle(grpTpl);
             _cmbTemplates = new ComboBox { Left = 15, Top = 35, Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
-            _btnSaveTemplate = new Button { Text = "💾 Lưu Mẫu", Left = 290, Top = 33, Width = 100, Height = 32 };
+            _btnSaveTemplate = new Button { Text = "≡ƒÆ╛ L╞░u Mß║½u", Left = 290, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
-            _btnLoadTemplate = new Button { Text = "📂 Nạp Mẫu", Left = 400, Top = 33, Width = 100, Height = 32 };
+            _btnLoadTemplate = new Button { Text = "≡ƒôé Nß║íp Mß║½u", Left = 400, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnLoadTemplate);
 
             grpTpl.Controls.Add(_cmbTemplates);
@@ -432,22 +432,22 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildPanelGridSection(Panel pnl)
         {
-            var lblTitle = new Label { Text = "📋 DANH SÁCH PANEL SÀN", Top = 5, Left = 5, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59) };
+            var lblTitle = new Label { Text = "DANH S├üCH PANEL S├ÇN", Top = 5, Left = 5, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59) };
 
             var pnlToolBar = new Panel { Top = 30, Left = 0, Width = 465, Height = 32 };
-            _btnAutoMerge = new Button { Text = "⚡ Auto Merge", Left = 0, Top = 0, Width = 110, Height = 30 };
+            _btnAutoMerge = new Button { Text = "Auto Merge", Left = 0, Top = 0, Width = 110, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnAutoMerge);
             _btnAutoMerge.Click += (s, e) => { _panelManager.AutoMergeAdjacent(); RefreshGridPanels(); };
 
-            _btnMergeSelected = new Button { Text = "🔗 Merge", Left = 115, Top = 0, Width = 90, Height = 30 };
+            _btnMergeSelected = new Button { Text = "Merge", Left = 115, Top = 0, Width = 90, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnMergeSelected);
             _btnMergeSelected.Click += BtnMergeSelected_Click;
 
-            _btnDeletePanel = new Button { Text = "🗑️ Xóa", Left = 210, Top = 0, Width = 80, Height = 30 };
+            _btnDeletePanel = new Button { Text = "X├│a", Left = 210, Top = 0, Width = 80, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnDeletePanel);
             _btnDeletePanel.Click += BtnDeletePanel_Click;
 
-            _btnPickEdge = new Button { Text = "🔍 Pick Edge", Left = 295, Top = 0, Width = 100, Height = 30 };
+            _btnPickEdge = new Button { Text = "≡ƒöì Pick Edge", Left = 295, Top = 0, Width = 100, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnPickEdge);
             _btnPickEdge.Click += (s, e) => OpenEdgePickerForSelectedPanel();
 
@@ -472,24 +472,24 @@ namespace KhimTools.RebarTool.Forms
             };
             _gridPanels.CellDoubleClick += (s, e) => OpenEdgePickerForSelectedPanel();
 
-            var colCheck = new DataGridViewCheckBoxColumn { HeaderText = "✓", Width = 35, DataPropertyName = "IsSelected", Name = "colCheck" };
+            var colCheck = new DataGridViewCheckBoxColumn { HeaderText = "Γ£ô", Width = 35, DataPropertyName = "IsSelected", Name = "colCheck" };
             var colId = new DataGridViewTextBoxColumn { HeaderText = "Panel", Width = 55, DataPropertyName = "PanelId", ReadOnly = true };
-            var colLevel = new DataGridViewTextBoxColumn { HeaderText = "Tầng", Width = 90, DataPropertyName = "LevelName", ReadOnly = true };
-            var colSize = new DataGridViewTextBoxColumn { HeaderText = "Kích thước (WxL)", Width = 140, ReadOnly = true };
-            var colThick = new DataGridViewTextBoxColumn { HeaderText = "Dày (mm)", Width = 80, DataPropertyName = "ThicknessMm", ReadOnly = true };
+            var colLevel = new DataGridViewTextBoxColumn { HeaderText = "Tß║ºng", Width = 90, DataPropertyName = "LevelName", ReadOnly = true };
+            var colSize = new DataGridViewTextBoxColumn { HeaderText = "K├¡ch th╞░ß╗¢c (WxL)", Width = 140, ReadOnly = true };
+            var colThick = new DataGridViewTextBoxColumn { HeaderText = "D├áy (mm)", Width = 80, DataPropertyName = "ThicknessMm", ReadOnly = true };
 
             _gridPanels.Columns.AddRange(colCheck, colId, colLevel, colSize, colThick);
 
             var pnlSelection = new Panel { Top = 488, Left = 0, Width = 465, Height = 35 };
-            _btnSelectAll = new Button { Text = "Chọn tất cả", Left = 0, Top = 2, Width = 90, Height = 28 };
+            _btnSelectAll = new Button { Text = "Chß╗ìn tß║Ñt cß║ú", Left = 0, Top = 2, Width = 90, Height = 28 };
             KhimUiStyle.ApplySecondaryButton(_btnSelectAll);
             _btnSelectAll.Click += (s, e) => SetAllSelection(true);
 
-            _btnSelectNone = new Button { Text = "Bỏ chọn", Left = 95, Top = 2, Width = 80, Height = 28 };
+            _btnSelectNone = new Button { Text = "Bß╗Å chß╗ìn", Left = 95, Top = 2, Width = 80, Height = 28 };
             KhimUiStyle.ApplySecondaryButton(_btnSelectNone);
             _btnSelectNone.Click += (s, e) => SetAllSelection(false);
 
-            _lblPanelCount = new Label { Text = "Đã chọn: 0 / 0 panels", Left = 185, Top = 8, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
+            _lblPanelCount = new Label { Text = "─É├ú chß╗ìn: 0 / 0 panels", Left = 185, Top = 8, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
 
             pnlSelection.Controls.Add(_btnSelectAll);
             pnlSelection.Controls.Add(_btnSelectNone);
@@ -519,7 +519,7 @@ namespace KhimTools.RebarTool.Forms
                 if (p.IsSelected) selectedCount++;
             }
 
-            _lblPanelCount.Text = $"Đã chọn: {selectedCount} / {_panelManager.Panels.Count} panels";
+            _lblPanelCount.Text = $"─É├ú chß╗ìn: {selectedCount} / {_panelManager.Panels.Count} panels";
         }
 
         private void SetAllSelection(bool select)
@@ -542,14 +542,14 @@ namespace KhimTools.RebarTool.Forms
 
             if (selectedIds.Count < 2)
             {
-                KhimDialogHelper.ShowWarning("Vui lòng chọn ít nhất 2 Panel để thực hiện gộp (Merge).");
+                KhimDialogHelper.ShowWarning("Vui l├▓ng chß╗ìn ├¡t nhß║Ñt 2 Panel ─æß╗â thß╗▒c hiß╗çn gß╗Öp (Merge).");
                 return;
             }
 
             if (_panelManager.MergeSelectedPanels(selectedIds))
             {
                 RefreshGridPanels();
-                KhimDialogHelper.ShowInfo($"Đã gộp thành công {selectedIds.Count} panels thành 1 panel liên tục.");
+                KhimDialogHelper.ShowInfo($"─É├ú gß╗Öp th├ánh c├┤ng {selectedIds.Count} panels th├ánh 1 panel li├¬n tß╗Ñc.");
             }
         }
 
@@ -567,7 +567,7 @@ namespace KhimTools.RebarTool.Forms
 
             if (!selectedIds.Any())
             {
-                KhimDialogHelper.ShowWarning("Vui lòng chọn ít nhất 1 Panel để xóa khỏi danh sách.");
+                KhimDialogHelper.ShowWarning("Vui l├▓ng chß╗ìn ├¡t nhß║Ñt 1 Panel ─æß╗â x├│a khß╗Åi danh s├ích.");
                 return;
             }
 
@@ -596,7 +596,7 @@ namespace KhimTools.RebarTool.Forms
             }
             else
             {
-                KhimDialogHelper.ShowWarning("Vui lòng chọn 1 Panel trong bảng để cấu hình từng cạnh.");
+                KhimDialogHelper.ShowWarning("Vui l├▓ng chß╗ìn 1 Panel trong bß║úng ─æß╗â cß║Ñu h├¼nh tß╗½ng cß║ính.");
             }
         }
 
@@ -660,12 +660,12 @@ namespace KhimTools.RebarTool.Forms
                 }
             }
 
-            KhimDialogHelper.ShowInfo($"Đã gán thành công thông số cấu hình cốt thép cho {assigned} panel.");
+            KhimDialogHelper.ShowInfo($"─É├ú g├ín th├ánh c├┤ng th├┤ng sß╗æ cß║Ñu h├¼nh cß╗æt th├⌐p cho {assigned} panel.");
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
         {
-            // Đồng bộ trạng thái chọn từ DataGridView trước
+            // ─Éß╗ông bß╗Ö trß║íng th├íi chß╗ìn tß╗½ DataGridView tr╞░ß╗¢c
             for (int i = 0; i < _gridPanels.Rows.Count; i++)
             {
                 if (i < _panelManager.Panels.Count)
@@ -677,17 +677,17 @@ namespace KhimTools.RebarTool.Forms
             var selectedPanels = _panelManager.Panels.Where(p => p.IsSelected).ToList();
             if (!selectedPanels.Any())
             {
-                KhimDialogHelper.ShowWarning("Vui lòng chọn ít nhất 1 Panel sàn để tạo thép.");
+                KhimDialogHelper.ShowWarning("Vui l├▓ng chß╗ìn ├¡t nhß║Ñt 1 Panel s├án ─æß╗â tß║ío th├⌐p.");
                 return;
             }
 
-            // Tự động gán settings hiện tại trước khi tạo
+            // Tß╗▒ ─æß╗Öng g├ín settings hiß╗çn tß║íi tr╞░ß╗¢c khi tß║ío
             BtnAssignData_Click(sender, e);
 
             var report = new RebarGenerationReport();
             var generator = new SlabRebarGenerator(_doc);
 
-            using (var trans = new Transaction(_doc, "K-TOOLS — Tạo Thép Sàn Theo Panel"))
+            using (var trans = new Transaction(_doc, "KHIM TOOLS ΓÇö Tß║ío Th├⌐p S├án Theo Panel"))
             {
                 trans.Start();
                 FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
@@ -695,7 +695,7 @@ namespace KhimTools.RebarTool.Forms
                 trans.SetFailureHandlingOptions(failOptions);
                 try
                 {
-                    // Lặp qua từng panel và sinh thép theo cấu hình riêng của panel đó
+                    // Lß║╖p qua tß╗½ng panel v├á sinh th├⌐p theo cß║Ñu h├¼nh ri├¬ng cß╗ºa panel ─æ├│
                     foreach (var panel in selectedPanels)
                     {
                         generator.GeneratePanel(panel, report);
@@ -706,12 +706,12 @@ namespace KhimTools.RebarTool.Forms
                 catch (Exception ex)
                 {
                     trans.RollBack();
-                    KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
+                    KhimDialogHelper.ShowError($"Lß╗ùi khi tß║ío th├⌐p s├án: {ex.Message}");
                     return;
                 }
             }
 
-            KhimDialogHelper.ShowRebarGenerationReport(report, "Tạo Thép Sàn (Slab Rebar Panel System)", selectedPanels.Count);
+            KhimDialogHelper.ShowRebarGenerationReport(report, "Tß║ío Th├⌐p S├án (Slab Rebar Panel System)", selectedPanels.Count);
         }
 
         private void PopulateBarCombos()

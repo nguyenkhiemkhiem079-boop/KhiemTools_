@@ -51,7 +51,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "⚙️ K-TOOLS — Project Concrete Cover Setup";
+            Text = "KHIM TOOLS ΓÇö Project Concrete Cover Setup";
             Width = 600;
             Height = 490;
             StartPosition = FormStartPosition.CenterScreen;
@@ -60,7 +60,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Project Cover Setup",
+                "KHIM TOOLS ΓÇö Project Cover Setup",
                 "Synchronize Concrete Cover Settings across All Project Structural Categories",
                 "v2.5 Pro");
             Controls.Add(header);
@@ -70,7 +70,7 @@ namespace KhimTools.RebarTool.Forms
             var headerPanel = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.FromArgb(240, 244, 250), Padding = new Padding(12) };
             var lblTitle = new Label
             {
-                Text = "Cấu Hình Lớp Bê Tông Bảo Vệ (Concrete Cover) Toàn Dự Án",
+                Text = "Cß║Ñu H├¼nh Lß╗¢p B├¬ T├┤ng Bß║úo Vß╗ç (Concrete Cover) To├án Dß╗▒ ├ün",
                 Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(20, 40, 80),
                 Dock = DockStyle.Top,
@@ -78,7 +78,7 @@ namespace KhimTools.RebarTool.Forms
             };
             var lblSub = new Label
             {
-                Text = "Chọn tham số Cover cần gán đồng bộ cho từng loại cấu kiện trong mô hình Revit:",
+                Text = "Chß╗ìn tham sß╗æ Cover cß║ºn g├ín ─æß╗ông bß╗Ö cho tß╗½ng loß║íi cß║Ñu kiß╗çn trong m├┤ h├¼nh Revit:",
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
                 ForeColor = Color.DimGray,
                 Dock = DockStyle.Top,
@@ -92,7 +92,7 @@ namespace KhimTools.RebarTool.Forms
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             _btnApply = new Button
             {
-                Text = "⚡ Áp Dụng Cho Dự Án",
+                Text = "├üp Dß╗Ñng Cho Dß╗▒ ├ün",
                 Width = 160,
                 Height = 36,
                 Top = 10,
@@ -105,7 +105,7 @@ namespace KhimTools.RebarTool.Forms
 
             _btnClose = new Button
             {
-                Text = "Đóng",
+                Text = "─É├│ng",
                 Width = 90,
                 Height = 36,
                 Top = 10,
@@ -127,36 +127,36 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(bottomPanel);
 
             // Center Form Controls
-            var grpCategory = new GroupBox { Text = "Bảng Cài Đặt Cover Theo Loại Cấu Kiện", Dock = DockStyle.Fill, Padding = new Padding(12) };
+            var grpCategory = new GroupBox { Text = "Bß║úng C├ái ─Éß║╖t Cover Theo Loß║íi Cß║Ñu Kiß╗çn", Dock = DockStyle.Fill, Padding = new Padding(12) };
             var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, AutoScroll = true };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
 
             // Headers
-            table.Controls.Add(new Label { Text = "Loại Cấu Kiện", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
-            table.Controls.Add(new Label { Text = "Giá Trị Cover (mm)", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
-            table.Controls.Add(new Label { Text = "Cập Nhật", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Loß║íi Cß║Ñu Kiß╗çn", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Gi├í Trß╗ï Cover (mm)", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Cß║¡p Nhß║¡t", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
 
-            // 1. Cột
-            _chkColumns = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
+            // 1. Cß╗Öt
+            _chkColumns = new CheckBox { Text = "Thß╗▒c hiß╗çn", Checked = true, AutoSize = true };
             _numColumnCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90 };
-            AddRow(table, "⏹ Cột (Structural Columns)", _numColumnCover, _chkColumns);
+            AddRow(table, "ΓÅ╣ Cß╗Öt (Structural Columns)", _numColumnCover, _chkColumns);
 
-            // 2. Dầm
-            _chkBeams = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
+            // 2. Dß║ºm
+            _chkBeams = new CheckBox { Text = "Thß╗▒c hiß╗çn", Checked = true, AutoSize = true };
             _numBeamCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90 };
-            AddRow(table, "📏 Dầm (Structural Framing)", _numBeamCover, _chkBeams);
+            AddRow(table, "≡ƒôÅ Dß║ºm (Structural Framing)", _numBeamCover, _chkBeams);
 
-            // 3. Sàn
-            _chkSlabs = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
+            // 3. S├án
+            _chkSlabs = new CheckBox { Text = "Thß╗▒c hiß╗çn", Checked = true, AutoSize = true };
             _numSlabCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 15, Increment = 5, Width = 90 };
-            AddRow(table, "🔲 Sàn (Structural Floors)", _numSlabCover, _chkSlabs);
+            AddRow(table, "≡ƒö▓ S├án (Structural Floors)", _numSlabCover, _chkSlabs);
 
-            // 4. Móng
-            _chkFoundations = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
+            // 4. M├│ng
+            _chkFoundations = new CheckBox { Text = "Thß╗▒c hiß╗çn", Checked = true, AutoSize = true };
             _numFoundationCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 50, Increment = 5, Width = 90 };
-            AddRow(table, "📐 Móng (Structural Foundations)", _numFoundationCover, _chkFoundations);
+            AddRow(table, "M├│ng (Structural Foundations)", _numFoundationCover, _chkFoundations);
 
             grpCategory.Controls.Add(table);
             Controls.Add(grpCategory);
@@ -174,7 +174,7 @@ namespace KhimTools.RebarTool.Forms
         {
             try
             {
-                // Thử tìm cover mẫu của 1 cột trong model để set value ban đầu
+                // Thß╗¡ t├¼m cover mß║½u cß╗ºa 1 cß╗Öt trong model ─æß╗â set value ban ─æß║ºu
                 var col = new FilteredElementCollector(_doc).OfCategory(BuiltInCategory.OST_StructuralColumns).WhereElementIsNotElementType().FirstOrDefault();
                 if (col != null)
                 {
@@ -200,7 +200,7 @@ namespace KhimTools.RebarTool.Forms
                     var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numColumnCover.Value);
                     int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralColumns, ct);
                     totalApplied += n;
-                    resultSummary += $"• Cột (Structural Columns): {n} đối tượng -> Cover {(double)_numColumnCover.Value}mm\n";
+                    resultSummary += $"ΓÇó Cß╗Öt (Structural Columns): {n} ─æß╗æi t╞░ß╗úng -> Cover {(double)_numColumnCover.Value}mm\n";
                 }
 
                 if (_chkBeams.Checked)
@@ -208,7 +208,7 @@ namespace KhimTools.RebarTool.Forms
                     var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numBeamCover.Value);
                     int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFraming, ct);
                     totalApplied += n;
-                    resultSummary += $"• Dầm (Structural Framing): {n} đối tượng -> Cover {(double)_numBeamCover.Value}mm\n";
+                    resultSummary += $"ΓÇó Dß║ºm (Structural Framing): {n} ─æß╗æi t╞░ß╗úng -> Cover {(double)_numBeamCover.Value}mm\n";
                 }
 
                 if (_chkSlabs.Checked)
@@ -216,7 +216,7 @@ namespace KhimTools.RebarTool.Forms
                     var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numSlabCover.Value);
                     int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_Floors, ct);
                     totalApplied += n;
-                    resultSummary += $"• Sàn (Structural Floors): {n} đối tượng -> Cover {(double)_numSlabCover.Value}mm\n";
+                    resultSummary += $"ΓÇó S├án (Structural Floors): {n} ─æß╗æi t╞░ß╗úng -> Cover {(double)_numSlabCover.Value}mm\n";
                 }
 
                 if (_chkFoundations.Checked)
@@ -224,13 +224,13 @@ namespace KhimTools.RebarTool.Forms
                     var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numFoundationCover.Value);
                     int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFoundation, ct);
                     totalApplied += n;
-                    resultSummary += $"• Móng (Structural Foundations): {n} đối tượng -> Cover {(double)_numFoundationCover.Value}mm\n";
+                    resultSummary += $"ΓÇó M├│ng (Structural Foundations): {n} ─æß╗æi t╞░ß╗úng -> Cover {(double)_numFoundationCover.Value}mm\n";
                 }
 
                 tx.Commit();
 
-                MessageBox.Show(this, $"Đã cập nhật Lớp bê tông bảo vệ thành công cho {totalApplied} đối tượng trong dự án:\n\n" + resultSummary,
-                    "Hoàn thành Cấu hình Cover", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, $"─É├ú cß║¡p nhß║¡t Lß╗¢p b├¬ t├┤ng bß║úo vß╗ç th├ánh c├┤ng cho {totalApplied} ─æß╗æi t╞░ß╗úng trong dß╗▒ ├ín:\n\n" + resultSummary,
+                    "Ho├án th├ánh Cß║Ñu h├¼nh Cover", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
                 DialogResult = DialogResult.OK;
                 Close();
@@ -238,7 +238,7 @@ namespace KhimTools.RebarTool.Forms
             catch (Exception ex)
             {
                 tx.RollBack();
-                MessageBox.Show(this, "Lỗi khi cập nhật Cover cho dự án: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show(this, "Lß╗ùi khi cß║¡p nhß║¡t Cover cho dß╗▒ ├ín: " + ex.Message, "Lß╗ùi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

@@ -279,45 +279,70 @@ namespace KhimTools.Core
             return existingPanel ?? application.CreateRibbonPanel(tabName, panelName);
         }
 
-        private static BitmapImage LoadImage(string fileName)
+        private static BitmapImage LoadImage(string resourceOrFileName)
         {
-            if (string.IsNullOrEmpty(fileName)) return null;
+            if (string.IsNullOrEmpty(resourceOrFileName)) return null;
 
             try
             {
-                string assemblyName = Assembly.GetExecutingAssembly().GetName().Name;
-                var uri = new Uri($"pack://application:,,,/{assemblyName};component/Resources/{fileName}", UriKind.Absolute);
-                var bitmap = new BitmapImage();
-                bitmap.BeginInit();
-                bitmap.UriSource = uri;
-                bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                bitmap.EndInit();
-                return bitmap;
-            }
-            catch
-            {
-                try
+                var assembly = Assembly.GetExecutingAssembly();
+
+                // 1. Thử load từ Embedded Resource (manifest)
+                string resourceName = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(r => r.EndsWith(resourceOrFileName, StringComparison.OrdinalIgnoreCase));
+
+                if (resourceName != null)
                 {
-                    var assembly = Assembly.GetExecutingAssembly();
-                    string resourceName = assembly.GetManifestResourceNames()
-                        .FirstOrDefault(n => n.EndsWith("Resources." + fileName, StringComparison.OrdinalIgnoreCase));
-                    if (resourceName != null)
+                    using (Stream stream = assembly.GetManifestResourceStream(resourceName))
                     {
-                        using var stream = assembly.GetManifestResourceStream(resourceName);
                         if (stream != null)
                         {
-                            var bitmap = new BitmapImage();
-                            bitmap.BeginInit();
-                            bitmap.StreamSource = stream;
-                            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-                            bitmap.EndInit();
-                            return bitmap;
+                            var img = new BitmapImage();
+                            img.BeginInit();
+                            img.StreamSource = stream;
+                            img.CacheOption = BitmapCacheOption.OnLoad;
+                            img.EndInit();
+                            img.Freeze(); // thread-safe
+                            return img;
                         }
                     }
                 }
+
+                // 2. Thử load từ pack URI (WPF resource)
+                string assemblyName = assembly.GetName().Name;
+                try
+                {
+                    var uri = new Uri($"pack://application:,,,/{assemblyName};component/Resources/{resourceOrFileName}", UriKind.Absolute);
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.UriSource = uri;
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    return bmp;
+                }
                 catch { }
-                return null;
+
+                // 3. Thử load từ disk (cạnh DLL hoặc thư mục Resources)
+                string dir = Path.GetDirectoryName(assembly.Location) ?? string.Empty;
+                string diskPath = Path.Combine(dir, "Resources", resourceOrFileName);
+                if (!File.Exists(diskPath))
+                    diskPath = Path.Combine(dir, resourceOrFileName);
+
+                if (File.Exists(diskPath))
+                {
+                    var img = new BitmapImage();
+                    img.BeginInit();
+                    img.UriSource = new Uri(diskPath, UriKind.Absolute);
+                    img.CacheOption = BitmapCacheOption.OnLoad;
+                    img.EndInit();
+                    img.Freeze();
+                    return img;
+                }
             }
+            catch { }
+
+            return null;
         }
     }
 }

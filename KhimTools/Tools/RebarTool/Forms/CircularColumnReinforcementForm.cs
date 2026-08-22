@@ -25,8 +25,8 @@ using ListBox = System.Windows.Forms.ListBox;
 namespace KhimTools.RebarTool.Forms
 {
     /// <summary>
-    /// Form "Circular Column Reinforcement Layout" cao cấp cho Cột Tròn.
-    /// Tự động giữ và highlight 100% danh sách cột đã chọn trước trong Revit viewport.
+    /// Form "Circular Column Reinforcement Layout" cao cß║Ñp cho Cß╗Öt Tr├▓n.
+    /// Tß╗▒ ─æß╗Öng giß╗» v├á highlight 100% danh s├ích cß╗Öt ─æ├ú chß╗ìn tr╞░ß╗¢c trong Revit viewport.
     /// </summary>
     public class CircularColumnReinforcementForm : Form
     {
@@ -39,7 +39,7 @@ namespace KhimTools.RebarTool.Forms
         private Label _lblSelectedCount;
         private Panel _previewPanel;
 
-        // Controls Thép Chủ
+        // Controls Th├⌐p Chß╗º
         private NumericUpDown _numMainQty;
         private ComboBox _cmbMainDia;
         private CheckBox _chkTopAnchor;
@@ -53,7 +53,7 @@ namespace KhimTools.RebarTool.Forms
         private CheckBox _chkCustomCover;
         private NumericUpDown _numCustomCover;
 
-        // Controls Thép Đai
+        // Controls Th├⌐p ─Éai
         private ComboBox _cmbStirrupDia;
         private NumericUpDown _numStirrupSpacing;
 
@@ -81,7 +81,7 @@ namespace KhimTools.RebarTool.Forms
 
         private NumericUpDown _numDefaultBeamHd;
 
-        // Tab 4: Bản vẽ & View
+        // Tab 4: Bß║ún vß║╜ & View
         private CheckBox _chkAutoDrawing;
         private CheckBox _chkAutoSection3D;
 
@@ -110,7 +110,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "⭕ K-TOOLS — Bố trí Thép Cột Tròn";
+            Text = "Γ¡ò KHIM TOOLS ΓÇö Bß╗æ tr├¡ Th├⌐p Cß╗Öt Tr├▓n";
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -120,7 +120,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 0. TOP HEADER BANNER
             var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Circular Column Detailing",
+                "KHIM TOOLS ΓÇö Circular Column Detailing",
                 "Automated Round Column Reinforcement Engine",
                 "v2.5 Pro");
             Controls.Add(header);
@@ -129,7 +129,7 @@ namespace KhimTools.RebarTool.Forms
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             _btnCreateRebar = new Button
             {
-                Text = "⚡ Create Rebar",
+                Text = "Create Rebar",
                 Width = 130,
                 Height = 36,
                 Top = 10,
@@ -164,11 +164,11 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(bottomPanel);
 
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            var lblColTitle = new Label { Text = "📋 Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            var lblColTitle = new Label { Text = "Danh S├ích Cß╗Öt", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
 
             var scopePanel = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.FromArgb(240, 243, 248), Padding = new Padding(4) };
-            _rdScopeSelected = new RadioButton { Text = $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})", Checked = _preSelectedColumns.Any(), AutoSize = true, Top = 4, Left = 4, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
-            _rdScopeAll = new RadioButton { Text = $"Tất cả cột ({_availableColumns.Count})", Checked = !_preSelectedColumns.Any(), AutoSize = true, Top = 26, Left = 4, Font = new Font("Segoe UI", 8.5F) };
+            _rdScopeSelected = new RadioButton { Text = $"Chß╗ë c├íc cß╗Öt ─æ├ú chß╗ìn ({_preSelectedColumns.Count})", Checked = _preSelectedColumns.Any(), AutoSize = true, Top = 4, Left = 4, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
+            _rdScopeAll = new RadioButton { Text = $"Tß║Ñt cß║ú cß╗Öt ({_availableColumns.Count})", Checked = !_preSelectedColumns.Any(), AutoSize = true, Top = 26, Left = 4, Font = new Font("Segoe UI", 8.5F) };
 
             _rdScopeSelected.CheckedChanged += (s, e) => PopulateColumnList();
             _rdScopeAll.CheckedChanged += (s, e) => PopulateColumnList();
@@ -176,7 +176,7 @@ namespace KhimTools.RebarTool.Forms
             scopePanel.Controls.Add(_rdScopeSelected);
             scopePanel.Controls.Add(_rdScopeAll);
 
-            _lblSelectedCount = new Label { Text = "Đã chọn: 0 cột", Dock = DockStyle.Bottom, Height = 25, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _lblSelectedCount = new Label { Text = "─É├ú chß╗ìn: 0 cß╗Öt", Dock = DockStyle.Bottom, Height = 25, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
 
             var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 32 };
             var btnSelectAll = new Button { Text = "Select All", Width = 95, Height = 26, Top = 3, Left = 0, FlatStyle = FlatStyle.System };
@@ -208,7 +208,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 2.5 Top Template Configuration Panel
             var templatePanel = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.FromArgb(240, 240, 243), Padding = new Padding(6) };
-            _lblTemplate = new Label { Text = "📋 Mẫu Thiết Lập:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _lblTemplate = new Label { Text = "Mß║½u Thiß║┐t Lß║¡p:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Left = 140, Top = 10 };
             
             _btnSaveTemplate = new Button { Text = "Save As...", Width = 90, Height = 26, Left = 350, Top = 9, FlatStyle = FlatStyle.System };
@@ -228,10 +228,10 @@ namespace KhimTools.RebarTool.Forms
 
             var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
 
-            var tabMain = new TabPage { Text = "📌 Thép Chủ & Cover", Padding = new Padding(12), BackColor = Color.White };
+            var tabMain = new TabPage { Text = "Th├⌐p Chß╗º & Cover", Padding = new Padding(12), BackColor = Color.White };
             var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
 
-            var grpMainSection = new GroupBox { Text = "Bố trí Thép Chủ Tiết Diện Cột Tròn", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
+            var grpMainSection = new GroupBox { Text = "Bß╗æ tr├¡ Th├⌐p Chß╗º Tiß║┐t Diß╗çn Cß╗Öt Tr├▓n", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
             var layoutMainSec = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
@@ -239,34 +239,34 @@ namespace KhimTools.RebarTool.Forms
             _numMainQty = new NumericUpDown { Minimum = 4, Maximum = 40, Value = 8, Increment = 2, Width = 90 };
             _numMainQty.ValueChanged += (s, e) => _previewPanel?.Invalidate();
 
-            AddRowToLayout(layoutMainSec, "Số lượng thanh chủ:", _numMainQty);
-            AddRowToLayout(layoutMainSec, "Đường kính thép chủ:", _cmbMainDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
+            AddRowToLayout(layoutMainSec, "Sß╗æ l╞░ß╗úng thanh chß╗º:", _numMainQty);
+            AddRowToLayout(layoutMainSec, "─É╞░ß╗¥ng k├¡nh th├⌐p chß╗º:", _cmbMainDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
             grpMainSection.Controls.Add(layoutMainSec);
 
-            var grpCover = new GroupBox { Text = "🛡️ Lớp Bê Tông Bảo Vệ (Concrete Cover)", Dock = DockStyle.Top, Height = 100, Padding = new Padding(10) };
+            var grpCover = new GroupBox { Text = "Lß╗¢p B├¬ T├┤ng Bß║úo Vß╗ç (Concrete Cover)", Dock = DockStyle.Top, Height = 100, Padding = new Padding(10) };
             var layoutCover = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            _chkCustomCover = new CheckBox { Text = "Nhập tay Cover (bỏ chọn = tự động từ Revit)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 3, 4) };
+            _chkCustomCover = new CheckBox { Text = "Nhß║¡p tay Cover (bß╗Å chß╗ìn = tß╗▒ ─æß╗Öng tß╗½ Revit)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 3, 4) };
             _numCustomCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90, Enabled = false };
             _chkCustomCover.CheckedChanged += (s, e) => _numCustomCover.Enabled = _chkCustomCover.Checked;
 
-            var btnProjectCover = new Button { Text = "⚙️ Cover Dự Án", Width = 105, Height = 25, FlatStyle = FlatStyle.System };
+            var btnProjectCover = new Button { Text = "Cover Dß╗▒ ├ün", Width = 105, Height = 25, FlatStyle = FlatStyle.System };
             btnProjectCover.Click += (s, e) => new ProjectCoverSetupForm(_doc).ShowDialog();
 
-            AddRowToLayout(layoutCover, "Cover tùy chỉnh (mm):", _numCustomCover);
+            AddRowToLayout(layoutCover, "Cover t├╣y chß╗ënh (mm):", _numCustomCover);
             layoutCover.Controls.Add(_chkCustomCover);
             layoutCover.Controls.Add(btnProjectCover);
             grpCover.Controls.Add(layoutCover);
 
-            var grpMainAnchor = new GroupBox { Text = "Cấu tạo Neo & Nối Thép", Dock = DockStyle.Top, Height = 175, Padding = new Padding(8) };
+            var grpMainAnchor = new GroupBox { Text = "Cß║Ñu tß║ío Neo & Nß╗æi Th├⌐p", Dock = DockStyle.Top, Height = 175, Padding = new Padding(8) };
             var pnlAnchor = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
-            _rdBaseFoundation = new RadioButton { Text = "Cột tầng móng (Nối chân quỳ 90° vào móng)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
-            _rdBaseStandardLevel = new RadioButton { Text = "Cột tầng sàn / điển hình (Thép chờ nối tầng)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
-            _chkCrankedSplice = new CheckBox { Text = "Nhấn vắt nghiêng 1:6 vị trí nối (Ảnh 1)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
-            _chkTopAnchor = new CheckBox { Text = "Neo uốn móc 90° đỉnh mái (Ảnh 2)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
-            _chkStaggeredSplice = new CheckBox { Text = "Nối so le 50% (Staggered 1.3 Ls)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
+            _rdBaseFoundation = new RadioButton { Text = "Cß╗Öt tß║ºng m├│ng (Nß╗æi ch├ón quß╗│ 90┬░ v├áo m├│ng)", AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
+            _rdBaseStandardLevel = new RadioButton { Text = "Cß╗Öt tß║ºng s├án / ─æiß╗ân h├¼nh (Th├⌐p chß╗¥ nß╗æi tß║ºng)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
+            _chkCrankedSplice = new CheckBox { Text = "Nhß║Ñn vß║»t nghi├¬ng 1:6 vß╗ï tr├¡ nß╗æi (ß║ónh 1)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
+            _chkTopAnchor = new CheckBox { Text = "Neo uß╗æn m├│c 90┬░ ─æß╗ënh m├íi (ß║ónh 2)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
+            _chkStaggeredSplice = new CheckBox { Text = "Nß╗æi so le 50% (Staggered 1.3 Ls)", Checked = true, AutoSize = true, Margin = new Padding(3, 2, 3, 2) };
 
             _rdBaseFoundation.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
             _rdBaseStandardLevel.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
@@ -274,7 +274,7 @@ namespace KhimTools.RebarTool.Forms
             _chkTopAnchor.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
 
             var pnlLapMult = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight, Margin = new Padding(3, 2, 3, 2) };
-            pnlLapMult.Controls.Add(new Label { Text = "Ls = n × d:", AutoSize = true, Margin = new Padding(0, 5, 5, 0) });
+            pnlLapMult.Controls.Add(new Label { Text = "Ls = n ├ù d:", AutoSize = true, Margin = new Padding(0, 5, 5, 0) });
             _numLapMultiplier = new NumericUpDown { Minimum = 20, Maximum = 60, Value = 30, Increment = 5, Width = 55 };
             pnlLapMult.Controls.Add(_numLapMultiplier);
             pnlLapMult.Controls.Add(new Label { Text = "d (30d/40d)", AutoSize = true, Margin = new Padding(3, 5, 0, 0) });
@@ -299,19 +299,19 @@ namespace KhimTools.RebarTool.Forms
 
             tabControl.TabPages.Add(tabMain);
 
-            var tabStirrup = new TabPage { Text = "🌀 Thép Đai Tròn (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
-            var grpStirrup = new GroupBox { Text = "Thông số Đai Vòng / Đai Xoắn Cột Tròn", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
+            var tabStirrup = new TabPage { Text = "Th├⌐p ─Éai Tr├▓n (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
+            var grpStirrup = new GroupBox { Text = "Th├┤ng sß╗æ ─Éai V├▓ng / ─Éai Xoß║»n Cß╗Öt Tr├▓n", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var layoutStirrup = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-            AddRowToLayout(layoutStirrup, "Đường kính thép đai:", _cmbStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
-            AddRowToLayout(layoutStirrup, "Khoảng cách đai (mm):", _numStirrupSpacing = new NumericUpDown { Minimum = 50, Maximum = 400, Value = 150, Increment = 10, Width = 90 });
+            AddRowToLayout(layoutStirrup, "─É╞░ß╗¥ng k├¡nh th├⌐p ─æai:", _cmbStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
+            AddRowToLayout(layoutStirrup, "Khoß║úng c├ích ─æai (mm):", _numStirrupSpacing = new NumericUpDown { Minimum = 50, Maximum = 400, Value = 150, Increment = 10, Width = 90 });
             grpStirrup.Controls.Add(layoutStirrup);
             tabStirrup.Controls.Add(grpStirrup);
             tabControl.TabPages.Add(tabStirrup);
 
-            var tabGenSettings = new TabPage { Text = "⚙️ General Settings", Padding = new Padding(10), BackColor = Color.White };
+            var tabGenSettings = new TabPage { Text = "General Settings", Padding = new Padding(10), BackColor = Color.White };
             var layoutGenSettings = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3 };
             layoutGenSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutGenSettings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -328,10 +328,10 @@ namespace KhimTools.RebarTool.Forms
 
             var grpBendCut = new GroupBox { Text = "REBAR BENDING OR CUTTING CONDITIONS", Dock = DockStyle.Fill, Padding = new Padding(8) };
             var pnlBendCut = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
-            pnlBendCut.Controls.Add(new Label { Text = "Bend rebar if e ≤ (mm):", AutoSize = true });
+            pnlBendCut.Controls.Add(new Label { Text = "Bend rebar if e Γëñ (mm):", AutoSize = true });
             _numBendConditionE = new NumericUpDown { Minimum = 10, Maximum = 300, Value = 75, Width = 70 };
             pnlBendCut.Controls.Add(_numBendConditionE);
-            pnlBendCut.Controls.Add(new Label { Text = "Bend by ratio Hd/e ≥:", AutoSize = true });
+            pnlBendCut.Controls.Add(new Label { Text = "Bend by ratio Hd/e ΓëÑ:", AutoSize = true });
             _numBendRatioHd = new NumericUpDown { Minimum = 1, Maximum = 20, Value = 6, Width = 70 };
             pnlBendCut.Controls.Add(_numBendRatioHd);
             grpBendCut.Controls.Add(pnlBendCut);
@@ -348,7 +348,7 @@ namespace KhimTools.RebarTool.Forms
             pnlSplicePos.Controls.Add(new Label { Text = "Splice distance from column base L = (mm):", AutoSize = true });
             _numSpliceDistBase = new NumericUpDown { Minimum = 0, Maximum = 1000, Value = 50, Width = 70 };
             pnlSplicePos.Controls.Add(_numSpliceDistBase);
-            _rdSpliceTwoPos = new RadioButton { Text = "Splice rebar at two positions (Nối so le 50%)", Checked = true, AutoSize = true };
+            _rdSpliceTwoPos = new RadioButton { Text = "Splice rebar at two positions (Nß╗æi so le 50%)", Checked = true, AutoSize = true };
             pnlSplicePos.Controls.Add(_rdSpliceTwoPos);
             grpSplicePos.Controls.Add(pnlSplicePos);
 
@@ -373,11 +373,11 @@ namespace KhimTools.RebarTool.Forms
             tabGenSettings.Controls.Add(layoutGenSettings);
             tabControl.TabPages.Add(tabGenSettings);
 
-            var tabViews = new TabPage { Text = "🖼️ Bản Vẽ & View 3D", Padding = new Padding(12), BackColor = Color.White };
-            var grpViews = new GroupBox { Text = "Tự động Tạo View & Triển khai Bản vẽ", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
+            var tabViews = new TabPage { Text = "Bß║ún Vß║╜ & View 3D", Padding = new Padding(12), BackColor = Color.White };
+            var grpViews = new GroupBox { Text = "Tß╗▒ ─æß╗Öng Tß║ío View & Triß╗ân khai Bß║ún vß║╜", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
-            _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
-            _chkAutoSection3D = new CheckBox { Text = "Tự động tạo View xem thép 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
+            _chkAutoDrawing = new CheckBox { Text = "Tß╗▒ ─æß╗Öng tß║ío bß║ún vß║╜ 2D (Mß║╖t cß║»t tiß║┐t diß╗çn & Thß╗æng k├¬ th├⌐p)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
+            _chkAutoSection3D = new CheckBox { Text = "Tß╗▒ ─æß╗Öng tß║ío View xem th├⌐p 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
             pnlViews.Controls.Add(_chkAutoDrawing);
             pnlViews.Controls.Add(_chkAutoSection3D);
             grpViews.Controls.Add(pnlViews);
@@ -410,12 +410,12 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"🟢 Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = $"≡ƒƒó ─É├ú chß╗ìn sß║╡n: {count} cß╗Öt tß╗½ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"🔵 Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = $"≡ƒö╡ ─É├ú chß╗ìn: {count} / {_columnListBox.Items.Count} cß╗Öt";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }
@@ -506,7 +506,7 @@ namespace KhimTools.RebarTool.Forms
             var selectedItems = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
             if (!selectedItems.Any())
             {
-                MessageBox.Show(this, "Vui lòng chọn ít nhất 1 cột trong danh sách bên phải.", "Thiếu thông tin",
+                MessageBox.Show(this, "Vui l├▓ng chß╗ìn ├¡t nhß║Ñt 1 cß╗Öt trong danh s├ích b├¬n phß║úi.", "Thiß║┐u th├┤ng tin",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -515,7 +515,7 @@ namespace KhimTools.RebarTool.Forms
             RebarBarType stirrupType = FindBarType(_cmbStirrupDia.Text);
             if (mainType == null || stirrupType == null)
             {
-                MessageBox.Show(this, "Chưa chọn đủ đường kính thép.", "Thiếu thông tin",
+                MessageBox.Show(this, "Ch╞░a chß╗ìn ─æß╗º ─æ╞░ß╗¥ng k├¡nh th├⌐p.", "Thiß║┐u th├┤ng tin",
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
@@ -531,7 +531,7 @@ namespace KhimTools.RebarTool.Forms
             tx.SetFailureHandlingOptions(failOptions);
             try
             {
-                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
+                // Nß║íp sß║╡n to├án bß╗Ö RebarShape chuß║⌐n (JP_T00, JP_T11, JP_T75...) v├áo Document
                 RebarShapeLibrary.PreloadCommonShapes(_doc);
 
                 var generator = new CircularColumnRebarGenerator(_doc);
@@ -612,7 +612,7 @@ namespace KhimTools.RebarTool.Forms
                 tx.Commit();
                 if (report.HasErrors)
                 {
-                    KhimDialogHelper.ShowRebarGenerationReport(report, "Cột Tròn (Circular Column)", selectedItems.Count);
+                    KhimDialogHelper.ShowRebarGenerationReport(report, "Cß╗Öt Tr├▓n (Circular Column)", selectedItems.Count);
                 }
                 else
                 {
@@ -622,7 +622,7 @@ namespace KhimTools.RebarTool.Forms
             catch (Exception ex)
             {
                 tx.RollBack();
-                string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
+                string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lß╗ùi Tß║ío Th├⌐p Cß╗Öt Tr├▓n";
                 KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
             }
         }
@@ -644,8 +644,8 @@ namespace KhimTools.RebarTool.Forms
         private void SaveTemplate()
         {
             string name = KhimTools.Core.KhimPrompt.ShowDialog(
-                LanguageManager.IsEnglish ? "Enter template name:" : "Nhập tên mẫu thiết lập:",
-                LanguageManager.IsEnglish ? "Save Template" : "Lưu Mẫu Thiết Lập",
+                LanguageManager.IsEnglish ? "Enter template name:" : "Nhß║¡p t├¬n mß║½u thiß║┐t lß║¡p:",
+                LanguageManager.IsEnglish ? "Save Template" : "L╞░u Mß║½u Thiß║┐t Lß║¡p",
                 "New_Template");
 
             if (string.IsNullOrWhiteSpace(name)) return;
