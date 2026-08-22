@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -18,7 +18,6 @@ using Label = System.Windows.Forms.Label;
 using CheckBox = System.Windows.Forms.CheckBox;
 
 using KhimTools.Core;
-using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Forms
 {

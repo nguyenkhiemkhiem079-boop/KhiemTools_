@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -20,8 +20,6 @@ using Point = System.Drawing.Point;
 using FontStyle = System.Drawing.FontStyle;
 
 using KhimTools.Core;
-using KhimTools.SlabJoin.Models;
-using KhimTools.SlabJoin.Services;
 
 namespace KhimTools.SlabJoin.Forms
 {

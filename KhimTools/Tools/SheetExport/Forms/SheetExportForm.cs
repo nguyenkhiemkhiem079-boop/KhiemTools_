@@ -45,7 +45,6 @@ namespace KhimTools.SheetExport.Forms
 
         // ── View 1: Select UI Elements ───────────────────────────────────────
         private ComboBox _cmbSheetSet;
-        private Button _btnUpdateSet;
         private Button _btnSaveSet;
         private TextBox _txtSheetSetName;
         private ComboBox _cmbDisciplineFilter;
@@ -81,7 +80,6 @@ namespace KhimTools.SheetExport.Forms
         private RadioButton _rbZoomFitToPage;
         private RadioButton _rbZoomPercent;
         private NumericUpDown _numZoomPercent;
-        private ComboBox _cmbPrinter;
         private RadioButton _rbVectorProcessing;
         private RadioButton _rbRasterProcessing;
         private ComboBox _cmbRasterQuality;
@@ -103,9 +101,6 @@ namespace KhimTools.SheetExport.Forms
         private CheckBox _chkFilterModifiedOnly;
 
         // ── Bottom Bar UI Elements (Print Bar) ───────────────────────────────
-        private RadioButton _rbSaveSameFolder;
-        private RadioButton _rbSplitFoldersByFormat;
-        private NumericUpDown _numTimeoutSeconds;
         private Button _btnOpenFolderSelection;
         private TextBox _txtOutputDirectory;
         private Button _btnBrowseFolder;
@@ -362,7 +357,7 @@ namespace KhimTools.SheetExport.Forms
             _cmbDisciplineFilter = new ComboBox { Left = 62, Top = 7, Width = 140, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
             _cmbDisciplineFilter.Items.AddRange(new object[] { "(Tất cả bộ môn)", "Structure (Kết cấu)", "Architecture (Kiến trúc)", "MEP (Cơ điện)" });
             _cmbDisciplineFilter.SelectedIndex = 0;
-            _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => ApplySearchAndFilter();
+            _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => { if (!_isLoading) ApplySearchAndFilter(); };
 
             _txtSearchSheet = new TextBox { Left = 210, Top = 7, Width = 260, Font = new Font("Segoe UI", 9F) };
             _txtSearchSheet.TextChanged += (s, e) => ApplySearchAndFilter();
