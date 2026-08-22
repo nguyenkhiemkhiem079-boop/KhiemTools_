@@ -1,7 +1,7 @@
 {
-  "latest_version": "v2.5.5",
-  "name": "K-TOOLS (KhimTools) v2.5.5",
+  "latest_version": "v2.5.6",
+  "name": "K-TOOLS (KhimTools) v2.5.6",
   "release_date": "2026-08-22",
-  "description": "K-TOOLS v2.5.5 - Classic Addin Deployment, Always Load Security Prompt, Dual Multi-Year Support & Foundation Rebar UI",
-  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.5.5/KhimTools_Bundle.zip"
+  "description": "K-TOOLS v2.5.6 - Bundle Auto-Zip Deployment, Fixed Legacy Addin Conflicts & Section Cut Tool UI",
+  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.5.6/KhimTools_Bundle.zip"
 }

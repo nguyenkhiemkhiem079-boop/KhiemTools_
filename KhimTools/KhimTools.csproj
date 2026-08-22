@@ -109,24 +109,29 @@
 
     <MakeDir Directories="$(BundleVersionDir)" />
 
-    <!-- Copy tất cả DLL phẳng vào thư mục version (nếu Revit đang mở, cảnh báo thay vì làm treo build) -->
+    <!-- Copy tất cả DLL phẳng vào thư mục version (tăng retry, báo lỗi rõ nếu Revit đang khóa file) -->
     <Copy SourceFiles="@(BundleDlls)"
           DestinationFolder="$(BundleVersionDir)"
           SkipUnchangedFiles="true"
-          Retries="0"
-          ContinueOnError="WarnAndContinue" />
+          Retries="5"
+          RetryDelayMilliseconds="1000"
+          ContinueOnError="WarnAndContinue">
+      <Output TaskParameter="CopiedFiles" ItemName="SuccessfullyCopiedDlls" />
+    </Copy>
+    <Error Condition="'$(MSBuildLastTaskResult)' == 'false'" Text="[K-TOOLS DEPLOY LỖI] KhimTools.dll đang bị khóa bởi Revit — hãy đóng Revit trước khi build lại!" />
 
     <!-- Copy .rfa shape families vào subfolder RebarShapes (khớp với RebarShapeLibrary.FolderName) -->
     <MakeDir Directories="$(BundleVersionDir)\RebarShapes" />
     <Copy SourceFiles="@(BundleRfas)"
           DestinationFolder="$(BundleVersionDir)\RebarShapes"
           SkipUnchangedFiles="true"
-          Retries="0"
+          Retries="5"
+          RetryDelayMilliseconds="1000"
           ContinueOnError="WarnAndContinue" />
 
     <!-- Copy .addin manifest và PackageContents.xml -->
-    <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" Retries="0" ContinueOnError="WarnAndContinue" />
-    <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" Retries="0" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="500" ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="500" ContinueOnError="WarnAndContinue" />
   </Target>
 
 </Project>

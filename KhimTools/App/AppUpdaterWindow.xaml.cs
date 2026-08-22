@@ -372,8 +372,8 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Cài đặt trực tiếp vào các thư mục Addin truyền thống của Revit (%APPDATA% và %PROGRAMDATA%)
-            DeployToClassicAddinFolders(targetPaths[0], tag);
+            // Dọn dẹp các file .addin rác cũ ở %APPDATA% và %PROGRAMDATA% để tránh xung đột với KhimTools.bundle
+            CleanLegacyAddinFiles();
         }
 
         private void DeployDirectoryToTargets(string sourceDir, string tag)
@@ -404,8 +404,8 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Cài đặt trực tiếp vào các thư mục Addin truyền thống của Revit (%APPDATA% và %PROGRAMDATA%)
-            DeployToClassicAddinFolders(targetPaths[0], tag);
+            // Dọn dẹp các file .addin rác cũ ở %APPDATA% và %PROGRAMDATA% để tránh xung đột với KhimTools.bundle
+            CleanLegacyAddinFiles();
         }
 
         private static void DeployToClassicAddinFolders(string bundleSourceRoot, string tag)
