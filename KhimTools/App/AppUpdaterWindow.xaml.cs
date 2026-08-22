@@ -178,7 +178,7 @@ namespace KhiemToolsApp
 
                 if (string.IsNullOrEmpty(latestTag))
                 {
-                    latestTag = "v2.5.0";
+                    latestTag = "v2.5.1";
                 }
 
                 TxtGithubVersion.Text = latestTag;

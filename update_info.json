@@ -1,7 +1,7 @@
 {
-  "latest_version": "v2.5.0",
-  "name": "K-TOOLS (KhimTools) v2.5.0",
+  "latest_version": "v2.5.1",
+  "name": "K-TOOLS (KhimTools) v2.5.1",
   "release_date": "2026-08-22",
-  "description": "K-TOOLS v2.5.0 - Full automation suite for Revit 2020-2028+ (Obfuscated & Optimized)",
-  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.5.0/KhimTools_Bundle.zip"
+  "description": "K-TOOLS v2.5.1 - Smart Dynamic Updater & Multi-Revit 2020-2028+ Suite (Obfuscated)",
+  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.5.1/KhimTools_Bundle.zip"
 }
