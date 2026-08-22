@@ -53,6 +53,14 @@
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
+  <!-- Loại trừ App (standalone updater exe) khỏi KhimTools Revit plugin dll -->
+  <ItemGroup>
+    <Compile Remove="App\**" />
+    <Page Remove="App\**" />
+    <None Remove="App\**" />
+    <ApplicationDefinition Remove="App\**" />
+  </ItemGroup>
+
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />

@@ -169,9 +169,23 @@ Copy-Item $ZipBundle1 $ZipBundle2 -Force
 Write-Ok "Zip 1: $ZipBundle1"
 Write-Ok "Zip 2: $ZipBundle2"
 
-# ── Step 5: Summary ──────────────────────────────────────────────────────────
+# ── Step 5: Build Standalone Installer App ───────────────────────────────────
+Write-Step "Building Standalone Installer EXE..."
+$appCsproj = Join-Path $ProjectRoot "App\KhiemToolsApp.csproj"
+if (Test-Path $appCsproj) {
+    dotnet build $appCsproj -c Release -f net48 --nologo
+    $installerExe = Join-Path $ProjectRoot "App\bin\Release\net48\KhimTools_Installer.exe"
+    if (Test-Path $installerExe) {
+        Copy-Item $installerExe (Join-Path $ReleaseDir "KhimTools_Installer.exe") -Force
+        Copy-Item $installerExe (Join-Path $ReleaseDir "K-TOOLS_Installer.exe") -Force
+        Write-Ok "Installer EXE copied to: $(Join-Path $ReleaseDir "K-TOOLS_Installer.exe")"
+    }
+}
+
+# ── Step 6: Summary ──────────────────────────────────────────────────────────
 Write-Step "BUILD & RELEASE SUMMARY"
 Write-Host "  Bundle directory: $BundleDir" -ForegroundColor White
 Write-Host "  Package zip 1:    $ZipBundle1" -ForegroundColor Green
 Write-Host "  Package zip 2:    $ZipBundle2" -ForegroundColor Green
+Write-Host "  Installer EXE:    $(Join-Path $ReleaseDir "K-TOOLS_Installer.exe")" -ForegroundColor Green
 Write-Host "`nRelease ready for deployment and GitHub Release upload!" -ForegroundColor Cyan
