@@ -81,10 +81,14 @@ namespace KhimTools.RebarTool.Core
             if (!string.IsNullOrEmpty(AppDomain.CurrentDomain.BaseDirectory))
                 baseDirs.Add(AppDomain.CurrentDomain.BaseDirectory);
 
-            // Thư mục Add-in Bundle chính thức của Autodesk
+            // Thư mục Add-in Bundle chính thức của Autodesk (%ProgramData% & %AppData%)
             string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
             baseDirs.Add(Path.Combine(programData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Legacy"));
             baseDirs.Add(Path.Combine(programData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Modern"));
+
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            baseDirs.Add(Path.Combine(appData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Legacy"));
+            baseDirs.Add(Path.Combine(appData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents", "Modern"));
 
             // Thư mục mã nguồn Workspace của KhimTools & Rebar Shape Family Workspace
             baseDirs.Add(@"c:\Users\khiem.nguyen\Documents\2.1_Rebar Shape (2)\2.1_Rebar Shape");

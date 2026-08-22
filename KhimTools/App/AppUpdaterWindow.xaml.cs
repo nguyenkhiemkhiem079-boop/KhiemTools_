@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -16,9 +17,14 @@ namespace KhiemToolsApp
         private const string RepoName = "KhiemTools_";
         private const string RegistryKeyName = "KhiemToolsUpdater";
 
-        // Thư mục cài đặt Revit Addin Bundle chuẩn của Autodesk
-        private readonly string _revitBundlePath = Path.Combine(
+        // Thư mục cài đặt Revit Addin Bundle chuẩn của Autodesk (%ProgramData%)
+        private readonly string _programDataBundlePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            @"Autodesk\ApplicationPlugins\KhimTools.bundle");
+
+        // Thư mục cài đặt Revit Addin Bundle cho User (%AppData%)
+        private readonly string _appDataBundlePath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             @"Autodesk\ApplicationPlugins\KhimTools.bundle");
 
         public AppUpdaterWindow()
@@ -28,18 +34,26 @@ namespace KhiemToolsApp
             LoadRegistrySettings();
         }
 
+        private string GetEffectiveBundlePath()
+        {
+            if (Directory.Exists(_programDataBundlePath)) return _programDataBundlePath;
+            if (Directory.Exists(_appDataBundlePath)) return _appDataBundlePath;
+            return _programDataBundlePath;
+        }
+
         private void CheckCurrentLocalVersion()
         {
             try
             {
-                if (!Directory.Exists(_revitBundlePath))
+                string bundlePath = GetEffectiveBundlePath();
+                if (!Directory.Exists(bundlePath))
                 {
                     TxtLocalVersion.Text = "Chưa cài";
                     return;
                 }
 
                 // 1. Kiểm tra file update_info.json trong bundle (nếu có)
-                string localInfoPath = Path.Combine(_revitBundlePath, "update_info.json");
+                string localInfoPath = Path.Combine(bundlePath, "update_info.json");
                 if (File.Exists(localInfoPath))
                 {
                     string infoJson = File.ReadAllText(localInfoPath);
@@ -52,7 +66,7 @@ namespace KhiemToolsApp
                 }
 
                 // 2. Kiểm tra file installed_version.txt trong bundle
-                string versionTxtPath = Path.Combine(_revitBundlePath, "installed_version.txt");
+                string versionTxtPath = Path.Combine(bundlePath, "installed_version.txt");
                 if (File.Exists(versionTxtPath))
                 {
                     string v = File.ReadAllText(versionTxtPath).Trim();
@@ -64,7 +78,7 @@ namespace KhiemToolsApp
                 }
 
                 // 3. Kiểm tra PackageContents.xml trong bundle
-                string packageXmlPath = Path.Combine(_revitBundlePath, "PackageContents.xml");
+                string packageXmlPath = Path.Combine(bundlePath, "PackageContents.xml");
                 if (File.Exists(packageXmlPath))
                 {
                     string xml = File.ReadAllText(packageXmlPath);
@@ -83,10 +97,10 @@ namespace KhiemToolsApp
                 // 4. Kiểm tra DLL FileVersion
                 string[] possibleDlls = new string[]
                 {
-                    Path.Combine(_revitBundlePath, "Contents", "Legacy", "KhimTools.dll"),
-                    Path.Combine(_revitBundlePath, "Contents", "Modern", "KhimTools.dll"),
-                    Path.Combine(_revitBundlePath, "Legacy", "KhimTools.dll"),
-                    Path.Combine(_revitBundlePath, "Modern", "KhimTools.dll")
+                    Path.Combine(bundlePath, "Contents", "Legacy", "KhimTools.dll"),
+                    Path.Combine(bundlePath, "Contents", "Modern", "KhimTools.dll"),
+                    Path.Combine(bundlePath, "Legacy", "KhimTools.dll"),
+                    Path.Combine(bundlePath, "Modern", "KhimTools.dll")
                 };
 
                 foreach (var dll in possibleDlls)
@@ -106,7 +120,7 @@ namespace KhiemToolsApp
             }
             catch
             {
-                TxtLocalVersion.Text = Directory.Exists(_revitBundlePath) ? "Đã cài" : "Chưa cài";
+                TxtLocalVersion.Text = Directory.Exists(GetEffectiveBundlePath()) ? "Đã cài" : "Chưa cài";
             }
         }
 
@@ -121,6 +135,47 @@ namespace KhiemToolsApp
                 }
             }
             catch { }
+        }
+
+        private bool EnsureRevitClosed()
+        {
+            var revitProcesses = Process.GetProcessesByName("Revit");
+            if (revitProcesses.Length == 0) return true;
+
+            var msgResult = MessageBox.Show(
+                $"Phát hiện Autodesk Revit đang mở ({revitProcesses.Length} tiến trình).\n\n" +
+                "Để cập nhật DLL mới trực tiếp vào Revit, bạn cần đóng Revit trước.\n\n" +
+                "• Bấm 'Yes' để tự động đóng Revit (hãy chắc chắn bạn đã lưu bản vẽ).\n" +
+                "• Bấm 'No' để tự đóng Revit bằng tay rồi thử lại.",
+                "Đóng Revit trước khi cập nhật",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+
+            if (msgResult == MessageBoxResult.Yes)
+            {
+                foreach (var proc in revitProcesses)
+                {
+                    try
+                    {
+                        if (!proc.HasExited)
+                        {
+                            proc.CloseMainWindow();
+                            if (!proc.WaitForExit(3000))
+                            {
+                                proc.Kill();
+                                proc.WaitForExit(2000);
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // Chờ thêm 1 giây để OS nhả file lock
+                System.Threading.Thread.Sleep(1000);
+                return true;
+            }
+
+            return false;
         }
 
         private async void BtnCheckUpdate_Click(object sender, RoutedEventArgs e)
@@ -178,7 +233,7 @@ namespace KhiemToolsApp
 
                 if (string.IsNullOrEmpty(latestTag))
                 {
-                    latestTag = "v2.5.3";
+                    latestTag = "v2.5.4";
                 }
 
                 TxtGithubVersion.Text = latestTag;
@@ -186,17 +241,23 @@ namespace KhiemToolsApp
                 if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub!\nBạn có muốn tự động cài đặt / cập nhật vào Revit ngay không?", 
                     "Cập nhật K-TOOLS", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 {
-                    TxtGithubVersion.Text = "Đang cài đặt...";
+                    if (!EnsureRevitClosed())
+                    {
+                        TxtGithubVersion.Text = latestTag;
+                        return;
+                    }
+
+                    TxtGithubVersion.Text = "Đang tải & cài đặt...";
                     await PerformInstallOrUpdateAsync(latestTag, downloadUrl);
-                    MessageBox.Show("Cài đặt / Cập nhật hoàn tất!\nVui lòng mở lại Revit để sử dụng các tính năng mới.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Cài đặt / Cập nhật hoàn tất!\nĐã nạp toàn bộ module mới vào tất cả phiên bản Revit trên máy.\nVui lòng mở Revit để sử dụng.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
                     CheckCurrentLocalVersion();
                     TxtGithubVersion.Text = latestTag;
                 }
             }
             catch (Exception ex)
             {
-                TxtGithubVersion.Text = "Lỗi kết nối";
-                MessageBox.Show("Lỗi: " + ex.Message, "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtGithubVersion.Text = "Lỗi cập nhật";
+                MessageBox.Show($"Lỗi cập nhật: {ex.Message}\n\nChi tiết: {ex.StackTrace}", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
@@ -253,23 +314,14 @@ namespace KhiemToolsApp
                 File.WriteAllBytes(repoZipPath, repoData);
 
                 string extractDir = Path.Combine(tempDir, "extracted");
-                ZipFile.ExtractToDirectory(repoZipPath, extractDir);
+                ExtractZipSafely(repoZipPath, extractDir);
 
                 // Tìm thư mục Deploy trong repo
                 string[] deployDirs = Directory.GetDirectories(extractDir, "Deploy", SearchOption.AllDirectories);
                 if (deployDirs.Length > 0)
                 {
                     string deploySrc = deployDirs[0];
-                    if (Directory.Exists(_revitBundlePath))
-                    {
-                        try { Directory.Delete(_revitBundlePath, true); } catch { }
-                    }
-                    Directory.CreateDirectory(_revitBundlePath);
-
-                    CopyDirectory(deploySrc, _revitBundlePath);
-
-                    // Ghi version vào bundle
-                    File.WriteAllText(Path.Combine(_revitBundlePath, "installed_version.txt"), tag);
+                    DeployDirectoryToTargets(deploySrc, tag);
                     return;
                 }
             }
@@ -277,16 +329,141 @@ namespace KhiemToolsApp
             // Nếu tải được file KhimTools_Bundle.zip
             if (File.Exists(bundleZipPath))
             {
-                if (Directory.Exists(_revitBundlePath))
-                {
-                    try { Directory.Delete(_revitBundlePath, true); } catch { }
-                }
-                Directory.CreateDirectory(_revitBundlePath);
-                ZipFile.ExtractToDirectory(bundleZipPath, _revitBundlePath);
-
-                // Ghi version vào bundle
-                File.WriteAllText(Path.Combine(_revitBundlePath, "installed_version.txt"), tag);
+                DeployZipToTargets(bundleZipPath, tag);
             }
+            else
+            {
+                throw new FileNotFoundException("Không thể tải bộ cài đặt K-TOOLS từ máy chủ.");
+            }
+        }
+
+        private void DeployZipToTargets(string zipFilePath, string tag)
+        {
+            var targetPaths = new List<string>();
+
+            // Target 1: ProgramData (All users)
+            try
+            {
+                Directory.CreateDirectory(_programDataBundlePath);
+                targetPaths.Add(_programDataBundlePath);
+            }
+            catch { }
+
+            // Target 2: AppData (Current user fallback)
+            try
+            {
+                Directory.CreateDirectory(_appDataBundlePath);
+                targetPaths.Add(_appDataBundlePath);
+            }
+            catch { }
+
+            if (targetPaths.Count == 0)
+            {
+                throw new UnauthorizedAccessException("Không có quyền ghi vào thư mục cài đặt Add-in.");
+            }
+
+            foreach (var target in targetPaths)
+            {
+                ExtractZipSafely(zipFilePath, target);
+                try
+                {
+                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+                }
+                catch { }
+            }
+
+            // Dọn dẹp các file .addin cũ để tránh xung đột Duplicate AddIn GUID
+            CleanLegacyAddinFiles();
+        }
+
+        private void DeployDirectoryToTargets(string sourceDir, string tag)
+        {
+            var targetPaths = new List<string>();
+
+            try
+            {
+                Directory.CreateDirectory(_programDataBundlePath);
+                targetPaths.Add(_programDataBundlePath);
+            }
+            catch { }
+
+            try
+            {
+                Directory.CreateDirectory(_appDataBundlePath);
+                targetPaths.Add(_appDataBundlePath);
+            }
+            catch { }
+
+            foreach (var target in targetPaths)
+            {
+                CopyDirectory(sourceDir, target);
+                try
+                {
+                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+                }
+                catch { }
+            }
+
+            // Dọn dẹp các file .addin cũ để tránh xung đột Duplicate AddIn GUID
+            CleanLegacyAddinFiles();
+        }
+
+        private static void ExtractZipSafely(string zipPath, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            using var archive = ZipFile.OpenRead(zipPath);
+            foreach (var entry in archive.Entries)
+            {
+                if (string.IsNullOrEmpty(entry.Name))
+                {
+                    string subDir = Path.Combine(destinationDirectory, entry.FullName);
+                    Directory.CreateDirectory(subDir);
+                    continue;
+                }
+
+                string targetFilePath = Path.Combine(destinationDirectory, entry.FullName);
+                string parentDir = Path.GetDirectoryName(targetFilePath);
+                if (!string.IsNullOrEmpty(parentDir))
+                {
+                    Directory.CreateDirectory(parentDir);
+                }
+
+                entry.ExtractToFile(targetFilePath, overwrite: true);
+            }
+        }
+
+        private static void CleanLegacyAddinFiles()
+        {
+            try
+            {
+                // Dọn dẹp file .addin cũ trong %APPDATA%\Autodesk\Revit\Addins và %PROGRAMDATA%\Autodesk\Revit\Addins
+                // để tránh lỗi Duplicate AddIn GUID khi Revit nạp từ KhimTools.bundle
+                string[] baseAddinFolders = new string[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\Revit\Addins")
+                };
+
+                int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
+
+                foreach (var baseDir in baseAddinFolders)
+                {
+                    if (!Directory.Exists(baseDir)) continue;
+
+                    foreach (int year in years)
+                    {
+                        string yearFolder = Path.Combine(baseDir, year.ToString());
+                        if (!Directory.Exists(yearFolder)) continue;
+
+                        string addinFile = Path.Combine(yearFolder, "KhimTools.addin");
+                        if (File.Exists(addinFile))
+                        {
+                            try { File.Delete(addinFile); } catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private static void CopyDirectory(string sourceDir, string destinationDir)
@@ -327,10 +504,30 @@ namespace KhiemToolsApp
             {
                 try
                 {
-                    if (Directory.Exists(_revitBundlePath))
+                    if (!EnsureRevitClosed()) return;
+
+                    if (Directory.Exists(_programDataBundlePath))
                     {
-                        Directory.Delete(_revitBundlePath, true);
+                        Directory.Delete(_programDataBundlePath, true);
                     }
+                    if (Directory.Exists(_appDataBundlePath))
+                    {
+                        Directory.Delete(_appDataBundlePath, true);
+                    }
+
+                    // Dọn dẹp cả file .addin trong %APPDATA%\Autodesk\Revit\Addins
+                    string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                    string revitAddinsBase = Path.Combine(appData, @"Autodesk\Revit\Addins");
+                    if (Directory.Exists(revitAddinsBase))
+                    {
+                        int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
+                        foreach (int year in years)
+                        {
+                            string addinFile = Path.Combine(revitAddinsBase, year.ToString(), "KhimTools.addin");
+                            if (File.Exists(addinFile)) File.Delete(addinFile);
+                        }
+                    }
+
                     TxtLocalVersion.Text = "Chưa cài";
                     MessageBox.Show("Đã gỡ cài đặt thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
