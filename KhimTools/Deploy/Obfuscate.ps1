@@ -6,6 +6,11 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Set local dotnet home to avoid sandbox permission issues
+$env:DOTNET_CLI_HOME = Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) ".tools\dotnet_home"
+$env:DOTNET_SKIP_FIRST_TIME_EXPERIENCE = "1"
+$env:DOTNET_NOLOGO = "1"
+
 # ── Paths ───────────────────────────────────────────────────────────────────
 $ScriptDir      = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot    = Resolve-Path "$ScriptDir\.."        # KhimTools/
@@ -56,8 +61,12 @@ if (-not $SkipBuild) {
     foreach ($tfm in $frameworks) {
         Write-Step "Building Release for $tfm..."
         $csproj = Join-Path $ProjectRoot "KhimTools.csproj"
-        dotnet build $csproj -c Release -f $tfm --nologo
-        if ($LASTEXITCODE -ne 0) { Write-Fail "Build failed for $tfm!" }
+        dotnet build $csproj -c Release -f $tfm --no-restore --nologo
+        if ($LASTEXITCODE -ne 0) { 
+            # Try with restore if no-restore fails
+            dotnet build $csproj -c Release -f $tfm --nologo
+            if ($LASTEXITCODE -ne 0) { Write-Fail "Build failed for $tfm!" }
+        }
         Write-Ok "Build succeeded: $tfm"
     }
 } else {

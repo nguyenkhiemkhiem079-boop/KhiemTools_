@@ -372,8 +372,8 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Dọn dẹp các file .addin cũ để tránh xung đột Duplicate AddIn GUID
-            CleanLegacyAddinFiles();
+            // Cài đặt trực tiếp vào các thư mục Addin truyền thống của Revit (%APPDATA% và %PROGRAMDATA%)
+            DeployToClassicAddinFolders(targetPaths[0], tag);
         }
 
         private void DeployDirectoryToTargets(string sourceDir, string tag)
@@ -404,8 +404,97 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Dọn dẹp các file .addin cũ để tránh xung đột Duplicate AddIn GUID
-            CleanLegacyAddinFiles();
+            // Cài đặt trực tiếp vào các thư mục Addin truyền thống của Revit (%APPDATA% và %PROGRAMDATA%)
+            DeployToClassicAddinFolders(targetPaths[0], tag);
+        }
+
+        private static void DeployToClassicAddinFolders(string bundleSourceRoot, string tag)
+        {
+            try
+            {
+                string legacySource = Path.Combine(bundleSourceRoot, "Contents", "Legacy");
+                if (!Directory.Exists(legacySource))
+                    legacySource = Path.Combine(bundleSourceRoot, "Legacy");
+
+                string modernSource = Path.Combine(bundleSourceRoot, "Contents", "Modern");
+                if (!Directory.Exists(modernSource))
+                    modernSource = Path.Combine(bundleSourceRoot, "Modern");
+
+                string[] baseAddinFolders = new string[]
+                {
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\Revit\Addins")
+                };
+
+                // Revit 2020 - 2024 (.NET Framework 4.8)
+                int[] legacyYears = new int[] { 2020, 2021, 2022, 2023, 2024 };
+                // Revit 2025 - 2028 (.NET 8.0)
+                int[] modernYears = new int[] { 2025, 2026, 2027, 2028 };
+
+                string addinManifestContent =
+@"<?xml version=""1.0"" encoding=""utf-8"" standalone=""no""?>
+<RevitAddIns>
+  <AddIn Type=""Application"">
+    <Name>K-TOOLS</Name>
+    <Assembly>KhimTools\KhimTools.dll</Assembly>
+    <AddInId>4F1B2C3D-5E6F-4A7B-8C9D-0E1F2A3B4C5D</AddInId>
+    <FullClassName>KhimTools.Core.App</FullClassName>
+    <VendorId>SJTL</VendorId>
+    <VendorDescription>K-TOOLS — Revit Automation Suite, support@example.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>";
+
+                foreach (var baseDir in baseAddinFolders)
+                {
+                    if (!Directory.Exists(baseDir))
+                    {
+                        try { Directory.CreateDirectory(baseDir); } catch { }
+                    }
+
+                    // Deploy Legacy (2020 - 2024)
+                    if (Directory.Exists(legacySource))
+                    {
+                        foreach (int year in legacyYears)
+                        {
+                            string yearFolder = Path.Combine(baseDir, year.ToString());
+                            try
+                            {
+                                Directory.CreateDirectory(yearFolder);
+                                string targetPluginFolder = Path.Combine(yearFolder, "KhimTools");
+                                Directory.CreateDirectory(targetPluginFolder);
+
+                                CopyDirectory(legacySource, targetPluginFolder);
+
+                                string addinFilePath = Path.Combine(yearFolder, "KhimTools.addin");
+                                File.WriteAllText(addinFilePath, addinManifestContent);
+                            }
+                            catch { }
+                        }
+                    }
+
+                    // Deploy Modern (2025 - 2028)
+                    if (Directory.Exists(modernSource))
+                    {
+                        foreach (int year in modernYears)
+                        {
+                            string yearFolder = Path.Combine(baseDir, year.ToString());
+                            try
+                            {
+                                Directory.CreateDirectory(yearFolder);
+                                string targetPluginFolder = Path.Combine(yearFolder, "KhimTools");
+                                Directory.CreateDirectory(targetPluginFolder);
+
+                                CopyDirectory(modernSource, targetPluginFolder);
+
+                                string addinFilePath = Path.Combine(yearFolder, "KhimTools.addin");
+                                File.WriteAllText(addinFilePath, addinManifestContent);
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private static void ExtractZipSafely(string zipPath, string destinationDirectory)
@@ -515,16 +604,27 @@ namespace KhiemToolsApp
                         Directory.Delete(_appDataBundlePath, true);
                     }
 
-                    // Dọn dẹp cả file .addin trong %APPDATA%\Autodesk\Revit\Addins
-                    string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                    string revitAddinsBase = Path.Combine(appData, @"Autodesk\Revit\Addins");
-                    if (Directory.Exists(revitAddinsBase))
+                    // Dọn dẹp cả file .addin và thư mục plugin trong %APPDATA% & %PROGRAMDATA%
+                    string[] revitAddinsBases = new string[]
                     {
-                        int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\Revit\Addins")
+                    };
+
+                    int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
+                    foreach (var revitAddinsBase in revitAddinsBases)
+                    {
+                        if (!Directory.Exists(revitAddinsBase)) continue;
                         foreach (int year in years)
                         {
-                            string addinFile = Path.Combine(revitAddinsBase, year.ToString(), "KhimTools.addin");
-                            if (File.Exists(addinFile)) File.Delete(addinFile);
+                            string yearDir = Path.Combine(revitAddinsBase, year.ToString());
+                            if (!Directory.Exists(yearDir)) continue;
+
+                            string addinFile = Path.Combine(yearDir, "KhimTools.addin");
+                            if (File.Exists(addinFile)) try { File.Delete(addinFile); } catch { }
+
+                            string pluginDir = Path.Combine(yearDir, "KhimTools");
+                            if (Directory.Exists(pluginDir)) try { Directory.Delete(pluginDir, true); } catch { }
                         }
                     }
 
