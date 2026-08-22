@@ -177,6 +177,6 @@
         </Button>
 
         <!-- 7. FOOTER VERSION -->
-        <TextBlock Grid.Row="6" Text="K-TOOLS Updater v2.5.2" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+        <TextBlock Grid.Row="6" Text="K-TOOLS Updater v2.5.3" FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
     </Grid>
 </Window>
