@@ -1,7 +1,7 @@
 {
-  "latest_version": "v2.5.8",
-  "name": "K-TOOLS (KhimTools) v2.5.8",
+  "latest_version": "v2.6.0",
+  "name": "K-TOOLS (KhimTools) v2.6.0",
   "release_date": "2026-08-23",
-  "description": "K-TOOLS v2.5.8 - Remove anti-tamper obfuscation, explicit Revit SeriesMin R2020-R2028 Autoloader compatibility, clean dead code",
-  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.5.8/KhimTools_Bundle.zip"
+  "description": "K-TOOLS v2.6.0 - Graphic Overdrive tool, Copy Elements from Revit Link, Auto Grid & Plan Generator, Arrange Views & Viewport Align, Multi-Year Revit Autoloader Bundle (2020-2028)",
+  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.6.0/KhimTools_Bundle.zip"
 }
