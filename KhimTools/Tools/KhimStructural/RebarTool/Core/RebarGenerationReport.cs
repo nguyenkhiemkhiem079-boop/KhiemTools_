@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 
@@ -41,6 +41,11 @@ namespace KhimTools.RebarTool.Core
         public void AddSuccess(int count = 1)
         {
             if (count > 0) SuccessBarCount += count;
+        }
+
+        public void AddWarning(string warningMessage)
+        {
+            AddError(ElementId.InvalidElementId, "Warning", "Validation", warningMessage);
         }
 
         public void AddError(Element host, string rebarCategory, Exception ex)
