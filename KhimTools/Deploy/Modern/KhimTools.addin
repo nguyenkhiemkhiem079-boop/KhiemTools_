@@ -6,6 +6,6 @@
     <AddInId>4F1B2C3D-5E6F-4A7B-8C9D-0E1F2A3B4C5D</AddInId>
     <FullClassName>KhimTools.Core.App</FullClassName>
     <VendorId>SJTL</VendorId>
-    <VendorDescription>K-TOOLS — Revit Automation Suite (Rebar, Join, Export), support@example.com</VendorDescription>
+    <VendorDescription>K-TOOLS - Revit Automation Suite (Rebar, Join, Export), support@example.com</VendorDescription>
   </AddIn>
 </RevitAddIns>

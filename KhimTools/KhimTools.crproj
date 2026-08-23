@@ -33,17 +33,12 @@
 
       <!-- Control Flow: làm rối if/else/switch/loop, chống decompile logic -->
       <protection id="ctrl flow">
-        <argument name="intensity" value="5" />
+        <argument name="intensity" value="1" />
       </protection>
 
       <!-- Constants/String Encryption: mã hóa string literals -->
       <protection id="constants">
         <argument name="mode" value="dynamic" />
-      </protection>
-
-      <!-- Anti-Tamper: từ chối chạy nếu DLL bị patch/sửa đổi -->
-      <protection id="anti tamper">
-        <argument name="mode" value="jit" />
       </protection>
 
     </rule>
