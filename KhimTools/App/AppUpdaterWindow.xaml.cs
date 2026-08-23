@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -151,18 +151,14 @@ namespace KhiemToolsApp
 
             if (msgResult == MessageBoxResult.Yes)
             {
-                foreach (var proc in revitProcesses)
+                foreach (var p in revitProcesses)
                 {
                     try
                     {
-                        if (!proc.HasExited)
+                        p.CloseMainWindow();
+                        if (!p.WaitForExit(3000))
                         {
-                            proc.CloseMainWindow();
-                            if (!proc.WaitForExit(3000))
-                            {
-                                proc.Kill();
-                                proc.WaitForExit(2000);
-                            }
+                            p.Kill();
                         }
                     }
                     catch { }
@@ -231,7 +227,7 @@ namespace KhiemToolsApp
 
                 if (string.IsNullOrEmpty(latestTag))
                 {
-                    latestTag = "v2.5.4";
+                    latestTag = "v2.6.0";
                 }
 
                 TxtGithubVersion.Text = latestTag;
@@ -303,7 +299,6 @@ namespace KhiemToolsApp
                 catch { }
             }
 
-            // Nếu tải được file KhimTools_Bundle.zip
             if (File.Exists(bundleZipPath) && downloaded)
             {
                 DeployZipToTargets(bundleZipPath, tag);
@@ -343,7 +338,6 @@ namespace KhiemToolsApp
 
                 if (!legacyDllExists && !modernDllExists)
                 {
-                    // Khôi phục lại từ bản backup nếu giải nén thiếu file
                     if (Directory.Exists(backupDir))
                     {
                         CopyDirectory(backupDir, target);
@@ -351,32 +345,26 @@ namespace KhiemToolsApp
                     throw new InvalidDataException("Bộ cài đặt tải về bị hỏng hoặc thiếu KhimTools.dll! Đã tự động khôi phục lại phiên bản trước đó.");
                 }
 
-                File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
-            }
-            finally
-            {
+                try
+                {
+                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+                }
+                catch { }
+
                 if (Directory.Exists(backupDir))
                 {
                     try { Directory.Delete(backupDir, true); } catch { }
                 }
             }
-        }
-
-        private void DeployDirectoryToTargets(string sourceDir, string tag)
-        {
-            CleanLegacyAddinFiles();
-
-            string target = _programDataBundlePath;
-            Directory.CreateDirectory(target);
-
-            CopyDirectory(sourceDir, target);
-            try
+            catch
             {
-                File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
+                if (Directory.Exists(backupDir) && !Directory.Exists(target))
+                {
+                    CopyDirectory(backupDir, target);
+                }
+                throw;
             }
-            catch { }
         }
-
 
         private static void ExtractZipSafely(string zipPath, string destinationDirectory)
         {
