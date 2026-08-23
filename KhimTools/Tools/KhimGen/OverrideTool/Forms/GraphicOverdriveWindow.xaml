@@ -1,0 +1,353 @@
+﻿<Window x:Class="KhimTools.OverrideTool.Forms.GraphicOverdriveWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:local="clr-namespace:KhimTools.OverrideTool.Forms"
+        mc:Ignorable="d"
+        Title="Graphic Overdrive"
+        Width="370" SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        Left="100" Top="100"
+        Background="#0F172A"
+        FontFamily="Segoe UI"
+        Topmost="True"
+        ShowInTaskbar="False">
+
+    <Window.Resources>
+        <!-- Color Preset Button Style -->
+        <Style x:Key="ColorChipStyle" TargetType="Button">
+            <Setter Property="Width" Value="42"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="chipBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8"
+                                SnapsToDevicePixels="True">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="6" ShadowDepth="2" Opacity="0.35" Direction="270"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chipBorder" Property="BorderBrush" Value="White"/>
+                                <Setter TargetName="chipBorder" Property="BorderThickness" Value="2.5"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="chipBorder" Property="Opacity" Value="0.75"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Toggle Checkbox Style -->
+        <Style x:Key="SlimToggle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#CBD5E1"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <!-- Section Header Style -->
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Margin" Value="0,10,0,6"/>
+        </Style>
+
+        <!-- Primary Action Button -->
+        <Style x:Key="PrimaryBtn" TargetType="Button">
+            <Setter Property="Background" Value="#0284C7"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                CornerRadius="8" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#0369A1"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#075985"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Danger/Reset Button -->
+        <Style x:Key="DangerBtn" TargetType="Button">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#F87171"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#475569"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bg" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#7F1D1D"/>
+                                <Setter TargetName="bg" Property="BorderBrush" Value="#EF4444"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Slider Style -->
+        <Style x:Key="SlimSlider" TargetType="Slider">
+            <Setter Property="Foreground" Value="#0284C7"/>
+        </Style>
+
+        <!-- Dark ComboBox Style -->
+        <Style x:Key="DarkCombo" TargetType="ComboBox">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#F1F5F9"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Height" Value="28"/>
+        </Style>
+    </Window.Resources>
+
+    <Border Padding="16,14" Background="#0F172A">
+        <StackPanel>
+
+            <!-- HEADER -->
+            <Grid Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="GRAPHIC OVERDRIVE"
+                               Foreground="White" FontSize="14" FontWeight="ExtraBold"
+                               />
+                    <TextBlock Text="Đổi màu &amp; hiển thị đối tượng nhanh trong View"
+                               Foreground="#64748B" FontSize="10.5"/>
+                </StackPanel>
+                <Border Grid.Column="1"
+                        Background="#1E293B" CornerRadius="6"
+                        Padding="7,3" VerticalAlignment="Center">
+                    <TextBlock Text="Modeless" Foreground="#38BDF8" FontSize="10" FontWeight="Bold"/>
+                </Border>
+            </Grid>
+
+            <!-- SECTION: COLOR PRESETS -->
+            <TextBlock Text="MÀU SẮC NHANH (12 PRESETS)" Style="{StaticResource SectionHeader}"/>
+            <Border Background="#1E293B" CornerRadius="12" Padding="8,8,8,6">
+                <ItemsControl ItemsSource="{Binding Presets}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="6" Rows="2" HorizontalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource ColorChipStyle}"
+                                    Command="{Binding DataContext.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    CommandParameter="{Binding}"
+                                    ToolTip="{Binding Name}"/>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+
+            <!-- SECTION: OVERRIDE TARGETS -->
+            <TextBlock Text="ÁP DỤNG VÀO (TARGETS)" Style="{StaticResource SectionHeader}"/>
+            <Border Background="#1E293B" CornerRadius="12" Padding="12,8">
+                <UniformGrid Columns="2" Rows="2">
+                    <CheckBox Style="{StaticResource SlimToggle}" Content="Bề mặt (Surface)"
+                              IsChecked="{Binding OverrideSurface}"/>
+                    <CheckBox Style="{StaticResource SlimToggle}" Content="Mặt cắt (Cut)"
+                              IsChecked="{Binding OverrideCut}"/>
+                    <CheckBox Style="{StaticResource SlimToggle}" Content="Đường nét (Lines)"
+                              IsChecked="{Binding OverrideLines}"/>
+                    <CheckBox Style="{StaticResource SlimToggle}" Content="Màu nền (Backgd)"
+                              IsChecked="{Binding OverrideBackground}"/>
+                </UniformGrid>
+            </Border>
+
+            <!-- SECTION: CUSTOM COLOR PICKER -->
+            <TextBlock Text="MÀU TÙY CHỈNH (CUSTOM COLOR)" Style="{StaticResource SectionHeader}"/>
+            <Border Background="#1E293B" CornerRadius="12" Padding="12,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="Bảng màu tự chọn" FontSize="11" Foreground="#94A3B8"/>
+                        <TextBlock x:Name="txbCustomHex" Text="#FF0000" FontSize="13"
+                                   FontWeight="Bold" Foreground="#38BDF8" Margin="0,2,0,0"/>
+                    </StackPanel>
+
+                    <Button x:Name="btnPickColor" Grid.Column="1"
+                            Width="44" Height="44"
+                            Click="BtnPickColor_Click"
+                            Cursor="Hand"
+                            ToolTip="Bấm để chọn màu tự do">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="pickBorder"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="#475569"
+                                        BorderThickness="2"
+                                        CornerRadius="10">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.4" Direction="270"/>
+                                    </Border.Effect>
+                                    <TextBlock Text="🎨" Foreground="White" FontSize="16"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="pickBorder" Property="BorderBrush" Value="White"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <Button Content="Áp Dụng Màu Tùy Chỉnh"
+                    Style="{StaticResource PrimaryBtn}"
+                    Command="{Binding ApplyCustomColorCommand}"
+                    Margin="0,8,0,0"/>
+
+            <!-- SECTION: TRANSPARENCY -->
+            <TextBlock Text="ĐỘ TRONG SUỐT (TRANSPARENCY)" Style="{StaticResource SectionHeader}"/>
+            <Border Background="#1E293B" CornerRadius="12" Padding="12,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="45"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0" Style="{StaticResource SlimSlider}"
+                            Minimum="0" Maximum="100" TickFrequency="5"
+                            IsSnapToTickEnabled="False"
+                            Value="{Binding Transparency}"
+                            VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding Transparency, StringFormat='{}{0}%'}"
+                               Foreground="#CBD5E1" FontSize="12" FontWeight="Bold"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
+                               Margin="6,0,0,0"/>
+                </Grid>
+            </Border>
+
+            <!-- SECTION: LINE WEIGHT -->
+            <TextBlock Text="ĐỘ ĐẬM NÉT (LINE WEIGHT)" Style="{StaticResource SectionHeader}"/>
+            <Border Background="#1E293B" CornerRadius="12" Padding="12,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="110"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Độ dày nét (1 - 12)" FontSize="11"
+                               Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="1"
+                              Style="{StaticResource DarkCombo}"
+                              ItemsSource="{Binding LineWeightOptions}"
+                              SelectedItem="{Binding LineWeight}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="{Binding}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding}" Value="-1">
+                                                    <Setter Property="Text" Value="Mặc định"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+            </Border>
+
+            <!-- SECTION: HALFTONE -->
+            <Border Background="#1E293B" CornerRadius="12" Padding="12,10" Margin="0,8,0,0">
+                <CheckBox Style="{StaticResource SlimToggle}"
+                          Content="Halftone (làm mờ nhạt đối tượng 50%)"
+                          IsChecked="{Binding Halftone}"/>
+            </Border>
+
+            <!-- SEPARATOR -->
+            <Border Height="1" Background="#334155" Margin="0,12,0,10"/>
+
+            <!-- RESET BUTTON -->
+            <Button Content="↺  Xóa Tất Cả Override (Reset)"
+                    Style="{StaticResource DangerBtn}"
+                    Command="{Binding ResetOverrideCommand}"
+                    Margin="0,0,0,10"/>
+
+            <!-- STATUS BAR -->
+            <Border CornerRadius="8" Padding="10,8" Background="#1E293B">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Margin="0,0,6,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="ℹ️"/>
+                                <Setter Property="FontSize" Value="12"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsSuccess}" Value="True">
+                                        <Setter Property="Text" Value="✓"/>
+                                        <Setter Property="Foreground" Value="#4ADE80"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding StatusText}"
+                               FontSize="11" TextWrapping="Wrap"
+                               Foreground="#94A3B8"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+        </StackPanel>
+    </Border>
+</Window>

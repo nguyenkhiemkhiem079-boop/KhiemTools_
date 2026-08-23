@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- net48  -> Revit 2022-2024 (.NET Framework)
@@ -21,9 +21,7 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <!-- ==== Đường dẫn RevitAPI theo từng TFM ====
-       net48 build tự tìm Revit 2024/2023/2022 trên máy, hoặc fallback sang 2023.
-       net8.0-windows nếu có Revit 2025/2026 local thì dùng, không thì tự nạp từ NuGet Nice3point.Revit.Api -->
+  <!-- Duong dan RevitAPI theo tung TFM -->
   <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
     <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll')">2024</RevitVersionForReference>
     <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll')">2023</RevitVersionForReference>
@@ -38,7 +36,7 @@
     <VersionFolder>Modern</VersionFolder>
   </PropertyGroup>
 
-  <!-- Dùng reference local nếu có file DLL trên máy -->
+  <!-- Reference local DLL neu co tren may -->
   <ItemGroup Condition="Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
     <Reference Include="RevitAPI">
       <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll</HintPath>
@@ -50,13 +48,13 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Fallback sang NuGet package Nice3point cho net8.0-windows nếu máy chưa cài Revit 2025/2026 -->
+  <!-- Fallback sang NuGet package Nice3point cho net8.0-windows -->
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows' and !Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
     <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <!-- Loại trừ App (standalone updater exe) khỏi KhimTools Revit plugin dll -->
+  <!-- Loai tru App khoi KhimTools Revit plugin dll -->
   <ItemGroup>
     <Compile Remove="App\**" />
     <Page Remove="App\**" />
@@ -80,19 +78,15 @@
     <Resource Include="Resources\*.png" />
   </ItemGroup>
 
-  <!-- Rebar Shape families (toàn bộ bộ JP_T##) — copy vào RebarShapes\ subfolder trong output
-       để RebarShapeLibrary.ResolveRfaPath() tìm đúng đường dẫn lúc runtime trong Revit. -->
+  <!-- Rebar Shape families -->
   <ItemGroup>
-    <None Include="Tools\RebarTool\RebarShapes\*.rfa">
+    <None Include="Tools\KhimStructural\RebarTool\RebarShapes\*.rfa">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>RebarShapes\%(Filename)%(Extension)</TargetPath>
     </None>
   </ItemGroup>
 
-  <!-- ==== Post-build: đóng gói .bundle và copy vào ApplicationPlugins (auto-load, không cần copy tay) ====
-       CẦN VERIFY: PackageContents.xml schema đã viết theo cấu trúc bundle phổ biến của Autodesk
-       nhưng chưa test thật; nếu Revit không nhận bundle, kiểm tra lại theo tài liệu Autodesk
-       "Add-In Manager / ApplicationPlugins bundle format" mới nhất. -->
+  <!-- Post-build: dong goi .bundle va copy vao ApplicationPlugins -->
   <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
     <PropertyGroup>
       <BundleRoot>$(ProgramData)\Autodesk\ApplicationPlugins\KhimTools.bundle</BundleRoot>
@@ -101,10 +95,8 @@
       <BundleVersionDir>$(BundleRoot)\Contents\$(VersionFolder)</BundleVersionDir>
     </PropertyGroup>
 
-    <!-- Copy FLAT (không dùng %(RecursiveDir)) — Revit tìm KhimTools.dll cùng cấp với .addin -->
     <ItemGroup>
       <BundleDlls Include="$(OutDir)*.dll" />
-      <!-- .rfa được copy vào $(OutDir)RebarShapes\ nhờ TargetPath trong ItemGroup bên trên -->
       <BundleRfas Include="$(OutDir)RebarShapes\*.rfa" />
       <AddinManifest Include="Deploy\$(VersionFolder)\KhimTools.addin" />
       <PackageManifest Include="Deploy\PackageContents.xml" />
@@ -112,7 +104,6 @@
 
     <MakeDir Directories="$(BundleVersionDir)" />
 
-    <!-- Copy tất cả DLL phẳng vào thư mục version (tăng retry, báo lỗi rõ nếu Revit đang khóa file) -->
     <Copy SourceFiles="@(BundleDlls)"
           DestinationFolder="$(BundleVersionDir)"
           SkipUnchangedFiles="true"
@@ -121,9 +112,8 @@
           ContinueOnError="WarnAndContinue">
       <Output TaskParameter="CopiedFiles" ItemName="SuccessfullyCopiedDlls" />
     </Copy>
-    <Error Condition="'$(MSBuildLastTaskResult)' == 'false'" Text="[K-TOOLS DEPLOY LỖI] KhimTools.dll đang bị khóa bởi Revit — hãy đóng Revit trước khi build lại!" />
+    <Error Condition="'$(MSBuildLastTaskResult)' == 'false'" Text="[K-TOOLS DEPLOY ERROR] KhimTools.dll dang bi khoa boi Revit - hay dong Revit truoc khi build lai!" />
 
-    <!-- Copy .rfa shape families vào subfolder RebarShapes (khớp với RebarShapeLibrary.FolderName) -->
     <MakeDir Directories="$(BundleVersionDir)\RebarShapes" />
     <Copy SourceFiles="@(BundleRfas)"
           DestinationFolder="$(BundleVersionDir)\RebarShapes"
@@ -132,7 +122,6 @@
           RetryDelayMilliseconds="1000"
           ContinueOnError="WarnAndContinue" />
 
-    <!-- Copy .addin manifest và PackageContents.xml -->
     <Copy SourceFiles="@(AddinManifest)" DestinationFolder="$(BundleVersionDir)" SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="500" ContinueOnError="WarnAndContinue" />
     <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="500" ContinueOnError="WarnAndContinue" />
   </Target>

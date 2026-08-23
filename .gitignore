@@ -371,4 +371,5 @@ KhimTools/Deploy/Release/
 
 # ConfuserEx log files
 *.confuserex.log
-Confused/
+Confused/
+.vscode/
