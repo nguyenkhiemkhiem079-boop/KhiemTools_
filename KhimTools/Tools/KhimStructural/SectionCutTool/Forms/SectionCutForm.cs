@@ -57,6 +57,9 @@ namespace KhimTools.SectionCutTool.Forms
         private CheckBox _chkCreateCrossSection;
         private NumericUpDown _numCrossSectionScale;
         private ComboBox _cmbCrossSectionTemplate;
+        private RadioButton _rdDirBoth;
+        private RadioButton _rdDirX;
+        private RadioButton _rdDirY;
         private RadioButton _rdModeKeyPositions;
         private RadioButton _rdModeRelative;
         private RadioButton _rdModeSpacing;
@@ -485,6 +488,25 @@ namespace KhimTools.SectionCutTool.Forms
             grpCross.Controls.Add(lblStep);
             grpCross.Controls.Add(_numSpacing);
             grpCross.Controls.Add(lblTips);
+                        // Group Direction Filter
+            var grpDir = new GroupBox
+            {
+                Text = "Hướng Lọc Cấu Kiện (Direction Filter)",
+                Left = 10,
+                Top = 525,
+                Width = 470,
+                Height = 55
+            };
+            KhimUiStyle.ApplyCardStyle(grpDir);
+
+            _rdDirBoth = new RadioButton { Text = "Cả 2 phương (X & Y)", Left = 15, Top = 20, AutoSize = true, Checked = true };
+            _rdDirX = new RadioButton { Text = "Chỉ phương X", Left = 180, Top = 20, AutoSize = true };
+            _rdDirY = new RadioButton { Text = "Chỉ phương Y", Left = 310, Top = 20, AutoSize = true };
+
+            grpDir.Controls.Add(_rdDirBoth);
+            grpDir.Controls.Add(_rdDirX);
+            grpDir.Controls.Add(_rdDirY);
+            page.Controls.Add(grpDir);
             page.Controls.Add(grpCross);
         }
 
@@ -855,6 +877,7 @@ namespace KhimTools.SectionCutTool.Forms
                 CreateLongitudinal = _chkCreateLongitudinal.Checked,
                 LongitudinalScale = (int)_numLongitudinalScale.Value,
                 CreateCrossSection = _chkCreateCrossSection.Checked,
+                DirectionFilter = _rdDirX != null && _rdDirX.Checked ? CutDirection.XOnly : (_rdDirY != null && _rdDirY.Checked ? CutDirection.YOnly : CutDirection.Both),
                 CrossSectionScale = (int)_numCrossSectionScale.Value,
 
                 CropOffsetLeftMm = (double)_numCropOffsetLeft.Value,
@@ -907,6 +930,7 @@ namespace KhimTools.SectionCutTool.Forms
             _chkCreateLongitudinal.Checked = s.CreateLongitudinal;
             _numLongitudinalScale.Value = Math.Max(1, Math.Min(500, s.LongitudinalScale));
             _chkCreateCrossSection.Checked = s.CreateCrossSection;
+            if (_rdDirX != null && _rdDirY != null && _rdDirBoth != null) { if (s.DirectionFilter == CutDirection.XOnly) _rdDirX.Checked = true; else if (s.DirectionFilter == CutDirection.YOnly) _rdDirY.Checked = true; else _rdDirBoth.Checked = true; }
             _numCrossSectionScale.Value = Math.Max(1, Math.Min(500, s.CrossSectionScale));
 
             if (s.CrossSectionMode == CrossSectionCutMode.FixedSpacing)

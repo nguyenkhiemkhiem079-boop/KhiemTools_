@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
@@ -15,13 +15,13 @@ namespace KhimTools.SectionCutTool.Core
     }
 
     /// <summary>
-    /// Thuật toán hình học 3D chuyên sâu tính toán BoundingBoxXYZ và Ma trận Transform (BasisX, BasisY, BasisZ)
-    /// chuẩn trực giao cho mọi loại cấu kiện kết cấu (Dầm, Cột, Vách, Sàn, Móng) theo các góc xoay 3D bất kỳ.
+    /// Thuáº­t toÃ¡n hÃ¬nh há»c 3D chuyÃªn sÃ¢u tÃ­nh toÃ¡n BoundingBoxXYZ vÃ  Ma tráº­n Transform (BasisX, BasisY, BasisZ)
+    /// chuáº©n trá»±c giao cho má»i loáº¡i cáº¥u kiá»‡n káº¿t cáº¥u (Dáº§m, Cá»™t, VÃ¡ch, SÃ n, MÃ³ng) theo cÃ¡c gÃ³c xoay 3D báº¥t ká»³.
     /// </summary>
     public static class SectionGeometryHelper
     {
         /// <summary>
-        /// Sinh danh sách tất cả các hộp cắt (SectionCutPlacement) cho 1 Element theo cấu hình.
+        /// Sinh danh sÃ¡ch táº¥t cáº£ cÃ¡c há»™p cáº¯t (SectionCutPlacement) cho 1 Element theo cáº¥u hÃ¬nh.
         /// </summary>
         public static List<SectionCutPlacement> CalculateSectionPlacements(Element elem, SectionCutSettings settings)
         {
@@ -64,9 +64,9 @@ namespace KhimTools.SectionCutTool.Core
             return placements;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // 1. DẦM (STRUCTURAL FRAMING)
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // 1. Dáº¦M (STRUCTURAL FRAMING)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateBeamSections(FamilyInstance beam, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -81,8 +81,10 @@ namespace KhimTools.SectionCutTool.Core
             if (length < 0.01) return list;
 
             XYZ dir = (pEnd - pStart).Normalize();
+            if (settings.DirectionFilter == CutDirection.XOnly && Math.Abs(dir.X) < Math.Abs(dir.Y)) return list;
+            if (settings.DirectionFilter == CutDirection.YOnly && Math.Abs(dir.Y) < Math.Abs(dir.X)) return list;
 
-            // Tính toán UpVector & RightVector trực giao
+            // TÃ­nh toÃ¡n UpVector & RightVector trá»±c giao
             XYZ up = XYZ.BasisZ;
             if (Math.Abs(dir.Z) > 0.95) up = XYZ.BasisX;
 
@@ -95,7 +97,7 @@ namespace KhimTools.SectionCutTool.Core
             right = right.Normalize();
             up = right.CrossProduct(dir).Normalize();
 
-            // Kích thước tiết diện B và H
+            // KÃ­ch thÆ°á»›c tiáº¿t diá»‡n B vÃ  H
             var (bFeet, hFeet) = GetBeamDimensions(beam);
 
             double offL = ToFeet(settings.CropOffsetLeftMm);
@@ -104,7 +106,7 @@ namespace KhimTools.SectionCutTool.Core
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // A. Mặt cắt dọc (Longitudinal Section)
+            // A. Máº·t cáº¯t dá»c (Longitudinal Section)
             if (settings.CreateLongitudinal)
             {
                 XYZ midPt = (pStart + pEnd) / 2.0;
@@ -113,7 +115,7 @@ namespace KhimTools.SectionCutTool.Core
                 transform.Origin = midPt;
                 transform.BasisX = dir;
                 transform.BasisY = up;
-                transform.BasisZ = right; // View direction nhìn từ sườn dầm vào
+                transform.BasisZ = right; // View direction nhÃ¬n tá»« sÆ°á»n dáº§m vÃ o
 
                 var box = new BoundingBoxXYZ
                 {
@@ -131,7 +133,7 @@ namespace KhimTools.SectionCutTool.Core
                 });
             }
 
-            // B. Mặt cắt ngang (Cross-sections)
+            // B. Máº·t cáº¯t ngang (Cross-sections)
             if (settings.CreateCrossSection)
             {
                 var ratios = ResolveCutRatios(settings, length);
@@ -144,7 +146,7 @@ namespace KhimTools.SectionCutTool.Core
                     transform.Origin = cutPt;
                     transform.BasisX = right;
                     transform.BasisY = up;
-                    transform.BasisZ = right.CrossProduct(up).Normalize(); // View nhìn dọc theo trục dầm, chuẩn quy tắc bàn tay phải
+                    transform.BasisZ = right.CrossProduct(up).Normalize(); // View nhÃ¬n dá»c theo trá»¥c dáº§m, chuáº©n quy táº¯c bÃ n tay pháº£i
 
                     var box = new BoundingBoxXYZ
                     {
@@ -167,9 +169,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // 2. CỘT (STRUCTURAL COLUMNS)
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // 2. Cá»˜T (STRUCTURAL COLUMNS)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateColumnSections(FamilyInstance col, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -182,7 +184,7 @@ namespace KhimTools.SectionCutTool.Core
             double colDepth = Math.Max(bb.Max.Y - bb.Min.Y, ToFeet(300));
             double colHeight = Math.Max(bb.Max.Z - bb.Min.Z, ToFeet(2000));
 
-            // Xác định hệ trục cục bộ của Cột theo hướng quay thực tế trong dự án
+            // XÃ¡c Ä‘á»‹nh há»‡ trá»¥c cá»¥c bá»™ cá»§a Cá»™t theo hÆ°á»›ng quay thá»±c táº¿ trong dá»± Ã¡n
             XYZ colDirX = col.FacingOrientation;
             if (colDirX == null || colDirX.IsZeroLength() || Math.Abs(colDirX.Z) > 0.9) colDirX = XYZ.BasisX;
             colDirX = new XYZ(colDirX.X, colDirX.Y, 0).Normalize();
@@ -199,7 +201,7 @@ namespace KhimTools.SectionCutTool.Core
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // A. Mặt cắt đứng cột (Vertical Elevation Section - Nhìn trực diện)
+            // A. Máº·t cáº¯t Ä‘á»©ng cá»™t (Vertical Elevation Section - NhÃ¬n trá»±c diá»‡n)
             if (settings.CreateLongitudinal)
             {
                 var transform = Transform.Identity;
@@ -224,7 +226,7 @@ namespace KhimTools.SectionCutTool.Core
                 });
             }
 
-            // B. Mặt cắt ngang cột (Horizontal Cross Section qua thân cột)
+            // B. Máº·t cáº¯t ngang cá»™t (Horizontal Cross Section qua thÃ¢n cá»™t)
             if (settings.CreateCrossSection)
             {
                 var ratios = ResolveCutRatios(settings, colHeight);
@@ -260,9 +262,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // 3. VÁCH / TƯỜNG (WALLS)
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // 3. VÃCH / TÆ¯á»œNG (WALLS)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateWallSections(Wall wall, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -277,6 +279,8 @@ namespace KhimTools.SectionCutTool.Core
             if (length < 0.01) return list;
 
             XYZ dir = (pEnd - pStart).Normalize();
+            if (settings.DirectionFilter == CutDirection.XOnly && Math.Abs(dir.X) < Math.Abs(dir.Y)) return list;
+            if (settings.DirectionFilter == CutDirection.YOnly && Math.Abs(dir.Y) < Math.Abs(dir.X)) return list;
             XYZ up = XYZ.BasisZ;
             XYZ right = dir.CrossProduct(up).Normalize();
 
@@ -290,7 +294,7 @@ namespace KhimTools.SectionCutTool.Core
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // A. Mặt cắt dọc vách (Longitudinal Section)
+            // A. Máº·t cáº¯t dá»c vÃ¡ch (Longitudinal Section)
             if (settings.CreateLongitudinal)
             {
                 XYZ midPt = (pStart + pEnd) / 2.0;
@@ -319,7 +323,7 @@ namespace KhimTools.SectionCutTool.Core
                 });
             }
 
-            // B. Mặt cắt ngang qua chiều dày vách
+            // B. Máº·t cáº¯t ngang qua chiá»u dÃ y vÃ¡ch
             if (settings.CreateCrossSection)
             {
                 var ratios = ResolveCutRatios(settings, length);
@@ -356,9 +360,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // 4. SÀN (FLOORS / SLABS)
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // 4. SÃ€N (FLOORS / SLABS)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateFloorSections(Floor floor, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -377,7 +381,7 @@ namespace KhimTools.SectionCutTool.Core
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // Cắt phương X (Section X-X)
+            // Cáº¯t phÆ°Æ¡ng X (Section X-X)
             if (settings.CreateLongitudinal)
             {
                 var transformX = Transform.Identity;
@@ -402,7 +406,7 @@ namespace KhimTools.SectionCutTool.Core
                 });
             }
 
-            // Cắt phương Y (Section Y-Y)
+            // Cáº¯t phÆ°Æ¡ng Y (Section Y-Y)
             if (settings.CreateCrossSection)
             {
                 var transformY = Transform.Identity;
@@ -430,9 +434,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
-        // 5. MÓNG (STRUCTURAL FOUNDATIONS)
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // 5. MÃ“NG (STRUCTURAL FOUNDATIONS)
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateFoundationSections(FamilyInstance fdn, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -451,7 +455,7 @@ namespace KhimTools.SectionCutTool.Core
             double offB = ToFeet(settings.CropOffsetBottomMm);
             double farClip = ToFeet(settings.FarClipOffsetMm);
 
-            // Mặt cắt 1-1 (Phương X)
+            // Máº·t cáº¯t 1-1 (PhÆ°Æ¡ng X)
             if (settings.CreateLongitudinal)
             {
                 var transform1 = Transform.Identity;
@@ -476,7 +480,7 @@ namespace KhimTools.SectionCutTool.Core
                 });
             }
 
-            // Mặt cắt 2-2 (Phương Y)
+            // Máº·t cáº¯t 2-2 (PhÆ°Æ¡ng Y)
             if (settings.CreateCrossSection)
             {
                 var transform2 = Transform.Identity;
@@ -504,9 +508,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // 6. GENERIC ELEMENT FALLBACK
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<SectionCutPlacement> CalculateGenericElementSections(Element elem, SectionCutSettings settings)
         {
             var list = new List<SectionCutPlacement>();
@@ -547,9 +551,9 @@ namespace KhimTools.SectionCutTool.Core
             return list;
         }
 
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         // HELPERS
-        // ══════════════════════════════════════════════════════════════════════
+        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private static List<double> ResolveCutRatios(SectionCutSettings settings, double elementLengthFeet)
         {
             var ratios = new List<double>();
@@ -572,7 +576,7 @@ namespace KhimTools.SectionCutTool.Core
                     cur += spacingFeet;
                 }
 
-                if (ratios.Count == 0) ratios.Add(0.5); // Fallback giữa nhịp nếu cấu kiện quá ngắn
+                if (ratios.Count == 0) ratios.Add(0.5); // Fallback giá»¯a nhá»‹p náº¿u cáº¥u kiá»‡n quÃ¡ ngáº¯n
             }
             else if (settings.CrossSectionMode == CrossSectionCutMode.RelativePositions && settings.RelativePositions != null && settings.RelativePositions.Count > 0)
             {
@@ -586,7 +590,7 @@ namespace KhimTools.SectionCutTool.Core
             }
             else
             {
-                // KeyPositionsAuto (Mặc định: Gối trái 15%, Giữa nhịp 50%, Gối phải 85%)
+                // KeyPositionsAuto (Máº·c Ä‘á»‹nh: Gá»‘i trÃ¡i 15%, Giá»¯a nhá»‹p 50%, Gá»‘i pháº£i 85%)
                 ratios.Add(0.15);
                 ratios.Add(0.50);
                 ratios.Add(0.85);

@@ -1,8 +1,15 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace KhimTools.SectionCutTool.Models
 {
+    public enum CutDirection
+    {
+        Both,
+        XOnly,
+        YOnly
+    }
+
     /// <summary>
     /// Model cấu hình thông số cắt mặt cắt (Section Cut Settings) có thể lưu/nạp qua JSON Template.
     /// </summary>
@@ -10,9 +17,10 @@ namespace KhimTools.SectionCutTool.Models
     {
         public string Name { get; set; } = "Default";
 
-        // 1. Loại mặt cắt
+        // 1. Loại mặt cắt & Hướng lọc cấu kiện
         public bool CreateLongitudinal { get; set; } = true;
         public bool CreateCrossSection { get; set; } = true;
+        public CutDirection DirectionFilter { get; set; } = CutDirection.Both;
 
         // 2. Chế độ cắt ngang
         public CrossSectionCutMode CrossSectionMode { get; set; } = CrossSectionCutMode.KeyPositionsAuto;
@@ -23,7 +31,7 @@ namespace KhimTools.SectionCutTool.Models
         public int LongitudinalScale { get; set; } = 50;  // 1:50
         public int CrossSectionScale { get; set; } = 20;  // 1:20
 
-        // 4. Bù trừ Crop Box (Offsets tính theo mm)
+        // 4. Bố trí Crop Box (Offsets tính theo mm)
         public double CropOffsetLeftMm { get; set; } = 200.0;
         public double CropOffsetRightMm { get; set; } = 200.0;
         public double CropOffsetTopMm { get; set; } = 200.0;
