@@ -37,9 +37,9 @@ using NumericUpDown = System.Windows.Forms.NumericUpDown;
 namespace KhimTools.RebarTool.Forms
 {
     /// <summary>
-    /// Form Bß╗æ Tr├¡ Th├⌐p Dß║ºm (Beam Rebar) Chuy├¬n Nghiß╗çp v2.5 chuß║⌐n theo mß║½u thiß║┐t kß║┐
-    /// vß╗¢i Sidebar 6 chß║┐ ─æß╗Ö: Main Top Bar, Main Bot Bar, Add. Top Bar, Add. Bot Bar, Stirrup, Anti bulge rebar.
-    /// T├¡ch hß╗úp s╞í ─æß╗ô trß╗▒c quan GDI+ (Mß║╖t cß║»t dß╗ìc nhß╗ïp dß║ºm v├á 3 mß║╖t cß║»t tiß║┐t diß╗çn 1-1, 2-2, 3-3).
+    /// Form Bố Trí Thép Dầm (Beam Rebar) Chuyên Nghiệp v2.5 chuẩn theo mẫu thiết kế
+    /// với Sidebar 6 chế độ: Main Top Bar, Main Bot Bar, Add. Top Bar, Add. Bot Bar, Stirrup, Anti bulge rebar.
+    /// Tích hợp sơ đồ trực quan GDI+ (Mặt cắt dọc nhịp dầm và 3 mặt cắt tiết diện 1-1, 2-2, 3-3).
     /// </summary>
     public class BeamReinforcementForm : KTBaseForm
     {
@@ -51,10 +51,10 @@ namespace KhimTools.RebarTool.Forms
 
         private List<RebarBarType> _barTypes = new List<RebarBarType>();
 
-        // ΓöÇΓöÇ Active Setting Tab (0: Main Top, 1: Main Bot, 2: Add Top, 3: Add Bot, 4: Stirrup, 5: Anti Bulge) ΓöÇΓöÇ
+        // ── Active Setting Tab (0: Main Top, 1: Main Bot, 2: Add Top, 3: Add Bot, 4: Stirrup, 5: Anti Bulge) ──
         private int _activeSettingIndex = 0;
 
-        // ΓöÇΓöÇ Left Sidebar Setting Buttons ΓöÇΓöÇ
+        // ── Left Sidebar Setting Buttons ──
         private Button _btnSettingMainTop;
         private Button _btnSettingMainBot;
         private Button _btnSettingAddTop;
@@ -62,7 +62,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnSettingStirrup;
         private Button _btnSettingAntiBulge;
 
-        // ΓöÇΓöÇ Dynamic Middle Views ΓöÇΓöÇ
+        // ── Dynamic Middle Views ──
         private Panel _pnlViewMainTop;
         private Panel _pnlViewMainBot;
         private Panel _pnlViewAddTop;
@@ -70,7 +70,7 @@ namespace KhimTools.RebarTool.Forms
         private Panel _pnlViewStirrup;
         private Panel _pnlViewAntiBulge;
 
-        // ΓöÇΓöÇ Main Top Bar Controls ΓöÇΓöÇ
+        // ── Main Top Bar Controls ──
         private ListBox _lstMainTop;
         private ComboBox _cmbMainTopDia;
         private NumericUpDown _numMainTopQty;
@@ -82,7 +82,7 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtMainTopAnchorXRight;
         private TextBox _txtMainTopPos;
 
-        // ΓöÇΓöÇ Main Bot Bar Controls ΓöÇΓöÇ
+        // ── Main Bot Bar Controls ──
         private ListBox _lstMainBot;
         private ComboBox _cmbMainBotDia;
         private NumericUpDown _numMainBotQty;
@@ -94,7 +94,7 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtMainBotAnchorXRight;
         private TextBox _txtMainBotPos;
 
-        // ΓöÇΓöÇ Add Top Bar Controls ΓöÇΓöÇ
+        // ── Add Top Bar Controls ──
         private ListBox _lstAddTop;
         private ComboBox _cmbAddTopLayer;
         private ComboBox _cmbAddTopDia;
@@ -111,7 +111,7 @@ namespace KhimTools.RebarTool.Forms
         private NumericUpDown _numAddTopQty;
         private TextBox _txtAddTopPos;
 
-        // ΓöÇΓöÇ Add Bot Bar Controls ΓöÇΓöÇ
+        // ── Add Bot Bar Controls ──
         private ListBox _lstAddBot;
         private ComboBox _cmbAddBotLayer;
         private ComboBox _cmbAddBotDia;
@@ -127,7 +127,7 @@ namespace KhimTools.RebarTool.Forms
         private NumericUpDown _numAddBotQty;
         private TextBox _txtAddBotPos;
 
-        // ΓöÇΓöÇ Stirrup Controls ΓöÇΓöÇ
+        // ── Stirrup Controls ──
         private ComboBox _cmbStirrupSpan;
         private ComboBox _cmbStirrupDia;
         private RadioButton _rbStirrupUniform;
@@ -139,18 +139,17 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtStirrupEnd2Len;
         private TextBox _txtStirrupFirstDistance;
 
-        // ΓöÇΓöÇ Anti Bulge (Side Bar) Controls ΓöÇΓöÇ
+        // ── Anti Bulge (Side Bar) Controls ──
         private ComboBox _cmbAntiBulgeDia;
         private NumericUpDown _numAntiBulgeQty;
 
-        // ΓöÇΓöÇ Canvas Panels for GDI+ ΓöÇΓöÇ
+        // ── Canvas Panels for GDI+ ──
         private Panel _pnlElevationCanvas;
 
-        // ΓöÇΓöÇ Footer Buttons ΓöÇΓöÇ
+        // ── Footer Buttons ──
         private Button _btnToggleSection;
         private Button _btnBack;
         private Button _btnOk;
-        private Label _lblSafetyStatus;
         private Button _btnClose;
 
         // Dimensions (mm)
@@ -210,7 +209,7 @@ namespace KhimTools.RebarTool.Forms
             MinimumSize = new System.Drawing.Size(1150, 720);
             BackColor = Color.White;
 
-            // ΓöÇΓöÇ Splitter: Top Controls (Height ~ 380) vs Bottom Canvas (Elevation) ΓöÇΓöÇ
+            // ── Splitter: Top Controls (Height ~ 380) vs Bottom Canvas (Elevation) ──
             var mainSplit = new SplitContainer
             {
                 Dock = DockStyle.Fill,
@@ -233,7 +232,7 @@ namespace KhimTools.RebarTool.Forms
                 catch { }
             };
 
-            // ΓöÇΓöÇ TOP PANEL ΓöÇΓöÇ
+            // ── TOP PANEL ──
             var topPanel = mainSplit.Panel1;
             topPanel.BackColor = Color.White;
 
@@ -260,7 +259,7 @@ namespace KhimTools.RebarTool.Forms
             topPanel.Controls.Add(pnlMiddle);
             topPanel.Controls.Add(grpSetting);
 
-            // ΓöÇΓöÇ BOTTOM PANEL: Longitudinal Elevation Canvas + Footer Bar ΓöÇΓöÇ
+            // ── BOTTOM PANEL: Longitudinal Elevation Canvas + Footer Bar ──
             var botPanel = mainSplit.Panel2;
             botPanel.BackColor = Color.White;
 
@@ -1098,16 +1097,6 @@ namespace KhimTools.RebarTool.Forms
             _btnClose = new Button { Text = "Close", Left = 1020, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
             _btnClose.Click += (s, e) => Close();
 
-            _lblSafetyStatus = new Label
-            {
-                AutoSize = true,
-                Left = 20,
-                Top = 14,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(46, 125, 50),
-                Visible = false
-            };
-            pnl.Controls.Add(_lblSafetyStatus);
             pnl.Controls.Add(_btnToggleSection);
             pnl.Controls.Add(_btnBack);
             pnl.Controls.Add(_btnOk);
@@ -1396,8 +1385,8 @@ namespace KhimTools.RebarTool.Forms
             int[] xs = { 15, 30, 45, 60, 75, 90, 105, 120 };
             foreach (var x in xs) g.DrawLine(pen, x, yTop, x, yBot);
 
-            g.DrawString("ΓùÇ D1", font, Brushes.Black, 8, h - 14);
-            g.DrawString("D1 Γû╢", font, Brushes.Black, 115, h - 14);
+            g.DrawString("◀ D1", font, Brushes.Black, 8, h - 14);
+            g.DrawString("D1 ▶", font, Brushes.Black, 115, h - 14);
         }
 
         private void DrawThreeSectionsCanvas(object sender, PaintEventArgs e)
@@ -1702,7 +1691,7 @@ namespace KhimTools.RebarTool.Forms
         {
             if (!_selectedBeams.Any())
             {
-                KhimDialogHelper.ShowWarning("Thiß║┐u Dß║ºm", "Kh├┤ng c├│ dß║ºm n├áo ─æ╞░ß╗úc chß╗ìn ─æß╗â bß╗æ tr├¡ cß╗æt th├⌐p.");
+                KhimDialogHelper.ShowWarning("Thiếu Dầm", "Không có dầm nào được chọn để bố trí cốt thép.");
                 return;
             }
 
@@ -1712,7 +1701,6 @@ namespace KhimTools.RebarTool.Forms
             try
             {
                 int successCount = 0;
-                var allCreatedRebars = new List<Rebar>();
                 using var transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
                 transGroup.Start();
 
@@ -1752,54 +1740,17 @@ namespace KhimTools.RebarTool.Forms
                     var rebars = generator.Generate(input);
                     tx.Commit();
 
-                    if (rebars != null && rebars.Any()) { allCreatedRebars.AddRange(rebars); successCount++; }
+                    if (rebars != null && rebars.Any()) successCount++;
                 }
 
                 transGroup.Assimilate();
 
-                try
-                {
-                    var sampleBeam = _selectedBeams.FirstOrDefault();
-                    if (sampleBeam != null)
-                    {
-                        double b = _beamWidth > 0 ? _beamWidth : 300;
-                        double h = _beamHeight > 0 ? _beamHeight : 600;
-                        double d = Math.Max(50, h - 40);
-
-                        var topType = GetSelectedBarType(_cmbMainTopDia);
-                        var botType = GetSelectedBarType(_cmbMainBotDia);
-                        var addTopType = GetSelectedBarType(_cmbAddTopDia);
-                        var addBotType = GetSelectedBarType(_cmbAddBotDia);
-
-                        double topDia = topType != null ? UnitUtils.ConvertFromInternalUnits(topType.BarModelDiameter, UnitTypeId.Millimeters) : 20.0;
-                        double botDia = botType != null ? UnitUtils.ConvertFromInternalUnits(botType.BarModelDiameter, UnitTypeId.Millimeters) : 20.0;
-                        double addTopDia = addTopType != null ? UnitUtils.ConvertFromInternalUnits(addTopType.BarModelDiameter, UnitTypeId.Millimeters) : topDia;
-                        double addBotDia = addBotType != null ? UnitUtils.ConvertFromInternalUnits(addBotType.BarModelDiameter, UnitTypeId.Millimeters) : botDia;
-
-                        double topAs = ((int)_numMainTopQty.Value * (Math.PI * Math.Pow(topDia / 2.0, 2))) +
-                                       ((int)_numAddTopQty.Value * (Math.PI * Math.Pow(addTopDia / 2.0, 2)));
-
-                        double botAs = ((int)_numMainBotQty.Value * (Math.PI * Math.Pow(botDia / 2.0, 2))) +
-                                       ((int)_numAddBotQty.Value * (Math.PI * Math.Pow(addBotDia / 2.0, 2)));
-
-                        var standard = new EurocodeRebarStandard();
-                        var safety = RebarSafetyValidator.EvaluateBeam(sampleBeam, allCreatedRebars, topAs, botAs, b, d, standard);
-
-                        if (_lblSafetyStatus != null)
-                        {
-                            _lblSafetyStatus.Text = safety.FullDisplayText;
-                            _lblSafetyStatus.ForeColor = safety.StatusColor;
-                            _lblSafetyStatus.Visible = true;
-                        }
-                    }
-                }
-                catch { }
-
                 KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
+                Close();
             }
             catch (Exception ex)
             {
-                KhimDialogHelper.ShowError("Lß╗ùi Bß╗æ Tr├¡ Th├⌐p Dß║ºm", ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message, ex.StackTrace);
             }
             finally
             {

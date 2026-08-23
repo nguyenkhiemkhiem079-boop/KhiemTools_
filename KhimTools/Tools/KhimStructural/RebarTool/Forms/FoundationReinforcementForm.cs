@@ -91,7 +91,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS ΓÇö Bß╗æ tr├¡ Th├⌐p M├│ng (Foundation Rebar v2.5)";
+            Text = "KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.5)";
             Width = 920;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -101,7 +101,7 @@ namespace KhimTools.RebarTool.Forms
 
             // Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS ΓÇö Foundation Reinforcement Engine",
+                "KHIM TOOLS — Foundation Reinforcement Engine",
                 "Automated Bottom/Top Meshes, Column Starter Bars & Edge Ties (TCVN 5574 & Eurocode 2/7)",
                 "v2.5 Pro");
             Controls.Add(header);
@@ -110,7 +110,7 @@ namespace KhimTools.RebarTool.Forms
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14 };
-            _cmbLanguage.Items.Add("Tiß║┐ng Viß╗çt");
+            _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
@@ -137,7 +137,7 @@ namespace KhimTools.RebarTool.Forms
 
             // Right Panel (Selection List & Live Preview)
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 260, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            var lblFdnTitle = new Label { Text = "Danh S├ích M├│ng", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            var lblFdnTitle = new Label { Text = "Danh Sách Móng", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
 
             _foundationListBox = new ListBox { Dock = DockStyle.Top, Height = 200, SelectionMode = SelectionMode.MultiExtended };
 
@@ -155,15 +155,15 @@ namespace KhimTools.RebarTool.Forms
             // Center Tab Control
             var tabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Point(12, 6) };
 
-            // TAB 1: Lß╗¢p Th├⌐p D╞░ß╗¢i (Bottom Mesh)
-            var tabBot = new TabPage("Th├⌐p L╞░ß╗¢i D╞░ß╗¢i") { BackColor = KhimUiStyle.FormBg };
-            var grpBotX = new GroupBox { Text = "Ph╞░╞íng X (D╞░ß╗¢i)", Left = 15, Top = 15, Width = 520, Height = 110 };
+            // TAB 1: Lớp Thép Dưới (Bottom Mesh)
+            var tabBot = new TabPage("Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
+            var grpBotX = new GroupBox { Text = "Phương X (Dưới)", Left = 15, Top = 15, Width = 520, Height = 110 };
             KhimUiStyle.ApplyCardStyle(grpBotX);
-            var lblBotXDia = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
+            var lblBotXDia = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
             _cmbBotXDia = new ComboBox { Left = 110, Top = 30, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblBotXSpacing = new Label { Text = "Khoß║úng c├ích a (mm):", Left = 240, Top = 35, AutoSize = true };
+            var lblBotXSpacing = new Label { Text = "Khoảng cách a (mm):", Left = 240, Top = 35, AutoSize = true };
             _numBotXSpacing = new NumericUpDown { Left = 380, Top = 30, Width = 110, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
-            _chkBotXHook = new CheckBox { Text = "Uß╗æn bß║╗ m├│c ─æß╗⌐ng 90┬░ l├¬n ─æß╗ënh m├│ng", Left = 15, Top = 70, AutoSize = true, Checked = true };
+            _chkBotXHook = new CheckBox { Text = "Uốn bẻ móc đứng 90° lên đỉnh móng", Left = 15, Top = 70, AutoSize = true, Checked = true };
 
             grpBotX.Controls.Add(lblBotXDia);
             grpBotX.Controls.Add(_cmbBotXDia);
@@ -171,13 +171,13 @@ namespace KhimTools.RebarTool.Forms
             grpBotX.Controls.Add(_numBotXSpacing);
             grpBotX.Controls.Add(_chkBotXHook);
 
-            var grpBotY = new GroupBox { Text = "Ph╞░╞íng Y (D╞░ß╗¢i)", Left = 15, Top = 140, Width = 520, Height = 110 };
+            var grpBotY = new GroupBox { Text = "Phương Y (Dưới)", Left = 15, Top = 140, Width = 520, Height = 110 };
             KhimUiStyle.ApplyCardStyle(grpBotY);
-            var lblBotYDia = new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true };
+            var lblBotYDia = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
             _cmbBotYDia = new ComboBox { Left = 110, Top = 30, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
-            var lblBotYSpacing = new Label { Text = "Khoß║úng c├ích a (mm):", Left = 240, Top = 35, AutoSize = true };
+            var lblBotYSpacing = new Label { Text = "Khoảng cách a (mm):", Left = 240, Top = 35, AutoSize = true };
             _numBotYSpacing = new NumericUpDown { Left = 380, Top = 30, Width = 110, Minimum = 50, Maximum = 500, Value = 150, Increment = 10 };
-            _chkBotYHook = new CheckBox { Text = "Uß╗æn bß║╗ m├│c ─æß╗⌐ng 90┬░ l├¬n ─æß╗ënh m├│ng", Left = 15, Top = 70, AutoSize = true, Checked = true };
+            _chkBotYHook = new CheckBox { Text = "Uốn bẻ móc đứng 90° lên đỉnh móng", Left = 15, Top = 70, AutoSize = true, Checked = true };
 
             grpBotY.Controls.Add(lblBotYDia);
             grpBotY.Controls.Add(_cmbBotYDia);
@@ -189,31 +189,31 @@ namespace KhimTools.RebarTool.Forms
             tabBot.Controls.Add(grpBotY);
             tabControl.TabPages.Add(tabBot);
 
-            // TAB 2: Lß╗¢p Th├⌐p Tr├¬n (Top Mesh)
-            var tabTop = new TabPage("Th├⌐p L╞░ß╗¢i Tr├¬n") { BackColor = KhimUiStyle.FormBg };
-            _chkEnableTopMesh = new CheckBox { Text = "Bß║¡t bß╗æ tr├¡ Th├⌐p Lß╗¢p Tr├¬n (Cho ─É├ái M├│ng / M├│ng S├óu)", Left = 15, Top = 15, AutoSize = true, Checked = false };
+            // TAB 2: Lớp Thép Trên (Top Mesh)
+            var tabTop = new TabPage("Thép Lưới Trên") { BackColor = KhimUiStyle.FormBg };
+            _chkEnableTopMesh = new CheckBox { Text = "Bật bố trí Thép Lớp Trên (Cho Đài Móng / Móng Sâu)", Left = 15, Top = 15, AutoSize = true, Checked = false };
 
-            var grpTopX = new GroupBox { Text = "Ph╞░╞íng X (Tr├¬n)", Left = 15, Top = 45, Width = 520, Height = 100 };
+            var grpTopX = new GroupBox { Text = "Phương X (Trên)", Left = 15, Top = 45, Width = 520, Height = 100 };
             KhimUiStyle.ApplyCardStyle(grpTopX);
             _cmbTopXDia = new ComboBox { Left = 110, Top = 30, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
             _numTopXSpacing = new NumericUpDown { Left = 380, Top = 30, Width = 110, Minimum = 50, Maximum = 500, Value = 200, Increment = 10 };
-            _chkTopXHook = new CheckBox { Text = "M├│c bß║╗ 90┬░ xuß╗æng ─æ├íy m├│ng", Left = 15, Top = 65, AutoSize = true, Checked = true };
+            _chkTopXHook = new CheckBox { Text = "Móc bẻ 90° xuống đáy móng", Left = 15, Top = 65, AutoSize = true, Checked = true };
 
-            grpTopX.Controls.Add(new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true });
+            grpTopX.Controls.Add(new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true });
             grpTopX.Controls.Add(_cmbTopXDia);
-            grpTopX.Controls.Add(new Label { Text = "Khoß║úng c├ích a (mm):", Left = 240, Top = 35, AutoSize = true });
+            grpTopX.Controls.Add(new Label { Text = "Khoảng cách a (mm):", Left = 240, Top = 35, AutoSize = true });
             grpTopX.Controls.Add(_numTopXSpacing);
             grpTopX.Controls.Add(_chkTopXHook);
 
-            var grpTopY = new GroupBox { Text = "Ph╞░╞íng Y (Tr├¬n)", Left = 15, Top = 155, Width = 520, Height = 100 };
+            var grpTopY = new GroupBox { Text = "Phương Y (Trên)", Left = 15, Top = 155, Width = 520, Height = 100 };
             KhimUiStyle.ApplyCardStyle(grpTopY);
             _cmbTopYDia = new ComboBox { Left = 110, Top = 30, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
             _numTopYSpacing = new NumericUpDown { Left = 380, Top = 30, Width = 110, Minimum = 50, Maximum = 500, Value = 200, Increment = 10 };
-            _chkTopYHook = new CheckBox { Text = "M├│c bß║╗ 90┬░ xuß╗æng ─æ├íy m├│ng", Left = 15, Top = 65, AutoSize = true, Checked = true };
+            _chkTopYHook = new CheckBox { Text = "Móc bẻ 90° xuống đáy móng", Left = 15, Top = 65, AutoSize = true, Checked = true };
 
-            grpTopY.Controls.Add(new Label { Text = "─É╞░ß╗¥ng k├¡nh:", Left = 15, Top = 35, AutoSize = true });
+            grpTopY.Controls.Add(new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true });
             grpTopY.Controls.Add(_cmbTopYDia);
-            grpTopY.Controls.Add(new Label { Text = "Khoß║úng c├ích a (mm):", Left = 240, Top = 35, AutoSize = true });
+            grpTopY.Controls.Add(new Label { Text = "Khoảng cách a (mm):", Left = 240, Top = 35, AutoSize = true });
             grpTopY.Controls.Add(_numTopYSpacing);
             grpTopY.Controls.Add(_chkTopYHook);
 
@@ -222,11 +222,11 @@ namespace KhimTools.RebarTool.Forms
             tabTop.Controls.Add(grpTopY);
             tabControl.TabPages.Add(tabTop);
 
-            // TAB 3: Th├⌐p Chß╗¥ Cß╗Öt & Th├⌐p ─Éai (Column Dowels & Stirrups)
-            var tabDowel = new TabPage("Th├⌐p Chß╗¥ & Th├⌐p ─Éai") { BackColor = KhimUiStyle.FormBg };
-            _chkEnableDowels = new CheckBox { Text = "Bß║¡t tß║ío Th├⌐p Chß╗¥ Cß╗Öt & Th├⌐p ─Éai Lß╗ông (Column Dowels & Stirrups)", Left = 15, Top = 12, AutoSize = true, Checked = true };
+            // TAB 3: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
+            var tabDowel = new TabPage("Thép Chờ & Thép Đai") { BackColor = KhimUiStyle.FormBg };
+            _chkEnableDowels = new CheckBox { Text = "Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)", Left = 15, Top = 12, AutoSize = true, Checked = true };
 
-            var grpDowel = new GroupBox { Text = "Th├┤ng Sß╗æ Th├⌐p Chß╗¥ Cß╗Öt & ─Éai Lß╗ông Ch├ón Cß╗Öt", Left = 15, Top = 38, Width = 520, Height = 240 };
+            var grpDowel = new GroupBox { Text = "Thông Số Thép Chờ Cột & Đai Lồng Chân Cột", Left = 15, Top = 38, Width = 520, Height = 240 };
             KhimUiStyle.ApplyCardStyle(grpDowel);
 
             _cmbDowelDia = new ComboBox { Left = 130, Top = 25, Width = 110, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -236,38 +236,38 @@ namespace KhimTools.RebarTool.Forms
             _numDowelFootLeg = new NumericUpDown { Left = 130, Top = 105, Width = 110, Minimum = 100, Maximum = 1000, Value = 300, Increment = 50 };
             _numDowelExtension = new NumericUpDown { Left = 380, Top = 105, Width = 100, Minimum = 200, Maximum = 2000, Value = 600, Increment = 50 };
 
-            _chkDowelInward = new CheckBox { Text = "Bß║╗ ch├ón quß╗│ ├║p v├áo trong l├▓ng cß╗Öt", Left = 15, Top = 145, AutoSize = true, Checked = false };
-            _chkStaggeredDowels = new CheckBox { Text = "Bß╗æ tr├¡ nß╗æi so le 50% th├⌐p chß╗¥ (50% Staggered)", Left = 250, Top = 145, AutoSize = true, Checked = true };
+            _chkDowelInward = new CheckBox { Text = "Bẻ chân quỳ úp vào trong lòng cột", Left = 15, Top = 145, AutoSize = true, Checked = false };
+            _chkStaggeredDowels = new CheckBox { Text = "Bố trí nối so le 50% thép chờ (50% Staggered)", Left = 250, Top = 145, AutoSize = true, Checked = true };
 
-            _chkEnableDowelStirrups = new CheckBox { Text = "─Éß║╖t Th├⌐p ─Éai lß╗ông m├│ng cß╗æ ─æß╗ïnh ch├ón cß╗Öt", Left = 15, Top = 180, AutoSize = true, Checked = true };
+            _chkEnableDowelStirrups = new CheckBox { Text = "Đặt Thép Đai lồng móng cố định chân cột", Left = 15, Top = 180, AutoSize = true, Checked = true };
             _numDowelStirrupQty = new NumericUpDown { Left = 380, Top = 175, Width = 100, Minimum = 1, Maximum = 10, Value = 3 };
 
-            grpDowel.Controls.Add(new Label { Text = "─É╞░ß╗¥ng k├¡nh th├⌐p chß╗¥:", Left = 15, Top = 28, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Đường kính thép chờ:", Left = 15, Top = 28, AutoSize = true });
             grpDowel.Controls.Add(_cmbDowelDia);
-            grpDowel.Controls.Add(new Label { Text = "Sß╗æ thanh ph╞░╞íng X:", Left = 250, Top = 28, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Số thanh phương X:", Left = 250, Top = 28, AutoSize = true });
             grpDowel.Controls.Add(_numDowelQtyX);
-            grpDowel.Controls.Add(new Label { Text = "Sß╗æ thanh ph╞░╞íng Y:", Left = 250, Top = 68, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Số thanh phương Y:", Left = 250, Top = 68, AutoSize = true });
             grpDowel.Controls.Add(_numDowelQtyY);
 
-            grpDowel.Controls.Add(new Label { Text = "Ch├ón quß╗│ 90┬░ (mm):", Left = 15, Top = 108, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Chân quỳ 90° (mm):", Left = 15, Top = 108, AutoSize = true });
             grpDowel.Controls.Add(_numDowelFootLeg);
-            grpDowel.Controls.Add(new Label { Text = "─Éoß║ín chß╗¥ L0 (mm):", Left = 250, Top = 108, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Đoạn chờ L0 (mm):", Left = 250, Top = 108, AutoSize = true });
             grpDowel.Controls.Add(_numDowelExtension);
 
             grpDowel.Controls.Add(_chkDowelInward);
             grpDowel.Controls.Add(_chkStaggeredDowels);
 
             grpDowel.Controls.Add(_chkEnableDowelStirrups);
-            grpDowel.Controls.Add(new Label { Text = "Sß╗æ ─æai lß╗ông:", Left = 290, Top = 178, AutoSize = true });
+            grpDowel.Controls.Add(new Label { Text = "Số đai lồng:", Left = 290, Top = 178, AutoSize = true });
             grpDowel.Controls.Add(_numDowelStirrupQty);
 
             tabDowel.Controls.Add(_chkEnableDowels);
             tabDowel.Controls.Add(grpDowel);
             tabControl.TabPages.Add(tabDowel);
 
-            // TAB 4: Ti├¬u Chuß║⌐n & Template
-            var tabDesign = new TabPage("Ti├¬u Chuß║⌐n & Template") { BackColor = KhimUiStyle.FormBg };
-            var grpCode = new GroupBox { Text = "Ti├¬u Chuß║⌐n Thiß║┐t Kß║┐ & Cß║Ñp ─Éß╗Ö Bß╗ün", Left = 15, Top = 15, Width = 520, Height = 140 };
+            // TAB 4: Tiêu Chuẩn & Template
+            var tabDesign = new TabPage("Tiêu Chuẩn & Template") { BackColor = KhimUiStyle.FormBg };
+            var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Cấp Độ Bền", Left = 15, Top = 15, Width = 520, Height = 140 };
             KhimUiStyle.ApplyCardStyle(grpCode);
 
             _cmbDesignCode = new ComboBox { Left = 130, Top = 30, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -303,21 +303,21 @@ namespace KhimTools.RebarTool.Forms
             _cmbDesignCode.SelectedIndexChanged += (s, e) => updateGrades();
             updateGrades();
 
-            grpCode.Controls.Add(new Label { Text = "Ti├¬u chuß║⌐n:", Left = 15, Top = 35, AutoSize = true });
+            grpCode.Controls.Add(new Label { Text = "Tiêu chuẩn:", Left = 15, Top = 35, AutoSize = true });
             grpCode.Controls.Add(_cmbDesignCode);
-            grpCode.Controls.Add(new Label { Text = "M├íc b├¬ t├┤ng:", Left = 15, Top = 75, AutoSize = true });
+            grpCode.Controls.Add(new Label { Text = "Mác bê tông:", Left = 15, Top = 75, AutoSize = true });
             grpCode.Controls.Add(_cmbConcreteGrade);
-            grpCode.Controls.Add(new Label { Text = "M├íc th├⌐p:", Left = 310, Top = 75, AutoSize = true });
+            grpCode.Controls.Add(new Label { Text = "Mác thép:", Left = 310, Top = 75, AutoSize = true });
             grpCode.Controls.Add(_cmbSteelGrade);
             grpCode.Controls.Add(new Label { Text = "Cover (mm):", Left = 15, Top = 110, AutoSize = true });
             grpCode.Controls.Add(_numCoverMm);
 
-            var grpTpl = new GroupBox { Text = "Quß║ún L├╜ Template JSON", Left = 15, Top = 170, Width = 520, Height = 90 };
+            var grpTpl = new GroupBox { Text = "Quản Lý Template JSON", Left = 15, Top = 170, Width = 520, Height = 90 };
             KhimUiStyle.ApplyCardStyle(grpTpl);
             _cmbTemplates = new ComboBox { Left = 15, Top = 35, Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
-            _btnSaveTemplate = new Button { Text = "≡ƒÆ╛ Save Tpl", Left = 290, Top = 33, Width = 100, Height = 32 };
+            _btnSaveTemplate = new Button { Text = "💾 Save Tpl", Left = 290, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
-            _btnLoadTemplate = new Button { Text = "≡ƒôé Load Tpl", Left = 400, Top = 33, Width = 100, Height = 32 };
+            _btnLoadTemplate = new Button { Text = "📂 Load Tpl", Left = 400, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnLoadTemplate);
 
             grpTpl.Controls.Add(_cmbTemplates);
@@ -414,7 +414,7 @@ namespace KhimTools.RebarTool.Forms
             var selectedIndices = _foundationListBox.SelectedIndices;
             if (selectedIndices.Count == 0)
             {
-                KhimDialogHelper.ShowError("Vui l├▓ng chß╗ìn ├¡t nhß║Ñt 1 M├│ng ─æß╗â tß║ío th├⌐p.");
+                KhimDialogHelper.ShowError("Vui lòng chọn ít nhất 1 Móng để tạo thép.");
                 return;
             }
 
@@ -450,7 +450,7 @@ namespace KhimTools.RebarTool.Forms
             var generator = new FoundationRebarGenerator(_doc);
             var report = new RebarGenerationReport();
 
-            using (var tx = new Transaction(_doc, "Bß╗æ tr├¡ Th├⌐p M├│ng ΓÇö KhimTools"))
+            using (var tx = new Transaction(_doc, "Bố trí Thép Móng — KhimTools"))
             {
                 tx.Start();
                 foreach (int idx in selectedIndices)
@@ -462,7 +462,7 @@ namespace KhimTools.RebarTool.Forms
                 tx.Commit();
             }
 
-            KhimDialogHelper.ShowRebarGenerationReport(report, "M├│ng (Foundation)", selectedIndices.Count);
+            KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Count);
             Close();
         }
     }
