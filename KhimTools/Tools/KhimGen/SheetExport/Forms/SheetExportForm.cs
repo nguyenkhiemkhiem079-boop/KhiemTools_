@@ -63,8 +63,13 @@ namespace KhimTools.SheetExport.Forms
         private TextBox _txtNaming2;
         private TextBox _txtNaming3;
         private TextBox _txtFileCombineName;
+        private RadioButton _rbFormatPdf;
+        private RadioButton _rbFormatDwg;
+        private RadioButton _rbFormatBoth;
         private CheckBox _chkExportPdf;
         private CheckBox _chkExportDwg;
+        private ProgressBar _progressBar;
+        private Label _lblProgressStatus;
         private CheckBox _chkCreateTransmittal;
         private DataGridView _gridSheets;
 
@@ -322,27 +327,41 @@ namespace KhimTools.SheetExport.Forms
             pnlRow2.Controls.AddRange(new System.Windows.Forms.Control[] { _chkUseNamingConvention, _txtNaming1, lblSep1, _txtNaming2, lblSep2, _txtNaming3 });
             pnlTopConfig.Controls.Add(pnlRow2);
 
-            // Row 3: Combine File Name + Formats
+                        // Row 3: Combine File Name + Format Picker (Radio Buttons & Checkboxes)
             var pnlRow3 = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 38,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 Padding = new Padding(2, 2, 2, 2)
             };
 
-            var lblCombine = new Label { Text = "Tên file PDF gộp:", AutoSize = true, Font = new Font("Segoe UI", 9F), Margin = new Padding(3, 6, 6, 3) };
-            _txtFileCombineName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 400, Font = new Font("Segoe UI", 9F), Margin = new Padding(0, 3, 10, 3) };
+            var lblCombine = new Label { Text = "Tên file PDF gộp:", AutoSize = true, Font = new Font("Segoe UI", 9F), Margin = new Padding(3, 7, 6, 3) };
+            _txtFileCombineName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 320, Font = new Font("Segoe UI", 9F), Margin = new Padding(0, 4, 10, 3) };
 
-            _chkExportPdf = new CheckBox { Text = "Xuất PDF", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(6, 5, 10, 3) };
-            _chkExportDwg = new CheckBox { Text = "Xuất DWG", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkGreen, Margin = new Padding(6, 5, 10, 3) };
-            _chkCreateTransmittal = new CheckBox { Text = "Tạo Bảng Kê Excel (Transmittal)", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F), Margin = new Padding(6, 5, 6, 3) };
+            var lblFormatGroup = new Label { Text = "Định dạng:", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Margin = new Padding(6, 7, 4, 3) };
+
+            _rbFormatPdf = new RadioButton { Text = "Xuất PDF", AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue, Margin = new Padding(3, 6, 4, 3) };
+            _rbFormatDwg = new RadioButton { Text = "Xuất DWG", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkGreen, Margin = new Padding(3, 6, 4, 3) };
+            _rbFormatBoth = new RadioButton { Text = "Cả hai (PDF + DWG)", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.Purple, Margin = new Padding(3, 6, 8, 3) };
+
+            _chkExportPdf = new CheckBox { Text = "PDF", AutoSize = true, Checked = true, Visible = false };
+            _chkExportDwg = new CheckBox { Text = "DWG", AutoSize = true, Checked = false, Visible = false };
+
+            _rbFormatPdf.CheckedChanged += (s, e) => { if (_rbFormatPdf.Checked) { _chkExportPdf.Checked = true; _chkExportDwg.Checked = false; } };
+            _rbFormatDwg.CheckedChanged += (s, e) => { if (_rbFormatDwg.Checked) { _chkExportPdf.Checked = false; _chkExportDwg.Checked = true; } };
+            _rbFormatBoth.CheckedChanged += (s, e) => { if (_rbFormatBoth.Checked) { _chkExportPdf.Checked = true; _chkExportDwg.Checked = true; } };
 
             _chkExportPdf.CheckedChanged += (s, e) => RefreshGridRows();
             _chkExportDwg.CheckedChanged += (s, e) => RefreshGridRows();
 
-            pnlRow3.Controls.AddRange(new System.Windows.Forms.Control[] { lblCombine, _txtFileCombineName, _chkExportPdf, _chkExportDwg, _chkCreateTransmittal });
+            _chkCreateTransmittal = new CheckBox { Text = "Tạo Bảng Kê Excel (Transmittal)", AutoSize = true, Checked = false, Font = new Font("Segoe UI", 9F), Margin = new Padding(6, 6, 6, 3) };
+
+            pnlRow3.Controls.AddRange(new System.Windows.Forms.Control[] {
+                lblCombine, _txtFileCombineName, lblFormatGroup, _rbFormatPdf, _rbFormatDwg, _rbFormatBoth,
+                _chkExportPdf, _chkExportDwg, _chkCreateTransmittal
+            });
             pnlTopConfig.Controls.Add(pnlRow3);
 
             // Row 4: Search & Quick Selection Toolbar
@@ -701,8 +720,28 @@ namespace KhimTools.SheetExport.Forms
             };
             _btnPrint.Click += BtnPrint_Click;
 
+                        _progressBar = new ProgressBar
+            {
+                Left = 200,
+                Top = 48,
+                Height = 18,
+                Width = 500,
+                Visible = false,
+                Style = ProgressBarStyle.Continuous
+            };
+
+            _lblProgressStatus = new Label
+            {
+                Left = 200,
+                Top = 48,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                ForeColor = Color.DarkSlateGray,
+                Visible = false
+            };
+
             grpPrint.Controls.AddRange(new System.Windows.Forms.Control[] {
-                _btnOpenFolderSelection, _txtOutputDirectory, _btnBrowseFolder, _lblTotalSummary, _btnPrint
+                _btnOpenFolderSelection, _txtOutputDirectory, _btnBrowseFolder, _lblTotalSummary, _progressBar, _lblProgressStatus, _btnPrint
             });
 
             grpPrint.Resize += (s, e) =>
@@ -710,8 +749,8 @@ namespace KhimTools.SheetExport.Forms
                 _btnPrint.Left = grpPrint.Width - _btnPrint.Width - 18;
                 _txtOutputDirectory.Width = Math.Max(250, _btnPrint.Left - _txtOutputDirectory.Left - 60);
                 _btnBrowseFolder.Left = _txtOutputDirectory.Right + 6;
+                _progressBar.Width = Math.Max(200, _btnPrint.Left - _progressBar.Left - 20);
             };
-
             return grpPrint;
         }
         #endregion
