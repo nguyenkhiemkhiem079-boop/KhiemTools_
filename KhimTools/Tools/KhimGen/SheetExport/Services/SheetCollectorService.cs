@@ -13,7 +13,7 @@ namespace KhimTools.SheetExport.Services
             var sheets = new FilteredElementCollector(doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
-                .Where(s => !s.IsTemplate && s.CanBePrinted)
+                .Where(s => !s.IsTemplate && !s.IsPlaceholder)
                 .OrderBy(s => s.SheetNumber)
                 .ToList();
 
