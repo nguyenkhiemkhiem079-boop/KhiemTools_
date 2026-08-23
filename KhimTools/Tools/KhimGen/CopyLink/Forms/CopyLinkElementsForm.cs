@@ -1,3 +1,4 @@
+﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -24,7 +25,7 @@ using CheckedListBox = System.Windows.Forms.CheckedListBox;
 
 namespace KhimTools.CopyLink.Forms
 {
-    public class CopyLinkElementsForm : Form
+    public class CopyLinkElementsForm : KTBaseForm
     {
         private readonly UIDocument _uidoc;
         private readonly Document _doc;

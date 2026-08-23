@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -27,7 +28,7 @@ namespace KhimTools.SectionCutTool.Forms
     /// Form giao diện thương mại "SectionCutTool" — Tự động cắt mặt cắt dọc & ngang cho Dầm, Cột, Vách, Sàn, Móng.
     /// Hỗ trợ chọn Section View Type, View Template riêng cho Dọc & Ngang, song ngữ Việt-Anh, Template JSON và Live Preview.
     /// </summary>
-    public class SectionCutForm : Form
+    public class SectionCutForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly Autodesk.Revit.UI.UIDocument _uidoc;

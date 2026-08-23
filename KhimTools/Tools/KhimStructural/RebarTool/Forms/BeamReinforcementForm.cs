@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -40,7 +41,7 @@ namespace KhimTools.RebarTool.Forms
     /// vß╗¢i Sidebar 6 chß║┐ ─æß╗Ö: Main Top Bar, Main Bot Bar, Add. Top Bar, Add. Bot Bar, Stirrup, Anti bulge rebar.
     /// T├¡ch hß╗úp s╞í ─æß╗ô trß╗▒c quan GDI+ (Mß║╖t cß║»t dß╗ìc nhß╗ïp dß║ºm v├á 3 mß║╖t cß║»t tiß║┐t diß╗çn 1-1, 2-2, 3-3).
     /// </summary>
-    public class BeamReinforcementForm : Form
+    public class BeamReinforcementForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableBeams;

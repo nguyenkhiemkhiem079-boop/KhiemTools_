@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -17,7 +18,7 @@ using View = Autodesk.Revit.DB.View;
 
 namespace KhimTools.SheetGen.Forms
 {
-    public class SheetGenForm : Form
+    public class SheetGenForm : KTBaseForm
     {
         private readonly Document _doc;
         private List<TitleBlockOption> _titleBlocks;

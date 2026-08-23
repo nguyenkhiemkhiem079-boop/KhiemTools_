@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -17,7 +18,7 @@ using View = Autodesk.Revit.DB.View;
 
 namespace KhimTools.DetailNumberUpdater.Forms
 {
-    public class UpdateDetailNumbersForm : Form
+    public class UpdateDetailNumbersForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly ViewSheet _sheet;

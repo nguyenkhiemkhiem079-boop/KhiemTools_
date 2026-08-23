@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -24,7 +25,7 @@ using Rectangle = System.Drawing.Rectangle;
 
 namespace KhimTools.RebarTool.Forms
 {
-    public class SlabReinforcementForm : Form
+    public class SlabReinforcementForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly List<Floor> _availableFloors;

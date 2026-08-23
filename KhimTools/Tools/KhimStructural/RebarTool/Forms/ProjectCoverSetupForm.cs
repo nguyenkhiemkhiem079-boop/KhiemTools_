@@ -1,3 +1,4 @@
+﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -21,7 +22,7 @@ using KhimTools.Core;
 
 namespace KhimTools.RebarTool.Forms
 {
-    public class ProjectCoverSetupForm : Form
+    public class ProjectCoverSetupForm : KTBaseForm
     {
         private readonly Document _doc;
 

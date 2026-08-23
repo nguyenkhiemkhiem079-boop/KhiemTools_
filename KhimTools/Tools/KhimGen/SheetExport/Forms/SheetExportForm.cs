@@ -1,3 +1,4 @@
+﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ using Form = System.Windows.Forms.Form;
 
 namespace KhimTools.SheetExport.Forms
 {
-    public class SheetExportForm : Form
+    public class SheetExportForm : KTBaseForm
     {
         private readonly Document _doc;
         private List<SheetExportItem> _allSheetItems = new List<SheetExportItem>();

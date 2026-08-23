@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text.RegularExpressions;
@@ -8,7 +9,7 @@ using KhimTools.SheetExport.Models;
 
 namespace KhimTools.SheetExport.Forms
 {
-    public class NamingTemplateEditForm : Form
+    public class NamingTemplateEditForm : KTBaseForm
     {
         private TextBox _txtName;
         private TextBox _txtExpression;

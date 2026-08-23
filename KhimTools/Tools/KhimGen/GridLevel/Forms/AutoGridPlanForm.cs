@@ -1,3 +1,4 @@
+﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -28,7 +29,7 @@ using DataGridViewCheckBoxColumn = System.Windows.Forms.DataGridViewCheckBoxColu
 
 namespace KhimTools.GridLevel.Forms
 {
-    public class AutoGridPlanForm : Form
+    public class AutoGridPlanForm : KTBaseForm
     {
         private readonly UIDocument _uidoc;
         private readonly Document _doc;

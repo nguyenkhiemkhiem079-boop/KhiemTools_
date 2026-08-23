@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -25,7 +26,7 @@ namespace KhimTools.RebarTool.Forms
     /// Form "Multi-Column Rebar 2.0" cao cß║Ñp cho Cß╗Öt Vu├┤ng / Chß╗» Nhß║¡t.
     /// Tß╗▒ ─æß╗Öng giß╗» v├á highlight 100% danh s├ích cß╗Öt ─æ├ú chß╗ìn tr╞░ß╗¢c trong Revit viewport.
     /// </summary>
-    public class RectangularColumnReinforcementForm : Form
+    public class RectangularColumnReinforcementForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableColumns;

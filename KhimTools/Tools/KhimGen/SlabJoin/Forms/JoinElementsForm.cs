@@ -1,3 +1,4 @@
+﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,7 +24,7 @@ using KhimTools.Core;
 
 namespace KhimTools.SlabJoin.Forms
 {
-    public class JoinElementsForm : Form
+    public class JoinElementsForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly ICollection<ElementId> _selectedIds;

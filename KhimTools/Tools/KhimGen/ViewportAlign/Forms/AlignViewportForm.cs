@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -25,7 +26,7 @@ using View = Autodesk.Revit.DB.View;
 
 namespace KhimTools.ViewportAlign.Forms
 {
-    public class AlignViewportForm : Form
+    public class AlignViewportForm : KTBaseForm
     {
         private readonly UIDocument _uidoc;
         private readonly Document _doc;

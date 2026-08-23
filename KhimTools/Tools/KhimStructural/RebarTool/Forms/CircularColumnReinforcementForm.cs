@@ -1,4 +1,5 @@
-﻿using System;
+﻿using KhimTools.Core.UI;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -28,7 +29,7 @@ namespace KhimTools.RebarTool.Forms
     /// Form "Circular Column Reinforcement Layout" cao cß║Ñp cho Cß╗Öt Tr├▓n.
     /// Tß╗▒ ─æß╗Öng giß╗» v├á highlight 100% danh s├ích cß╗Öt ─æ├ú chß╗ìn tr╞░ß╗¢c trong Revit viewport.
     /// </summary>
-    public class CircularColumnReinforcementForm : Form
+    public class CircularColumnReinforcementForm : KTBaseForm
     {
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableColumns;
