@@ -45,9 +45,9 @@ namespace KhimTools.SheetExport.Forms
         private Panel _viewFilter;
 
         // ── View 1: Select UI Elements ───────────────────────────────────────
-        private ComboBox _cmbSheetSet;
-        private Button _btnSaveSet;
-        private TextBox _txtSheetSetName;
+        private Button _btnSaveSelection;
+        private Button _btnLoadSelection;
+        private Label _lblCurrentSelectionFile;
         private ComboBox _cmbDisciplineFilter;
         private TextBox _txtSearchSheet;
         private Button _btnRefreshList;
@@ -244,57 +244,70 @@ namespace KhimTools.SheetExport.Forms
                 BackColor = KhimUiStyle.CardBg
             };
 
-            // Row 1: Separate / Combine Radios + ViewSheetSet dropdown
-            var pnlRow1 = new Panel { Dock = DockStyle.Top, Height = 32 };
+            // Row 1: Separate / Combine Radios + Save/Load Selection JSON
+            var pnlRow1 = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Padding = new Padding(2, 2, 2, 2)
+            };
+
             _rbSeparateFiles = new RadioButton
             {
-                Text = "Tạo từng file riêng biệt (Separate files)",
-                Left = 6,
-                Top = 4,
+                Text = "Từng file riêng (Separate)",
                 AutoSize = true,
                 Checked = true,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Margin = new Padding(3, 5, 8, 3)
             };
             _rbCombineFiles = new RadioButton
             {
-                Text = "Gộp chung thành 1 file PDF duy nhất (Combine)",
-                Left = 280,
-                Top = 4,
+                Text = "Gộp 1 file PDF (Combine)",
                 AutoSize = true,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Margin = new Padding(3, 5, 16, 3)
             };
 
-            var lblSheetSet = new Label
+            _btnSaveSelection = new Button
             {
-                Text = "ViewSheetSet:",
-                Left = 620,
-                Top = 7,
+                Text = "💾 Lưu lựa chọn...",
                 AutoSize = true,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                ForeColor = KhimUiStyle.TextSecondary
-            };
-            _cmbSheetSet = new ComboBox
-            {
-                Left = 715,
-                Top = 3,
-                Width = 210,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 9F)
-            };
-
-            _txtSheetSetName = new TextBox { Text = "Set Mới", Left = 935, Top = 4, Width = 110, Font = new Font("Segoe UI", 9F) };
-            _btnSaveSet = new Button
-            {
-                Text = "Lưu Set",
-                Left = 1052,
-                Top = 3,
-                Width = 70,
-                Height = 26,
+                Height = 27,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = KhimUiStyle.SecondaryButtonBg
+                BackColor = KhimUiStyle.SecondaryButtonBg,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Margin = new Padding(3, 2, 4, 3),
+                Cursor = Cursors.Hand
+            };
+            _btnSaveSelection.Click += (s, e) => SaveSelectionDialog();
+
+            _btnLoadSelection = new Button
+            {
+                Text = "📂 Mở lựa chọn...",
+                AutoSize = true,
+                Height = 27,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = KhimUiStyle.SecondaryButtonBg,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Margin = new Padding(3, 2, 8, 3),
+                Cursor = Cursors.Hand
+            };
+            _btnLoadSelection.Click += (s, e) => LoadSelectionDialog();
+
+            _lblCurrentSelectionFile = new Label
+            {
+                Text = "File: (Mặc định toàn bộ)",
+                AutoSize = true,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                Margin = new Padding(3, 6, 3, 3)
             };
 
-            pnlRow1.Controls.AddRange(new System.Windows.Forms.Control[] { _rbSeparateFiles, _rbCombineFiles, lblSheetSet, _cmbSheetSet, _txtSheetSetName, _btnSaveSet });
+            pnlRow1.Controls.AddRange(new System.Windows.Forms.Control[] {
+                _rbSeparateFiles, _rbCombineFiles, _btnSaveSelection, _btnLoadSelection, _lblCurrentSelectionFile
+            });
             pnlTopConfig.Controls.Add(pnlRow1);
 
             // Row 2: Naming Convention Flow Panel (Chống chèn chữ 100%)
@@ -328,7 +341,7 @@ namespace KhimTools.SheetExport.Forms
             pnlRow2.Controls.AddRange(new System.Windows.Forms.Control[] { _chkUseNamingConvention, _txtNaming1, lblSep1, _txtNaming2, lblSep2, _txtNaming3 });
             pnlTopConfig.Controls.Add(pnlRow2);
 
-                        // Row 3: Combine File Name + Format Picker (Radio Buttons & Checkboxes)
+            // Row 3: Combine File Name + Format Picker (Radio Buttons & Checkboxes)
             var pnlRow3 = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -374,24 +387,22 @@ namespace KhimTools.SheetExport.Forms
                 Padding = new Padding(4, 6, 4, 4)
             };
 
-            var lblFilter = new Label { Text = "Bộ môn:", Left = 6, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = KhimUiStyle.TextSecondary };
-            _cmbDisciplineFilter = new ComboBox { Left = 62, Top = 7, Width = 140, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
-            _cmbDisciplineFilter.Items.AddRange(new object[] { "(Tất cả bộ môn)", "Structure (Kết cấu)", "Architecture (Kiến trúc)", "MEP (Cơ điện)" });
-            _cmbDisciplineFilter.SelectedIndex = 0;
+            var lblFilter = new Label { Text = "Lọc Series:", Left = 6, Top = 10, AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = KhimUiStyle.TextSecondary };
+            _cmbDisciplineFilter = new ComboBox { Left = 75, Top = 7, Width = 180, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
             _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => { if (!_isLoading) ApplySearchAndFilter(); };
 
-            _txtSearchSheet = new TextBox { Left = 210, Top = 7, Width = 260, Font = new Font("Segoe UI", 9F) };
+            _txtSearchSheet = new TextBox { Left = 265, Top = 7, Width = 210, Font = new Font("Segoe UI", 9F) };
             _txtSearchSheet.TextChanged += (s, e) => ApplySearchAndFilter();
 
-            _btnSelectAll = new Button { Text = "Chọn hết", Left = 480, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
-            _btnClearAll = new Button { Text = "Bỏ chọn", Left = 566, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
-            _btnInvert = new Button { Text = "Đảo chọn", Left = 652, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnSelectAll = new Button { Text = "Chọn hết", Left = 485, Top = 6, Width = 75, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnClearAll = new Button { Text = "Bỏ chọn", Left = 566, Top = 6, Width = 75, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnInvert = new Button { Text = "Đảo chọn", Left = 647, Top = 6, Width = 75, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
 
             _btnSelectAll.Click += (s, e) => SetAllGridItems(true);
             _btnClearAll.Click += (s, e) => SetAllGridItems(false);
             _btnInvert.Click += (s, e) => InvertGridItems();
 
-            _btnRefreshList = new Button { Text = "🔄 Nạp lại", Left = 740, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnRefreshList = new Button { Text = "🔄 Nạp lại", Left = 728, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
             _btnRefreshList.Click += (s, e) => LoadDataFromRevit();
 
             pnlToolbar.Controls.AddRange(new System.Windows.Forms.Control[] {
@@ -775,15 +786,29 @@ namespace KhimTools.SheetExport.Forms
                 _allSheetItems = SheetCollectorService.GetAllSheets(_doc) ?? new List<SheetExportItem>();
                 RevisionSnapshotService.CompareAndUpdateStatus(_doc, _allSheetItems);
 
-                // Populate ViewSheetSets
-                _cmbSheetSet.Items.Clear();
-                _cmbSheetSet.Items.Add("<In-Session Scheme>");
-                var sets = new FilteredElementCollector(_doc).OfClass(typeof(ViewSheetSet)).Cast<ViewSheetSet>().ToList();
-                foreach (var s in sets)
+                // Populate Series & Discipline Filter Dropdown
+                _cmbDisciplineFilter.Items.Clear();
+                _cmbDisciplineFilter.Items.Add("(Tất cả bản vẽ)");
+                _cmbDisciplineFilter.Items.Add("⭐ Chỉ hiện bản vẽ ĐANG CHỌN");
+                _cmbDisciplineFilter.Items.Add("Structure (Kết cấu: S, KC, ST)");
+                _cmbDisciplineFilter.Items.Add("Architecture (Kiến trúc: A, KT, AR)");
+                _cmbDisciplineFilter.Items.Add("MEP (Cơ điện: M, E, P, MEP)");
+
+                var seriesGroups = _allSheetItems
+                    .Select(s => GetSheetSeries(s.SheetNumber))
+                    .Where(s => !string.IsNullOrWhiteSpace(s) && s != "Khác (Other)")
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList();
+
+                if (seriesGroups.Any())
                 {
-                    _cmbSheetSet.Items.Add(s.Name);
+                    foreach (var sGroup in seriesGroups)
+                    {
+                        _cmbDisciplineFilter.Items.Add($"📂 {sGroup}");
+                    }
                 }
-                _cmbSheetSet.SelectedIndex = 0;
+                _cmbDisciplineFilter.SelectedIndex = 0;
 
                 // Populate DWG Setups
                 try
@@ -806,7 +831,18 @@ namespace KhimTools.SheetExport.Forms
                     _txtNaming2.Text = projName.Replace(" ", "_").ToUpper();
                 }
 
-                ApplySearchAndFilter();
+                // Tự động nạp file lựa chọn sheet gần nhất nếu có
+                string lastPath = GetLastSelectionPath();
+                if (!string.IsNullOrWhiteSpace(lastPath) && File.Exists(lastPath))
+                {
+                    LoadSelectionFromFile(lastPath, isAutoLoad: true);
+                }
+                else
+                {
+                    UpdateSelectionFileLabel("");
+                    ApplySearchAndFilter();
+                }
+
                 UpdateCombineFileName();
             }
             catch (Exception ex)
@@ -822,23 +858,37 @@ namespace KhimTools.SheetExport.Forms
         private void ApplySearchAndFilter()
         {
             string query = _txtSearchSheet.Text.Trim();
-            string discipline = _cmbDisciplineFilter.SelectedItem?.ToString() ?? "(All)";
+            string filterChoice = _cmbDisciplineFilter.SelectedItem?.ToString() ?? "(All)";
 
             var list = _allSheetItems.AsEnumerable();
 
             if (!string.IsNullOrEmpty(query))
             {
                 list = list.Where(s => (s.SheetNumber != null && s.SheetNumber.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                                       (s.SheetName != null && s.SheetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0));
+                                       (s.SheetName != null && s.SheetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                                       GetSheetSeries(s.SheetNumber).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
             }
 
-            if (discipline.StartsWith("Structure") || discipline.Contains("Kết cấu"))
+            if (filterChoice.StartsWith("⭐"))
             {
-                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KC") || s.SheetNumber.StartsWith("ST") || s.SheetNumber.StartsWith("S-")));
+                list = list.Where(s => s.IsSelected);
             }
-            else if (discipline.StartsWith("Architecture") || discipline.Contains("Kiến trúc"))
+            else if (filterChoice.StartsWith("Structure") || filterChoice.Contains("Kết cấu"))
             {
-                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KT") || s.SheetNumber.StartsWith("AR") || s.SheetNumber.StartsWith("A-")));
+                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KC", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("ST", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("S-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("S0") || s.SheetNumber.StartsWith("S1") || s.SheetNumber.StartsWith("S2") || s.SheetNumber.StartsWith("S3") || s.SheetNumber.StartsWith("S4") || s.SheetNumber.StartsWith("S5") || s.SheetNumber.StartsWith("S6") || s.SheetNumber.StartsWith("S7") || s.SheetNumber.StartsWith("S8") || s.SheetNumber.StartsWith("S9")));
+            }
+            else if (filterChoice.StartsWith("Architecture") || filterChoice.Contains("Kiến trúc"))
+            {
+                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("KT", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("AR", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("A-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("A0") || s.SheetNumber.StartsWith("A1") || s.SheetNumber.StartsWith("A2")));
+            }
+            else if (filterChoice.StartsWith("MEP") || filterChoice.Contains("Cơ điện"))
+            {
+                list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("MEP", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("M-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("E-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("P-", StringComparison.OrdinalIgnoreCase)));
+            }
+            else if (filterChoice.StartsWith("📂"))
+            {
+                string seriesName = filterChoice.Substring(2).Trim();
+                list = list.Where(s => GetSheetSeries(s.SheetNumber).Equals(seriesName, StringComparison.OrdinalIgnoreCase));
             }
 
             if (_chkFilterModifiedOnly.Checked)
@@ -850,6 +900,176 @@ namespace KhimTools.SheetExport.Forms
             RefreshGridRows();
             UpdateSummaryLabel();
         }
+
+        private static string GetSheetSeries(string sheetNumber)
+        {
+            if (string.IsNullOrWhiteSpace(sheetNumber)) return "Khác (Other)";
+            var match = System.Text.RegularExpressions.Regex.Match(sheetNumber.Trim(), @"^([A-Za-z]+[-_]?)(\d)");
+            if (match.Success)
+            {
+                string prefix = match.Groups[1].Value;
+                char firstDigit = match.Groups[2].Value[0];
+                return $"{prefix}{firstDigit}000 Series";
+            }
+            return "Khác (Other)";
+        }
+
+        #region Sheet Selection JSON File Management
+        private void SaveSelectionDialog()
+        {
+            var selectedSheetNums = _allSheetItems.Where(s => s.IsSelected).Select(s => s.SheetNumber).ToList();
+            if (!selectedSheetNums.Any())
+            {
+                KhimDialogHelper.ShowWarning("Lưu Lựa Chọn", "Hiện tại chưa có bản vẽ nào được chọn để lưu.");
+                return;
+            }
+
+            using var sfd = new SaveFileDialog
+            {
+                Title = "Lưu Danh Sách Bản Vẽ Đang Chọn",
+                Filter = "Sheet Selection File (*.json)|*.json",
+                DefaultExt = "json",
+                FileName = $"{SanitizeFileName(_doc.Title ?? "Project")}_Sheets_{DateTime.Now:yyyyMMdd}.json"
+            };
+
+            if (sfd.ShowDialog(this) == DialogResult.OK)
+            {
+                try
+                {
+                    var data = new SheetSelectionData
+                    {
+                        ProjectTitle = _doc.Title ?? "",
+                        SavedAt = DateTime.Now,
+                        SelectedSheetNumbers = selectedSheetNums
+                    };
+                    string json = Newtonsoft.Json.JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented);
+                    File.WriteAllText(sfd.FileName, json, System.Text.Encoding.UTF8);
+
+                    SaveLastSelectionPath(sfd.FileName);
+                    UpdateSelectionFileLabel(sfd.FileName);
+
+                    KhimDialogHelper.ShowSuccess("Đã Lưu Lựa Chọn", $"Đã lưu danh sách {selectedSheetNums.Count} bản vẽ vào file:\n{sfd.FileName}");
+                }
+                catch (Exception ex)
+                {
+                    KhimDialogHelper.ShowError("Lỗi Lưu File", ex.Message);
+                }
+            }
+        }
+
+        private void LoadSelectionDialog()
+        {
+            using var ofd = new OpenFileDialog
+            {
+                Title = "Mở File Danh Sách Bản Vẽ Đã Lưu",
+                Filter = "Sheet Selection File (*.json)|*.json",
+                DefaultExt = "json"
+            };
+
+            if (ofd.ShowDialog(this) == DialogResult.OK)
+            {
+                LoadSelectionFromFile(ofd.FileName, isAutoLoad: false);
+            }
+        }
+
+        private void LoadSelectionFromFile(string filePath, bool isAutoLoad)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return;
+
+            try
+            {
+                string json = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
+                var data = Newtonsoft.Json.JsonConvert.DeserializeObject<SheetSelectionData>(json);
+                if (data == null || data.SelectedSheetNumbers == null) return;
+
+                var targetSet = new HashSet<string>(data.SelectedSheetNumbers, StringComparer.OrdinalIgnoreCase);
+                int matchedCount = 0;
+
+                foreach (var item in _allSheetItems)
+                {
+                    if (targetSet.Contains(item.SheetNumber))
+                    {
+                        item.IsSelected = true;
+                        matchedCount++;
+                    }
+                    else
+                    {
+                        item.IsSelected = false;
+                    }
+                }
+
+                var projectSheetNums = new HashSet<string>(_allSheetItems.Select(s => s.SheetNumber), StringComparer.OrdinalIgnoreCase);
+                var missingSheetNums = data.SelectedSheetNumbers.Where(num => !projectSheetNums.Contains(num)).ToList();
+                int missingCount = missingSheetNums.Count;
+
+                SaveLastSelectionPath(filePath);
+                UpdateSelectionFileLabel(filePath);
+                ApplySearchAndFilter();
+
+                if (!isAutoLoad)
+                {
+                    string msg = $"✔ Đã nạp và chọn {matchedCount} bản vẽ từ file:\n{Path.GetFileName(filePath)}";
+                    if (missingCount > 0)
+                    {
+                        msg += $"\n\n⚠️ Bỏ qua {missingCount} bản vẽ không còn tồn tại trong model:\n" + string.Join(", ", missingSheetNums.Take(5));
+                        if (missingCount > 5) msg += $" và {missingCount - 5} bản vẽ khác...";
+                    }
+                    KhimDialogHelper.ShowInfo("Nạp Lựa Chọn Thành Công", msg);
+                }
+            }
+            catch (Exception ex)
+            {
+                if (!isAutoLoad) KhimDialogHelper.ShowError("Lỗi Đọc File Lựa Chọn", ex.Message);
+            }
+        }
+
+        private void UpdateSelectionFileLabel(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                _lblCurrentSelectionFile.Text = "File: (Mặc định toàn bộ)";
+                return;
+            }
+            string name = Path.GetFileName(filePath);
+            _lblCurrentSelectionFile.Text = $"File: {name}";
+        }
+
+        private static string GetLocalConfigPath()
+        {
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string folder = Path.Combine(appData, "KhimTools");
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            return Path.Combine(folder, "sheet_export_selection_settings.json");
+        }
+
+        private void SaveLastSelectionPath(string path)
+        {
+            try
+            {
+                string configFile = GetLocalConfigPath();
+                var settings = new SheetExportLocalSettings { LastSelectionFilePath = path };
+                string json = Newtonsoft.Json.JsonConvert.SerializeObject(settings);
+                File.WriteAllText(configFile, json, System.Text.Encoding.UTF8);
+            }
+            catch { }
+        }
+
+        private string GetLastSelectionPath()
+        {
+            try
+            {
+                string configFile = GetLocalConfigPath();
+                if (File.Exists(configFile))
+                {
+                    string json = File.ReadAllText(configFile, System.Text.Encoding.UTF8);
+                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<SheetExportLocalSettings>(json);
+                    return settings?.LastSelectionFilePath ?? "";
+                }
+            }
+            catch { }
+            return "";
+        }
+        #endregion
 
         private void SetAllGridItems(bool state)
         {
@@ -1188,5 +1408,17 @@ namespace KhimTools.SheetExport.Forms
             return name.Trim();
         }
         #endregion
+    }
+
+    public class SheetSelectionData
+    {
+        public string ProjectTitle { get; set; } = "";
+        public DateTime SavedAt { get; set; } = DateTime.Now;
+        public List<string> SelectedSheetNumbers { get; set; } = new List<string>();
+    }
+
+    public class SheetExportLocalSettings
+    {
+        public string LastSelectionFilePath { get; set; } = "";
     }
 }
