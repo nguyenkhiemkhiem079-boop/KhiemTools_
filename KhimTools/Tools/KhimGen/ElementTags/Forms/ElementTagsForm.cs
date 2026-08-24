@@ -15,6 +15,8 @@ using View = Autodesk.Revit.DB.View;
 using View3D = Autodesk.Revit.DB.View3D;
 using ElementId = Autodesk.Revit.DB.ElementId;
 using FamilySymbol = Autodesk.Revit.DB.FamilySymbol;
+using IndependentTag = Autodesk.Revit.DB.IndependentTag;
+using BuiltInCategory = Autodesk.Revit.DB.BuiltInCategory;
 
 namespace KhimTools.ElementTags.Forms
 {
@@ -331,12 +333,19 @@ namespace KhimTools.ElementTags.Forms
             var colAction = new DataGridViewButtonColumn
             {
                 Name = "colAction",
-                HeaderText = "ACTION",
-                Width = 80,
+                HeaderText = "SHOW",
+                Width = 65,
+                FlatStyle = FlatStyle.Flat
+            };
+            var colReset = new DataGridViewButtonColumn
+            {
+                Name = "colReset",
+                HeaderText = "RESET",
+                Width = 65,
                 FlatStyle = FlatStyle.Flat
             };
 
-            _gridResult.Columns.AddRange(colId, colResCategory, colType, colAction);
+            _gridResult.Columns.AddRange(colId, colResCategory, colType, colAction, colReset);
 
             // Apply Header Styling
             _gridResult.EnableHeadersVisualStyles = false;
@@ -498,6 +507,7 @@ namespace KhimTools.ElementTags.Forms
                         _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
                         _gridResult.Rows[r].Cells["colType"].Value = "Orphan Tag (Mất Host)";
                         _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                        _gridResult.Rows[r].Cells["colReset"].Value = "Reset";
                     }
 
                     // Add Invisible Host Tags
@@ -508,6 +518,7 @@ namespace KhimTools.ElementTags.Forms
                         _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
                         _gridResult.Rows[r].Cells["colType"].Value = "Host Invisible (Host Ẩn)";
                         _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                        _gridResult.Rows[r].Cells["colReset"].Value = "Reset";
                     }
 
                     // Add Too Far (Misplaced) Tags
@@ -518,6 +529,7 @@ namespace KhimTools.ElementTags.Forms
                         _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
                         _gridResult.Rows[r].Cells["colType"].Value = "Misplaced Tag (Quá Xa)";
                         _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                        _gridResult.Rows[r].Cells["colReset"].Value = "Reset";
                     }
 
                     // Select all problematic tags
@@ -547,26 +559,73 @@ namespace KhimTools.ElementTags.Forms
 
         private void GridResult_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex >= 0 && e.ColumnIndex == _gridResult.Columns["colAction"].Index)
-            {
-                var idStr = _gridResult.Rows[e.RowIndex].Cells["colId"].Value?.ToString();
-                if (!string.IsNullOrEmpty(idStr))
-                {
-                    try
-                    {
-                        long val = long.Parse(idStr);
+            if (e.RowIndex < 0) return;
+
+            var idStr = _gridResult.Rows[e.RowIndex].Cells["colId"].Value?.ToString();
+            if (string.IsNullOrEmpty(idStr)) return;
+
+            long val = long.Parse(idStr);
 #if NET48
-                        var elementId = new ElementId((int)val);
+            var elementId = new ElementId((int)val);
 #else
-                        var elementId = new ElementId(val);
+            var elementId = new ElementId(val);
 #endif
-                        _uidoc.ShowElements(elementId);
-                        _uidoc.Selection.SetElementIds(new List<ElementId> { elementId });
-                    }
-                    catch (Exception ex)
+
+            // Click Show Button
+            if (e.ColumnIndex == _gridResult.Columns["colAction"].Index)
+            {
+                try
+                {
+                    _uidoc.ShowElements(elementId);
+                    _uidoc.Selection.SetElementIds(new List<ElementId> { elementId });
+                }
+                catch (Exception ex)
+                {
+                    KhimDialogHelper.ShowError("Show Element Error", ex.Message);
+                }
+            }
+            // Click Reset Button
+            else if (e.ColumnIndex == _gridResult.Columns["colReset"].Index)
+            {
+                try
+                {
+                    var tagEl = _doc.GetElement(elementId) as IndependentTag;
+                    if (tagEl == null) return;
+
+                    // Support floor tags only for first phase
+                    if (tagEl.Category == null || !tagEl.Category.IsCategory(BuiltInCategory.OST_FloorTags))
                     {
-                        KhimDialogHelper.ShowError("Show Element Error", ex.Message);
+                        KhimDialogHelper.ShowInfo("Reset Host",
+                            LanguageManager.IsEnglish
+                                ? "Currently, the Reset Host feature is only supported for Floors."
+                                : "Hiện tại tính năng Reset Host chỉ hỗ trợ cấu kiện Sàn (Floors).");
+                        return;
                     }
+
+                    string successFloorName;
+                    bool success = ElementTagsService.ResetFloorTagHost(_doc, _doc.ActiveView, tagEl, out successFloorName);
+
+                    if (success)
+                    {
+                        string msg = LanguageManager.IsEnglish
+                            ? $"Successfully re-associated tag to floor:\n{successFloorName}"
+                            : $"Đã gán lại Host thành công cho sàn:\n{successFloorName}";
+                        KhimDialogHelper.ShowSuccess("Reset Host", msg);
+
+                        // Auto refresh the check
+                        BtnCheckHost_Click(sender, e);
+                    }
+                    else
+                    {
+                        string msg = LanguageManager.IsEnglish
+                            ? "Could not find any floor containing the tag head position in this view."
+                            : "Không tìm thấy ô sàn nào bao quanh vị trí đầu Tag này trên mặt bằng để gán lại.";
+                        KhimDialogHelper.ShowWarning("Reset Host Failed", msg);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    KhimDialogHelper.ShowError("Reset Host Error", ex.Message);
                 }
             }
         }

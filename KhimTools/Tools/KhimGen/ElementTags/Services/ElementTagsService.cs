@@ -342,5 +342,108 @@ namespace KhimTools.ElementTags.Services
 
             return ElementId.InvalidElementId;
         }
+
+        public static bool ResetFloorTagHost(Document doc, View view, IndependentTag tag, out string successFloorName)
+        {
+            successFloorName = string.Empty;
+            XYZ tagPoint = tag.TagHeadPosition;
+
+            // Collect all floors visible in the view
+            var visibleFloors = new FilteredElementCollector(doc, view.Id)
+                .OfClass(typeof(Floor))
+                .Cast<Floor>()
+                .ToList();
+
+            Floor targetFloor = null;
+
+            foreach (var floor in visibleFloors)
+            {
+                try
+                {
+                    var topFaceRefs = HostObjectUtils.GetTopFaces(floor);
+                    foreach (var faceRef in topFaceRefs)
+                    {
+                        var face = floor.GetGeometryObjectFromReference(faceRef) as PlanarFace;
+                        if (face != null)
+                        {
+                            var proj = face.Project(tagPoint);
+                            if (proj != null)
+                            {
+                                targetFloor = floor;
+                                break;
+                            }
+                        }
+                    }
+                }
+                catch { }
+
+                if (targetFloor != null)
+                    break;
+            }
+
+            if (targetFloor == null)
+            {
+                return false;
+            }
+
+            // Perform re-host in transaction using reflection for target safety
+            using (var tx = new Transaction(doc, "K-TOOLS: Reset Floor Host"))
+            {
+                tx.Start();
+
+                try
+                {
+                    bool rehostDone = false;
+
+                    // Try Revit 2023+ SetTaggedReferences method
+                    var setRefsMethod = tag.GetType().GetMethod("SetTaggedReferences");
+                    if (setRefsMethod != null)
+                    {
+                        var refsList = new List<Reference> { new Reference(targetFloor) };
+                        setRefsMethod.Invoke(tag, new object[] { refsList });
+                        rehostDone = true;
+                    }
+
+                    // Try Revit 2022 and older ChangeLocalElementBind method
+                    if (!rehostDone)
+                    {
+                        var changeBindMethod = tag.GetType().GetMethod("ChangeLocalElementBind", new Type[] { typeof(ElementId) });
+                        if (changeBindMethod != null)
+                        {
+                            changeBindMethod.Invoke(tag, new object[] { targetFloor.Id });
+                            rehostDone = true;
+                        }
+                    }
+
+                    // Try setting TaggedLocalElementId property
+                    if (!rehostDone)
+                    {
+                        var prop = tag.GetType().GetProperty("TaggedLocalElementId");
+                        if (prop != null)
+                        {
+                            prop.SetValue(tag, targetFloor.Id);
+                            rehostDone = true;
+                        }
+                    }
+
+                    if (rehostDone)
+                    {
+                        successFloorName = $"{targetFloor.Name} (ID: {targetFloor.Id})";
+                        tx.Commit();
+                        return true;
+                    }
+                    else
+                    {
+                        tx.RollBack();
+                    }
+                }
+                catch
+                {
+                    tx.RollBack();
+                }
+            }
+
+            return false;
+        }
     }
 }
