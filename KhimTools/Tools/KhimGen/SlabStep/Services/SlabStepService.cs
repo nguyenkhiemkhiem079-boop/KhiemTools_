@@ -186,7 +186,7 @@ namespace KhimTools.SlabStep.Services
         /// <summary>
         /// Thực thi chèn nách sàn giật cấp dọc theo đường dẫn và gán tham số thủ công
         /// </summary>
-        public static FamilyInstance GenerateSlabStep(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm)
+        public static FamilyInstance GenerateSlabStep(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm, Floor floorLow = null)
         {
             if (doc == null || boundaryCurve == null || symbol == null || settings == null)
                 return null;
@@ -226,8 +226,17 @@ namespace KhimTools.SlabStep.Services
             p1 = new XYZ(p1.X, p1.Y, level.Elevation);
             p2 = new XYZ(p2.X, p2.Y, level.Elevation);
 
-            // Xác định hướng xoay dựa vào checkbox Reverse
-            bool shouldSwap = settings.ReverseOrientation;
+            // Xác định hướng xoay dựa vào vị trí Sàn Thấp (WC) nếu được chọn
+            bool shouldSwap = false;
+            if (floorLow != null)
+            {
+                shouldSwap = DetermineIfNeedsSwapLow(floorLow, p1, p2);
+            }
+            if (settings.ReverseOrientation)
+            {
+                shouldSwap = !shouldSwap;
+            }
+
             XYZ startPt = shouldSwap ? p2 : p1;
             XYZ endPt = shouldSwap ? p1 : p2;
 
@@ -313,6 +322,27 @@ namespace KhimTools.SlabStep.Services
             // Mặc định nách sàn được thiết kế có mặt cao bên tay trái
             // Nếu sàn cao nằm bên tay phải (không nằm bên tay trái), ta cần đảo chiều
             return !isInsideHigh;
+        }
+
+        private static bool DetermineIfNeedsSwapLow(Floor floorLow, XYZ p1, XYZ p2)
+        {
+            // Vector chỉ hướng đoạn ranh giới phẳng 2D
+            XYZ dir = new XYZ(p2.X - p1.X, p2.Y - p1.Y, 0).Normalize();
+            XYZ normal = XYZ.BasisZ;
+            
+            // Hướng chỉ sang bên trái của đường đi (Cross Product)
+            XYZ sideVec = dir.CrossProduct(normal).Normalize();
+
+            // Lấy điểm test cách ranh giới 1 foot về phía bên trái
+            XYZ mid = (p1 + p2) / 2.0;
+            XYZ testPt = mid + sideVec * 1.0;
+
+            // Kiểm tra xem testPt có nằm trong sàn thấp không
+            bool isInsideLow = IsPointInsideFloor2D(floorLow, testPt);
+
+            // Mặc định nách sàn được thiết kế có mặt cao bên tay trái (phía sàn cao) và mặt thấp bên tay phải (phía sàn thấp)
+            // Nếu sàn thấp nằm bên tay trái, ta cần đảo chiều để sàn thấp chuyển sang tay phải
+            return isInsideLow;
         }
 
         private static bool IsPointInsideFloor2D(Floor floor, XYZ pt)

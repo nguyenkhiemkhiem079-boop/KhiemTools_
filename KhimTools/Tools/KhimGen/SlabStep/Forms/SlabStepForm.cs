@@ -27,7 +27,8 @@ namespace KhimTools.SlabStep.Forms
         private readonly UIDocument _uidoc;
         private readonly Document _doc;
         
-        private Curve _boundaryCurve;
+        private Floor _floorLow;
+        private List<Curve> _boundaryCurves = new List<Curve>();
         private SlabStepSettings _settings = new SlabStepSettings();
         
         // UI Controls
@@ -35,6 +36,7 @@ namespace KhimTools.SlabStep.Forms
         private TextBox _txtThickHigh;
         private TextBox _txtThickLow;
         private Label _lblBoundaryInfo;
+        private Label _lblLowFloorInfo;
         
         private ComboBox _cboFamilies;
         private ComboBox _cboHeightParam;
@@ -58,7 +60,7 @@ namespace KhimTools.SlabStep.Forms
         
         private void InitializeComponent()
         {
-            this.Size = new Size(620, 600);
+            this.Size = new Size(620, 680);
             this.SetFormTitle("K-TOOLS — Slab Step Generator", "Tạo giật cấp sàn thủ công");
             KhimUiStyle.ApplyFormTheme(this);
             
@@ -145,7 +147,7 @@ namespace KhimTools.SlabStep.Forms
             // ─────────────────────────────────────────────────────────────
             var grpFamily = new GroupBox
             {
-                Text = "📦 Cấu HÌnh Family & Tham Số (Family Config)",
+                Text = "📦 Cấu Hình Family & Tham Số (Family Config)",
                 Location = new Point(15, currentY),
                 Size = new Size(570, 220),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
@@ -241,7 +243,44 @@ namespace KhimTools.SlabStep.Forms
             currentY += 235;
             
             // ─────────────────────────────────────────────────────────────
-            // 3. GROUPBOX: ĐƯỜNG DẪN GIẬT CẤP (PLACEMENT LINE)
+            // 3. GROUPBOX: CHỌN SÀN THẤP / WC (ĐỂ ĐỊNH HƯỚNG XOAY TỰ ĐỘNG)
+            // ─────────────────────────────────────────────────────────────
+            var grpOrientation = new GroupBox
+            {
+                Text = "🧭 Định Hướng Xoay Tự Động (Optional Orientation)",
+                Location = new Point(15, currentY),
+                Size = new Size(570, 75),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            };
+            pnlContainer.Controls.Add(grpOrientation);
+            
+            var btnPickLowFloor = new Button
+            {
+                Text = "Chọn Sàn Thấp / Sàn WC",
+                Location = new Point(15, 25),
+                Size = new Size(180, 32),
+                BackColor = KhimUiStyle.SecondaryButtonBg,
+                ForeColor = Color.Black,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+            btnPickLowFloor.Click += (s, e) => PickLowFloor();
+            grpOrientation.Controls.Add(btnPickLowFloor);
+            
+            _lblLowFloorInfo = new Label
+            {
+                Text = "Chưa chọn (Sẽ định hướng thủ công).",
+                Location = new Point(210, 32),
+                Size = new Size(340, 20),
+                Font = new Font("Segoe UI", 9F, FontStyle.Italic),
+                ForeColor = KhimUiStyle.TextSecondary
+            };
+            grpOrientation.Controls.Add(_lblLowFloorInfo);
+            
+            currentY += 90;
+            
+            // ─────────────────────────────────────────────────────────────
+            // 4. GROUPBOX: ĐƯỜNG DẪN GIẬT CẤP (PLACEMENT LINE - MULTIPLE)
             // ─────────────────────────────────────────────────────────────
             var grpPath = new GroupBox
             {
@@ -252,24 +291,24 @@ namespace KhimTools.SlabStep.Forms
             };
             pnlContainer.Controls.Add(grpPath);
             
-            var btnPickEdge = new Button
+            var btnPickEdges = new Button
             {
-                Text = "👆 Click Chọn Cạnh Ranh Giới (Pick Edge)",
+                Text = "👆 Click Chọn Các Cạnh Ranh Giới (Pick Edges)",
                 Location = new Point(15, 25),
-                Size = new Size(230, 32),
+                Size = new Size(250, 32),
                 BackColor = KhimUiStyle.PrimaryButtonBg,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
             };
-            btnPickEdge.Click += (s, e) => PickBoundaryEdge();
-            grpPath.Controls.Add(btnPickEdge);
+            btnPickEdges.Click += (s, e) => PickBoundaryEdges();
+            grpPath.Controls.Add(btnPickEdges);
             
             _lblBoundaryInfo = new Label
             {
                 Text = "Chưa chọn đường dẫn chèn giật cấp.",
-                Location = new Point(260, 32),
-                Size = new Size(295, 20),
+                Location = new Point(280, 32),
+                Size = new Size(275, 20),
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = KhimUiStyle.TextSecondary
             };
@@ -278,7 +317,7 @@ namespace KhimTools.SlabStep.Forms
             currentY += 95;
             
             // ─────────────────────────────────────────────────────────────
-            // 4. ACTION BUTTONS (GENERATE & CLOSE)
+            // 5. ACTION BUTTONS (GENERATE & CLOSE)
             // ─────────────────────────────────────────────────────────────
             _chkReverse = new CheckBox
             {
@@ -427,22 +466,44 @@ namespace KhimTools.SlabStep.Forms
             _cboLowThickParam.SelectedIndex = 0;
         }
         
-        private void PickBoundaryEdge()
+        private void PickLowFloor()
         {
             this.Hide();
             try
             {
-                Reference r = _uidoc.Selection.PickObject(ObjectType.Edge, "Chọn cạnh ranh giới sàn lệch cốt");
+                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Thấp / Sàn WC (Để định hướng xoay)");
                 if (r != null)
                 {
-                    var elem = _doc.GetElement(r.ElementId);
-                    var geomObj = elem.GetGeometryObjectFromReference(r);
-                    if (geomObj is Edge edge)
+                    _floorLow = _doc.GetElement(r.ElementId) as Floor;
+                    _lblLowFloorInfo.Text = $"Sàn WC: ID {_floorLow.Id} ({_floorLow.Name})";
+                    _lblLowFloorInfo.ForeColor = KhimUiStyle.CreateButtonBg;
+                }
+            }
+            catch {}
+            this.Show();
+        }
+        
+        private void PickBoundaryEdges()
+        {
+            this.Hide();
+            try
+            {
+                IList<Reference> refs = _uidoc.Selection.PickObjects(ObjectType.Edge, "Chọn các cạnh ranh giới sàn WC (Nhấn Finish ở góc trên trái để hoàn thành)");
+                if (refs != null && refs.Any())
+                {
+                    _boundaryCurves.Clear();
+                    foreach (Reference r in refs)
                     {
-                        _boundaryCurve = edge.AsCurve();
-                        _lblBoundaryInfo.Text = $"Cạnh đã chọn (Độ dài: {Math.Round(_boundaryCurve.Length * 304.8)} mm).";
-                        _lblBoundaryInfo.ForeColor = KhimUiStyle.HeaderAccent;
+                        var elem = _doc.GetElement(r.ElementId);
+                        var geomObj = elem.GetGeometryObjectFromReference(r);
+                        if (geomObj is Edge edge)
+                        {
+                            _boundaryCurves.Add(edge.AsCurve());
+                        }
                     }
+                    
+                    _lblBoundaryInfo.Text = $"Đã chọn: {_boundaryCurves.Count} cạnh.";
+                    _lblBoundaryInfo.ForeColor = KhimUiStyle.HeaderAccent;
                 }
             }
             catch {}
@@ -451,9 +512,9 @@ namespace KhimTools.SlabStep.Forms
         
         private void ExecuteGenerate()
         {
-            if (_boundaryCurve == null)
+            if (!_boundaryCurves.Any())
             {
-                TaskDialog.Show("Lỗi", "Vui lòng chọn đường ranh giới giật cấp (Pick Edge) trước.");
+                TaskDialog.Show("Lỗi", "Vui lòng chọn các đường ranh giới giật cấp (Pick Edges) trước.");
                 return;
             }
             
@@ -498,14 +559,22 @@ namespace KhimTools.SlabStep.Forms
             
             _settings.ReverseOrientation = _chkReverse.Checked;
             
+            int successCount = 0;
             try
             {
-                FamilyInstance instance = SlabStepService.GenerateSlabStep(
-                    _doc, _boundaryCurve, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm);
-                
-                if (instance != null)
+                foreach (var curve in _boundaryCurves)
                 {
-                    TaskDialog.Show("Thành công", $"Đã tạo thành công giật cấp sàn ID: {instance.Id} dọc theo ranh giới với chiều cao {heightMm}mm!");
+                    FamilyInstance instance = SlabStepService.GenerateSlabStep(
+                        _doc, curve, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm, _floorLow);
+                    if (instance != null)
+                    {
+                        successCount++;
+                    }
+                }
+                
+                if (successCount > 0)
+                {
+                    TaskDialog.Show("Thành công", $"Đã tạo thành công {successCount} / {_boundaryCurves.Count} giật cấp sàn dọc theo các ranh giới!");
                     this.Close();
                 }
                 else
@@ -517,6 +586,13 @@ namespace KhimTools.SlabStep.Forms
             {
                 TaskDialog.Show("Lỗi thực thi", ex.Message);
             }
+        }
+        
+        // Helper classes for Floor Selection Filter
+        private class FloorSelectionFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element elem) => elem is Floor;
+            public bool AllowReference(Reference reference, XYZ position) => false;
         }
         
         private class ComboBoxItem
