@@ -33,6 +33,12 @@ namespace KhimTools.ElementTags.Forms
         private Button _btnCheck3d;
         private Button _btnReset;
 
+        // Bảng RESULT bên phải
+        private System.Windows.Forms.Panel _pnlRight;
+        private DataGridView _gridResult;
+        private Label _lblAlert;
+        private System.Windows.Forms.Panel _pnlAlert;
+
         public ElementTagsForm(UIDocument uidoc)
         {
             _uidoc = uidoc;
@@ -45,19 +51,27 @@ namespace KhimTools.ElementTags.Forms
         private void InitializeComponent()
         {
             // Set Form Properties
-            this.Size = new Size(520, 680);
+            this.Size = new Size(980, 680);
             this.SetFormTitle("Elements Tags", "Auto Tag & Annotation Manager");
             KhimUiStyle.ApplyFormTheme(this);
 
             // Container Panel
-            var pnlContainer = new Panel
+            var pnlContainer = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(16, 60, 16, 16) // Top margin is for the header bar
             };
             this.Controls.Add(pnlContainer);
 
-            // 1. DataGridView Configuration
+            // ── LEFT PANEL (WIDTH 480) ──
+            var pnlLeft = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 460
+            };
+            pnlContainer.Controls.Add(pnlLeft);
+
+            // 1. DataGridView Configuration (Left)
             _grid = new DataGridView
             {
                 Dock = DockStyle.Fill,
@@ -77,28 +91,28 @@ namespace KhimTools.ElementTags.Forms
             {
                 Name = "colCheck",
                 HeaderText = "✔",
-                Width = 40,
+                Width = 35,
                 FlatStyle = FlatStyle.Flat
             };
             var colCategory = new DataGridViewTextBoxColumn
             {
                 Name = "colCategory",
                 HeaderText = "CATEGORY",
-                Width = 160,
+                Width = 135,
                 ReadOnly = true
             };
             var colColor = new DataGridViewTextBoxColumn
             {
                 Name = "colColor",
                 HeaderText = "COLOR",
-                Width = 70,
+                Width = 60,
                 ReadOnly = true
             };
             var colTagType = new DataGridViewComboBoxColumn
             {
                 Name = "colTagType",
                 HeaderText = "TAG TYPE",
-                Width = 210,
+                Width = 230,
                 FlatStyle = FlatStyle.Flat
             };
 
@@ -118,16 +132,16 @@ namespace KhimTools.ElementTags.Forms
             _grid.CellPainting += Grid_CellPainting;
             _grid.CellClick += Grid_CellClick;
 
-            pnlContainer.Controls.Add(_grid);
+            pnlLeft.Controls.Add(_grid);
 
-            // 2. Bottom Control Panel
-            var pnlBottom = new Panel
+            // 2. Bottom Control Panel (Left)
+            var pnlBottom = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Bottom,
                 Height = 200,
                 Padding = new Padding(0, 10, 0, 0)
             };
-            pnlContainer.Controls.Add(pnlBottom);
+            pnlLeft.Controls.Add(pnlBottom);
 
             // Checkbox Container
             var pnlOptions = new FlowLayoutPanel
@@ -158,7 +172,7 @@ namespace KhimTools.ElementTags.Forms
             pnlOptions.Controls.AddRange(new System.Windows.Forms.Control[] { _chkAddLeader, _chkOnlyUntagged });
 
             // Actions Layout (Matching mockup)
-            var pnlActions = new Panel
+            var pnlActions = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(0, 6, 0, 0)
@@ -178,7 +192,7 @@ namespace KhimTools.ElementTags.Forms
             pnlActions.Controls.Add(_btnTagAll);
 
             // Sub Action Area
-            var pnlSubActions = new Panel
+            var pnlSubActions = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Fill,
                 Padding = new Padding(0, 8, 0, 0)
@@ -186,10 +200,10 @@ namespace KhimTools.ElementTags.Forms
             pnlActions.Controls.Add(pnlSubActions);
 
             // Left Block (Holds Check Host, Clash Tag, Check 3D)
-            var pnlLeftButtons = new Panel
+            var pnlLeftButtons = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Left,
-                Width = 380
+                Width = 360
             };
             pnlSubActions.Controls.Add(pnlLeftButtons);
 
@@ -197,7 +211,7 @@ namespace KhimTools.ElementTags.Forms
             {
                 Text = "Check tag host 2d",
                 Location = new Point(0, 8),
-                Size = new Size(185, 34)
+                Size = new Size(175, 34)
             };
             KhimUiStyle.ApplySecondaryButton(_btnCheckHost);
             _btnCheckHost.Click += BtnCheckHost_Click;
@@ -205,8 +219,8 @@ namespace KhimTools.ElementTags.Forms
             _btnClashTag = new Button
             {
                 Text = "Clash tag",
-                Location = new Point(195, 8),
-                Size = new Size(185, 34)
+                Location = new Point(185, 8),
+                Size = new Size(175, 34)
             };
             KhimUiStyle.ApplySecondaryButton(_btnClashTag);
             _btnClashTag.Click += BtnClashTag_Click;
@@ -215,7 +229,7 @@ namespace KhimTools.ElementTags.Forms
             {
                 Text = "Check 3d",
                 Location = new Point(0, 48),
-                Size = new Size(380, 34)
+                Size = new Size(360, 34)
             };
             KhimUiStyle.ApplySecondaryButton(_btnCheck3d);
             _btnCheck3d.Click += BtnCheck3d_Click;
@@ -227,7 +241,7 @@ namespace KhimTools.ElementTags.Forms
             {
                 Text = "RESET",
                 Dock = DockStyle.Right,
-                Width = 90,
+                Width = 85,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Margin = new Padding(8, 8, 0, 0)
             };
@@ -235,8 +249,110 @@ namespace KhimTools.ElementTags.Forms
             _btnReset.Click += BtnReset_Click;
             pnlSubActions.Controls.Add(_btnReset);
 
-            // Make sure DGV stands in the center
             _grid.BringToFront();
+
+
+            // ── RIGHT PANEL: AUDIT RESULT ──
+            _pnlRight = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(20, 0, 0, 0)
+            };
+            pnlContainer.Controls.Add(_pnlRight);
+
+            // Alert Banner
+            _pnlAlert = new System.Windows.Forms.Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                BackColor = Color.FromArgb(254, 242, 242), // Light red/pink
+                Padding = new Padding(10, 8, 10, 8),
+                Margin = new Padding(0, 0, 0, 10),
+                Visible = false
+            };
+            _lblAlert = new Label
+            {
+                Text = "ℹ Found 0 misplaced tags.",
+                Dock = DockStyle.Fill,
+                ForeColor = Color.FromArgb(185, 28, 28), // Dark red
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            _pnlAlert.Controls.Add(_lblAlert);
+            _pnlRight.Controls.Add(_pnlAlert);
+
+            // Result Title Label
+            var lblResultHeader = new Label
+            {
+                Text = "RESULT",
+                Dock = DockStyle.Top,
+                Height = 24,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = KhimUiStyle.TextPrimary
+            };
+            _pnlRight.Controls.Add(lblResultHeader);
+
+            // Result DataGridView
+            _gridResult = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                GridColor = KhimUiStyle.CardBorder,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                RowTemplate = { Height = 34 }
+            };
+
+            var colId = new DataGridViewTextBoxColumn
+            {
+                Name = "colId",
+                HeaderText = "ID",
+                Width = 100,
+                ReadOnly = true
+            };
+            var colResCategory = new DataGridViewTextBoxColumn
+            {
+                Name = "colResCategory",
+                HeaderText = "CATEGORY",
+                Width = 110,
+                ReadOnly = true
+            };
+            var colType = new DataGridViewTextBoxColumn
+            {
+                Name = "colType",
+                HeaderText = "TYPE",
+                Width = 130,
+                ReadOnly = true
+            };
+            var colAction = new DataGridViewButtonColumn
+            {
+                Name = "colAction",
+                HeaderText = "ACTION",
+                Width = 80,
+                FlatStyle = FlatStyle.Flat
+            };
+
+            _gridResult.Columns.AddRange(colId, colResCategory, colType, colAction);
+
+            // Apply Header Styling
+            _gridResult.EnableHeadersVisualStyles = false;
+            _gridResult.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
+            {
+                BackColor = KhimUiStyle.SecondaryButtonBg,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Alignment = DataGridViewContentAlignment.MiddleLeft
+            };
+            _gridResult.ColumnHeadersHeight = 32;
+
+            _gridResult.CellContentClick += GridResult_CellContentClick;
+
+            _pnlRight.Controls.Add(_gridResult);
+            _gridResult.BringToFront();
         }
 
         private void LoadData()
@@ -365,28 +481,58 @@ namespace KhimTools.ElementTags.Forms
 
                 int totalErrors = orphanIds.Count + invisibleHostIds.Count + tooFarIds.Count;
 
+                _gridResult.Rows.Clear();
+
                 if (totalErrors > 0)
                 {
-                    // Select all problematic tags in Revit view so the user can easily find them
+                    _lblAlert.Text = LanguageManager.IsEnglish
+                        ? $"ℹ Found {totalErrors} misplaced tags (Red)."
+                        : $"ℹ Tìm thấy {totalErrors} nhãn Tag bị lỗi (Màu đỏ).";
+                    _pnlAlert.Visible = true;
+
+                    // Add Orphan Tags
+                    foreach (var id in orphanIds)
+                    {
+                        int r = _gridResult.Rows.Add();
+                        _gridResult.Rows[r].Cells["colId"].Value = id.ToString();
+                        _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
+                        _gridResult.Rows[r].Cells["colType"].Value = "Orphan Tag (Mất Host)";
+                        _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                    }
+
+                    // Add Invisible Host Tags
+                    foreach (var id in invisibleHostIds)
+                    {
+                        int r = _gridResult.Rows.Add();
+                        _gridResult.Rows[r].Cells["colId"].Value = id.ToString();
+                        _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
+                        _gridResult.Rows[r].Cells["colType"].Value = "Host Invisible (Host Ẩn)";
+                        _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                    }
+
+                    // Add Too Far (Misplaced) Tags
+                    foreach (var id in tooFarIds)
+                    {
+                        int r = _gridResult.Rows.Add();
+                        _gridResult.Rows[r].Cells["colId"].Value = id.ToString();
+                        _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
+                        _gridResult.Rows[r].Cells["colType"].Value = "Misplaced Tag (Quá Xa)";
+                        _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                    }
+
+                    // Select all problematic tags
                     var allProblematicIds = orphanIds.Concat(invisibleHostIds).Concat(tooFarIds).Distinct().ToList();
                     _uidoc.Selection.SetElementIds(allProblematicIds);
 
                     string report = LanguageManager.IsEnglish
-                        ? $"[TAG QUALITY AUDIT REPORT]\n" +
-                          $"- Orphan tags (no host): {orphanIds.Count}\n" +
-                          $"- Tags with invisible host: {invisibleHostIds.Count}\n" +
-                          $"- Tags placed too far from host: {tooFarIds.Count}\n\n" +
-                          $"All {allProblematicIds.Count} problematic tags have been SELECTED in the active view."
-                        : $"[BÁO CÁO RÀ SOÁT CHẤT LƯỢNG TAG]\n" +
-                          $"• Tag mồ côi (mất Host): {orphanIds.Count} vị trí\n" +
-                          $"• Tag có Host bị ẩn trong view: {invisibleHostIds.Count} vị trí\n" +
-                          $"• Tag nằm quá xa cấu kiện (sai vị trí): {tooFarIds.Count} vị trí\n\n" +
-                          $"➔ Đã CHỌN (SELECT) tất cả {allProblematicIds.Count} Tag lỗi trong View để bạn rà soát và chỉnh sửa.";
+                        ? $"Audit Complete! Found {totalErrors} tag errors. Details populated in the RESULT table."
+                        : $"Rà soát hoàn tất! Phát hiện {totalErrors} Tag lỗi và đã hiển thị chi tiết trong bảng RESULT bên phải.";
 
                     KhimDialogHelper.ShowWarning("Check Tag Host & Position", report);
                 }
                 else
                 {
+                    _pnlAlert.Visible = false;
                     string msg = LanguageManager.IsEnglish
                         ? "Perfect! All tags in current view have valid hosts and are correctly positioned."
                         : "Tuyệt vời! Tất cả các Tag trong View hiện hành đều gắn đúng Host, Host đang hiển thị và nằm đúng vị trí thể hiện.";
@@ -399,6 +545,43 @@ namespace KhimTools.ElementTags.Forms
             }
         }
 
+        private void GridResult_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0 && e.ColumnIndex == _gridResult.Columns["colAction"].Index)
+            {
+                var idStr = _gridResult.Rows[e.RowIndex].Cells["colId"].Value?.ToString();
+                if (!string.IsNullOrEmpty(idStr))
+                {
+                    try
+                    {
+                        long val = long.Parse(idStr);
+#if NET48
+                        var elementId = new ElementId((int)val);
+#else
+                        var elementId = new ElementId(val);
+#endif
+                        _uidoc.ShowElements(elementId);
+                        _uidoc.Selection.SetElementIds(new List<ElementId> { elementId });
+                    }
+                    catch (Exception ex)
+                    {
+                        KhimDialogHelper.ShowError("Show Element Error", ex.Message);
+                    }
+                }
+            }
+        }
+
+        private string GetElementCategoryName(ElementId id)
+        {
+            try
+            {
+                var el = _doc.GetElement(id);
+                return el?.Category?.Name ?? "Tag";
+            }
+            catch { }
+            return "Tag";
+        }
+
         private void BtnClashTag_Click(object sender, EventArgs e)
         {
             try
@@ -408,6 +591,12 @@ namespace KhimTools.ElementTags.Forms
                     ? $"Adjusted {adjusted} overlapping tags."
                     : $"Đã tự động dịch chuyển tránh chồng chéo {adjusted} nhãn Tag.";
                 KhimDialogHelper.ShowSuccess("Clash Tag Resolve", msg);
+                
+                // Refresh list if result is currently shown
+                if (_pnlAlert.Visible)
+                {
+                    BtnCheckHost_Click(sender, e);
+                }
             }
             catch (Exception ex)
             {
@@ -448,6 +637,8 @@ namespace KhimTools.ElementTags.Forms
         {
             _chkAddLeader.Checked = true;
             _chkOnlyUntagged.Checked = true;
+            _pnlAlert.Visible = false;
+            _gridResult.Rows.Clear();
             LoadData();
         }
     }
