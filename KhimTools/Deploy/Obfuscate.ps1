@@ -61,10 +61,10 @@ if (-not $SkipBuild) {
     foreach ($tfm in $frameworks) {
         Write-Step "Building Release for $tfm..."
         $csproj = Join-Path $ProjectRoot "KhimTools.csproj"
-        dotnet build $csproj -c Release -f $tfm --no-restore --nologo
+        dotnet build $csproj -c Release -f $tfm --no-restore --nologo -p:DeployKhimToolsBundle=false
         if ($LASTEXITCODE -ne 0) { 
             # Try with restore if no-restore fails
-            dotnet build $csproj -c Release -f $tfm --nologo
+            dotnet build $csproj -c Release -f $tfm --nologo -p:DeployKhimToolsBundle=false
             if ($LASTEXITCODE -ne 0) { Write-Fail "Build failed for $tfm!" }
         }
         Write-Ok "Build succeeded: $tfm"

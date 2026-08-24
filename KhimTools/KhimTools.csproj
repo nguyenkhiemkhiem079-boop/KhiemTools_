@@ -90,7 +90,7 @@
   </ItemGroup>
 
   <!-- Post-build: dong goi .bundle va copy vao ApplicationPlugins -->
-  <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != ''">
+  <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(DeployKhimToolsBundle)' != 'false'">
     <PropertyGroup>
       <BundleRoot>$(ProgramData)\Autodesk\ApplicationPlugins\KhimTools.bundle</BundleRoot>
       <VersionFolder Condition="'$(TargetFramework)'=='net48'">Legacy</VersionFolder>
