@@ -38,7 +38,7 @@ namespace KhimTools.ElementTags.Forms
         private Button _btnCheck3d;
         private Button _btnReset;
 
-        // Right Panel controls matching Rinco workflow but styled professionally
+        // Right Panel controls matching audit workflow but styled professionally
         private System.Windows.Forms.Panel _pnlRight;
         private TextBox _txtMaxErrorDistance;
         private Button _btnRunProximityAudit;
@@ -81,7 +81,7 @@ namespace KhimTools.ElementTags.Forms
         {
             // Set Form Properties
             this.Size = new Size(1100, 720);
-            this.SetFormTitle("Rinco Modeling - Check Tag Host", "Audit & Resolve Tag Host Proximity");
+            this.SetFormTitle("K-TOOLS - Check Tag Host", "Audit & Resolve Tag Host Proximity");
             KhimUiStyle.ApplyFormTheme(this);
 
             // Container Panel
