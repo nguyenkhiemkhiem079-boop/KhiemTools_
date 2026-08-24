@@ -174,48 +174,28 @@ namespace KhimTools.Core
                 }
             }
 
-            // Stack 2: ALIGN VIEWPORT + UPDATE DETAIL NO + ALIGN TEXT
-            var alignVpData = new PushButtonData(
-                "CmdAlignViewport",
-                "Align Viewports",
-                assemblyPath,
-                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
+            // ── CỤM 3: LAYOUT (Large Pulldown Button) ──
+            var layoutPulldownData = new PulldownButtonData("KhimLayoutPulldown", "Layout")
             {
-                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport & Bảng Schedule trên nhiều Sheet.",
+                ToolTip = "Các công cụ dàn trang, quản lý bản vẽ, căn chỉnh và tạo Sheet.",
+                LargeImage = LoadImage("icon_align_32.png"),
                 Image = LoadImage("icon_align_16.png")
             };
-
-            var updateDetailNumData = new PushButtonData(
-                "CmdUpdateDetailNumbers",
-                "Update Detail No",
-                assemblyPath,
-                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
+            var layoutPulldown = panel.AddItem(layoutPulldownData) as PulldownButton;
+            if (layoutPulldown != null)
             {
-                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
-                Image = LoadImage("icon_detail_16.png")
-            };
-
-            var pulldownAlignTextData = new PulldownButtonData("AlignTextPulldown", "Align Text")
-            {
-                ToolTip = "Căn chỉnh lề và chia đều khoảng cách cho Text, Tag, Annotation.",
-                Image = LoadImage("icon_align_16.png")
-            };
-
-            var stackedAlign = panel.AddStackedItems(alignVpData, updateDetailNumData, pulldownAlignTextData);
-            if (stackedAlign.Count == 3)
-            {
-                var pAlignText = stackedAlign[2] as PulldownButton;
-                if (pAlignText != null)
-                {
-                    AddPulldownItem(pAlignText, "CmdAlignTop", "Top", "KhimTools.TextAlign.Commands.CmdAlignTop", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pAlignText, "CmdAlignBottom", "Bot", "KhimTools.TextAlign.Commands.CmdAlignBottom", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pAlignText, "CmdAlignLeft", "Left", "KhimTools.TextAlign.Commands.CmdAlignLeft", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pAlignText, "CmdAlignRight", "Right", "KhimTools.TextAlign.Commands.CmdAlignRight", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pAlignText, "CmdAlignMiddle", "Middle", "KhimTools.TextAlign.Commands.CmdAlignMiddle", assemblyPath, "icon_align_16.png");
-                    pAlignText.AddSeparator();
-                    AddPulldownItem(pAlignText, "CmdAlignHorizontalEquals", "Horizontal Equals", "KhimTools.TextAlign.Commands.CmdAlignHorizontalEquals", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pAlignText, "CmdAlignVerticalEquals", "Vertical Equals", "KhimTools.TextAlign.Commands.CmdAlignVerticalEquals", assemblyPath, "icon_align_16.png");
-                }
+                AddPulldownItem(layoutPulldown, "CmdSheetGen", "Create Sheets (CSV)", "KhimTools.SheetGen.Commands.CmdSheetGen", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
+                
+                layoutPulldown.AddSeparator();
+                AddPulldownItem(layoutPulldown, "CmdAlignTop", "Align Text - Top", "KhimTools.TextAlign.Commands.CmdAlignTop", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignBottom", "Align Text - Bottom", "KhimTools.TextAlign.Commands.CmdAlignBottom", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignLeft", "Align Text - Left", "KhimTools.TextAlign.Commands.CmdAlignLeft", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignRight", "Align Text - Right", "KhimTools.TextAlign.Commands.CmdAlignRight", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignMiddle", "Align Text - Middle", "KhimTools.TextAlign.Commands.CmdAlignMiddle", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignHorizontalEquals", "Align Text - Horiz Equal", "KhimTools.TextAlign.Commands.CmdAlignHorizontalEquals", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignVerticalEquals", "Align Text - Vert Equal", "KhimTools.TextAlign.Commands.CmdAlignVerticalEquals", assemblyPath, "icon_align_16.png");
             }
 
             // ── CỤM 4: PUBLISH & SYSTEM ──
