@@ -235,6 +235,19 @@ namespace KhimTools.Core
             };
             panel.AddItem(sheetExportData);
 
+            // Elements Tags (Large Button)
+            var elementTagsData = new PushButtonData(
+                "CmdElementTags",
+                "Elements" + Environment.NewLine + "Tags",
+                assemblyPath,
+                "KhimTools.ElementTags.Commands.CmdElementTags")
+            {
+                ToolTip = "Quản lý và gán thẻ Tag hàng loạt cho các đối tượng trong View hiện hành.",
+                LargeImage = LoadImage("icon_mep_tags_32.png"),
+                Image = LoadImage("icon_mep_tags_16.png")
+            };
+            panel.AddItem(elementTagsData);
+
             // Stack 3: Language & Check Update
             var splitLangData = new PulldownButtonData(
                 "LanguagePulldown",
