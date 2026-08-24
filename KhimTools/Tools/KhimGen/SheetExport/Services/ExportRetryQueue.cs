@@ -83,7 +83,7 @@ namespace KhimTools.SheetExport.Services
                 var entry = ExecuteSingleExport(doc, item, options, logProgress);
                 results.Add(entry);
 
-                if (!entry.Success)
+                if (!entry.Success && !entry.IsLocked)
                 {
                     item.IsFailed = true;
                     item.ErrorMessage = entry.Message;
@@ -122,7 +122,7 @@ namespace KhimTools.SheetExport.Services
                         item.ExportStatusText = "✔ Thành công (Retry)";
                         item.ErrorMessage = "";
                     }
-                    else
+                    else if (!entry.IsLocked)
                     {
                         item.IsFailed = true;
                         item.ErrorMessage = entry.Message;
@@ -186,6 +186,7 @@ namespace KhimTools.SheetExport.Services
                 entry.DurationSeconds = sw.Elapsed.TotalSeconds;
                 entry.OutputFilePath = outPath;
                 entry.Success = true;
+                entry.IsLocked = false;
                 entry.Message = "Thành công";
 
                 if (System.IO.File.Exists(outPath))
@@ -198,14 +199,32 @@ namespace KhimTools.SheetExport.Services
                 item.DurationSeconds = entry.DurationSeconds;
                 item.ExportStatusText = "✔ Hoàn tất";
                 item.IsFailed = false;
+                item.IsLocked = false;
 
                 logProgress?.Invoke($"  ✓ Hoàn tất [{item.SheetNumber}] ({Math.Round(entry.DurationSeconds, 1)}s)");
+            }
+            catch (FileLockedException flex)
+            {
+                sw.Stop();
+                entry.DurationSeconds = sw.Elapsed.TotalSeconds;
+                entry.Success = false;
+                entry.IsLocked = true;
+                entry.Message = flex.Message;
+                entry.OutputFilePath = flex.LockedFilePath;
+                item.ExportStatusText = "⚠️ File đang mở (Bị khóa)";
+                item.IsFailed = false;
+                item.IsLocked = true;
+                item.LockedFilePath = flex.LockedFilePath;
+                item.ErrorMessage = flex.Message;
+
+                logProgress?.Invoke($"  ⚠️ Bỏ qua [{item.SheetNumber}]: File đang mở bởi chương trình khác (Locked)");
             }
             catch (Exception ex)
             {
                 sw.Stop();
                 entry.DurationSeconds = sw.Elapsed.TotalSeconds;
                 entry.Success = false;
+                entry.IsLocked = false;
                 entry.Message = ex.Message;
                 item.ExportStatusText = "✘ Lỗi";
                 item.IsFailed = true;

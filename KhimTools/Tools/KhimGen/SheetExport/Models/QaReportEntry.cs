@@ -11,6 +11,7 @@ namespace KhimTools.SheetExport.Models
         public long FileSizeBytes { get; set; }
         public double DurationSeconds { get; set; }
         public bool Success { get; set; }
+        public bool IsLocked { get; set; }
         public int Retries { get; set; }
         public string Message { get; set; } = "";
     }

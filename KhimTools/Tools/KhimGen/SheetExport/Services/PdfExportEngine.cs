@@ -7,6 +7,15 @@ using KhimTools.SheetExport.Models;
 
 namespace KhimTools.SheetExport.Services
 {
+    public class FileLockedException : IOException
+    {
+        public string LockedFilePath { get; }
+        public FileLockedException(string filePath, string message) : base(message)
+        {
+            LockedFilePath = filePath;
+        }
+    }
+
     /// <summary>
     /// Engine xuất PDF tận dụng trực tiếp bộ xuất PDF native của Revit (Revit 2022+),
     /// tự động nhận diện khổ giấy từng Sheet, đảm bảo chất lượng Vector DPI cao nhất
@@ -14,6 +23,28 @@ namespace KhimTools.SheetExport.Services
     /// </summary>
     public static class PdfExportEngine
     {
+        public static bool IsFileLocked(string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return false;
+            try
+            {
+                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                return false;
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt, ExportOptions options = null)
         {
             if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
@@ -27,6 +58,12 @@ namespace KhimTools.SheetExport.Services
 
             string targetPath = Path.Combine(outputFolder, fileNameWithoutExt + ".pdf");
 
+            // Pre-check: Kiểm tra trước xem file PDF đích có đang bị khóa bởi app khác không
+            if (IsFileLocked(targetPath))
+            {
+                throw new FileLockedException(targetPath, $"File '{Path.GetFileName(targetPath)}' đang được mở trong ứng dụng khác và bị khóa.");
+            }
+
             var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, options);
             var viewIds = new List<ElementId> { sheet.Id };
 
@@ -38,6 +75,10 @@ namespace KhimTools.SheetExport.Services
             }
             catch (Exception ex)
             {
+                if (IsFileLocked(targetPath) || ex.Message.IndexOf("being used", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("close the following", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    throw new FileLockedException(targetPath, $"File '{Path.GetFileName(targetPath)}' đang bị khóa: {ex.Message}");
+                }
                 throw new InvalidOperationException($"Lỗi Revit Export PDF cho sheet [{sheet.SheetNumber}]: {ex.Message}", ex);
             }
 
@@ -84,6 +125,12 @@ namespace KhimTools.SheetExport.Services
 
             string targetPath = Path.Combine(outputFolder, combinedFileNameWithoutExt + ".pdf");
 
+            // Pre-check: Kiểm tra trước xem file PDF gộp đích có đang bị khóa không
+            if (IsFileLocked(targetPath))
+            {
+                throw new FileLockedException(targetPath, $"File PDF gộp '{Path.GetFileName(targetPath)}' đang được mở trong ứng dụng khác và bị khóa.");
+            }
+
             var pdfOpt = CreateStandardPdfOptions(combinedFileNameWithoutExt, true, options);
             var viewIds = sheets.Select(s => s.Id).ToList();
 
@@ -95,6 +142,10 @@ namespace KhimTools.SheetExport.Services
             }
             catch (Exception ex)
             {
+                if (IsFileLocked(targetPath) || ex.Message.IndexOf("being used", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("close the following", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    throw new FileLockedException(targetPath, $"File PDF gộp '{Path.GetFileName(targetPath)}' đang bị khóa: {ex.Message}");
+                }
                 throw new InvalidOperationException($"Lỗi Revit Export PDF Gộp: {ex.Message}", ex);
             }
 

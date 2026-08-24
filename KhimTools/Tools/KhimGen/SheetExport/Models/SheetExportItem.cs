@@ -101,6 +101,8 @@ namespace KhimTools.SheetExport.Models
             }
         }
 
+        public bool IsLocked { get; set; }
+        public string LockedFilePath { get; set; } = "";
         public string ErrorMessage { get; set; } = "";
         public double DurationSeconds { get; set; }
         public long FileSizeBytes { get; set; }

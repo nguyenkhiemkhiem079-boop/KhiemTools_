@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -1027,16 +1027,47 @@ namespace KhimTools.SheetExport.Forms
                 }
 
                 int successCount = qaResults.Count(r => r.Success);
-                int failCount = qaResults.Count(r => !r.Success);
+                var lockedItems = selectedItems.Where(s => s.IsLocked).ToList();
+                var otherFails = selectedItems.Where(s => s.IsFailed && !s.IsLocked).ToList();
 
                 Cursor = Cursors.Default;
-                string successMsg = $"🎉 Đã xuất thành công {successCount} bản vẽ sang thư mục:\n{outDir}";
-                if (failCount > 0)
+                var sbSummary = new System.Text.StringBuilder();
+                sbSummary.AppendLine($"🎉 Xuất hoàn tất: {successCount} / {selectedItems.Count} bản vẽ sang thư mục:");
+                sbSummary.AppendLine(outDir);
+
+                if (lockedItems.Any())
                 {
-                    successMsg += $"\n⚠️ Có {failCount} bản vẽ gặp lỗi.";
+                    sbSummary.AppendLine();
+                    sbSummary.AppendLine($"⚠️ CẢNH BÁO: Có {lockedItems.Count} file PDF đang mở bởi ứng dụng khác (Đã bỏ qua để không dừng batch):");
+                    foreach (var lk in lockedItems.Take(10))
+                    {
+                        sbSummary.AppendLine($"  • [{lk.SheetNumber}] {lk.SheetName} ➔ {Path.GetFileName(lk.ComputedFileName)}.pdf");
+                    }
+                    if (lockedItems.Count > 10)
+                    {
+                        sbSummary.AppendLine($"  ... và {lockedItems.Count - 10} file khác.");
+                    }
+                    sbSummary.AppendLine("👉 Vui lòng đóng các file PDF trên và xuất lại riêng các sheet đó.");
                 }
 
-                KhimDialogHelper.ShowSuccess("Hoàn Tất Xuất Bản Vẽ", successMsg);
+                if (otherFails.Any())
+                {
+                    sbSummary.AppendLine();
+                    sbSummary.AppendLine($"❌ Có {otherFails.Count} bản vẽ gặp lỗi khác:");
+                    foreach (var f in otherFails.Take(5))
+                    {
+                        sbSummary.AppendLine($"  • [{f.SheetNumber}]: {f.ErrorMessage}");
+                    }
+                }
+
+                if (lockedItems.Any() || otherFails.Any())
+                {
+                    KhimDialogHelper.ShowWarning("Tổng Kết Xuất Bản Vẽ (Có Cảnh Báo)", sbSummary.ToString());
+                }
+                else
+                {
+                    KhimDialogHelper.ShowSuccess("Hoàn Tất Xuất Bản Vẽ", sbSummary.ToString());
+                }
                 OpenOutputDirectory();
             }
             catch (Exception ex)
