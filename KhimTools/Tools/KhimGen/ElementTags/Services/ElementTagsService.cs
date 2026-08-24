@@ -676,5 +676,203 @@ namespace KhimTools.ElementTags.Services
 
             return false;
         }
+
+        public class TagProximityError
+        {
+            public ElementId TagId { get; set; }
+            public ElementId HostId { get; set; }
+            public string TagText { get; set; }
+            public string IssueDescription { get; set; }
+        }
+
+        public static double Get2DDistanceToElement(Element el, XYZ checkPoint, View view)
+        {
+            double minDist = double.MaxValue;
+            var opt = new Options { DetailLevel = ViewDetailLevel.Medium, View = view };
+            var geom = el.get_Geometry(opt);
+            if (geom == null) return double.MaxValue;
+
+            XYZ pt2D = new XYZ(checkPoint.X, checkPoint.Y, 0);
+
+            var solids = new List<Solid>();
+            GetSolidsFromGeometry(geom, solids);
+
+            foreach (var solid in solids)
+            {
+                foreach (Face face in solid.Faces)
+                {
+                    try
+                    {
+                        var proj = face.Project(checkPoint);
+                        if (proj != null)
+                        {
+                            XYZ projPt2D = new XYZ(proj.XYZPoint.X, proj.XYZPoint.Y, 0);
+                            double d = pt2D.DistanceTo(projPt2D);
+                            if (d < minDist) minDist = d;
+                        }
+
+                        foreach (var loop in face.GetEdgesAsCurveLoops())
+                        {
+                            foreach (Curve curve in loop)
+                            {
+                                var curveProj = curve.Project(checkPoint);
+                                if (curveProj != null)
+                                {
+                                    XYZ curvePt2D = new XYZ(curveProj.XYZPoint.X, curveProj.XYZPoint.Y, 0);
+                                    double d = pt2D.DistanceTo(curvePt2D);
+                                    if (d < minDist) minDist = d;
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+                }
+            }
+
+            return minDist;
+        }
+
+        private static void GetSolidsFromGeometry(GeometryElement geom, List<Solid> solids)
+        {
+            if (geom == null) return;
+            foreach (var obj in geom)
+            {
+                if (obj is Solid solid && solid.Volume > 0)
+                {
+                    solids.Add(solid);
+                }
+                else if (obj is GeometryInstance inst)
+                {
+                    var instGeom = inst.GetInstanceGeometry();
+                    if (instGeom != null)
+                    {
+                        GetSolidsFromGeometry(instGeom, solids);
+                    }
+                    else
+                    {
+                        var symGeom = inst.GetSymbolGeometry();
+                        GetSolidsFromGeometry(symGeom, solids);
+                    }
+                }
+            }
+        }
+
+        public static void AuditTagsProximity(
+            Document doc,
+            View view,
+            double maxErrorDistanceMm,
+            out List<TagProximityError> columnErrors,
+            out List<TagProximityError> wallErrors,
+            out List<TagProximityError> floorErrors)
+        {
+            columnErrors = new List<TagProximityError>();
+            wallErrors = new List<TagProximityError>();
+            floorErrors = new List<TagProximityError>();
+
+            var tags = new FilteredElementCollector(doc, view.Id)
+                .OfClass(typeof(IndependentTag))
+                .Cast<IndependentTag>()
+                .ToList();
+
+            foreach (var tag in tags)
+            {
+                ElementId hostId = GetTaggedElementId(tag);
+                if (hostId == null || hostId == ElementId.InvalidElementId) continue;
+
+                Element host = doc.GetElement(hostId);
+                if (host == null) continue;
+
+                XYZ checkPoint = tag.TagHeadPosition;
+                if (tag.HasLeader)
+                {
+                    checkPoint = GetTagLeaderEnd(tag);
+                }
+
+                double distFeet = Get2DDistanceToElement(host, checkPoint, view);
+                if (distFeet == double.MaxValue) continue;
+
+                double distMm = distFeet * 304.8;
+
+                if (distMm > maxErrorDistanceMm)
+                {
+                    string tagText = string.Empty;
+                    try
+                    {
+                        tagText = tag.TagText;
+                    }
+                    catch
+                    {
+                        tagText = tag.Name;
+                    }
+
+                    var err = new TagProximityError
+                    {
+                        TagId = tag.Id,
+                        HostId = host.Id,
+                        TagText = tagText ?? string.Empty,
+                        IssueDescription = $"Distance Mismatch (Tag is > {maxErrorDistanceMm:0}mm away from Boundary)"
+                    };
+
+                    var cat = host.Category;
+                    if (cat != null)
+                    {
+                        long catVal = cat.Id.ToLongValue();
+                        if (catVal == (long)BuiltInCategory.OST_StructuralColumns)
+                        {
+                            columnErrors.Add(err);
+                        }
+                        else if (catVal == (long)BuiltInCategory.OST_Walls)
+                        {
+                            wallErrors.Add(err);
+                        }
+                        else if (catVal == (long)BuiltInCategory.OST_Floors)
+                        {
+                            floorErrors.Add(err);
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void ApplyRedOverrideForHostAndTags(Document doc, View view, List<ElementId> elementIds)
+        {
+            using (var tx = new Transaction(doc, "K-TOOLS: Highlight Proximity Errors"))
+            {
+                tx.Start();
+                var red = new Color(255, 0, 0);
+
+                foreach (var id in elementIds)
+                {
+                    try
+                    {
+                        var ogs = new OverrideGraphicSettings();
+                        ogs.SetProjectionLineColor(red);
+                        view.SetElementOverrides(id, ogs);
+                    }
+                    catch { }
+                }
+
+                tx.Commit();
+            }
+        }
+
+        public static void ResetElementOverrides(Document doc, View view, List<ElementId> elementIds)
+        {
+            using (var tx = new Transaction(doc, "K-TOOLS: Reset Graphic Overrides"))
+            {
+                tx.Start();
+
+                foreach (var id in elementIds)
+                {
+                    try
+                    {
+                        view.SetElementOverrides(id, new OverrideGraphicSettings());
+                    }
+                    catch { }
+                }
+
+                tx.Commit();
+            }
+        }
     }
 }
