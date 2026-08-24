@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -19,6 +19,7 @@ namespace KhimTools.Core
     {
         public const string TabName = "K-TOOLS";
         public const string GenPanelName = "K-GEN";
+        public const string OverridePanelName = "Override";
         public const string StructuralPanelName = "K-STRUCTURAL";
         public const string ArchPanelName = "K-ARCHITECTURAL";
         public const string MepPanelName = "K-MEP";
@@ -31,13 +32,16 @@ namespace KhimTools.Core
             // 1. Panel: K-GEN (Gom gọn đẹp mắt)
             BuildGenPanel(application, assemblyPath);
 
-            // 2. Panel: K-STRUCTURAL
+            // 2. Panel: Override (Palette màu 3x3 + Halftone + Reset + Setting Color)
+            BuildOverridePanel(application, assemblyPath);
+
+            // 3. Panel: K-STRUCTURAL
             BuildStructuralPanel(application, assemblyPath);
 
-            // 3. Panel: K-ARCHITECTURAL
+            // 4. Panel: K-ARCHITECTURAL
             BuildArchPanel(application, assemblyPath);
 
-            // 4. Panel: K-MEP
+            // 5. Panel: K-MEP
             BuildMepPanel(application, assemblyPath);
         }
 
@@ -74,35 +78,6 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_join_16.png")
             };
             panel.AddItem(joinElementsData);
-
-            // 3. Graphic Overdrive (SplitButton)
-            var splitOverdriveData = new SplitButtonData(
-                "GraphicOverdriveSplitButton",
-                "Graphic" + Environment.NewLine + "Overdrive")
-            {
-                ToolTip = "Công cụ Graphic Overdrive: Đổi màu sắc, độ trong suốt, nét vẽ tức thì."
-            };
-
-            var splitOverdrive = panel.AddItem(splitOverdriveData) as SplitButton;
-            if (splitOverdrive != null)
-            {
-                AddPushButton(splitOverdrive, "CmdGraphicOverdrive", "Graphic Overdrive (Bảng màu)",
-                    "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive", assemblyPath,
-                    "Mở bảng điều khiển Modeless: 12 Presets màu, Custom Color, Transparency, Line Weight, Halftone.",
-                    "icon_join_32.png", "icon_join_16.png");
-
-                splitOverdrive.AddSeparator();
-
-                AddPushButton(splitOverdrive, "CmdQuickHalftone", "Bật/Tắt Halftone",
-                    "KhimTools.OverrideTool.Commands.CmdQuickHalftone", assemblyPath,
-                    "Áp dụng hoặc bật/tắt nhanh độ mờ Halftone 50% cho các đối tượng đang chọn.",
-                    "icon_join_32.png", "icon_join_16.png");
-
-                AddPushButton(splitOverdrive, "CmdQuickResetOverride", "Xóa Toàn Bộ Override (Reset)",
-                    "KhimTools.OverrideTool.Commands.CmdQuickResetOverride", assemblyPath,
-                    "Xóa bỏ toàn bộ màu sắc, đường nét, halftone đã override của các đối tượng đang chọn.",
-                    "icon_unjoin_32.png", "icon_unjoin_16.png");
-            }
 
             // ── STACK 1: BỘ ĐÔI HIỂN THỊ & ẨN CATEGORY ──
             var pulldownShowData = new PulldownButtonData("VisibilityShowPulldown", "Hiển thị")
@@ -325,7 +300,82 @@ namespace KhimTools.Core
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
-        // 2. PANEL: K-STRUCTURAL
+        // 2. PANEL: OVERRIDE (MATCH SCREENSHOT: 3x3 COLOR PALETTE + HALFTONE + RESET + SETTING)
+        // ════════════════════════════════════════════════════════════════════════════════
+        private static void BuildOverridePanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, OverridePanelName);
+
+            // ── STACK 1: ĐỎ, CAM, VÀNG ──
+            var redData = CreateColorSwatchData("CmdOverrideRed", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png", "Gán màu Đỏ (Red) cho đối tượng đang chọn");
+            var orangeData = CreateColorSwatchData("CmdOverrideOrange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png", "Gán màu Cam (Orange) cho đối tượng đang chọn");
+            var yellowData = CreateColorSwatchData("CmdOverrideYellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png", "Gán màu Vàng (Yellow) cho đối tượng đang chọn");
+            panel.AddStackedItems(redData, orangeData, yellowData);
+
+            // ── STACK 2: XANH LÁ, CYAN, XANH DƯƠNG ──
+            var greenData = CreateColorSwatchData("CmdOverrideGreen", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png", "Gán màu Xanh lá (Green) cho đối tượng đang chọn");
+            var cyanData = CreateColorSwatchData("CmdOverrideCyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png", "Gán màu Xanh lơ (Cyan) cho đối tượng đang chọn");
+            var blueData = CreateColorSwatchData("CmdOverrideBlue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png", "Gán màu Xanh dương (Blue) cho đối tượng đang chọn");
+            panel.AddStackedItems(greenData, cyanData, blueData);
+
+            // ── STACK 3: MAGENTA, XÁM, TÙY CHỌN (GRADIENT) ──
+            var magentaData = CreateColorSwatchData("CmdOverrideMagenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png", "Gán màu Hồng cánh sen (Magenta) cho đối tượng đang chọn");
+            var grayData = CreateColorSwatchData("CmdOverrideGray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png", "Gán màu Xám (Gray) cho đối tượng đang chọn");
+            var customData = CreateColorSwatchData("CmdOverrideCustom", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png", "Chọn màu tùy chỉnh từ bảng màu (Custom Color Picker)");
+            panel.AddStackedItems(magentaData, grayData, customData);
+
+            // ── LARGE BUTTON 1: ON/OFF HALFTONE ──
+            var halftoneData = new PushButtonData(
+                "CmdQuickHalftone",
+                "On/Off" + Environment.NewLine + "Halftone",
+                assemblyPath,
+                "KhimTools.OverrideTool.Commands.CmdQuickHalftone")
+            {
+                ToolTip = "Bật/Tắt nhanh chế độ mờ Halftone 50% cho đối tượng đang chọn.",
+                LargeImage = LoadImage("override_halftone_32.png"),
+                Image = LoadImage("override_halftone_16.png")
+            };
+            panel.AddItem(halftoneData);
+
+            // ── LARGE BUTTON 2: RESET OVERRIDE ──
+            var resetData = new PushButtonData(
+                "CmdQuickResetOverride",
+                "Reset" + Environment.NewLine + "Override",
+                assemblyPath,
+                "KhimTools.OverrideTool.Commands.CmdQuickResetOverride")
+            {
+                ToolTip = "Xóa toàn bộ màu sắc, đường nét, halftone đã override của đối tượng đang chọn.",
+                LargeImage = LoadImage("override_reset_32.png"),
+                Image = LoadImage("override_reset_16.png")
+            };
+            panel.AddItem(resetData);
+
+            // ── LARGE BUTTON 3: SETTING COLOR ──
+            var settingData = new PushButtonData(
+                "CmdGraphicOverdrive",
+                "Setting" + Environment.NewLine + "Color",
+                assemblyPath,
+                "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive")
+            {
+                ToolTip = "Mở bảng điều khiển Graphic Overdrive chi tiết (Độ trong suốt Transparency, Nét vẽ Line Weight, 12 Presets màu).",
+                LargeImage = LoadImage("override_setting_32.png"),
+                Image = LoadImage("override_setting_16.png")
+            };
+            panel.AddItem(settingData);
+        }
+
+        private static PushButtonData CreateColorSwatchData(string id, string className, string assemblyPath, string iconName, string tooltip)
+        {
+            return new PushButtonData(id, " ", assemblyPath, className)
+            {
+                ToolTip = tooltip,
+                Image = LoadImage(iconName),
+                LargeImage = LoadImage(iconName)
+            };
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 3. PANEL: K-STRUCTURAL
         // ════════════════════════════════════════════════════════════════════════════════
         private static void BuildStructuralPanel(UIControlledApplication application, string assemblyPath)
         {

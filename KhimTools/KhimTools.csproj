@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- net48  -> Revit 2022-2024 (.NET Framework)
@@ -54,12 +54,15 @@
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
-  <!-- Loai tru App khoi KhimTools Revit plugin dll -->
+  <!-- Loai tru App va IconGen khoi KhimTools Revit plugin dll -->
   <ItemGroup>
     <Compile Remove="App\**" />
     <Page Remove="App\**" />
     <None Remove="App\**" />
     <ApplicationDefinition Remove="App\**" />
+    <Compile Remove="Tools\IconGen\**" />
+    <Page Remove="Tools\IconGen\**" />
+    <None Remove="Tools\IconGen\**" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
