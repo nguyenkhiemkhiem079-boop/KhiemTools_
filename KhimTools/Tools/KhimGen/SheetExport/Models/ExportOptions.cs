@@ -55,5 +55,6 @@ namespace KhimTools.SheetExport.Models
         // Reliability / QA
         public int MaxRetryCount { get; set; } = 2;
         public bool WarnPageSizeMismatch { get; set; } = true;
+        public bool AutoDisableTemporaryViewProperties { get; set; } = true;
     }
 }

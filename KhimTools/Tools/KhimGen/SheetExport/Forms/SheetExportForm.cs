@@ -97,6 +97,7 @@ namespace KhimTools.SheetExport.Forms
         private CheckBox _chkHideCropBoundaries;
         private CheckBox _chkReplaceHalftone;
         private CheckBox _chkMaskCoincidentLines;
+        private CheckBox _chkAutoDisableTempViewModes;
 
         // DWG Settings
         private ComboBox _cmbDwgSetup;
@@ -563,10 +564,20 @@ namespace KhimTools.SheetExport.Forms
             _chkHideCropBoundaries = new CheckBox { Text = "Ẩn khung crop (Hide Crop Boundaries)", Left = 15, Top = 125, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
             _chkReplaceHalftone = new CheckBox { Text = "Thay Halftone bằng nét mảnh (Thin Lines)", Left = 15, Top = 150, AutoSize = true, Checked = true, Font = new Font("Segoe UI", 9F) };
             _chkMaskCoincidentLines = new CheckBox { Text = "Mask nét trùng lặp (Mask Coincident Lines)", Left = 15, Top = 175, AutoSize = true, Font = new Font("Segoe UI", 9F) };
+            _chkAutoDisableTempViewModes = new CheckBox
+            {
+                Text = "⚡ Tự động tắt Temporary View Properties khi in (tránh hộp thoại dừng batch)",
+                Left = 15,
+                Top = 200,
+                AutoSize = true,
+                Checked = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 102, 204)
+            };
 
             grpOptions.Controls.AddRange(new System.Windows.Forms.Control[] {
                 _chkViewLinksInBlue, _chkHideRefPlanes, _chkHideUnreferencedTags, _chkHideScopeBoxes,
-                _chkHideCropBoundaries, _chkReplaceHalftone, _chkMaskCoincidentLines
+                _chkHideCropBoundaries, _chkReplaceHalftone, _chkMaskCoincidentLines, _chkAutoDisableTempViewModes
             });
 
             pnlContainer.Controls.Add(grpPlacement, 0, 0);
@@ -999,11 +1010,54 @@ namespace KhimTools.SheetExport.Forms
             _options.HideCropBoundaries = _chkHideCropBoundaries?.Checked ?? true;
             _options.ReplaceHalftoneWithThinLines = _chkReplaceHalftone?.Checked ?? true;
             _options.MaskCoincidentLines = _chkMaskCoincidentLines?.Checked ?? false;
+            _options.AutoDisableTemporaryViewProperties = _chkAutoDisableTempViewModes?.Checked ?? true;
 
             // Compute exact filename for each selected sheet
             foreach (var item in selectedItems)
             {
                 item.ComputedFileName = ComputeSheetFileName(item);
+            }
+
+            // Tự động kiểm tra và tắt Temporary View Properties trước khi in
+            var disabledTempViews = new List<string>();
+            if (_options.AutoDisableTemporaryViewProperties)
+            {
+                try
+                {
+                    using (var tx = new Transaction(_doc, "K-TOOLS: Tắt Temporary View Properties"))
+                    {
+                        tx.Start();
+                        foreach (var item in selectedItems)
+                        {
+                            var sheet = item.Sheet;
+                            if (sheet == null) continue;
+
+                            if (sheet.IsTemporaryViewPropertiesModeEnabled())
+                            {
+                                sheet.DisableTemporaryViewMode(TemporaryViewMode.TemporaryViewProperties);
+                                disabledTempViews.Add($"Sheet [{sheet.SheetNumber}] {sheet.Name}");
+                            }
+
+                            var viewportIds = sheet.GetAllViewports();
+                            foreach (var vpId in viewportIds)
+                            {
+                                var vp = _doc.GetElement(vpId) as Viewport;
+                                if (vp == null) continue;
+                                var childView = _doc.GetElement(vp.ViewId) as Autodesk.Revit.DB.View;
+                                if (childView != null && childView.IsTemporaryViewPropertiesModeEnabled())
+                                {
+                                    childView.DisableTemporaryViewMode(TemporaryViewMode.TemporaryViewProperties);
+                                    disabledTempViews.Add($"View '{childView.Name}' (trên Sheet {sheet.SheetNumber})");
+                                }
+                            }
+                        }
+                        tx.Commit();
+                    }
+                }
+                catch
+                {
+                    // Tránh chặn tiến trình xuất nếu document đang ở trạng thái read-only
+                }
             }
 
             _btnPrint.Enabled = false;
@@ -1034,6 +1088,20 @@ namespace KhimTools.SheetExport.Forms
                 var sbSummary = new System.Text.StringBuilder();
                 sbSummary.AppendLine($"🎉 Xuất hoàn tất: {successCount} / {selectedItems.Count} bản vẽ sang thư mục:");
                 sbSummary.AppendLine(outDir);
+
+                if (disabledTempViews.Any())
+                {
+                    sbSummary.AppendLine();
+                    sbSummary.AppendLine($"ℹ️ Đã tự động tắt Temporary View Properties cho {disabledTempViews.Count} view để tránh hộp thoại gián đoạn:");
+                    foreach (var dv in disabledTempViews.Take(5))
+                    {
+                        sbSummary.AppendLine($"  • {dv}");
+                    }
+                    if (disabledTempViews.Count > 5)
+                    {
+                        sbSummary.AppendLine($"  ... và {disabledTempViews.Count - 5} view khác.");
+                    }
+                }
 
                 if (lockedItems.Any())
                 {
