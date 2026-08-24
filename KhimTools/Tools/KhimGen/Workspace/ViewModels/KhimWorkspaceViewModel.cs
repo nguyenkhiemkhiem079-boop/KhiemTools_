@@ -107,6 +107,60 @@ namespace KhimTools.Tools.Workspace.ViewModels
         }
 
         [RelayCommand]
+        private void RunRoom3DView()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.Architectural.Rooms.CmdRoom3DView");
+            });
+        }
+
+        [RelayCommand]
+        private void RunWallFloorFinishes()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.Architectural.Finishes.CmdWallFloorFinishes");
+            });
+        }
+
+        [RelayCommand]
+        private void RunMepOpenings()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.MEP.Penetrations.CmdMepOpenings");
+            });
+        }
+
+        [RelayCommand]
+        private void RunMepElevationTags()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.MEP.Tags.CmdMepElevationTags");
+            });
+        }
+
+        [RelayCommand]
+        private void RunGridPlanGenerator()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.GridPlanGenerator.Commands.CmdGridPlanGenerator");
+            });
+        }
+
+        [RelayCommand]
+        private void RunCopyFromLink()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.CopyLinkTool.Commands.CmdCopyFromLink");
+            });
+        }
+
+        [RelayCommand]
         private void CheckUpdate()
         {
             App.EventHandler.Raise(app =>

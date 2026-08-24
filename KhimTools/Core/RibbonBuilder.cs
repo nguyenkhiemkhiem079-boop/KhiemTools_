@@ -52,6 +52,7 @@ namespace KhimTools.Core
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, GenPanelName);
 
+            // ── CỤM 1: WORKSPACE & LINK ──
             // 1. Khim Workspace (Large Button)
             var wsData = new PushButtonData(
                 "CmdToggleWorkspace",
@@ -65,7 +66,21 @@ namespace KhimTools.Core
             };
             panel.AddItem(wsData);
 
-            // 2. Join Elements (Large Button)
+            // 2. Copy Link Elements (Large Button)
+            var copyLinkData = new PushButtonData(
+                "CmdCopyLinkElements",
+                "Copy Link" + Environment.NewLine + "Elements",
+                assemblyPath,
+                "KhimTools.CopyLink.Commands.CmdCopyLinkElements")
+            {
+                ToolTip = "Sao chép đối tượng từ file Revit Link sang dự án chính chuẩn 100% tọa độ.",
+                LargeImage = LoadImage("icon_copylink_32.png"),
+                Image = LoadImage("icon_copylink_16.png")
+            };
+            panel.AddItem(copyLinkData);
+
+            // ── CỤM 2: MODEL & GEOMETRY ──
+            // 3. Join Elements (Large Button)
             var joinElementsData = new PushButtonData(
                 "CmdJoinElements",
                 "Join" + Environment.NewLine + "Elements",
@@ -79,17 +94,31 @@ namespace KhimTools.Core
             };
             panel.AddItem(joinElementsData);
 
-            // ── STACK 1: BỘ ĐÔI HIỂN THỊ & ẨN CATEGORY ──
+            // 4. Auto Grid & Floor Plan Generator (Large Button)
+            var gridPlanData = new PushButtonData(
+                "CmdGridPlanGenerator",
+                "Grid &" + Environment.NewLine + "Floor Plan",
+                assemblyPath,
+                "KhimTools.GridPlanGenerator.Commands.CmdGridPlanGenerator")
+            {
+                ToolTip = "Tự động sinh Hệ Lưới Trục (Grid) và Mặt Bằng / Cao Độ Tầng (Level & Floor Plan) từ CAD/DWG.",
+                LargeImage = LoadImage("icon_grid_plan_32.png"),
+                Image = LoadImage("icon_grid_plan_16.png")
+            };
+            panel.AddItem(gridPlanData);
+
+            // ── CỤM 3: VIEW & DETAIL (GOM STACK/PULLDOWN) ──
+            // Stack 1: BỘ ĐÔI HIỂN THỊ & ẨN CATEGORY
             var pulldownShowData = new PulldownButtonData("VisibilityShowPulldown", "Hiển thị")
             {
                 ToolTip = "Bật hiển thị các Category đối tượng trong View hiện hành.",
-                Image = LoadImage("icon_workspace_16.png")
+                Image = LoadImage("icon_detail_16.png")
             };
 
             var pulldownHideData = new PulldownButtonData("VisibilityHidePulldown", "Ẩn")
             {
                 ToolTip = "Ẩn các Category đối tượng trong View hiện hành.",
-                Image = LoadImage("icon_workspace_16.png")
+                Image = LoadImage("icon_detail_16.png")
             };
 
             var stackedVis = panel.AddStackedItems(pulldownShowData, pulldownHideData);
@@ -145,27 +174,37 @@ namespace KhimTools.Core
                 }
             }
 
-            // ── STACK 2: CĂN CHỈNH TEXT & CĂN CHỈNH VIEWPORT ──
-            var pulldownAlignTextData = new PulldownButtonData("AlignTextPulldown", "Align")
+            // Stack 2: ALIGN VIEWPORT + UPDATE DETAIL NO + ALIGN TEXT
+            var alignVpData = new PushButtonData(
+                "CmdAlignViewport",
+                "Align Viewports",
+                assemblyPath,
+                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
+            {
+                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport & Bảng Schedule trên nhiều Sheet.",
+                Image = LoadImage("icon_align_16.png")
+            };
+
+            var updateDetailNumData = new PushButtonData(
+                "CmdUpdateDetailNumbers",
+                "Update Detail No",
+                assemblyPath,
+                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
+            {
+                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
+                Image = LoadImage("icon_detail_16.png")
+            };
+
+            var pulldownAlignTextData = new PulldownButtonData("AlignTextPulldown", "Align Text")
             {
                 ToolTip = "Căn chỉnh lề và chia đều khoảng cách cho Text, Tag, Annotation.",
                 Image = LoadImage("icon_align_16.png")
             };
 
-            var alignVpData = new PushButtonData(
-                "CmdAlignViewport",
-                "Align Viewport",
-                assemblyPath,
-                "KhimTools.ViewportAlign.Commands.CmdAlignViewport")
+            var stackedAlign = panel.AddStackedItems(alignVpData, updateDetailNumData, pulldownAlignTextData);
+            if (stackedAlign.Count == 3)
             {
-                ToolTip = "Đồng bộ và căn chỉnh vị trí Viewport & Bảng Schedule trên nhiều Sheet (TreeView chọn lọc).",
-                Image = LoadImage("icon_align_16.png")
-            };
-
-            var stackedAlign = panel.AddStackedItems(pulldownAlignTextData, alignVpData);
-            if (stackedAlign.Count == 2)
-            {
-                var pAlignText = stackedAlign[0] as PulldownButton;
+                var pAlignText = stackedAlign[2] as PulldownButton;
                 if (pAlignText != null)
                 {
                     AddPulldownItem(pAlignText, "CmdAlignTop", "Top", "KhimTools.TextAlign.Commands.CmdAlignTop", assemblyPath, "icon_align_16.png");
@@ -179,81 +218,8 @@ namespace KhimTools.Core
                 }
             }
 
-            // ── STACK 3: GRID & LEVEL FULL PULDOWN & COPY LINK ──
-            var pulldownGridLevelData = new PulldownButtonData("GridLevelPulldown", "Grid & Level")
-            {
-                ToolTip = "Bộ công cụ toàn diện xử lý Hệ Lưới Trục (Grid) và Cao Độ Tầng (Level).",
-                Image = LoadImage("icon_grid_16.png")
-            };
-
-            var copyLinkData = new PushButtonData(
-                "CmdCopyLinkElements",
-                "Copy Link",
-                assemblyPath,
-                "KhimTools.CopyLink.Commands.CmdCopyLinkElements")
-            {
-                ToolTip = "Sao chép đối tượng từ file Revit Link sang dự án chính chuẩn 100% tọa độ.",
-                Image = LoadImage("icon_copylink_16.png")
-            };
-
-            var stackedGridLink = panel.AddStackedItems(pulldownGridLevelData, copyLinkData);
-            if (stackedGridLink.Count == 2)
-            {
-                var pGridLevel = stackedGridLink[0] as PulldownButton;
-                if (pGridLevel != null)
-                {
-                    AddPulldownItem(pGridLevel, "CmdCreateGrid", "Tạo Grid", "KhimTools.GridLevel.Commands.CmdCreateGrid", assemblyPath, "icon_grid_16.png");
-                    AddPulldownItem(pGridLevel, "CmdCreateLevel", "Tạo Level", "KhimTools.GridLevel.Commands.CmdCreateLevel", assemblyPath, "icon_grid_16.png");
-                    AddPulldownItem(pGridLevel, "CmdCutLevel", "Cắt Level", "KhimTools.GridLevel.Commands.CmdCutLevel", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pGridLevel, "CmdLevelBubble", "Level Bubble", "KhimTools.GridLevel.Commands.CmdLevelBubble", assemblyPath, "icon_grid_16.png");
-                    AddPulldownItem(pGridLevel, "CmdConvertLevel2D", "Chuyển Level 2D", "KhimTools.GridLevel.Commands.CmdConvertLevel2D", assemblyPath, "icon_detail_16.png");
-                    AddPulldownItem(pGridLevel, "CmdConvertLevel3D", "Chuyển Level 3D", "KhimTools.GridLevel.Commands.CmdConvertLevel3D", assemblyPath, "icon_detail_16.png");
-                    pGridLevel.AddSeparator();
-                    AddPulldownItem(pGridLevel, "CmdCutGrid3D", "Cắt Grid 3D", "KhimTools.GridLevel.Commands.CmdCutGrid3D", assemblyPath, "icon_grid_16.png");
-                    AddPulldownItem(pGridLevel, "CmdTrimGrid2D", "Trim Grid 2D", "KhimTools.GridLevel.Commands.CmdTrimGrid2D", assemblyPath, "icon_align_16.png");
-                    AddPulldownItem(pGridLevel, "CmdGridBubble", "Grid Bubble", "KhimTools.GridLevel.Commands.CmdGridBubble", assemblyPath, "icon_grid_16.png");
-                    AddPulldownItem(pGridLevel, "CmdConvertGrid2D", "Chuyển Grid 2D", "KhimTools.GridLevel.Commands.CmdConvertGrid2D", assemblyPath, "icon_detail_16.png");
-                    AddPulldownItem(pGridLevel, "CmdConvertGrid3D", "Chuyển Grid 3D", "KhimTools.GridLevel.Commands.CmdConvertGrid3D", assemblyPath, "icon_detail_16.png");
-                }
-            }
-
-            // ── STACK 4: DETAIL NUMBER & CHECK UPDATE ──
-            var updateDetailNumData = new PushButtonData(
-                "CmdUpdateDetailNumbers",
-                "Update Detail No",
-                assemblyPath,
-                "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers")
-            {
-                ToolTip = "Tự động trích xuất và cập nhật số hiệu chi tiết (Detail Number) từ tên View.",
-                Image = LoadImage("icon_detail_16.png")
-            };
-
-            var updateData = new PushButtonData(
-                "CmdCheckUpdate",
-                "Check Update",
-                assemblyPath,
-                "KhimTools.Updater.Commands.CmdCheckUpdate")
-            {
-                ToolTip = "Kiểm tra phiên bản mới nhất của KhimTools từ GitHub Releases.",
-                Image = LoadImage("icon_update_16.png")
-            };
-
-            panel.AddStackedItems(updateDetailNumData, updateData);
-
-            // 4. Tạo Sheet Tự Động (SheetGen - Large Button)
-            var sheetGenData = new PushButtonData(
-                "CmdSheetGen",
-                "Auto" + Environment.NewLine + "SheetGen",
-                assemblyPath,
-                "KhimTools.SheetGen.Commands.CmdSheetGen")
-            {
-                ToolTip = "Công cụ Tạo Sheet Tự Động (Batch Create Sheets, TitleBlock, Viewport, Import/Export CSV chuẩn DiRoots).",
-                LargeImage = LoadImage("export_sheet_32.png"),
-                Image = LoadImage("export_sheet_16.png")
-            };
-            panel.AddItem(sheetGenData);
-
-            // 5. Sheet Exporter (Large Button)
+            // ── CỤM 4: PUBLISH & SYSTEM ──
+            // Sheet Exporter (Large Button)
             var sheetExportData = new PushButtonData(
                 "CmdSheetExport",
                 "Sheet" + Environment.NewLine + "Exporter",
@@ -269,33 +235,36 @@ namespace KhimTools.Core
             };
             panel.AddItem(sheetExportData);
 
-            // 5. Ngôn ngữ / Language (SplitButton)
-            var splitLangData = new SplitButtonData(
-                "LanguageSplitButton",
-                "Ngôn ngữ" + Environment.NewLine + "Language")
+            // Stack 3: Language & Check Update
+            var splitLangData = new PulldownButtonData(
+                "LanguagePulldown",
+                "Ngôn ngữ (Lang)")
             {
-                ToolTip = "Chuyển đổi ngôn ngữ giao diện (Song ngữ Tiếng Việt - English)."
+                ToolTip = "Chuyển đổi ngôn ngữ giao diện (Song ngữ Tiếng Việt - English).",
+                Image = LoadImage("icon_workspace_16.png")
             };
 
-            var splitLang = panel.AddItem(splitLangData) as SplitButton;
-            if (splitLang != null)
+            var updateData = new PushButtonData(
+                "CmdCheckUpdate",
+                "Check Update",
+                assemblyPath,
+                "KhimTools.Updater.Commands.CmdCheckUpdate")
             {
-                AddPushButton(splitLang, "CmdSwitchLanguage", "Đổi Ngôn Ngữ (Switch)",
-                    "KhimTools.LanguageSwitcher.Commands.CmdSwitchLanguage", assemblyPath,
-                    "Chuyển đổi nhanh qua lại giữa Tiếng Việt và English.",
-                    "icon_workspace_32.png", "icon_workspace_16.png");
+                ToolTip = "Kiểm tra phiên bản mới nhất của KhimTools từ GitHub Releases.",
+                Image = LoadImage("icon_update_16.png")
+            };
 
-                splitLang.AddSeparator();
-
-                AddPushButton(splitLang, "CmdSetVietnamese", "Tiếng Việt (VN)",
-                    "KhimTools.LanguageSwitcher.Commands.CmdSetVietnamese", assemblyPath,
-                    "Thiết lập ngôn ngữ toàn bộ hệ thống là Tiếng Việt.",
-                    "icon_workspace_32.png", "icon_workspace_16.png");
-
-                AddPushButton(splitLang, "CmdSetEnglish", "English (EN)",
-                    "KhimTools.LanguageSwitcher.Commands.CmdSetEnglish", assemblyPath,
-                    "Set the entire system language to English.",
-                    "icon_workspace_32.png", "icon_workspace_16.png");
+            var stackedSystem = panel.AddStackedItems(splitLangData, updateData);
+            if (stackedSystem.Count == 2)
+            {
+                var pLang = stackedSystem[0] as PulldownButton;
+                if (pLang != null)
+                {
+                    AddPulldownItem(pLang, "CmdSwitchLanguage", "Đổi Ngôn Ngữ (Switch)", "KhimTools.LanguageSwitcher.Commands.CmdSwitchLanguage", assemblyPath, "icon_workspace_16.png");
+                    pLang.AddSeparator();
+                    AddPulldownItem(pLang, "CmdSetVietnamese", "Tiếng Việt (VN)", "KhimTools.LanguageSwitcher.Commands.CmdSetVietnamese", assemblyPath, "icon_workspace_16.png");
+                    AddPulldownItem(pLang, "CmdSetEnglish", "English (EN)", "KhimTools.LanguageSwitcher.Commands.CmdSetEnglish", assemblyPath, "icon_workspace_16.png");
+                }
             }
         }
 
@@ -469,8 +438,8 @@ namespace KhimTools.Core
                 "KhimTools.SectionCutTool.Commands.CmdSectionCut")
             {
                 ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
-                LargeImage = LoadImage("rebar_draw_16.png") ?? LoadImage("export_sheet_32.png"),
-                Image = LoadImage("rebar_draw_16.png")
+                LargeImage = LoadImage("icon_section_cut_32.png"),
+                Image = LoadImage("icon_section_cut_16.png")
             };
             panel.AddItem(sectionData);
 
@@ -482,14 +451,14 @@ namespace KhimTools.Core
                 "KhimTools.RebarTool.Commands.CmdProjectCoverSetup")
             {
                 ToolTip = "Cấu hình Lớp bê tông bảo vệ (Concrete Cover) toàn dự án.",
-                LargeImage = LoadImage("rebar_cover_16.png") ?? LoadImage("rebar_col_16.png"),
-                Image = LoadImage("rebar_cover_16.png")
+                LargeImage = LoadImage("icon_cover_setup_32.png"),
+                Image = LoadImage("icon_cover_setup_16.png")
             };
             panel.AddItem(coverData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
-        // 3. PANEL: K-ARCHITECTURAL
+        // 4. PANEL: K-ARCHITECTURAL
         // ════════════════════════════════════════════════════════════════════════════════
         private static void BuildArchPanel(UIControlledApplication application, string assemblyPath)
         {
@@ -503,8 +472,8 @@ namespace KhimTools.Core
                 "KhimTools.Architectural.Rooms.CmdRoom3DView")
             {
                 ToolTip = "Tự động tạo Khung nhìn 3D cô lập (3D Section Box) cho Phòng được chọn.",
-                LargeImage = LoadImage("icon_workspace_32.png"),
-                Image = LoadImage("icon_workspace_16.png")
+                LargeImage = LoadImage("icon_room3d_32.png"),
+                Image = LoadImage("icon_room3d_16.png")
             };
             panel.AddItem(room3dData);
 
@@ -516,14 +485,14 @@ namespace KhimTools.Core
                 "KhimTools.Architectural.Finishes.CmdWallFloorFinishes")
             {
                 ToolTip = "Tự động bố trí lớp hoàn thiện sàn/tường theo chu vi phòng.",
-                LargeImage = LoadImage("icon_detail_32.png"),
-                Image = LoadImage("icon_detail_16.png")
+                LargeImage = LoadImage("icon_finishes_32.png"),
+                Image = LoadImage("icon_finishes_16.png")
             };
             panel.AddItem(finishData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
-        // 4. PANEL: K-MEP
+        // 5. PANEL: K-MEP
         // ════════════════════════════════════════════════════════════════════════════════
         private static void BuildMepPanel(UIControlledApplication application, string assemblyPath)
         {
@@ -537,8 +506,8 @@ namespace KhimTools.Core
                 "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
                 ToolTip = "Tự động kiểm tra xung đột ống MEP với Dầm/Sàn/Vách và đục lỗ mở (Openings).",
-                LargeImage = LoadImage("icon_grid_32.png"),
-                Image = LoadImage("icon_grid_16.png")
+                LargeImage = LoadImage("icon_mep_openings_32.png"),
+                Image = LoadImage("icon_mep_openings_16.png")
             };
             panel.AddItem(openingData);
 
@@ -550,8 +519,8 @@ namespace KhimTools.Core
                 "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
                 ToolTip = "Tự động gán nhãn cao độ đáy (BOP/Invert Elevation) cho ống gió và ống nước.",
-                LargeImage = LoadImage("icon_detail_32.png"),
-                Image = LoadImage("icon_detail_16.png")
+                LargeImage = LoadImage("icon_mep_tags_32.png"),
+                Image = LoadImage("icon_mep_tags_16.png")
             };
             panel.AddItem(tagData);
         }

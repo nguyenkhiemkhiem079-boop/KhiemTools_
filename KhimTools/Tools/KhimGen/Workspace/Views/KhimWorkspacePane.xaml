@@ -174,7 +174,77 @@
                     </Grid>
                 </Button>
 
-                <!-- 4. DOCUMENTATION SECTION -->
+                <!-- 4. ARCHITECTURAL SECTION -->
+                <TextBlock Text="KIẾN TRÚC (ARCHITECTURAL)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+
+                <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunRoom3DViewCommand}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="🏢" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Room 3D View Generator" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="Tự động tạo 3D Section Box cô lập theo phòng" FontSize="11" Foreground="#64748B"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="➔" FontSize="14" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunWallFloorFinishesCommand}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="🏠" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="Room Finishes" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="Lát sàn &amp; ốp chân tường theo biên dạng phòng" FontSize="11" Foreground="#64748B"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="➔" FontSize="14" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <!-- 5. MEP ENGINEERING SECTION -->
+                <TextBlock Text="CƠ ĐIỆN (MEP ENGINEERING)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+
+                <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunMepOpeningsCommand}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="🕳" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="MEP Openings" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="Quét va chạm và tự động đục lỗ mở dầm/sàn/vách" FontSize="11" Foreground="#64748B"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="➔" FontSize="14" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunMepElevationTagsCommand}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="🏷" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="MEP Elevation Tags" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
+                            <TextBlock Text="Gán Tag cao độ đáy BOP / Invert cho ống gió &amp; ống nước" FontSize="11" Foreground="#64748B"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="➔" FontSize="14" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                    </Grid>
+                </Button>
+
+                <!-- 6. DOCUMENTATION SECTION -->
                 <TextBlock Text="TRIỂN KHAI BẢN VẼ (DOCUMENTATION)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunSectionCutCommand}">
