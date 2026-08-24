@@ -485,18 +485,24 @@ namespace KhimTools.ElementTags.Forms
                 List<ElementId> orphanIds;
                 List<ElementId> invisibleHostIds;
                 List<ElementId> tooFarIds;
+                List<ElementId> clashingIds;
 
-                ElementTagsService.CheckTagsStatus(_doc, _doc.ActiveView, out orphanIds, out invisibleHostIds, out tooFarIds);
+                ElementTagsService.CheckTagsStatus(
+                    _doc, _doc.ActiveView, 
+                    out orphanIds, out invisibleHostIds, out tooFarIds, out clashingIds);
 
-                int totalErrors = orphanIds.Count + invisibleHostIds.Count + tooFarIds.Count;
+                int totalErrors = orphanIds.Count + invisibleHostIds.Count + tooFarIds.Count + clashingIds.Count;
 
                 _gridResult.Rows.Clear();
+
+                // Apply Red Overrides instantly to clashing tags in the active view
+                ElementTagsService.ApplyRedOverrideForClashes(_doc, _doc.ActiveView, clashingIds);
 
                 if (totalErrors > 0)
                 {
                     _lblAlert.Text = LanguageManager.IsEnglish
-                        ? $"ℹ Found {totalErrors} misplaced tags (Red)."
-                        : $"ℹ Tìm thấy {totalErrors} nhãn Tag bị lỗi (Màu đỏ).";
+                        ? $"ℹ Found {totalErrors} misplaced/clashing tags (Red)."
+                        : $"ℹ Tìm thấy {totalErrors} nhãn Tag lỗi/va chạm (Màu đỏ).";
                     _pnlAlert.Visible = true;
 
                     // Add Orphan Tags
@@ -532,8 +538,19 @@ namespace KhimTools.ElementTags.Forms
                         _gridResult.Rows[r].Cells["colReset"].Value = "Reset";
                     }
 
+                    // Add Clashing Tags
+                    foreach (var id in clashingIds)
+                    {
+                        int r = _gridResult.Rows.Add();
+                        _gridResult.Rows[r].Cells["colId"].Value = id.ToString();
+                        _gridResult.Rows[r].Cells["colResCategory"].Value = GetElementCategoryName(id);
+                        _gridResult.Rows[r].Cells["colType"].Value = "Tag Clash (Va Chạm)";
+                        _gridResult.Rows[r].Cells["colAction"].Value = "Show";
+                        _gridResult.Rows[r].Cells["colReset"].Value = "Reset";
+                    }
+
                     // Select all problematic tags
-                    var allProblematicIds = orphanIds.Concat(invisibleHostIds).Concat(tooFarIds).Distinct().ToList();
+                    var allProblematicIds = orphanIds.Concat(invisibleHostIds).Concat(tooFarIds).Concat(clashingIds).Distinct().ToList();
                     _uidoc.Selection.SetElementIds(allProblematicIds);
 
                     string report = LanguageManager.IsEnglish

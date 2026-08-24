@@ -182,11 +182,13 @@ namespace KhimTools.ElementTags.Services
             View view,
             out List<ElementId> orphanTagIds,
             out List<ElementId> invisibleHostTagIds,
-            out List<ElementId> tooFarTagIds)
+            out List<ElementId> tooFarTagIds,
+            out List<ElementId> clashingTagIds)
         {
             orphanTagIds = new List<ElementId>();
             invisibleHostTagIds = new List<ElementId>();
             tooFarTagIds = new List<ElementId>();
+            clashingTagIds = new List<ElementId>();
 
             var tags = new FilteredElementCollector(doc, view.Id)
                 .OfClass(typeof(IndependentTag))
@@ -199,8 +201,35 @@ namespace KhimTools.ElementTags.Services
                 .Select(id => id.ToLongValue())
                 .ToHashSet();
 
+            // Collect structural elements to check clash against
+            var structuralCategories = new List<BuiltInCategory>
+            {
+                BuiltInCategory.OST_Walls,
+                BuiltInCategory.OST_StructuralColumns,
+                BuiltInCategory.OST_StructuralFraming,
+                BuiltInCategory.OST_Stairs,
+                BuiltInCategory.OST_StairsRailing
+            };
+
+            var structuralElements = new List<Element>();
+            foreach (var cat in structuralCategories)
+            {
+                try
+                {
+                    var elms = new FilteredElementCollector(doc, view.Id)
+                        .OfCategory(cat)
+                        .WhereElementIsNotElementType()
+                        .ToList();
+                    structuralElements.AddRange(elms);
+                }
+                catch { }
+            }
+
             foreach (var tag in tags)
             {
+                var tagBox = tag.get_BoundingBox(view);
+                bool hasClash = false;
+
                 ElementId hostId = GetTaggedElementId(tag);
                 if (hostId == null || hostId == ElementId.InvalidElementId)
                 {
@@ -237,6 +266,84 @@ namespace KhimTools.ElementTags.Services
                     }
                 }
                 catch { }
+
+                // Check 3: Clash with other structural elements or other tags
+                if (tagBox != null)
+                {
+                    // Clash with structural elements
+                    foreach (var el in structuralElements)
+                    {
+                        if (el.Id.ToLongValue() == hostId.ToLongValue()) continue;
+
+                        var elBox = el.get_BoundingBox(view);
+                        if (elBox == null) continue;
+
+                        if (tagBox.Min.X < elBox.Max.X && tagBox.Max.X > elBox.Min.X &&
+                            tagBox.Min.Y < elBox.Max.Y && tagBox.Max.Y > elBox.Min.Y)
+                        {
+                            clashingTagIds.Add(tag.Id);
+                            hasClash = true;
+                            break;
+                        }
+                    }
+
+                    // Clash with other tags (Tag-to-Tag clash)
+                    if (!hasClash)
+                    {
+                        foreach (var otherTag in tags)
+                        {
+                            if (otherTag.Id.ToLongValue() == tag.Id.ToLongValue()) continue;
+
+                            var otherBox = otherTag.get_BoundingBox(view);
+                            if (otherBox == null) continue;
+
+                            if (tagBox.Min.X < otherBox.Max.X && tagBox.Max.X > otherBox.Min.X &&
+                                tagBox.Min.Y < otherBox.Max.Y && tagBox.Max.Y > otherBox.Min.Y)
+                            {
+                                clashingTagIds.Add(tag.Id);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void ApplyRedOverrideForClashes(Document doc, View view, List<ElementId> clashingTagIds)
+        {
+            using (var tx = new Transaction(doc, "K-TOOLS: Override Clashing Tags"))
+            {
+                tx.Start();
+                var red = new Color(255, 0, 0);
+
+                var tags = new FilteredElementCollector(doc, view.Id)
+                    .OfClass(typeof(IndependentTag))
+                    .Cast<IndependentTag>()
+                    .ToList();
+
+                // Clear element-level overrides for all tags first
+                foreach (var tag in tags)
+                {
+                    try
+                    {
+                        view.SetElementOverrides(tag.Id, new OverrideGraphicSettings());
+                    }
+                    catch { }
+                }
+
+                // Apply red override to clashing tags
+                foreach (var tagId in clashingTagIds)
+                {
+                    try
+                    {
+                        var ogs = new OverrideGraphicSettings();
+                        ogs.SetProjectionLineColor(red);
+                        view.SetElementOverrides(tagId, ogs);
+                    }
+                    catch { }
+                }
+
+                tx.Commit();
             }
         }
 
@@ -343,10 +450,59 @@ namespace KhimTools.ElementTags.Services
             return ElementId.InvalidElementId;
         }
 
+        private static XYZ GetTagLeaderEnd(IndependentTag tag)
+        {
+            try
+            {
+                // Try GetLeaderEnd(Reference) - Revit 2023+
+                var getLeaderEndMethod = tag.GetType().GetMethod("GetLeaderEnd", new Type[] { typeof(Reference) });
+                if (getLeaderEndMethod != null)
+                {
+                    // Get the first tagged reference
+                    var getRefsMethod = tag.GetType().GetMethod("GetTaggedReferences");
+                    if (getRefsMethod != null)
+                    {
+                        var refs = getRefsMethod.Invoke(tag, null) as System.Collections.ICollection;
+                        if (refs != null)
+                        {
+                            foreach (var r in refs)
+                            {
+                                var pt = getLeaderEndMethod.Invoke(tag, new object[] { r }) as XYZ;
+                                if (pt != null)
+                                {
+                                    return pt;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            try
+            {
+                // Try LeaderEnd property - Revit 2022 and older
+                var prop = tag.GetType().GetProperty("LeaderEnd");
+                if (prop != null)
+                {
+                    return prop.GetValue(tag) as XYZ;
+                }
+            }
+            catch { }
+
+            return tag.TagHeadPosition;
+        }
+
         public static bool ResetFloorTagHost(Document doc, View view, IndependentTag tag, out string successFloorName)
         {
             successFloorName = string.Empty;
+            
+            // Step 1: Determine correct checkpoint (Leader End or Tag Head)
             XYZ tagPoint = tag.TagHeadPosition;
+            if (tag.HasLeader)
+            {
+                tagPoint = GetTagLeaderEnd(tag);
+            }
 
             // Collect all floors visible in the view
             var visibleFloors = new FilteredElementCollector(doc, view.Id)
@@ -356,8 +512,18 @@ namespace KhimTools.ElementTags.Services
 
             Floor targetFloor = null;
 
+            // Stage 1: Strict Point-in-Polygon check with Z & Area sorting
+            var candidates = new List<Tuple<Floor, double, double>>();
+
             foreach (var floor in visibleFloors)
             {
+                // Filter out precast/others if not desired, but let's do a basic name check to bypass non-structural floors
+                string floorName = floor.Name.ToLower();
+                if (floorName.Contains("others") || floorName.Contains("precast") || floorName.Contains("existing"))
+                {
+                    continue;
+                }
+
                 try
                 {
                     var topFaceRefs = HostObjectUtils.GetTopFaces(floor);
@@ -369,16 +535,81 @@ namespace KhimTools.ElementTags.Services
                             var proj = face.Project(tagPoint);
                             if (proj != null)
                             {
-                                targetFloor = floor;
-                                break;
+                                double area = floor.get_Parameter(BuiltInParameter.HOST_AREA_COMPUTED)?.AsDouble() ?? double.MaxValue;
+                                candidates.Add(Tuple.Create(floor, proj.XYZPoint.Z, area));
                             }
                         }
                     }
                 }
                 catch { }
+            }
 
-                if (targetFloor != null)
-                    break;
+            if (candidates.Count > 0)
+            {
+                // Sort by Z descending (highest Z first), then by Area ascending (smallest area first)
+                var sorted = candidates
+                    .OrderByDescending(c => c.Item2)
+                    .ThenBy(c => c.Item3)
+                    .ToList();
+
+                targetFloor = sorted[0].Item1;
+            }
+
+            // Stage 2: Boundary proximity fallback search (within 30cm / 1.0 foot tolerance)
+            if (targetFloor == null)
+            {
+                var boundaryCandidates = new List<Tuple<Floor, double>>();
+
+                foreach (var floor in visibleFloors)
+                {
+                    string floorName = floor.Name.ToLower();
+                    if (floorName.Contains("others") || floorName.Contains("precast") || floorName.Contains("existing"))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        var topFaceRefs = HostObjectUtils.GetTopFaces(floor);
+                        double minDistForFloor = double.MaxValue;
+
+                        foreach (var faceRef in topFaceRefs)
+                        {
+                            var face = floor.GetGeometryObjectFromReference(faceRef) as PlanarFace;
+                            if (face != null)
+                            {
+                                foreach (var loop in face.GetEdgesAsCurveLoops())
+                                {
+                                    foreach (var curve in loop)
+                                    {
+                                        double dist = curve.Distance(tagPoint);
+                                        if (dist < minDistForFloor)
+                                        {
+                                            minDistForFloor = dist;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 1.0 internal foot is approximately 30.48 cm
+                        if (minDistForFloor <= 1.0)
+                        {
+                            boundaryCandidates.Add(Tuple.Create(floor, minDistForFloor));
+                        }
+                    }
+                    catch { }
+                }
+
+                if (boundaryCandidates.Count > 0)
+                {
+                    // Sort by distance ascending (closest first)
+                    var sorted = boundaryCandidates
+                        .OrderBy(bc => bc.Item2)
+                        .ToList();
+
+                    targetFloor = sorted[0].Item1;
+                }
             }
 
             if (targetFloor == null)
