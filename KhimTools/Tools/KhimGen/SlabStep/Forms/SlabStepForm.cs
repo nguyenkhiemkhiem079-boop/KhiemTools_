@@ -243,7 +243,7 @@ namespace KhimTools.SlabStep.Forms
             currentY += 235;
             
             // ─────────────────────────────────────────────────────────────
-            // 3. GROUPBOX: CHỌN SÀN THẤP / WC (ĐỂ ĐỊNH HƯỚNG XOAY TỰ ĐỘNG)
+            // 3. GROUPBOX: CHỌN SÀN THẤP (ĐỂ ĐỊNH HƯỚNG XOAY TỰ ĐỘNG)
             // ─────────────────────────────────────────────────────────────
             var grpOrientation = new GroupBox
             {
@@ -256,7 +256,7 @@ namespace KhimTools.SlabStep.Forms
             
             var btnPickLowFloor = new Button
             {
-                Text = "Chọn Sàn Thấp / Sàn WC",
+                Text = "Chọn Sàn Thấp (Low Floor)",
                 Location = new Point(15, 25),
                 Size = new Size(180, 32),
                 BackColor = KhimUiStyle.SecondaryButtonBg,
@@ -471,11 +471,11 @@ namespace KhimTools.SlabStep.Forms
             this.Hide();
             try
             {
-                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Thấp / Sàn WC (Để định hướng xoay)");
+                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Thấp (Low Floor) để định hướng xoay");
                 if (r != null)
                 {
                     _floorLow = _doc.GetElement(r.ElementId) as Floor;
-                    _lblLowFloorInfo.Text = $"Sàn WC: ID {_floorLow.Id} ({_floorLow.Name})";
+                    _lblLowFloorInfo.Text = $"Sàn Thấp: ID {_floorLow.Id} ({_floorLow.Name})";
                     _lblLowFloorInfo.ForeColor = KhimUiStyle.CreateButtonBg;
                 }
             }
