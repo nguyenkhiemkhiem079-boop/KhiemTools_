@@ -184,17 +184,22 @@ namespace KhimTools.SlabStep.Services
         }
 
         /// <summary>
-        /// Thực thi chèn nách sàn giật cấp dọc theo đường dẫn và gán tham số
+        /// Thực thi chèn nách sàn giật cấp dọc theo đường dẫn và gán tham số thủ công
         /// </summary>
-        public static FamilyInstance GenerateSlabStep(Document doc, Floor floorHigh, Floor floorLow, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings)
+        public static FamilyInstance GenerateSlabStep(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm)
         {
-            if (doc == null || floorHigh == null || floorLow == null || boundaryCurve == null || symbol == null || settings == null)
+            if (doc == null || boundaryCurve == null || symbol == null || settings == null)
                 return null;
 
-            // Lấy Level của sàn thấp để làm Host chính
-            ElementId levelId = floorLow.LevelId;
-            if (levelId == ElementId.InvalidElementId) levelId = floorHigh.LevelId;
-            Level level = doc.GetElement(levelId) as Level;
+            // Lấy Level của View hiện hành để làm Host chính
+            Level level = doc.ActiveView.GenLevel;
+            if (level == null)
+            {
+                level = new FilteredElementCollector(doc)
+                    .OfClass(typeof(Level))
+                    .Cast<Level>()
+                    .FirstOrDefault();
+            }
             if (level == null) return null;
 
             // Kích hoạt Symbol trước khi tạo
@@ -208,26 +213,21 @@ namespace KhimTools.SlabStep.Services
                 }
             }
 
-            // Tính toán hiệu cao độ mặt trên thực tế
-            double elevHigh = GetFloorTopElevation(floorHigh);
-            double elevLow = GetFloorTopElevation(floorLow);
-            double heightDiff = Math.Abs(elevHigh - elevLow); // đơn vị internal (feet)
+            // Quy đổi đơn vị mm sang feet (internal Revit units)
+            double heightDiff = heightMm / 304.8;
+            double thickHigh = highThickMm / 304.8;
+            double thickLow = lowThickMm / 304.8;
 
             // Lấy điểm đầu cuối của cạnh ranh giới
             XYZ p1 = boundaryCurve.GetEndPoint(0);
             XYZ p2 = boundaryCurve.GetEndPoint(1);
 
-            // Đưa cao độ điểm chèn về đúng mặt trên sàn thấp (để nách sàn giật cấp đặt đúng vị trí)
-            p1 = new XYZ(p1.X, p1.Y, elevLow);
-            p2 = new XYZ(p2.X, p2.Y, elevLow);
+            // Đưa cao độ điểm chèn về đúng cao độ của Level
+            p1 = new XYZ(p1.X, p1.Y, level.Elevation);
+            p2 = new XYZ(p2.X, p2.Y, level.Elevation);
 
-            // Xác định hướng xoay dựa vào vị trí Sàn Cao
-            bool shouldSwap = DetermineIfNeedsSwap(floorHigh, p1, p2);
-            if (settings.ReverseOrientation)
-            {
-                shouldSwap = !shouldSwap;
-            }
-
+            // Xác định hướng xoay dựa vào checkbox Reverse
+            bool shouldSwap = settings.ReverseOrientation;
             XYZ startPt = shouldSwap ? p2 : p1;
             XYZ endPt = shouldSwap ? p1 : p2;
 
@@ -256,9 +256,8 @@ namespace KhimTools.SlabStep.Services
                 }
 
                 // Gán tham số dày sàn cao (nếu có)
-                if (!string.IsNullOrEmpty(settings.HighSlabThicknessParameter))
+                if (!string.IsNullOrEmpty(settings.HighSlabThicknessParameter) && highThickMm > 0)
                 {
-                    double thickHigh = floorHigh.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS).AsDouble();
                     var pThickHigh = instance.LookupParameter(settings.HighSlabThicknessParameter);
                     if (pThickHigh != null && !pThickHigh.IsReadOnly)
                     {
@@ -267,9 +266,8 @@ namespace KhimTools.SlabStep.Services
                 }
 
                 // Gán tham số dày sàn thấp (nếu có)
-                if (!string.IsNullOrEmpty(settings.LowSlabThicknessParameter))
+                if (!string.IsNullOrEmpty(settings.LowSlabThicknessParameter) && lowThickMm > 0)
                 {
-                    double thickLow = floorLow.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS).AsDouble();
                     var pThickLow = instance.LookupParameter(settings.LowSlabThicknessParameter);
                     if (pThickLow != null && !pThickLow.IsReadOnly)
                     {

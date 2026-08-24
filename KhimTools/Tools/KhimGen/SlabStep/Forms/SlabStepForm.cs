@@ -27,17 +27,13 @@ namespace KhimTools.SlabStep.Forms
         private readonly UIDocument _uidoc;
         private readonly Document _doc;
         
-        private Floor _floorHigh;
-        private Floor _floorLow;
         private Curve _boundaryCurve;
-        private List<Curve> _autoDetectedCurves = new List<Curve>();
-        
         private SlabStepSettings _settings = new SlabStepSettings();
         
         // UI Controls
-        private Label _lblHighFloorInfo;
-        private Label _lblLowFloorInfo;
-        private Label _lblHeightDiff;
+        private TextBox _txtHeight;
+        private TextBox _txtThickHigh;
+        private TextBox _txtThickLow;
         private Label _lblBoundaryInfo;
         
         private ComboBox _cboFamilies;
@@ -62,8 +58,8 @@ namespace KhimTools.SlabStep.Forms
         
         private void InitializeComponent()
         {
-            this.Size = new Size(620, 680);
-            this.SetFormTitle("K-TOOLS — Slab Step Generator", "Tạo giật cấp sàn tự động");
+            this.Size = new Size(620, 600);
+            this.SetFormTitle("K-TOOLS — Slab Step Generator", "Tạo giật cấp sàn thủ công");
             KhimUiStyle.ApplyFormTheme(this);
             
             // Container Panel
@@ -77,83 +73,81 @@ namespace KhimTools.SlabStep.Forms
             int currentY = 10;
             
             // ─────────────────────────────────────────────────────────────
-            // 1. GROUPBOX: CHỌN SÀN KẾT CẤU (SELECT FLOORS)
+            // 1. GROUPBOX: THÔNG SỐ KÍCH THƯỚC GIẬT CẤP (DIMENSIONS)
             // ─────────────────────────────────────────────────────────────
-            var grpFloors = new GroupBox
+            var grpDims = new GroupBox
             {
-                Text = "📌 Chọn Sàn Lệch Cao Độ (Select Floors)",
+                Text = "📌 Thông Số Kích Thước Giật Cấp (Slab Step Dimensions)",
                 Location = new Point(15, currentY),
-                Size = new Size(570, 150),
+                Size = new Size(570, 140),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
-            pnlContainer.Controls.Add(grpFloors);
+            pnlContainer.Controls.Add(grpDims);
             
-            var btnPickHigh = new Button
+            var lblHeight = new Label
             {
-                Text = "Chọn Sàn Cao (High Floor A)",
-                Location = new Point(15, 25),
-                Size = new Size(180, 32),
-                BackColor = KhimUiStyle.PrimaryButtonBg,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+                Text = "Chiều cao giật cấp (mm):",
+                Location = new Point(15, 32),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
-            btnPickHigh.Click += (s, e) => PickHighFloor();
-            grpFloors.Controls.Add(btnPickHigh);
+            grpDims.Controls.Add(lblHeight);
             
-            _lblHighFloorInfo = new Label
+            _txtHeight = new TextBox
             {
-                Text = "Chưa chọn sàn cao.",
-                Location = new Point(210, 32),
-                Size = new Size(340, 20),
-                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = KhimUiStyle.TextSecondary
+                Text = "50",
+                Location = new Point(230, 29),
+                Size = new Size(120, 25),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
-            grpFloors.Controls.Add(_lblHighFloorInfo);
+            grpDims.Controls.Add(_txtHeight);
             
-            var btnPickLow = new Button
+            var lblThickHigh = new Label
             {
-                Text = "Chọn Sàn Thấp (Low Floor B)",
-                Location = new Point(15, 65),
-                Size = new Size(180, 32),
-                BackColor = KhimUiStyle.PrimaryButtonBg,
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+                Text = "Chiều dày Sàn Cao (mm):",
+                Location = new Point(15, 67),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
-            btnPickLow.Click += (s, e) => PickLowFloor();
-            grpFloors.Controls.Add(btnPickLow);
+            grpDims.Controls.Add(lblThickHigh);
             
-            _lblLowFloorInfo = new Label
+            _txtThickHigh = new TextBox
             {
-                Text = "Chưa chọn sàn thấp.",
-                Location = new Point(210, 72),
-                Size = new Size(340, 20),
-                Font = new Font("Segoe UI", 9F, FontStyle.Regular),
-                ForeColor = KhimUiStyle.TextSecondary
+                Text = "150",
+                Location = new Point(230, 64),
+                Size = new Size(120, 25),
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
-            grpFloors.Controls.Add(_lblLowFloorInfo);
+            grpDims.Controls.Add(_txtThickHigh);
             
-            _lblHeightDiff = new Label
+            var lblThickLow = new Label
             {
-                Text = "Hiệu cao độ mặt trên: 0.0 mm",
-                Location = new Point(15, 115),
-                Size = new Size(540, 25),
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-                ForeColor = KhimUiStyle.HeaderAccent
+                Text = "Chiều dày Sàn Thấp (mm):",
+                Location = new Point(15, 102),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
             };
-            grpFloors.Controls.Add(_lblHeightDiff);
+            grpDims.Controls.Add(lblThickLow);
             
-            currentY += 165;
+            _txtThickLow = new TextBox
+            {
+                Text = "150",
+                Location = new Point(230, 99),
+                Size = new Size(120, 25),
+                Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            };
+            grpDims.Controls.Add(_txtThickLow);
+            
+            currentY += 155;
             
             // ─────────────────────────────────────────────────────────────
             // 2. GROUPBOX: CẤU HÌNH FAMILY (FAMILY CONFIG)
             // ─────────────────────────────────────────────────────────────
             var grpFamily = new GroupBox
             {
-                Text = "📦 Cấu Hình Family Giật Cấp (Family Config)",
+                Text = "📦 Cấu HÌnh Family & Tham Số (Family Config)",
                 Location = new Point(15, currentY),
-                Size = new Size(570, 230),
+                Size = new Size(570, 220),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
             pnlContainer.Controls.Add(grpFamily);
@@ -244,38 +238,25 @@ namespace KhimTools.SlabStep.Forms
             };
             grpFamily.Controls.Add(_cboLowThickParam);
             
-            currentY += 245;
+            currentY += 235;
             
             // ─────────────────────────────────────────────────────────────
             // 3. GROUPBOX: ĐƯỜNG DẪN GIẬT CẤP (PLACEMENT LINE)
             // ─────────────────────────────────────────────────────────────
             var grpPath = new GroupBox
             {
-                Text = "📏 Định Vị Đường Dẫn Giật Cấp (Slab Fold Line)",
+                Text = "📏 Đường Dẫn Giật Cấp (Slab Fold Path)",
                 Location = new Point(15, currentY),
-                Size = new Size(570, 120),
+                Size = new Size(570, 80),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
             };
             pnlContainer.Controls.Add(grpPath);
             
-            var btnAutoDetect = new Button
-            {
-                Text = "⚡ Tự Động Quét Ranh Giới Sát Nhau",
-                Location = new Point(15, 25),
-                Size = new Size(250, 32),
-                BackColor = KhimUiStyle.SecondaryButtonBg,
-                ForeColor = Color.Black,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
-            };
-            btnAutoDetect.Click += (s, e) => AutoDetectBoundaryCurves();
-            grpPath.Controls.Add(btnAutoDetect);
-            
             var btnPickEdge = new Button
             {
                 Text = "👆 Click Chọn Cạnh Ranh Giới (Pick Edge)",
-                Location = new Point(280, 25),
-                Size = new Size(270, 32),
+                Location = new Point(15, 25),
+                Size = new Size(230, 32),
                 BackColor = KhimUiStyle.PrimaryButtonBg,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -287,14 +268,14 @@ namespace KhimTools.SlabStep.Forms
             _lblBoundaryInfo = new Label
             {
                 Text = "Chưa chọn đường dẫn chèn giật cấp.",
-                Location = new Point(15, 75),
-                Size = new Size(540, 20),
+                Location = new Point(260, 32),
+                Size = new Size(295, 20),
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
                 ForeColor = KhimUiStyle.TextSecondary
             };
             grpPath.Controls.Add(_lblBoundaryInfo);
             
-            currentY += 135;
+            currentY += 95;
             
             // ─────────────────────────────────────────────────────────────
             // 4. ACTION BUTTONS (GENERATE & CLOSE)
@@ -312,7 +293,7 @@ namespace KhimTools.SlabStep.Forms
             _btnGenerate = new Button
             {
                 Text = "🚀 TẠO GIẬT CẤP",
-                Location = new Point(280, currentY + 35),
+                Location = new Point(280, currentY + 30),
                 Size = new Size(180, 35),
                 BackColor = KhimUiStyle.CreateButtonBg,
                 ForeColor = Color.White,
@@ -326,7 +307,7 @@ namespace KhimTools.SlabStep.Forms
             var btnClose = new Button
             {
                 Text = "Đóng",
-                Location = new Point(475, currentY + 35),
+                Location = new Point(475, currentY + 30),
                 Size = new Size(110, 35),
                 BackColor = Color.FromArgb(203, 213, 225),
                 ForeColor = Color.Black,
@@ -359,7 +340,6 @@ namespace KhimTools.SlabStep.Forms
                 var fam = SlabStepService.LoadStepFamily(_doc, defaultPath);
                 if (fam != null)
                 {
-                    // Reload data to include newly loaded symbols
                     LoadData();
                     
                     // Tìm và select symbol của family vừa loaded
@@ -447,38 +427,6 @@ namespace KhimTools.SlabStep.Forms
             _cboLowThickParam.SelectedIndex = 0;
         }
         
-        private void PickHighFloor()
-        {
-            this.Hide();
-            try
-            {
-                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Cao (High Floor)");
-                if (r != null)
-                {
-                    _floorHigh = _doc.GetElement(r.ElementId) as Floor;
-                    UpdateUi();
-                }
-            }
-            catch {}
-            this.Show();
-        }
-        
-        private void PickLowFloor()
-        {
-            this.Hide();
-            try
-            {
-                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Thấp (Low Floor)");
-                if (r != null)
-                {
-                    _floorLow = _doc.GetElement(r.ElementId) as Floor;
-                    UpdateUi();
-                }
-            }
-            catch {}
-            this.Show();
-        }
-        
         private void PickBoundaryEdge()
         {
             this.Hide();
@@ -501,75 +449,11 @@ namespace KhimTools.SlabStep.Forms
             this.Show();
         }
         
-        private void AutoDetectBoundaryCurves()
-        {
-            if (_floorHigh == null || _floorLow == null)
-            {
-                TaskDialog.Show("Auto Detect", "Vui lòng chọn cả Sàn Cao và Sàn Thấp trước khi tự động quét ranh giới.");
-                return;
-            }
-            
-            _autoDetectedCurves = SlabStepService.AutoDetectBoundary(_doc, _floorHigh, _floorLow, _settings.MaxDistanceToleranceMm);
-            
-            if (_autoDetectedCurves.Any())
-            {
-                _boundaryCurve = _autoDetectedCurves.First();
-                _lblBoundaryInfo.Text = $"Đã tự động quét được {_autoDetectedCurves.Count} đoạn cạnh ranh giới tiếp xúc.";
-                _lblBoundaryInfo.ForeColor = KhimUiStyle.CreateButtonBg;
-            }
-            else
-            {
-                TaskDialog.Show("Auto Detect", "Không tìm thấy cạnh ranh giới tiếp xúc nào trong khoảng cách 30cm giữa 2 sàn.");
-            }
-        }
-        
-        private void UpdateUi()
-        {
-            if (_floorHigh != null)
-            {
-                double thick = _floorHigh.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS).AsDouble() * 304.8;
-                _lblHighFloorInfo.Text = $"ID: {_floorHigh.Id} | Dày: {Math.Round(thick)}mm | Tên: {_floorHigh.Name}";
-                _lblHighFloorInfo.ForeColor = KhimUiStyle.TextPrimary;
-            }
-            
-            if (_floorLow != null)
-            {
-                double thick = _floorLow.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS).AsDouble() * 304.8;
-                _lblLowFloorInfo.Text = $"ID: {_floorLow.Id} | Dày: {Math.Round(thick)}mm | Tên: {_floorLow.Name}";
-                _lblLowFloorInfo.ForeColor = KhimUiStyle.TextPrimary;
-            }
-            
-            if (_floorHigh != null && _floorLow != null)
-            {
-                double elevHigh = GetFloorTopElevationInMm(_floorHigh);
-                double elevLow = GetFloorTopElevationInMm(_floorLow);
-                double diff = Math.Abs(elevHigh - elevLow);
-                _lblHeightDiff.Text = $"Hiệu cao độ mặt trên: {diff:F1} mm";
-            }
-        }
-        
-        private double GetFloorTopElevationInMm(Floor floor)
-        {
-            var pOffset = floor.get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM);
-            double offset = (pOffset != null && pOffset.HasValue) ? pOffset.AsDouble() : 0.0;
-
-            var level = floor.Document.GetElement(floor.LevelId) as Level;
-            double levelElevation = (level != null) ? level.Elevation : 0.0;
-
-            return (levelElevation + offset) * 304.8;
-        }
-        
         private void ExecuteGenerate()
         {
-            if (_floorHigh == null || _floorLow == null)
-            {
-                TaskDialog.Show("Lỗi", "Vui lòng chọn cả Sàn Cao và Sàn Thấp trước.");
-                return;
-            }
-            
             if (_boundaryCurve == null)
             {
-                TaskDialog.Show("Lỗi", "Vui lòng chọn hoặc quét tự động đường ranh giới giật cấp.");
+                TaskDialog.Show("Lỗi", "Vui lòng chọn đường ranh giới giật cấp (Pick Edge) trước.");
                 return;
             }
             
@@ -577,6 +461,27 @@ namespace KhimTools.SlabStep.Forms
             if (selectedItem == null)
             {
                 TaskDialog.Show("Lỗi", "Vui lòng chọn một Family nách sàn giật cấp.");
+                return;
+            }
+            
+            // Parse kích thước thủ công
+            if (!double.TryParse(_txtHeight.Text, out double heightMm))
+            {
+                TaskDialog.Show("Lỗi nhập liệu", "Chiều cao giật cấp phải là một số hợp lệ.");
+                return;
+            }
+            
+            double thickHighMm = 0;
+            if (!string.IsNullOrEmpty(_txtThickHigh.Text) && !double.TryParse(_txtThickHigh.Text, out thickHighMm))
+            {
+                TaskDialog.Show("Lỗi nhập liệu", "Chiều dày sàn cao phải là một số hợp lệ hoặc để trống.");
+                return;
+            }
+            
+            double thickLowMm = 0;
+            if (!string.IsNullOrEmpty(_txtThickLow.Text) && !double.TryParse(_txtThickLow.Text, out thickLowMm))
+            {
+                TaskDialog.Show("Lỗi nhập liệu", "Chiều dày sàn thấp phải là một số hợp lệ hoặc để trống.");
                 return;
             }
             
@@ -596,11 +501,11 @@ namespace KhimTools.SlabStep.Forms
             try
             {
                 FamilyInstance instance = SlabStepService.GenerateSlabStep(
-                    _doc, _floorHigh, _floorLow, _boundaryCurve, selectedItem.Symbol, _settings);
+                    _doc, _boundaryCurve, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm);
                 
                 if (instance != null)
                 {
-                    TaskDialog.Show("Thành công", $"Đã tạo thành công giật cấp sàn ID: {instance.Id} dọc theo ranh giới!");
+                    TaskDialog.Show("Thành công", $"Đã tạo thành công giật cấp sàn ID: {instance.Id} dọc theo ranh giới với chiều cao {heightMm}mm!");
                     this.Close();
                 }
                 else
@@ -612,13 +517,6 @@ namespace KhimTools.SlabStep.Forms
             {
                 TaskDialog.Show("Lỗi thực thi", ex.Message);
             }
-        }
-        
-        // Helper classes for Floor Selection Filter
-        private class FloorSelectionFilter : ISelectionFilter
-        {
-            public bool AllowElement(Element elem) => elem is Floor;
-            public bool AllowReference(Reference reference, XYZ position) => false;
         }
         
         private class ComboBoxItem
