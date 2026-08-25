@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Reflection;
@@ -11,7 +12,7 @@ namespace KhimTools.Tools.Updater.Services
 {
     public class UpdateService
     {
-        private const string UpdateCheckUrl = "https://raw.githubusercontent.com/nguyenkhiemkhiem079-boop/KhiemTools_/main/update_info.json";
+        private const string UpdateCheckUrl = "https://raw.githubusercontent.com/nguyenkhiemkhiem079-boop/KhiemTools_/master/update_info.json";
 
         public static string GetCurrentVersion()
         {
@@ -36,22 +37,24 @@ namespace KhimTools.Tools.Updater.Services
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[KhimTools.UpdateService] Error fetching update from '{UpdateCheckUrl}': {ex.Message}");
                 // Fallback nếu không có internet hoặc API chưa host
             }
 
             return new UpdateInfo
             {
                 CurrentVersion = currentVer,
-                LatestVersion = "v2.5.0",
+                LatestVersion = "v2.7.0",
                 ReleaseDate = DateTime.Now.ToString("yyyy-MM-dd"),
                 DownloadUrl = "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
                 Changelog = new List<string>
                 {
-                    "Tái cấu trúc giao diện KhimTools theo 4 Panel chuyên môn: K-GEN, K-STRUCTURAL, K-ARCHITECTURAL, K-MEP.",
-                    "Bổ sung công cụ Graphic Overdrive, Auto Grid & Plans, Copy Link Elements.",
-                    "Cải tiến tính năng kiểm tra an toàn cốt thép và Align Viewport theo cây phân cấp."
+                    "Slab Step Generator - Tự động tạo và đặt Family giật cấp sàn theo ranh giới chọn lọc.",
+                    "Layout Pulldown - Gom nhóm các công cụ SheetGen, ViewportAlign, DetailNumberUpdater và TextAligns.",
+                    "Graphic Overdrive, Auto Grid & Plans, Copy Link Elements.",
+                    "Hỗ trợ bộ cài đặt Bundle tự động đa phiên bản Revit (2020-2028+)."
                 }
             };
         }
