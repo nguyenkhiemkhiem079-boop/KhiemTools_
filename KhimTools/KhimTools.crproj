@@ -51,6 +51,11 @@
     <!-- IExternalApplication & Core Reflection Proxies -->
     <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
       <protection id="rename" action="remove" />
+      <protection id="constants" action="remove" />
+    </rule>
+    <rule pattern="match('^KhimTools\.Core\.RibbonBuilder$')" inherit="false">
+      <protection id="rename" action="remove" />
+      <protection id="constants" action="remove" />
     </rule>
     <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
       <protection id="rename" action="remove" />
@@ -59,6 +64,7 @@
     <!-- Tất cả External Commands (tất cả class trong namespace .Commands.*) -->
     <rule pattern="match('\.Commands\.')" inherit="false">
       <protection id="rename" action="remove" />
+      <protection id="constants" action="remove" />
     </rule>
 
   </module>
