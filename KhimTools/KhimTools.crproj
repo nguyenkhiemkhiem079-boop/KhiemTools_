@@ -31,16 +31,6 @@
         <argument name="mode" value="unicode" />
       </protection>
 
-      <!-- Control Flow: làm rối if/else/switch/loop, chống decompile logic -->
-      <protection id="ctrl flow">
-        <argument name="intensity" value="1" />
-      </protection>
-
-      <!-- Constants/String Encryption: mã hóa string literals -->
-      <protection id="constants">
-        <argument name="mode" value="dynamic" />
-      </protection>
-
     </rule>
 
     <!-- ================================================================
@@ -51,11 +41,6 @@
     <!-- IExternalApplication & Core Reflection Proxies -->
     <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
       <protection id="rename" action="remove" />
-      <protection id="constants" action="remove" />
-    </rule>
-    <rule pattern="match('^KhimTools\.Core\.RibbonBuilder$')" inherit="false">
-      <protection id="rename" action="remove" />
-      <protection id="constants" action="remove" />
     </rule>
     <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
       <protection id="rename" action="remove" />
@@ -64,7 +49,6 @@
     <!-- Tất cả External Commands (tất cả class trong namespace .Commands.*) -->
     <rule pattern="match('\.Commands\.')" inherit="false">
       <protection id="rename" action="remove" />
-      <protection id="constants" action="remove" />
     </rule>
 
   </module>
