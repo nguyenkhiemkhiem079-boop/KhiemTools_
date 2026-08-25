@@ -147,7 +147,7 @@ namespace KhimTools.Tools.Workspace.ViewModels
         {
             App.EventHandler.Raise(app =>
             {
-                RunCommandByName(app, "KhimTools.GridPlanGenerator.Commands.CmdGridPlanGenerator");
+                RunCommandByName(app, "KhimTools.GridLevel.Commands.CmdAutoGridPlan");
             });
         }
 
@@ -156,7 +156,7 @@ namespace KhimTools.Tools.Workspace.ViewModels
         {
             App.EventHandler.Raise(app =>
             {
-                RunCommandByName(app, "KhimTools.CopyLinkTool.Commands.CmdCopyFromLink");
+                RunCommandByName(app, "KhimTools.CopyLink.Commands.CmdCopyLinkElements");
             });
         }
 

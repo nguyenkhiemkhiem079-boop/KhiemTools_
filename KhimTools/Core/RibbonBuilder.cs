@@ -99,7 +99,7 @@ namespace KhimTools.Core
                 "CmdGridPlanGenerator",
                 "Grid &" + Environment.NewLine + "Floor Plan",
                 assemblyPath,
-                "KhimTools.GridPlanGenerator.Commands.CmdGridPlanGenerator")
+                "KhimTools.GridLevel.Commands.CmdAutoGridPlan")
             {
                 ToolTip = "Tự động sinh Hệ Lưới Trục (Grid) và Mặt Bằng / Cao Độ Tầng (Level & Floor Plan) từ CAD/DWG.",
                 LargeImage = LoadImage("icon_grid_plan_32.png"),
