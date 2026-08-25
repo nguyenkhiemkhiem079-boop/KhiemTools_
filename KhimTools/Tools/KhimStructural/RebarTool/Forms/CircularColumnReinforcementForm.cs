@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -123,7 +123,7 @@ namespace KhimTools.RebarTool.Forms
             var header = KhimUiStyle.CreateHeaderBanner(
                 "KHIM TOOLS — Circular Column Detailing",
                 "Automated Round Column Reinforcement Engine",
-                "v2.5 Pro");
+                "v2.7.0 Pro");
             Controls.Add(header);
 
             // 1. Bottom Action Panel

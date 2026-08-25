@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -63,7 +63,7 @@ namespace KhimTools.RebarTool.Forms
             var header = KhimUiStyle.CreateHeaderBanner(
                 "KHIM TOOLS — Project Cover Setup",
                 "Synchronize Concrete Cover Settings across All Project Structural Categories",
-                "v2.5 Pro");
+                "v2.7.0 Pro");
             Controls.Add(header);
             MinimizeBox = false;
 

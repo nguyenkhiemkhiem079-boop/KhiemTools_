@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -131,7 +131,7 @@ namespace KhimTools.RebarTool.Forms
             var header = KhimUiStyle.CreateHeaderBanner(
                 "KHIM TOOLS — Multi-Panel Slab Detailing Engine",
                 "Panel System, Bottom/Top Mesh, Support Hats, Distribution Bars & Spacers",
-                "v3.0 Pro");
+                "v2.7.0 Pro");
             Controls.Add(header);
 
             // 1. Bottom Control Panel
