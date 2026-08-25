@@ -2,6 +2,7 @@ using System;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.ViewFromCallout.Forms;
 
 namespace KhimTools.ViewFromCallout.Commands
 {
@@ -11,8 +12,20 @@ namespace KhimTools.ViewFromCallout.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            TaskDialog.Show("View from Callout", "Tính năng đang được phát triển.");
-            return Result.Succeeded;
+            var uidoc = commandData.Application.ActiveUIDocument;
+            if (uidoc == null) return Result.Cancelled;
+
+            try
+            {
+                var window = new ViewFromCalloutWindow(uidoc);
+                window.ShowDialog();
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                return Result.Failed;
+            }
         }
     }
 }
