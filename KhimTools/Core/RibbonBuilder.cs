@@ -183,7 +183,7 @@ namespace KhimTools.Core
                 AddPushButton(splitButton, "CmdColumnDrawing", "Column Drawing",
                     "KhimTools.RebarTool.Commands.CmdColumnDrawing", assemblyPath,
                     "Tự động xuất bản vẽ mặt cắt 2D & thống kê thép cột.",
-                    "rebar_draw_32.png", "rebar_draw_16.png");
+                    "rebar_draw_16.png", "rebar_draw_16.png");
             }
 
             // 2. Beam Rebar
@@ -217,8 +217,8 @@ namespace KhimTools.Core
             var sectionData = new PushButtonData("CmdSectionCut", "Section" + Environment.NewLine + "Cut", assemblyPath, "KhimTools.SectionCutTool.Commands.CmdSectionCut")
             {
                 ToolTip = "Tự động tạo mặt cắt dọc & ngang (Section Views) phục vụ bản vẽ thép.",
-                LargeImage = LoadImage("icon_section_32.png"),
-                Image = LoadImage("icon_section_16.png")
+                LargeImage = LoadImage("rebar_draw_16.png"),
+                Image = LoadImage("rebar_draw_16.png")
             };
             panel.AddItem(sectionData);
 
@@ -226,7 +226,7 @@ namespace KhimTools.Core
             var coverData = new PushButtonData("CmdProjectCoverSetup", "Cover" + Environment.NewLine + "Setup", assemblyPath, "KhimTools.RebarTool.Commands.CmdProjectCoverSetup")
             {
                 ToolTip = "Cấu hình Lớp bê tông bảo vệ (Concrete Cover) toàn dự án.",
-                LargeImage = LoadImage("rebar_cover_32.png"),
+                LargeImage = LoadImage("rebar_cover_16.png"),
                 Image = LoadImage("rebar_cover_16.png")
             };
             panel.AddItem(coverData);
@@ -241,16 +241,16 @@ namespace KhimTools.Core
             var room3dData = new PushButtonData("CmdRoom3DView", "Room 3D" + Environment.NewLine + "View", assemblyPath, "KhimTools.Architectural.Rooms.CmdRoom3DView")
             {
                 ToolTip = "Tự động tạo Khung nhìn 3D cô lập (3D Section Box) cho Phòng được chọn.",
-                LargeImage = LoadImage("icon_room_32.png"),
-                Image = LoadImage("icon_room_16.png")
+                LargeImage = LoadImage("icon_align_32.png"),
+                Image = LoadImage("icon_align_16.png")
             };
             panel.AddItem(room3dData);
 
             var finishData = new PushButtonData("CmdWallFloorFinishes", "Room" + Environment.NewLine + "Finishes", assemblyPath, "KhimTools.Architectural.Finishes.CmdWallFloorFinishes")
             {
                 ToolTip = "Tự động bố trí lớp hoàn thiện sàn/tường theo chu vi phòng.",
-                LargeImage = LoadImage("icon_finish_32.png"),
-                Image = LoadImage("icon_finish_16.png")
+                LargeImage = LoadImage("icon_detail_32.png"),
+                Image = LoadImage("icon_detail_16.png")
             };
             panel.AddItem(finishData);
         }
@@ -264,16 +264,16 @@ namespace KhimTools.Core
             var openingData = new PushButtonData("CmdMepOpenings", "MEP" + Environment.NewLine + "Openings", assemblyPath, "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
                 ToolTip = "Tự động kiểm tra xung đột ống MEP với Dầm/Sàn/Vách và đục lỗ mở (Openings).",
-                LargeImage = LoadImage("icon_mep_32.png"),
-                Image = LoadImage("icon_mep_16.png")
+                LargeImage = LoadImage("icon_export_32.png"),
+                Image = LoadImage("icon_export_16.png")
             };
             panel.AddItem(openingData);
 
             var tagData = new PushButtonData("CmdMepElevationTags", "Elevation" + Environment.NewLine + "Tags", assemblyPath, "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
                 ToolTip = "Tự động gán nhãn cao độ đáy (BOP/Invert Elevation) cho ống gió và ống nước.",
-                LargeImage = LoadImage("icon_tag_32.png"),
-                Image = LoadImage("icon_tag_16.png")
+                LargeImage = LoadImage("icon_align_32.png"),
+                Image = LoadImage("icon_align_16.png")
             };
             panel.AddItem(tagData);
         }

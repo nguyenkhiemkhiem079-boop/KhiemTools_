@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  ConfuserEx Configuration — K-TOOLS Revit Plugin
+  ================================================
+  Mức bảo vệ: THẤP / CƠ BẢN (Chỉ Rename)
+    - Rename:         Đổi tên class/method/field thành ký tự vô nghĩa
+
+  QUAN TRỌNG — Revit Exclusions:
+    Các class implement IExternalApplication/IExternalCommand
+    KHÔNG được đổi tên vì Revit load bằng reflection theo full class name.
+-->
+<project outputDir="{OUTPUT_DIR}"
+         baseDir="{INPUT_DIR}"
+         xmlns="http://confuser.codeplex.com">
+
+  <module path="KhimTools.dll">
+
+    <!-- ================================================================
+         RULE MẶC ĐỊNH: Áp dụng bảo vệ cho toàn bộ assembly
+    ================================================================ -->
+    <rule pattern="true" inherit="true">
+
+      <!-- Rename: đổi tên class, method, field thành ký tự unicode vô nghĩa -->
+      <protection id="rename">
+        <argument name="mode" value="unicode" />
+      </protection>
+
+    </rule>
+
+    <!-- ================================================================
+         EXCLUSIONS — Revit Entry Points & Reflection Types
+         (Revit tìm class theo full name trong .addin và qua reflection)
+    ================================================================ -->
+
+    <!-- IExternalApplication & Core Reflection Proxies -->
+    <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
+    <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
+
+    <!-- Tất cả External Commands (tất cả class trong namespace .Commands.*) -->
+    <rule pattern="match('\.Commands\.')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
+
+  </module>
+
+  {PROBE_PATHS}
+
+</project>
