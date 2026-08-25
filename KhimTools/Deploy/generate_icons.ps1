@@ -293,6 +293,52 @@ $drawMepOpenings = {
     $g.DrawRectangle($penAccent, $size*0.25, $size*0.25, $size*0.5, $size*0.5)
 }
 
+# 19. icon_sectionbox: 3D bounding box / Section Box (Accent) over a wireframe model cube (Base)
+$drawSectionBox = {
+    param($g, $size, $penBase, $penAccent, $brushBase, $brushAccent, $brushAccentLight)
+    # Wireframe isometric cube (Base)
+    $g.DrawRectangle($penBase, $size*0.15, $size*0.15, $size*0.7, $size*0.7)
+    # Section Box Crop boundary (Accent)
+    $g.FillRectangle($brushAccentLight, $size*0.25, $size*0.25, $size*0.5, $size*0.5)
+    $g.DrawRectangle($penAccent, $size*0.25, $size*0.25, $size*0.5, $size*0.5)
+    # Corner crop lines
+    $g.DrawLine($penAccent, $size*0.2, $size*0.2, $size*0.3, $size*0.2)
+    $g.DrawLine($penAccent, $size*0.2, $size*0.2, $size*0.2, $size*0.3)
+    $g.DrawLine($penAccent, $size*0.8, $size*0.8, $size*0.7, $size*0.8)
+    $g.DrawLine($penAccent, $size*0.8, $size*0.8, $size*0.8, $size*0.7)
+}
+
+# 20. icon_callout_pro: Dashed callout region with pointer tail and detail bubble (Accent)
+$drawCalloutPro = {
+    param($g, $size, $penBase, $penAccent, $brushBase, $brushAccent, $brushAccentLight)
+    # Standard architectural sheet/view boundaries (Base)
+    $g.DrawRectangle($penBase, $size*0.15, $size*0.15, $size*0.7, $size*0.7)
+    # Dashed callout rectangle (Accent)
+    $penDash = New-Object System.Drawing.Pen $accent, ($size / 16)
+    $penDash.DashStyle = [System.Drawing.Drawing2D.DashStyle]::Dash
+    $g.DrawRectangle($penDash, $size*0.28, $size*0.28, $size*0.36, $size*0.36)
+    $penDash.Dispose()
+    # Pointer tail to bubble
+    $g.DrawLine($penAccent, $size*0.64, $size*0.46, $size*0.75, $size*0.35)
+    # Detail bubble (Accent)
+    $g.FillEllipse($brushAccent, $size*0.72, $size*0.2, $size*0.2, $size*0.2)
+}
+
+# 21. icon_view_callout: Callout symbol spawning multiple view plans/elevations
+$drawViewCallout = {
+    param($g, $size, $penBase, $penAccent, $brushBase, $brushAccent, $brushAccentLight)
+    # Main callout circle/bubble (Base)
+    $g.DrawEllipse($penBase, $size*0.15, $size*0.15, $size*0.35, $size*0.35)
+    $g.DrawLine($penBase, $size*0.32, $size*0.5, $size*0.32, $size*0.8)
+    # Multiple views spawning out (Accent)
+    $g.FillRectangle($brushAccentLight, $size*0.55, $size*0.15, $size*0.3, $size*0.2)
+    $g.DrawRectangle($penAccent, $size*0.55, $size*0.15, $size*0.3, $size*0.2)
+    $g.FillRectangle($brushAccentLight, $size*0.55, $size*0.42, $size*0.3, $size*0.2)
+    $g.DrawRectangle($penAccent, $size*0.55, $size*0.42, $size*0.3, $size*0.2)
+    $g.FillRectangle($brushAccentLight, $size*0.55, $size*0.7, $size*0.3, $size*0.2)
+    $g.DrawRectangle($penAccent, $size*0.55, $size*0.7, $size*0.3, $size*0.2)
+}
+
 # --- Register standard icons at 32x32 and 16x16 ---
 $iconMap = @{
     "icon_workspace"    = $drawWorkspace
@@ -300,6 +346,9 @@ $iconMap = @{
     "icon_join"         = $drawJoin
     "icon_grid_plan"    = $drawGridPlan
     "icon_detail"       = $drawDetail
+    "icon_sectionbox"   = $drawSectionBox
+    "icon_callout_pro"  = $drawCalloutPro
+    "icon_view_callout" = $drawViewCallout
     "icon_align"        = $drawAlign
     "export_sheet"      = $drawExportSheet
     "icon_mep_tags"     = $drawMepTags

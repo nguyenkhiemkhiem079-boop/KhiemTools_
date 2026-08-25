@@ -199,7 +199,22 @@ namespace KhimTools.Core
                 AddPulldownItem(layoutPulldown, "CmdAlignVerticalEquals", "Align Text - Vert Equal", "KhimTools.TextAlign.Commands.CmdAlignVerticalEquals", assemblyPath, "icon_align_16.png");
             }
 
-            // ── CỤM 4: PUBLISH & SYSTEM ──
+            // ── CỤM 4: VIEW TOOLS (Large Pulldown Button) ──
+            var viewToolsPulldownData = new PulldownButtonData("KhimViewToolsPulldown", "View Tools")
+            {
+                ToolTip = "Các công cụ nâng cao hỗ trợ tạo Section Box, Callout Pro và sinh View liên quan.",
+                LargeImage = LoadImage("icon_sectionbox_32.png"),
+                Image = LoadImage("icon_sectionbox_16.png")
+            };
+            var viewToolsPulldown = panel.AddItem(viewToolsPulldownData) as PulldownButton;
+            if (viewToolsPulldown != null)
+            {
+                AddPulldownItem(viewToolsPulldown, "CmdSectionBox", "Section Box Pro", "KhimTools.SectionBox.Commands.CmdSectionBox", assemblyPath, "icon_sectionbox_16.png");
+                AddPulldownItem(viewToolsPulldown, "CmdCalloutPro", "Callout Pro", "KhimTools.CalloutPro.Commands.CmdCalloutPro", assemblyPath, "icon_callout_pro_16.png");
+                AddPulldownItem(viewToolsPulldown, "CmdViewFromCallout", "Create View from Callout", "KhimTools.ViewFromCallout.Commands.CmdViewFromCallout", assemblyPath, "icon_view_callout_16.png");
+            }
+
+            // ── CỤM 5: PUBLISH & SYSTEM ──
             // Sheet Exporter (Large Button)
             var sheetExportData = new PushButtonData(
                 "CmdSheetExport",
