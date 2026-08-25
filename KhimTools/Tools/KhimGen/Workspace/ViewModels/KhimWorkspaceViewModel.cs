@@ -19,7 +19,7 @@ namespace KhimTools.Tools.Workspace.ViewModels
         private string _statusMessage = "Hệ thống sẵn sàng.";
 
         [ObservableProperty]
-        private string _versionBadge = "v2.0.0";
+        private string _versionBadge = "v" + typeof(KhimWorkspaceViewModel).Assembly.GetName().Version.ToString(3);
 
         public KhimWorkspaceViewModel()
         {

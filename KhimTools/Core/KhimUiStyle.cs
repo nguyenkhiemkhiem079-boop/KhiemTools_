@@ -32,9 +32,20 @@ namespace KhimTools.Core
             form.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
         }
 
-        // ── Header Banner Generator ─────────────────────────────────────────
-        public static Panel CreateHeaderBanner(string title, string subtitle, string versionTag = "v2.5 Commercial")
+        private static string GetDefaultVersionTag()
         {
+            var ver = typeof(KhimUiStyle).Assembly.GetName().Version;
+            return ver != null ? $"v{ver.Major}.{ver.Minor} Commercial" : "v2.7 Commercial";
+        }
+
+        // ── Header Banner Generator ─────────────────────────────────────────
+        public static Panel CreateHeaderBanner(string title, string subtitle, string versionTag = null)
+        {
+            if (string.IsNullOrEmpty(versionTag))
+            {
+                versionTag = GetDefaultVersionTag();
+            }
+
             var headerPanel = new Panel
             {
                 Dock = DockStyle.Top,

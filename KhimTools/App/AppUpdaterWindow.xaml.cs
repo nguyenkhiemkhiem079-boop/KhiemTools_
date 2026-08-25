@@ -30,8 +30,35 @@ namespace KhiemToolsApp
         public AppUpdaterWindow()
         {
             InitializeComponent();
+            InitializeUpdaterVersion();
             CheckCurrentLocalVersion();
             LoadRegistrySettings();
+        }
+
+        private void InitializeUpdaterVersion()
+        {
+            try
+            {
+                var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                if (ver != null)
+                {
+                    TxtUpdaterVersion.Text = $"K-TOOLS Updater v{ver.Major}.{ver.Minor}.{ver.Build}";
+                }
+            }
+            catch { }
+        }
+
+        private static void LogInfo(string message)
+        {
+            try
+            {
+                string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KhimTools");
+                Directory.CreateDirectory(logDir);
+                string logPath = Path.Combine(logDir, "update_log.txt");
+                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}";
+                File.AppendAllText(logPath, logLine);
+            }
+            catch { }
         }
 
         private string GetEffectiveBundlePath()
@@ -92,7 +119,7 @@ namespace KhiemToolsApp
                     }
                 }
 
-                // 4. Kiểm tra DLL FileVersion
+                // 4. Kiểm tra DLL FileVersion & AssemblyVersion
                 string[] possibleDlls = new string[]
                 {
                     Path.Combine(bundlePath, "Contents", "Legacy", "KhimTools.dll"),
@@ -105,12 +132,25 @@ namespace KhiemToolsApp
                 {
                     if (File.Exists(dll))
                     {
-                        var fvi = FileVersionInfo.GetVersionInfo(dll);
-                        if (!string.IsNullOrEmpty(fvi.FileVersion) && fvi.FileVersion != "1.0.0.0")
+                        try
                         {
-                            TxtLocalVersion.Text = "v" + fvi.FileVersion;
-                            return;
+                            var fvi = FileVersionInfo.GetVersionInfo(dll);
+                            if (!string.IsNullOrEmpty(fvi.FileVersion) && fvi.FileVersion != "1.0.0.0" && fvi.FileVersion != "0.0.0.0")
+                            {
+                                TxtLocalVersion.Text = "v" + fvi.FileVersion;
+                                return;
+                            }
+
+                            // Fallback: Read assembly version via reflection if FileVersion is stripped/invalid
+                            var asm = System.Reflection.Assembly.LoadFrom(dll);
+                            var asmVer = asm.GetName().Version;
+                            if (asmVer != null && asmVer.ToString() != "0.0.0.0" && asmVer.ToString() != "1.0.0.0")
+                            {
+                                TxtLocalVersion.Text = "v" + asmVer.ToString(3);
+                                return;
+                            }
                         }
+                        catch { }
                     }
                 }
 
@@ -176,6 +216,7 @@ namespace KhiemToolsApp
         {
             BtnCheckUpdate.IsEnabled = false;
             TxtGithubVersion.Text = "Đang kiểm tra...";
+            LogInfo("=== Bắt đầu kiểm tra cập nhật ===");
 
             try
             {
@@ -186,48 +227,63 @@ namespace KhiemToolsApp
                 string downloadUrl = null;
 
                 // Lớp 1: Đọc trực tiếp từ update_info.json trên GitHub master
+                string infoUrl = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/master/update_info.json?t={DateTime.UtcNow.Ticks}";
+                LogInfo($"Layer 1 - Fetching update_info: {infoUrl}");
                 try
                 {
-                    string infoUrl = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/master/update_info.json?t={DateTime.UtcNow.Ticks}";
                     string infoJson = await client.GetStringAsync(infoUrl);
+                    LogInfo($"Layer 1 - Response body: {infoJson}");
                     Match mTag = Regex.Match(infoJson, "\"latest_version\"\\s*:\\s*\"([^\"]+)\"");
                     if (mTag.Success)
                     {
                         latestTag = mTag.Groups[1].Value;
+                        LogInfo($"Layer 1 - Parsed tag: {latestTag}");
                     }
                     Match mUrl = Regex.Match(infoJson, "\"download_url\"\\s*:\\s*\"([^\"]+)\"");
                     if (mUrl.Success)
                     {
                         downloadUrl = mUrl.Groups[1].Value;
+                        LogInfo($"Layer 1 - Parsed download_url: {downloadUrl}");
                     }
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    LogInfo($"Layer 1 - Error: {ex.GetType().Name} - {ex.Message}");
+                }
 
                 // Lớp 2: Kiểm tra GitHub Releases API (fallback)
                 if (string.IsNullOrEmpty(latestTag))
                 {
+                    string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
+                    LogInfo($"Layer 2 - Fetching API releases/latest: {apiUrl}");
                     try
                     {
-                        string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
                         string releaseJson = await client.GetStringAsync(apiUrl);
+                        LogInfo($"Layer 2 - Response body: {releaseJson}");
                         Match tagMatch = Regex.Match(releaseJson, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
                         if (tagMatch.Success)
                         {
                             latestTag = tagMatch.Groups[1].Value;
+                            LogInfo($"Layer 2 - Parsed tag: {latestTag}");
                         }
 
                         Match zipMatch = Regex.Match(releaseJson, "\"browser_download_url\"\\s*:\\s*\"([^\"]+KhimTools_Bundle\\.zip|[^\"]+\\.zip)\"");
                         if (zipMatch.Success)
                         {
                             downloadUrl = zipMatch.Groups[1].Value;
+                            LogInfo($"Layer 2 - Parsed download_url: {downloadUrl}");
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        LogInfo($"Layer 2 - Error: {ex.GetType().Name} - {ex.Message}");
+                    }
                 }
 
                 if (string.IsNullOrEmpty(latestTag))
                 {
                     latestTag = "v2.7.0";
+                    LogInfo($"Using ultimate fallback tag: {latestTag}");
                 }
 
                 TxtGithubVersion.Text = latestTag;
@@ -238,6 +294,7 @@ namespace KhiemToolsApp
                     if (!EnsureRevitClosed())
                     {
                         TxtGithubVersion.Text = latestTag;
+                        LogInfo("Revit is still running. Aborting install.");
                         return;
                     }
 
@@ -250,6 +307,7 @@ namespace KhiemToolsApp
             }
             catch (Exception ex)
             {
+                LogInfo($"General Error: {ex.GetType().Name} - {ex.Message}{Environment.NewLine}{ex.StackTrace}");
                 TxtGithubVersion.Text = "Lỗi cập nhật";
                 MessageBox.Show($"Lỗi cập nhật: {ex.Message}\n\nChi tiết: {ex.StackTrace}", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
@@ -277,34 +335,51 @@ namespace KhiemToolsApp
             // Cách 1: Tải trực tiếp từ directZipUrl
             if (!string.IsNullOrEmpty(directZipUrl))
             {
+                LogInfo($"Download Method 1 - Starting download from directZipUrl: {directZipUrl}");
                 try
                 {
                     byte[] data = await client.GetByteArrayAsync(directZipUrl);
                     File.WriteAllBytes(bundleZipPath, data);
                     downloaded = true;
+                    LogInfo("Download Method 1 - Completed successfully.");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    LogInfo($"Download Method 1 - Failed: {ex.GetType().Name} - {ex.Message}");
+                }
+            }
+            else
+            {
+                LogInfo("Download Method 1 - Skipped (directZipUrl is null or empty).");
             }
 
             // Cách 2: Thử tải link direct release theo tag
             if (!downloaded)
             {
+                string releaseUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tag}/KhimTools_Bundle.zip";
+                LogInfo($"Download Method 2 - Starting download from fallback releaseUrl: {releaseUrl}");
                 try
                 {
-                    string releaseUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tag}/KhimTools_Bundle.zip";
                     byte[] data = await client.GetByteArrayAsync(releaseUrl);
                     File.WriteAllBytes(bundleZipPath, data);
                     downloaded = true;
+                    LogInfo("Download Method 2 - Completed successfully.");
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    LogInfo($"Download Method 2 - Failed: {ex.GetType().Name} - {ex.Message}");
+                }
             }
 
             if (File.Exists(bundleZipPath) && downloaded)
             {
+                LogInfo($"Deploying zip to targets for tag {tag}...");
                 DeployZipToTargets(bundleZipPath, tag);
+                LogInfo("Deployment completed.");
             }
             else
             {
+                LogInfo("Download failed (both methods failed). Raising exception.");
                 throw new FileNotFoundException($"Không thể tải bộ cài đặt K-TOOLS ({tag}) từ GitHub server. Vui lòng kiểm tra lại kết nối mạng.");
             }
         }
