@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2012/06/nuspec.xsd">
+  <metadata>
+    <id>Nice3point.Revit.Api.RevitAPI</id>
+    <version>2025.0.2</version>
+    <authors>Nice3point</authors>
+    <license type="file">License.md</license>
+    <licenseUrl>https://aka.ms/deprecateLicenseUrl</licenseUrl>
+    <icon>images\PackageIcon.png</icon>
+    <readme>Readme.md</readme>
+    <description>Library for Revit plugin development</description>
+    <tags>revit api</tags>
+    <packageTypes>
+      <packageType name="Dependency" />
+    </packageTypes>
+    <repository type="git" url="https://github.com/Nice3point/RevitApi" commit="8fb03538d7d2e8ceece5e50e3782b6171a580785" />
+    <dependencies>
+      <group targetFramework="net8.0" />
+    </dependencies>
+  </metadata>
+</package>

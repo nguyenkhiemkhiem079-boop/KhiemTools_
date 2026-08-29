@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="2.7.0"
+                    Name="K-TOOLS"
+                    AppNameSpace="KhimTools"
+                    AutodeskProduct="Revit"
+                    ProductType="Application"
+                    ProductCode="{4F1B2C3D-5E6F-4A7B-8C9D-0E1F2A3B4C5D}"
+                    Description="K-TOOLS - Comprehensive Revit Automation Suite (Slab, Column, Beam, Foundation, Export)">
+  <CompanyDetails Name="K-TOOLS" />
+  <RuntimeRequirements OS="Win64" Platform="Revit" />
+
+  <!-- Revit 2020 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
+  <Components Description="K-TOOLS for Revit 2020">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2020" SeriesMax="R2020" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2020" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2021">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2021" SeriesMax="R2021" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2021" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2022">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2022" SeriesMax="R2022" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2022" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2023">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2023" SeriesMax="R2023" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2023" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2024">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2024" SeriesMax="R2024" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2024" />
+  </Components>
+
+  <!-- Revit 2025 - 2028+ (.NET 8.0 / Modern Architecture) -->
+  <Components Description="K-TOOLS for Revit 2025">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2025" SeriesMax="R2025" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Modern/KhimTools.addin" AppDescription="K-TOOLS for Revit 2025" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2026">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2026" SeriesMax="R2026" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Modern/KhimTools.addin" AppDescription="K-TOOLS for Revit 2026" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2027">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2027" SeriesMax="R2027" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Modern/KhimTools.addin" AppDescription="K-TOOLS for Revit 2027" />
+  </Components>
+  <Components Description="K-TOOLS for Revit 2028">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2028" SeriesMax="R2028" />
+    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Modern/KhimTools.addin" AppDescription="K-TOOLS for Revit 2028" />
+  </Components>
+
+</ApplicationPackage>
+

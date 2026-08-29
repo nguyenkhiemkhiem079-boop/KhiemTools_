@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "fy/5XE9zTb0=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\HT LAB\\OneDrive\\Documents\\GitHub\\KhiemTools_\\KhimTools\\App\\KhiemToolsApp.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\HT LAB\\OneDrive\\Documents\\GitHub\\KhiemTools_\\KhimTools\\.tools\\dotnet_home\\.nuget\\packages\\microsoft.netframework.referenceassemblies\\1.0.3\\microsoft.netframework.referenceassemblies.1.0.3.nupkg.sha512",
+    "C:\\Users\\HT LAB\\OneDrive\\Documents\\GitHub\\KhiemTools_\\KhimTools\\.tools\\dotnet_home\\.nuget\\packages\\microsoft.netframework.referenceassemblies.net48\\1.0.3\\microsoft.netframework.referenceassemblies.net48.1.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

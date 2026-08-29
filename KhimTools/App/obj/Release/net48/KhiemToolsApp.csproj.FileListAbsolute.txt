@@ -1,0 +1,16 @@
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\bin\Release\net48\KhimTools_Installer.exe.config
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\bin\Release\net48\KhimTools_Installer.exe
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\bin\Release\net48\KhimTools_Installer.pdb
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.csproj.AssemblyReference.cache
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\AppUpdaterWindow.baml
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\AppUpdaterWindow.g.cs
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\App.g.cs
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhimTools_Installer_MarkupCompile.cache
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhimTools_Installer.g.resources
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.GeneratedMSBuildEditorConfig.editorconfig
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.AssemblyInfoInputs.cache
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.AssemblyInfo.cs
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.csproj.CoreCompileInputs.cache
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhiemToolsApp.sourcelink.json
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhimTools_Installer.exe
+c:\Users\HT LAB\OneDrive\Documents\GitHub\KhiemTools_\KhimTools\App\obj\Release\net48\KhimTools_Installer.pdb
