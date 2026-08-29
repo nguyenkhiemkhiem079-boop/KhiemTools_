@@ -1,6 +1,6 @@
 /**
  * ToanMath Platform - Ứng dụng Quản lý CSDL & Phòng Thi Toán THCS
- * Điều phối chính & Tương tác giao diện
+ * Điều phối chính & Tương tác giao diện với Lưu Trữ Bền Vững LocalStorage
  */
 
 // Khởi tạo các module
@@ -14,14 +14,11 @@ let currentExamList = [];
 document.addEventListener("DOMContentLoaded", () => {
   examRunner = new ExamRunner(dataManager, handleExamFinished);
   
-  // Khởi tạo danh sách đề thi mẫu cho học sinh
-  initSampleExams();
+  // Tải danh sách đề thi đã lưu từ LocalStorage (Không tự động tạo lại nếu người dùng đã xóa)
+  loadSavedExams();
 
   // Hiển thị danh sách câu hỏi ngân hàng
   renderQuestionBankList();
-
-  // Tự động sinh đề mặc định ban đầu để người dùng thấy ngay bảng tùy chỉnh tự luận
-  generateInitialExam();
 
   // Render toán học KaTeX ban đầu
   renderMathInDocument();
@@ -31,25 +28,108 @@ document.addEventListener("DOMContentLoaded", () => {
   renderMathPreview('newSolution', 'solutionPreview');
 });
 
-function generateInitialExam() {
-  currentGeneratedExam = examBuilder.generateExam({
-    title: "Đề Kiểm Tra Toán THCS (Mẫu Chuẩn)",
-    grade: 9,
-    duration: 45,
-    numChoice: 12,
-    numEssay: 2,
-    examCode: 101
-  });
-  
-  // Đặt nhãn mẫu cho câu tự luận: Câu 13, Câu 14 (hoặc 13a, 13b)
-  currentGeneratedExam.questions.forEach((q, idx) => {
-    if (q.questionType === 'essay' || q.type === 'essay') {
-      const essayIndex = idx - currentGeneratedExam.numChoice + 1;
-      q.questionLabel = `Câu ${12 + essayIndex}`;
-    }
-  });
+/**
+ * Tải danh sách đề thi đã lưu từ LocalStorage
+ */
+function loadSavedExams() {
+  const saved = dataManager.getSavedExams();
+  const isInitialized = localStorage.getItem("toanmath_exams_initialized");
 
-  displayGeneratedExamPreview(currentGeneratedExam);
+  if (saved !== null) {
+    currentExamList = saved;
+  } else if (!isInitialized) {
+    // Chỉ khởi tạo 3 đề mẫu 1 lần duy nhất trong lần đầu mở trang
+    initSampleExams();
+  } else {
+    currentExamList = [];
+  }
+
+  // Nếu có đề đã lưu thì hiển thị đề đầu tiên ở khu vực tạo đề
+  if (currentExamList.length > 0) {
+    currentGeneratedExam = currentExamList[0];
+    displayGeneratedExamPreview(currentGeneratedExam);
+  } else {
+    document.getElementById("latestExamPreview").innerHTML = `
+      <p style="color: var(--text-muted);">Chưa có đề thi nào trong danh sách. Hãy nhập thông số và bấm <strong>"Sinh Đề Thi Ngay"</strong>!</p>
+    `;
+    const essayCard = document.getElementById("essayCustomizerCard");
+    if (essayCard) essayCard.style.display = "none";
+  }
+}
+
+function initSampleExams() {
+  currentExamList = [
+    examBuilder.generateExam({
+      title: "Đề Kiểm Tra Toán Học — Lớp 10",
+      grade: 10,
+      duration: 45,
+      numChoice: 10,
+      numEssay: 2,
+      examCode: 101
+    }),
+    examBuilder.generateExam({
+      title: "Đề Khảo Sát Chất Lượng Toán 9 (Giữa Kỳ)",
+      grade: 9,
+      duration: 45,
+      numChoice: 12,
+      numEssay: 2,
+      examCode: 202
+    }),
+    examBuilder.generateExam({
+      title: "Đề Kiểm Tra Định Kỳ Đại Số & Hình Học 8",
+      grade: 8,
+      duration: 45,
+      numChoice: 8,
+      numEssay: 2,
+      examCode: 303
+    })
+  ];
+
+  // Gán nhãn mẫu cho câu tự luận
+  if (currentExamList[0].questions[10]) currentExamList[0].questions[10].questionLabel = "Câu 11";
+  if (currentExamList[0].questions[11]) currentExamList[0].questions[11].questionLabel = "Câu 12";
+
+  dataManager.saveAllExams(currentExamList);
+}
+
+/**
+ * Hiển thị Toast thông báo trạng thái
+ */
+function showToast(message, type = "success") {
+  let toast = document.getElementById("appToastNotification");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "appToastNotification";
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 25px;
+      right: 25px;
+      padding: 0.85rem 1.4rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      color: #fff;
+      z-index: 9999;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    `;
+    document.body.appendChild(toast);
+  }
+
+  toast.style.background = type === "success" ? "#10b981" : (type === "danger" ? "#ef4444" : "#4f46e5");
+  toast.innerHTML = (type === "success" ? "✓ " : "ℹ ") + message;
+  toast.style.opacity = "1";
+  toast.style.transform = "translateY(0)";
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(20px)";
+  }, 2500);
 }
 
 /**
@@ -67,6 +147,7 @@ function switchModule(moduleName) {
     modCreator.classList.add("active");
     modExam.classList.remove("active");
     renderQuestionBankList();
+    if (currentGeneratedExam) displayGeneratedExamPreview(currentGeneratedExam);
   } else {
     tabCreator.classList.remove("active");
     tabExam.classList.add("active");
@@ -136,7 +217,6 @@ function insertSymbol(targetInputId, symbol) {
   if (targetInputId === 'newSolution') renderMathPreview('newSolution', 'solutionPreview');
   if (targetInputId === 'newEssayAnswer') handleLiveAnswerTest();
 
-  // Kích hoạt lại live test nếu chèn vào ô đáp án tự luận trong bảng tùy chỉnh đề
   if (targetInputId.startsWith('custom_essay_ans_')) {
     const qIdx = targetInputId.replace('custom_essay_ans_', '');
     handleLiveTestEssayCustomizer(qIdx);
@@ -235,10 +315,11 @@ function handleDeleteQuestion(id) {
   if (confirm("Bạn có chắc chắn muốn xóa câu hỏi này khỏi ngân hàng?")) {
     dataManager.deleteQuestion(id);
     renderQuestionBankList();
+    showToast("Đã xóa câu hỏi khỏi ngân hàng dữ liệu", "danger");
   }
 }
 
-// Modal Thêm câu hỏi & Tùy chỉnh tự luận vào Ngân hàng
+// Modal Thêm câu hỏi
 function openAddQuestionModal() {
   document.getElementById("addQuestionModal").style.display = "flex";
   handleNewQuestionTypeChange();
@@ -263,9 +344,6 @@ function handleNewQuestionTypeChange() {
   }
 }
 
-/**
- * Chấm thử trực tiếp câu trả lời của học sinh (Modal Thêm câu hỏi)
- */
 function handleLiveAnswerTest() {
   const expectedAnswer = document.getElementById("newEssayAnswer").value;
   const studentAns = document.getElementById("liveTestStudentAnswer").value;
@@ -284,9 +362,6 @@ function handleLiveAnswerTest() {
   }
 }
 
-/**
- * Tự động đổi biến thể số cho câu tự luận trong Modal
- */
 function handleAutoRandomizeVariant() {
   const grade = parseInt(document.getElementById("newGrade").value, 10) || 9;
   const variant = dataManager.generateRandomizedVariant(grade);
@@ -334,11 +409,11 @@ function handleSaveNewQuestion(e) {
   dataManager.addQuestion(newQ);
   closeAddQuestionModal();
   renderQuestionBankList();
-  alert("Đã thêm câu hỏi thành công vào ngân hàng!");
+  showToast("Đã lưu câu hỏi mới vào ngân hàng CSDL!", "success");
 }
 
 /**
- * Sinh đề thi theo ma trận
+ * Sinh đề thi theo ma trận và tự động lưu vào LocalStorage
  */
 function handleGenerateExam(e) {
   e.preventDefault();
@@ -364,21 +439,41 @@ function handleGenerateExam(e) {
     }
   });
 
-  // Lưu vào danh sách đề thi sẵn sàng
-  currentExamList.unshift(currentGeneratedExam);
+  // Lưu đề thi vào LocalStorage
+  currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
 
   displayGeneratedExamPreview(currentGeneratedExam);
+  showToast("Đã tạo đề thi và lưu vào hệ thống thành công!", "success");
+}
+
+/**
+ * Nút SAVE: Lưu đề thi hiện tại vào LocalStorage
+ */
+function handleSaveCurrentExam() {
+  if (!currentGeneratedExam) {
+    alert("Chưa có đề thi nào để lưu!");
+    return;
+  }
+
+  currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
+  displayGeneratedExamPreview(currentGeneratedExam);
+  showToast("💾 Đã lưu và cập nhật đề thi vào hệ thống!", "success");
 }
 
 function displayGeneratedExamPreview(exam) {
   const preview = document.getElementById("latestExamPreview");
   preview.innerHTML = `
     <div style="width: 100%; text-align: left;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; flex-wrap: wrap;">
         <h4 style="font-size: 1.15rem; color: #818cf8;">${exam.title}</h4>
-        <button class="btn btn-secondary btn-sm" onclick="openEditExamModal()" title="Chỉnh sửa toàn bộ đề thi">
-          <span>🛠️</span> Chỉnh sửa đề thi
-        </button>
+        <div style="display: flex; gap: 0.4rem;">
+          <button class="btn btn-primary btn-sm" onclick="handleSaveCurrentExam()" title="Lưu đề thi này vào bộ nhớ trình duyệt">
+            <span>💾</span> Lưu Đề
+          </button>
+          <button class="btn btn-secondary btn-sm" onclick="openEditExamModal()" title="Chỉnh sửa toàn bộ đề thi">
+            <span>🛠️</span> Sửa Đề
+          </button>
+        </div>
       </div>
       <div style="font-size: 0.85rem; color: var(--text-muted); margin: 0.4rem 0;">
         <span>Khối: <strong>${exam.grade}</strong></span> • 
@@ -446,7 +541,7 @@ function renderEssayCustomizer(exam) {
             <button type="button" class="btn btn-secondary btn-sm" onclick="randomizeSingleEssayQuestion(${globalIdx})" title="Đổi số ngẫu nhiên cho câu này">
               <span>🎲</span> Đổi số
             </button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="removeEssayQuestionFromExam(${globalIdx})" title="Xóa câu này khỏi đề">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="removeEssayQuestionFromExam(${globalIdx})" title="Xóa câu này khỏi đề" style="color: #ef4444;">
               <span>🗑️</span> Xóa
             </button>
           </div>
@@ -496,9 +591,6 @@ function renderEssayCustomizer(exam) {
 }
 
 function getSuggestedSubLabel(currentLabel) {
-  // Nếu là "Câu 13" -> gợi ý "13a"
-  // Nếu là "Câu 13a" -> gợi ý "13b"
-  // Nếu là "Câu 13b" -> gợi ý "13c"
   const match = currentLabel.match(/(\d+)([a-z])?/i);
   if (match) {
     const num = match[1];
@@ -516,7 +608,6 @@ function duplicateAsSubQuestion(globalIdx) {
   const currentLabel = originalQ.questionLabel || `Câu ${globalIdx + 1}`;
   const newSubLabel = `Câu ${getSuggestedSubLabel(currentLabel)}`;
 
-  // Tự đổi số ngẫu nhiên cho ý con mới
   const variant = dataManager.generateRandomizedVariant(9);
 
   const newSubQ = {
@@ -528,12 +619,15 @@ function duplicateAsSubQuestion(globalIdx) {
     solution: variant.solution
   };
 
-  // Chèn ngay sau câu gốc
   currentGeneratedExam.questions.splice(globalIdx + 1, 0, newSubQ);
   currentGeneratedExam.totalQuestions = currentGeneratedExam.questions.length;
   currentGeneratedExam.numEssay = currentGeneratedExam.questions.filter(q => q.questionType === 'essay').length;
 
+  // Cập nhật ngay vào LocalStorage
+  currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
+
   displayGeneratedExamPreview(currentGeneratedExam);
+  showToast(`Đã thêm ý con ${newSubLabel} và lưu đề!`, "success");
 }
 
 function addNewEssayQuestionToCurrentExam() {
@@ -560,7 +654,11 @@ function addNewEssayQuestionToCurrentExam() {
   currentGeneratedExam.totalQuestions = currentGeneratedExam.questions.length;
   currentGeneratedExam.numEssay++;
 
+  // Cập nhật ngay vào LocalStorage
+  currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
+
   displayGeneratedExamPreview(currentGeneratedExam);
+  showToast(`Đã thêm Câu ${newNum} vào đề thi!`, "success");
 }
 
 function removeEssayQuestionFromExam(globalIdx) {
@@ -569,7 +667,12 @@ function removeEssayQuestionFromExam(globalIdx) {
     currentGeneratedExam.questions.splice(globalIdx, 1);
     currentGeneratedExam.totalQuestions = currentGeneratedExam.questions.length;
     currentGeneratedExam.numEssay = currentGeneratedExam.questions.filter(q => q.questionType === 'essay').length;
+
+    // Cập nhật ngay vào LocalStorage
+    currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
+
     displayGeneratedExamPreview(currentGeneratedExam);
+    showToast("Đã xóa câu hỏi khỏi đề thi!", "danger");
   }
 }
 
@@ -605,6 +708,9 @@ function updateEssayQuestionData(globalIdx) {
   if (labelInput) currentGeneratedExam.questions[globalIdx].questionLabel = labelInput.value.trim();
   if (contentInput) currentGeneratedExam.questions[globalIdx].content = contentInput.value;
   if (ansInput) currentGeneratedExam.questions[globalIdx].correctAnswer = ansInput.value;
+
+  // Lưu tự động vào LocalStorage
+  dataManager.saveOrUpdateExam(currentGeneratedExam);
 }
 
 function randomizeSingleEssayQuestion(globalIdx) {
@@ -624,15 +730,28 @@ function randomizeSingleEssayQuestion(globalIdx) {
 
   handleLiveTestEssayCustomizer(globalIdx);
   renderMathInDocument(document.getElementById(`essay_item_block_${globalIdx}`));
+
+  // Cập nhật LocalStorage
+  dataManager.saveOrUpdateExam(currentGeneratedExam);
+  showToast("Đã đổi số ngẫu nhiên và lưu đề!", "success");
 }
 
 function randomizeAllEssayQuestions() {
   if (!currentGeneratedExam) return;
   currentGeneratedExam.questions.forEach((q, idx) => {
     if (q.questionType === 'essay' || q.type === 'essay' || q.type === 'fill') {
-      randomizeSingleEssayQuestion(idx);
+      const grade = currentGeneratedExam.grade === "Lớp 9" ? 9 : (parseInt(currentGeneratedExam.grade.replace(/\D/g, ''), 10) || 9);
+      const variant = dataManager.generateRandomizedVariant(grade);
+
+      currentGeneratedExam.questions[idx].content = variant.content;
+      currentGeneratedExam.questions[idx].correctAnswer = variant.correctAnswer;
+      currentGeneratedExam.questions[idx].solution = variant.solution;
     }
   });
+
+  dataManager.saveOrUpdateExam(currentGeneratedExam);
+  renderEssayCustomizer(currentGeneratedExam);
+  showToast("Đã đổi số ngẫu nhiên TẤT CẢ câu tự luận và lưu đề!", "success");
 }
 
 // ==================== MODAL CHỈNH SỬA TOÀN BỘ ĐỀ THI ====================
@@ -711,9 +830,36 @@ function handleSaveExamMetadata(e) {
   currentGeneratedExam.grade = document.getElementById("editExamGrade").value;
   currentGeneratedExam.duration = parseInt(document.getElementById("editExamDuration").value, 10);
 
+  currentExamList = dataManager.saveOrUpdateExam(currentGeneratedExam);
+
   closeEditExamModal();
   displayGeneratedExamPreview(currentGeneratedExam);
-  alert("Đã lưu các thay đổi đề thi thành công!");
+  showToast("💾 Đã lưu toàn bộ thay đổi đề thi thành công!", "success");
+}
+
+/**
+ * Xóa vĩnh viễn đề thi khỏi hệ thống
+ */
+function handleDeleteExamFromList(examId) {
+  if (confirm("Bạn có chắc chắn muốn XÓA VĨNH VIỄN đề thi này khỏi hệ thống không? Khi xóa và reload lại sẽ KHÔNG còn hiện đề này nữa.")) {
+    currentExamList = dataManager.deleteSavedExam(examId);
+
+    if (currentGeneratedExam && currentGeneratedExam.id === examId) {
+      if (currentExamList.length > 0) {
+        currentGeneratedExam = currentExamList[0];
+        displayGeneratedExamPreview(currentGeneratedExam);
+      } else {
+        currentGeneratedExam = null;
+        document.getElementById("latestExamPreview").innerHTML = `
+          <p style="color: var(--text-muted);">Chưa có đề thi nào. Hãy bấm "Sinh Đề Thi Ngay" để tạo đề mới!</p>
+        `;
+        document.getElementById("essayCustomizerCard").style.display = "none";
+      }
+    }
+
+    showExamSelectScreen();
+    showToast("Đã xóa đề thi khỏi hệ thống vĩnh viễn!", "danger");
+  }
 }
 
 /**
@@ -779,72 +925,65 @@ function prepareAndPrintExam(exam, includeSolutions = false) {
 
 // ==================== PHÂN HỆ 2: PHÒNG THI TRỰC TUYẾN ====================
 
-function initSampleExams() {
-  if (currentExamList.length === 0) {
-    const exam1 = examBuilder.generateExam({
-      title: "Đề Khảo Sát Chất Lượng Toán 9 (Giữa Kỳ)",
-      grade: 9,
-      duration: 45,
-      numChoice: 10,
-      numEssay: 2,
-      examCode: 101
-    });
-    // Gán nhãn mẫu 11a, 11b
-    if (exam1.questions[10]) exam1.questions[10].questionLabel = "Câu 11a";
-    if (exam1.questions[11]) exam1.questions[11].questionLabel = "Câu 11b";
-    currentExamList.push(exam1);
-
-    const exam2 = examBuilder.generateExam({
-      title: "Đề Thi Thử Tuyển Sinh Vào Lớp 10 Môn Toán",
-      grade: 10,
-      duration: 90,
-      numChoice: 15,
-      numEssay: 3,
-      examCode: 202
-    });
-    if (exam2.questions[15]) exam2.questions[15].questionLabel = "Câu 16a";
-    if (exam2.questions[16]) exam2.questions[16].questionLabel = "Câu 16b";
-    if (exam2.questions[17]) exam2.questions[17].questionLabel = "Câu 16c";
-    currentExamList.push(exam2);
-
-    currentExamList.push(examBuilder.generateExam({
-      title: "Đề Kiểm Tra Định Kỳ Đại Số & Hình Học 8",
-      grade: 8,
-      duration: 45,
-      numChoice: 8,
-      numEssay: 2,
-      examCode: 303
-    }));
-  }
-}
-
 function showExamSelectScreen() {
   document.getElementById("examSelectScreen").style.display = "block";
   document.getElementById("examRoomActiveScreen").style.display = "none";
   document.getElementById("examResultScreen").style.display = "none";
 
   const grid = document.getElementById("availableExamsGrid");
+  
+  if (!currentExamList || currentExamList.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted); background: var(--bg-card); border-radius: var(--radius-lg); border: 1px dashed var(--border-color);">
+        <h3>📭 Chưa có đề thi nào trong danh sách</h3>
+        <p style="margin-top: 0.5rem;">Hãy chuyển sang tab <strong>"📚 Ngân hàng & Tạo Đề"</strong> để tạo hoặc thêm đề thi mới!</p>
+        <button class="btn btn-primary" style="margin-top: 1rem;" onclick="switchModule('creator')">
+          <span>⚡</span> Tạo Đề Ngay
+        </button>
+      </div>
+    `;
+    return;
+  }
+
   grid.innerHTML = currentExamList.map((exam, idx) => `
-    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between; border-left: 4px solid var(--primary);">
       <div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span class="badge badge-grade">${exam.grade}</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <span class="badge badge-grade">Khối ${exam.grade}</span>
           <span class="badge badge-type">Mã đề: ${exam.code}</span>
         </div>
-        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem;">${exam.title}</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
-          ⏱️ Thời gian: <strong>${exam.duration} phút</strong> • 
-          📝 Tổng: <strong>${exam.questions.length} câu</strong> (${exam.questions.filter(q => q.questionType === 'choice').length} TN, ${exam.questions.filter(q => q.questionType === 'essay').length} TL)
+        <h3 style="font-size: 1.15rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">${exam.title}</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.2rem;">
+          ⏳ <strong>${exam.duration} phút</strong> • 
+          📝 <strong>${exam.questions.length} câu</strong> (${exam.questions.filter(q => q.questionType === 'choice').length} trắc nghiệm + ${exam.questions.filter(q => q.questionType === 'essay').length} tự luận)
         </p>
       </div>
 
-      <button class="btn btn-primary" style="width: 100%;" onclick="launchExamSessionByIndex(${idx})">
-        <span>✍️</span> Bắt Đầu Làm Bài
-      </button>
+      <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+        <button class="btn btn-success" style="width: 100%; font-size: 0.95rem;" onclick="launchExamSessionByIndex(${idx})">
+          <span>🚀</span> Bắt Đầu Làm Bài
+        </button>
+        <div style="display: flex; gap: 0.5rem;">
+          <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="editExamFromList(${idx})">
+            <span>🛠️</span> Chỉnh Sửa
+          </button>
+          <button class="btn btn-secondary btn-sm" style="color: #ef4444;" onclick="handleDeleteExamFromList('${exam.id}')" title="Xóa vĩnh viễn đề này">
+            <span>🗑️</span> Xóa Đề
+          </button>
+        </div>
+      </div>
     </div>
   `).join('');
 
   renderMathInDocument(grid);
+}
+
+function editExamFromList(idx) {
+  const exam = currentExamList[idx];
+  if (!exam) return;
+  currentGeneratedExam = exam;
+  switchModule('creator');
+  openEditExamModal();
 }
 
 function launchExamSessionByIndex(idx) {
@@ -928,7 +1067,6 @@ function renderExamNavGrid(exam) {
     const isAnswered = examRunner.userAnswers[q.id] !== undefined && examRunner.userAnswers[q.id] !== '';
     const isBookmarked = examRunner.bookmarks.has(q.id);
     
-    // Rút gọn nhãn cho grid: "Câu 13a" -> "13a"
     let shortLabel = (q.questionLabel || `${qNum}`).replace(/^Câu\s*/i, '');
 
     return `
@@ -1096,11 +1234,11 @@ function openImportExportModal() {
     if (confirm("Khôi phục toàn bộ CSDL về mặc định ban đầu?")) {
       dataManager.resetToDefault();
       renderQuestionBankList();
-      alert("Đã khôi phục CSDL mặc định!");
+      showToast("Đã khôi phục CSDL câu hỏi mặc định!", "success");
     }
   } else if (choice === 'copy') {
     navigator.clipboard.writeText(jsonStr).then(() => {
-      alert("Đã sao chép toàn bộ JSON câu hỏi vào Clipboard!");
+      showToast("Đã sao chép toàn bộ JSON câu hỏi vào Clipboard!", "success");
     }).catch(() => {
       alert("JSON CSDL:\n" + jsonStr.substring(0, 500) + "...");
     });

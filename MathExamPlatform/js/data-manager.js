@@ -171,4 +171,46 @@ class QuestionDataManager {
     const pick = templates[Math.floor(Math.random() * templates.length)];
     return pick();
   }
+
+  // ==================== QUẢN LÝ LƯU TRỮ ĐỀ THI BỀN VỮNG (LOCALSTORAGE) ====================
+
+  getSavedExams() {
+    try {
+      const saved = localStorage.getItem("toanmath_saved_exams");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Lỗi khi đọc danh sách đề thi:", e);
+    }
+    return null; // Chưa từng khởi tạo
+  }
+
+  saveAllExams(exams) {
+    try {
+      localStorage.setItem("toanmath_saved_exams", JSON.stringify(exams));
+      localStorage.setItem("toanmath_exams_initialized", "true");
+    } catch (e) {
+      console.error("Lỗi khi ghi danh sách đề thi:", e);
+    }
+  }
+
+  saveOrUpdateExam(exam) {
+    let exams = this.getSavedExams() || [];
+    const index = exams.findIndex(e => e.id === exam.id);
+    if (index >= 0) {
+      exams[index] = exam; // Cập nhật
+    } else {
+      exams.unshift(exam); // Thêm mới lên đầu
+    }
+    this.saveAllExams(exams);
+    return exams;
+  }
+
+  deleteSavedExam(examId) {
+    let exams = this.getSavedExams() || [];
+    exams = exams.filter(e => e.id !== examId);
+    this.saveAllExams(exams);
+    return exams;
+  }
 }
