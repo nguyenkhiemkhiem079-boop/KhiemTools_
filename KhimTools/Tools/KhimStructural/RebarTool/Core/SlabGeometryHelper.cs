@@ -95,7 +95,64 @@ namespace KhimTools.RebarTool.Core
             }
             catch { }
 
-            // 5. Kích thước BoundingBox
+            // 5. Kích thước BoundingBox & Hệ toạ độ phẳng Local 2D (AxisU, AxisV)
+            if (profile.OuterBoundary != null)
+            {
+                // Tìm cạnh thẳng dài nhất của ranh giới ngoài để làm hướng trục chính u (AxisU)
+                Curve longestEdge = null;
+                double maxLen = -1;
+                foreach (Curve c in profile.OuterBoundary)
+                {
+                    if (c.Length > maxLen)
+                    {
+                        maxLen = c.Length;
+                        longestEdge = c;
+                    }
+                }
+
+                XYZ dirU = XYZ.BasisX;
+                if (longestEdge != null)
+                {
+                    XYZ pt0 = longestEdge.GetEndPoint(0);
+                    XYZ pt1 = longestEdge.GetEndPoint(1);
+                    XYZ rawDir = (pt1 - pt0).Normalize();
+                    XYZ flat = new XYZ(rawDir.X, rawDir.Y, 0);
+                    if (flat.GetLength() > 0.001)
+                    {
+                        dirU = flat.Normalize();
+                        if (dirU.X < 0 || (Math.Abs(dirU.X) < 1e-4 && dirU.Y < 0))
+                        {
+                            dirU = -dirU;
+                        }
+                    }
+                }
+
+                XYZ normal = profile.Normal.GetLength() > 0.5 ? profile.Normal.Normalize() : XYZ.BasisZ;
+                XYZ dirV = normal.CrossProduct(dirU).Normalize();
+
+                profile.AxisU = dirU;
+                profile.AxisV = dirV;
+
+                double minU = double.MaxValue, maxU = double.MinValue;
+                double minV = double.MaxValue, maxV = double.MinValue;
+                foreach (Curve c in profile.OuterBoundary)
+                {
+                    XYZ p = c.GetEndPoint(0);
+                    XYZ vec = p - profile.Origin;
+                    double u = vec.DotProduct(dirU);
+                    double v = vec.DotProduct(dirV);
+                    minU = Math.Min(minU, u);
+                    maxU = Math.Max(maxU, u);
+                    minV = Math.Min(minV, v);
+                    maxV = Math.Max(maxV, v);
+                }
+
+                profile.LocalMinU = minU;
+                profile.LocalMaxU = maxU;
+                profile.LocalMinV = minV;
+                profile.LocalMaxV = maxV;
+            }
+
             if (profile.BoundingBox != null)
             {
                 double dx = profile.BoundingBox.Max.X - profile.BoundingBox.Min.X;
@@ -108,101 +165,34 @@ namespace KhimTools.RebarTool.Core
         }
 
         /// <summary>
-        /// Cắt ngắn / chia nhỏ các đoạn thép khi đi qua các lỗ mở trong sàn.
-        /// Trả về danh sách các khoảng [Start, End] hợp lệ không bị đâm xuyên qua lỗ mở.
+        /// Tính toán các phân đoạn thép trong hệ toạ độ phẳng Local 2D (u, v) của sàn,
+        /// hỗ trợ sàn xoay bất kỳ góc độ nào, sàn đa giác, L, T, và cắt chuẩn xác qua các lỗ mở.
         /// </summary>
-        public static List<(double Start, double End)> ClipIntervalAgainstOpenings(
-            double startPos, double endPos, double fixedCoord, bool isXDirection,
-            List<CurveLoop> openings, double coverFeet)
-        {
-            var intervals = new List<(double Start, double End)> { (Math.Min(startPos, endPos), Math.Max(startPos, endPos)) };
-            if (openings == null || !openings.Any()) return intervals;
-
-            foreach (var op in openings)
-            {
-                // Tính BoundingBox của lỗ mở trên mặt phẳng XY
-                double opMinDir = double.MaxValue, opMaxDir = double.MinValue;
-                double opMinFixed = double.MaxValue, opMaxFixed = double.MinValue;
-
-                foreach (Curve c in op)
-                {
-                    XYZ p0 = c.GetEndPoint(0);
-                    XYZ p1 = c.GetEndPoint(1);
-
-                    double dir0 = isXDirection ? p0.X : p0.Y;
-                    double dir1 = isXDirection ? p1.X : p1.Y;
-                    double fix0 = isXDirection ? p0.Y : p0.X;
-                    double fix1 = isXDirection ? p1.Y : p1.X;
-
-                    opMinDir = Math.Min(opMinDir, Math.Min(dir0, dir1));
-                    opMaxDir = Math.Max(opMaxDir, Math.Max(dir0, dir1));
-                    opMinFixed = Math.Min(opMinFixed, Math.Min(fix0, fix1));
-                    opMaxFixed = Math.Max(opMaxFixed, Math.Max(fix0, fix1));
-                }
-
-                // Nếu thanh thép nằm ngoài phạm vi bề rộng lỗ mở thì bỏ qua
-                if (fixedCoord < opMinFixed || fixedCoord > opMaxFixed) continue;
-
-                // Vùng lỗ mở cần tránh (kèm lớp bảo vệ bê tông cover)
-                double holeStart = opMinDir - coverFeet;
-                double holeEnd = opMaxDir + coverFeet;
-
-                var nextIntervals = new List<(double Start, double End)>();
-                foreach (var seg in intervals)
-                {
-                    // Trường hợp 1: Đoạn thép nằm hoàn toàn ngoài lỗ mở
-                    if (seg.End <= holeStart || seg.Start >= holeEnd)
-                    {
-                        nextIntervals.Add(seg);
-                    }
-                    // Trường hợp 2: Lỗ mở cắt đôi đoạn thép ở giữa
-                    else if (seg.Start < holeStart && seg.End > holeEnd)
-                    {
-                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
-                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
-                    }
-                    // Trường hợp 3: Lỗ mở đè lên đầu cuối
-                    else if (seg.Start < holeStart && seg.End <= holeEnd)
-                    {
-                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
-                    }
-                    // Trường hợp 4: Lỗ mở đè lên đầu bắt đầu
-                    else if (seg.Start >= holeStart && seg.End > holeEnd)
-                    {
-                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
-                    }
-                    // Trường hợp 5: Đoạn thép lọt hoàn toàn trong lỗ mở -> Không thêm gì (Bỏ qua)
-                }
-
-                intervals = nextIntervals;
-            }
-
-            return intervals;
-        }
-
-        /// <summary>
-        /// Tính toán các phân đoạn thép nằm chính xác bên trong ranh giới đa giác của sàn và không bị đâm qua lỗ mở.
-        /// </summary>
-        public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
-            double fixedCoord, bool isXDirection,
+        public static List<(double Start, double End)> GetSlabIntervalsLocal(
+            double fixedCoord, bool isAlongU,
             CurveLoop boundary, List<CurveLoop> openings,
-            double anchorFeet, double coverFeet)
+            XYZ origin, XYZ axisU, XYZ axisV,
+            double coverFeet)
         {
-            var rawCrossings = new List<double>();
             if (boundary == null) return new List<(double, double)>();
+            var rawCrossings = new List<double>();
 
-            // 1. Tìm giao điểm của đường rải thép với các cạnh của ranh giới sàn (Boundary Polygon)
+            // 1. Tìm giao điểm của tia rải thép trong toạ độ phẳng Local (u, v)
             foreach (Curve c in boundary)
             {
                 XYZ p0 = c.GetEndPoint(0);
                 XYZ p1 = c.GetEndPoint(1);
 
-                double cFixed0 = isXDirection ? p0.Y : p0.X;
-                double cFixed1 = isXDirection ? p1.Y : p1.X;
-                double cDir0 = isXDirection ? p0.X : p0.Y;
-                double cDir1 = isXDirection ? p1.X : p1.Y;
+                double u0 = (p0 - origin).DotProduct(axisU);
+                double v0 = (p0 - origin).DotProduct(axisV);
+                double u1 = (p1 - origin).DotProduct(axisU);
+                double v1 = (p1 - origin).DotProduct(axisV);
 
-                // Kiểm tra xem fixedCoord có nằm trong khoảng Y (hoặc X) của đoạn thẳng không
+                double cFixed0 = isAlongU ? v0 : u0;
+                double cFixed1 = isAlongU ? v1 : u1;
+                double cDir0 = isAlongU ? u0 : v0;
+                double cDir1 = isAlongU ? u1 : v1;
+
                 if ((cFixed0 <= fixedCoord && fixedCoord < cFixed1) || (cFixed1 <= fixedCoord && fixedCoord < cFixed0))
                 {
                     double t = (fixedCoord - cFixed0) / (cFixed1 - cFixed0);
@@ -213,36 +203,78 @@ namespace KhimTools.RebarTool.Core
 
             if (rawCrossings.Count < 2) return new List<(double, double)>();
 
-            // 2. Sắp xếp các giao điểm và ghép thành các đoạn [x_in, x_out] nằm gọn trong khối bê tông sàn
             rawCrossings.Sort();
             var validSlabSegments = new List<(double Start, double End)>();
             for (int i = 0; i + 1 < rawCrossings.Count; i += 2)
             {
-                // Thép phải thụt vào trong mép bê tông sàn một khoảng bảo vệ (cover = 25mm)
-                // Đảm bảo không bao giờ bị đâm xiên/thừa ra ngoài không gian (out sàn)
                 double segStart = rawCrossings[i] + coverFeet;
                 double segEnd = rawCrossings[i + 1] - coverFeet;
-                if (segEnd - segStart >= 0.5)
+                if (segEnd - segStart >= 0.5) // Tối thiểu ~150mm
                 {
                     validSlabSegments.Add((segStart, segEnd));
                 }
             }
 
-            // 3. Cắt trừ các lỗ mở trong sàn
-            var finalIntervals = new List<(double Start, double End)>();
-            foreach (var seg in validSlabSegments)
+            // 2. Cắt trừ các lỗ mở trong sàn theo toạ độ local
+            if (openings == null || !openings.Any()) return validSlabSegments;
+
+            var intervals = validSlabSegments;
+            foreach (var op in openings)
             {
-                var clipped = ClipIntervalAgainstOpenings(seg.Start, seg.End, fixedCoord, isXDirection, openings, coverFeet);
-                foreach (var c in clipped)
+                double opMinDir = double.MaxValue, opMaxDir = double.MinValue;
+                double opMinFixed = double.MaxValue, opMaxFixed = double.MinValue;
+
+                foreach (Curve c in op)
                 {
-                    if (c.End - c.Start >= 0.5) // Chiều dài tối thiểu 150mm
+                    XYZ p0 = c.GetEndPoint(0);
+                    XYZ p1 = c.GetEndPoint(1);
+
+                    double u0 = (p0 - origin).DotProduct(axisU);
+                    double v0 = (p0 - origin).DotProduct(axisV);
+                    double u1 = (p1 - origin).DotProduct(axisU);
+                    double v1 = (p1 - origin).DotProduct(axisV);
+
+                    double dir0 = isAlongU ? u0 : v0;
+                    double dir1 = isAlongU ? u1 : v1;
+                    double fix0 = isAlongU ? v0 : u0;
+                    double fix1 = isAlongU ? v1 : u1;
+
+                    opMinDir = Math.Min(opMinDir, Math.Min(dir0, dir1));
+                    opMaxDir = Math.Max(opMaxDir, Math.Max(dir0, dir1));
+                    opMinFixed = Math.Min(opMinFixed, Math.Min(fix0, fix1));
+                    opMaxFixed = Math.Max(opMaxFixed, Math.Max(fix0, fix1));
+                }
+
+                if (fixedCoord < opMinFixed || fixedCoord > opMaxFixed) continue;
+
+                double holeStart = opMinDir - coverFeet;
+                double holeEnd = opMaxDir + coverFeet;
+
+                var nextIntervals = new List<(double Start, double End)>();
+                foreach (var seg in intervals)
+                {
+                    if (seg.End <= holeStart || seg.Start >= holeEnd)
                     {
-                        finalIntervals.Add(c);
+                        nextIntervals.Add(seg);
+                    }
+                    else if (seg.Start < holeStart && seg.End > holeEnd)
+                    {
+                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
+                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
+                    }
+                    else if (seg.Start < holeStart && seg.End <= holeEnd)
+                    {
+                        if (holeStart - seg.Start >= 0.5) nextIntervals.Add((seg.Start, holeStart));
+                    }
+                    else if (seg.Start >= holeStart && seg.End > holeEnd)
+                    {
+                        if (seg.End - holeEnd >= 0.5) nextIntervals.Add((holeEnd, seg.End));
                     }
                 }
+                intervals = nextIntervals;
             }
 
-            return finalIntervals;
+            return intervals;
         }
 
         /// <summary>

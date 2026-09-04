@@ -37,6 +37,13 @@ namespace KhimTools.RebarTool.Core
                     ThicknessFeet = profile.ThicknessFeet,
                     CoverTopFeet = profile.CoverTopFeet,
                     CoverBottomFeet = profile.CoverBottomFeet,
+                    Origin = profile.Origin,
+                    AxisU = profile.AxisU,
+                    AxisV = profile.AxisV,
+                    LocalMinU = profile.LocalMinU,
+                    LocalMaxU = profile.LocalMaxU,
+                    LocalMinV = profile.LocalMinV,
+                    LocalMaxV = profile.LocalMaxV,
                     IsSelected = true
                 };
 

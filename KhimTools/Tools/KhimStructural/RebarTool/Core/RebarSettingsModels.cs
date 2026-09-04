@@ -45,7 +45,9 @@ namespace KhimTools.RebarTool.Core
         public string TopRightExtraBarType { get; set; }
         public int BottomMidExtraQty { get; set; } = 1;
         public string BottomMidExtraBarType { get; set; }
+        public bool EnableSideBars { get; set; } = true;
         public bool AutoSideBars { get; set; } = true;
+        public bool ManualSideBars { get; set; } = false;
         public int SideBarQty { get; set; } = 2;
         public double StirrupSpacingA1 { get; set; } = 100;
         public double StirrupSpacingA2 { get; set; } = 200;

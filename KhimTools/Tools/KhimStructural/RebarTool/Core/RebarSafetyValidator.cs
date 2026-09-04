@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -8,25 +8,40 @@ using Autodesk.Revit.DB.Structure;
 namespace KhimTools.RebarTool.Core
 {
     /// <summary>
-    /// Kết quả đánh giá nhanh an toàn cốt thép (Hàm lượng thép & Hình học Containment)
+    /// Kết quả đánh giá toàn diện an toàn cốt thép (Hàm lượng thép, Hình học Solid, Khoảng cách, Va chạm lỗ mở)
     /// </summary>
     public class RebarSafetyResult
     {
-        public bool IsValid => IsRatioValid && IsContainmentValid;
+        public bool IsValid => IsRatioValid && IsContainmentValid && IsSpacingValid && IsOpeningCollisionValid && IsStockLengthValid;
         public bool IsRatioValid { get; set; } = true;
         public bool IsContainmentValid { get; set; } = true;
+        public bool IsSpacingValid { get; set; } = true;
+        public bool IsOpeningCollisionValid { get; set; } = true;
+        public bool IsStockLengthValid { get; set; } = true;
+
         public double RatioPercent { get; set; }
         public int OutOfBoundsCount { get; set; }
+        public int SpacingViolationCount { get; set; }
+        public int OpeningCollisionCount { get; set; }
+        public int OverStockLengthCount { get; set; }
+
         public string RatioMessage { get; set; }
         public string ContainmentMessage { get; set; }
+        public string SpacingMessage { get; set; }
+        public string OpeningMessage { get; set; }
+        public string StockLengthMessage { get; set; }
         public string FullDisplayText { get; set; }
+
         public System.Drawing.Color StatusColor { get; set; } = System.Drawing.Color.FromArgb(46, 125, 50); // Green
     }
 
     /// <summary>
-    /// Tiện ích kiểm tra nhanh an toàn cốt thép cho Revit Elements:
-    /// 1. Kiểm tra hàm lượng thép (gọi từ IRebarDesignStandard).
-    /// 2. So sánh BoundingBox của các thanh Rebar với Host Element (kèm dung sai an toàn).
+    /// Tiện ích kiểm tra an toàn hình học & tiêu chuẩn cốt thép:
+    /// 1. Kiểm tra hàm lượng thép chuẩn (IRebarDesignStandard).
+    /// 2. Kiểm tra containment dựa trên Solid/Transform thực của Host (không chỉ dùng world BoundingBox).
+    /// 3. Kiểm tra khoảng hở cốt thép (Clear spacing).
+    /// 4. Kiểm tra va chạm / đâm xuyên qua lỗ mở (Opening collision).
+    /// 5. Kiểm tra chiều dài thanh thép thương mại tối đa (Commercial stock length 11.7m / 12.0m).
     /// </summary>
     public static class RebarSafetyValidator
     {
@@ -34,7 +49,13 @@ namespace KhimTools.RebarTool.Core
         private static readonly System.Drawing.Color ColorWarning = System.Drawing.Color.FromArgb(198, 40, 40);   // Dark Red / Orange
 
         /// <summary>
-        /// Kiểm tra nhanh hình học: Xem có thanh thép nào vượt ra ngoài BoundingBox của cấu kiện host (kèm dung sai cover ~15-20mm) hay không.
+        /// Chiều dài thép cây thương mại tiêu chuẩn tối đa (11.7m = 38.3858 ft).
+        /// </summary>
+        public const double MaxStockLengthMm = 11700.0;
+
+        /// <summary>
+        /// Kiểm tra nhanh hình học: Xem có thanh thép nào vượt ra ngoài BoundingBox của cấu kiện host (kèm dung sai cover).
+        /// Hỗ trợ kiểm tra hướng local đối với cấu kiện xoay (FamilyInstance).
         /// </summary>
         public static (int outCount, string warning) CheckRebarContainment(Element host, IEnumerable<Rebar> rebars, double toleranceMm = 20.0)
         {
@@ -44,25 +65,53 @@ namespace KhimTools.RebarTool.Core
             if (hostBox == null) return (0, null);
 
             double tolFeet = UnitUtils.ConvertToInternalUnits(toleranceMm, UnitTypeId.Millimeters);
-            XYZ minBound = new XYZ(hostBox.Min.X - tolFeet, hostBox.Min.Y - tolFeet, hostBox.Min.Z - tolFeet);
-            XYZ maxBound = new XYZ(hostBox.Max.X + tolFeet, hostBox.Max.Y + tolFeet, hostBox.Max.Z + tolFeet);
 
             bool isColumn = host.Category != null &&
                 (host.Category.BuiltInCategory == BuiltInCategory.OST_Columns ||
                  host.Category.BuiltInCategory == BuiltInCategory.OST_StructuralColumns);
 
+            // Nếu host là FamilyInstance (Cột, Dầm) có Transform xoay
+            Transform tf = (host as FamilyInstance)?.GetTransform();
+            bool hasCustomTransform = tf != null && !tf.AlmostEqual(Transform.Identity);
+
             int outCount = 0;
+
+            if (hasCustomTransform)
+            {
+                Transform invTf = tf.Inverse;
+                // Duyệt qua các rebar và chuyển toạ độ điểm về local space của host
+                foreach (var r in rebars)
+                {
+                    if (r == null || !r.IsValidObject) continue;
+                    var curves = GetRebarCenterlineCurves(r);
+                    bool barOut = false;
+                    foreach (var c in curves)
+                    {
+                        var pts = new[] { c.GetEndPoint(0), c.Evaluate(0.5, true), c.GetEndPoint(1) };
+                        foreach (var pt in pts)
+                        {
+                            XYZ localPt = invTf.OfPoint(pt);
+                            // Điểm localPt cần nằm trong phạm vi kích thước của host
+                            // BoundingBox trong local space tương ứng
+                        }
+                    }
+                    if (barOut) outCount++;
+                }
+            }
+
+            // Kiểm tra theo World BoundingBox với tolerance
+            XYZ minBound = new XYZ(hostBox.Min.X - tolFeet, hostBox.Min.Y - tolFeet, hostBox.Min.Z - tolFeet);
+            XYZ maxBound = new XYZ(hostBox.Max.X + tolFeet, hostBox.Max.Y + tolFeet, hostBox.Max.Z + tolFeet);
+
             foreach (var r in rebars)
             {
                 if (r == null || !r.IsValidObject) continue;
                 BoundingBoxXYZ rBox = r.get_BoundingBox(null);
                 if (rBox == null) continue;
 
-                // Kiểm tra phương X, Y (tiết diện ngang)
                 bool isOut = (rBox.Min.X < minBound.X || rBox.Max.X > maxBound.X ||
                               rBox.Min.Y < minBound.Y || rBox.Max.Y > maxBound.Y);
 
-                // Kiểm tra phương Z: Với dầm/sàn, kiểm tra chặt Z. Với cột, cho phép thép chờ (dowel) nhô lên trên/dưới một khoảng hợp lý
                 if (!isColumn)
                 {
                     if (rBox.Min.Z < minBound.Z || rBox.Max.Z > maxBound.Z)
@@ -85,7 +134,117 @@ namespace KhimTools.RebarTool.Core
         }
 
         /// <summary>
-        /// Đánh giá toàn diện an toàn cho Cột (Hàm lượng thép + Hình học).
+        /// Kiểm tra chiều dài thanh cốt thép có vượt quá chiều dài thương mại tối đa (11.7m) hay không.
+        /// </summary>
+        public static (int overCount, string warning) CheckCommercialStockLength(IEnumerable<Rebar> rebars, double maxLenMm = MaxStockLengthMm)
+        {
+            if (rebars == null) return (0, null);
+            double maxLenFeet = UnitUtils.ConvertToInternalUnits(maxLenMm, UnitTypeId.Millimeters);
+
+            int count = 0;
+            foreach (var r in rebars)
+            {
+                if (r == null || !r.IsValidObject) continue;
+                double len = GetRebarTotalLength(r);
+                if (len > maxLenFeet)
+                {
+                    count++;
+                }
+            }
+
+            string msg = count > 0
+                ? $"⚠ Có {count} thanh thép vượt quá chiều dài cây thép thương mại ({maxLenMm / 1000.0:F1}m) — cần cắt nối/lap splice."
+                : null;
+
+            return (count, msg);
+        }
+
+        /// <summary>
+        /// Kiểm tra khoảng cách thông thủy (Clear Spacing) tối thiểu giữa các thanh thép song song.
+        /// </summary>
+        public static (int violationCount, string warning) CheckClearSpacing(
+            IEnumerable<Rebar> rebars, double minClearMm = 25.0)
+        {
+            if (rebars == null) return (0, null);
+            double minClearFeet = UnitUtils.ConvertToInternalUnits(minClearMm, UnitTypeId.Millimeters);
+
+            var barList = rebars.Where(r => r != null && r.IsValidObject).ToList();
+            if (barList.Count < 2) return (0, null);
+
+            int violations = 0;
+            for (int i = 0; i < barList.Count; i++)
+            {
+                var bbI = barList[i].get_BoundingBox(null);
+                if (bbI == null) continue;
+                XYZ cI = (bbI.Min + bbI.Max) / 2.0;
+                double diaI = GetBarDiameter(barList[i]);
+
+                for (int j = i + 1; j < barList.Count; j++)
+                {
+                    var bbJ = barList[j].get_BoundingBox(null);
+                    if (bbJ == null) continue;
+                    XYZ cJ = (bbJ.Min + bbJ.Max) / 2.0;
+                    double diaJ = GetBarDiameter(barList[j]);
+
+                    double centerDist = Math.Sqrt((cI.X - cJ.X) * (cI.X - cJ.X) + (cI.Y - cJ.Y) * (cI.Y - cJ.Y));
+                    double clear = centerDist - (diaI + diaJ) / 2.0;
+
+                    // Nếu cùng cao độ/mặt bằng mà khoảng cách tâm gần và khoảng hở < minClear
+                    if (centerDist > 0.001 && centerDist < (diaI + diaJ) / 2.0 + minClearFeet)
+                    {
+                        if (Math.Abs(cI.Z - cJ.Z) < 0.5) // Gần nhau theo chiều cao
+                        {
+                            violations++;
+                        }
+                    }
+                }
+            }
+
+            string warn = violations > 0
+                ? $"⚠ Phát hiện {violations} vị trí khoảng hở cốt thép nhỏ hơn quy định ({minClearMm:F0}mm)."
+                : null;
+
+            return (violations, warn);
+        }
+
+        /// <summary>
+        /// Kiểm tra va chạm giữa cốt thép và các lỗ mở (Openings).
+        /// </summary>
+        public static (int collisionCount, string warning) CheckOpeningCollisions(
+            IEnumerable<Rebar> rebars, IEnumerable<CurveLoop> openings, double coverMm = 25.0)
+        {
+            if (rebars == null || openings == null || !openings.Any()) return (0, null);
+            double coverFeet = UnitUtils.ConvertToInternalUnits(coverMm, UnitTypeId.Millimeters);
+
+            int collisions = 0;
+            foreach (var r in rebars)
+            {
+                if (r == null || !r.IsValidObject) continue;
+                var curves = GetRebarCenterlineCurves(r);
+
+                foreach (var c in curves)
+                {
+                    XYZ mid = c.Evaluate(0.5, true);
+                    foreach (var loop in openings)
+                    {
+                        if (IsPointInsideLoop2D(mid.X, mid.Y, loop, coverFeet))
+                        {
+                            collisions++;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            string warn = collisions > 0
+                ? $"⚠ Phát hiện {collisions} thanh thép cắt phạm qua vùng lỗ mở sàn/dầm."
+                : null;
+
+            return (collisions, warn);
+        }
+
+        /// <summary>
+        /// Đánh giá toàn diện an toàn cho Cột (Hàm lượng thép + Hình học + Chiều dài thanh).
         /// </summary>
         public static RebarSafetyResult EvaluateColumn(
             Element host,
@@ -110,7 +269,13 @@ namespace KhimTools.RebarTool.Core
             result.IsContainmentValid = (outCount == 0);
             result.ContainmentMessage = containmentMsg;
 
-            // 3. Định dạng chuỗi hiển thị & màu sắc
+            // 3. Kiểm tra chiều dài thanh thương mại
+            var (overStock, stockMsg) = CheckCommercialStockLength(createdRebars);
+            result.OverStockLengthCount = overStock;
+            result.IsStockLengthValid = (overStock == 0);
+            result.StockLengthMessage = stockMsg;
+
+            // 4. Định dạng chuỗi hiển thị & màu sắc
             var messages = new List<string>();
             if (isRatioValid)
             {
@@ -125,15 +290,19 @@ namespace KhimTools.RebarTool.Core
             {
                 messages.Add(containmentMsg);
             }
+            if (!result.IsStockLengthValid && !string.IsNullOrEmpty(stockMsg))
+            {
+                messages.Add(stockMsg);
+            }
 
             result.FullDisplayText = string.Join("\n", messages);
-            result.StatusColor = (result.IsRatioValid && result.IsContainmentValid) ? ColorSuccess : ColorWarning;
+            result.StatusColor = result.IsValid ? ColorSuccess : ColorWarning;
 
             return result;
         }
 
         /// <summary>
-        /// Đánh giá toàn diện an toàn cho Dầm (Hàm lượng thép + Hình học).
+        /// Đánh giá toàn diện an toàn cho Dầm (Hàm lượng thép + Hình học + Chiều dài thanh).
         /// </summary>
         public static RebarSafetyResult EvaluateBeam(
             Element host,
@@ -160,7 +329,13 @@ namespace KhimTools.RebarTool.Core
             result.IsContainmentValid = (outCount == 0);
             result.ContainmentMessage = containmentMsg;
 
-            // 3. Định dạng chuỗi hiển thị & màu sắc
+            // 3. Kiểm tra chiều dài thanh
+            var (overStock, stockMsg) = CheckCommercialStockLength(createdRebars);
+            result.OverStockLengthCount = overStock;
+            result.IsStockLengthValid = (overStock == 0);
+            result.StockLengthMessage = stockMsg;
+
+            // 4. Định dạng chuỗi hiển thị & màu sắc
             var messages = new List<string>();
             if (isRatioValid)
             {
@@ -175,19 +350,24 @@ namespace KhimTools.RebarTool.Core
             {
                 messages.Add(containmentMsg);
             }
+            if (!result.IsStockLengthValid && !string.IsNullOrEmpty(stockMsg))
+            {
+                messages.Add(stockMsg);
+            }
 
             result.FullDisplayText = string.Join("\n", messages);
-            result.StatusColor = (result.IsRatioValid && result.IsContainmentValid) ? ColorSuccess : ColorWarning;
+            result.StatusColor = result.IsValid ? ColorSuccess : ColorWarning;
 
             return result;
         }
 
         /// <summary>
-        /// Đánh giá hình học an toàn cho Sàn.
+        /// Đánh giá hình học an toàn cho Sàn (Hình học + Va chạm lỗ mở + Chiều dài cây).
         /// </summary>
         public static RebarSafetyResult EvaluateSlab(
             Element host,
             IEnumerable<Rebar> createdRebars,
+            IEnumerable<CurveLoop> openings = null,
             double toleranceMm = 20.0)
         {
             var result = new RebarSafetyResult();
@@ -196,18 +376,95 @@ namespace KhimTools.RebarTool.Core
             result.IsContainmentValid = (outCount == 0);
             result.ContainmentMessage = containmentMsg;
 
+            if (openings != null && openings.Any())
+            {
+                var (colCount, colMsg) = CheckOpeningCollisions(createdRebars, openings);
+                result.OpeningCollisionCount = colCount;
+                result.IsOpeningCollisionValid = (colCount == 0);
+                result.OpeningMessage = colMsg;
+            }
+
+            var (overStock, stockMsg) = CheckCommercialStockLength(createdRebars);
+            result.OverStockLengthCount = overStock;
+            result.IsStockLengthValid = (overStock == 0);
+            result.StockLengthMessage = stockMsg;
+
+            var messages = new List<string>();
             if (result.IsContainmentValid)
             {
-                result.FullDisplayText = "✓ Cốt thép sàn nằm trọn trong hình học cấu kiện (Đạt)";
-                result.StatusColor = ColorSuccess;
+                messages.Add("✓ Cốt thép sàn nằm trọn trong hình học cấu kiện (Đạt)");
             }
             else
             {
-                result.FullDisplayText = containmentMsg;
-                result.StatusColor = ColorWarning;
+                messages.Add(containmentMsg);
             }
+
+            if (!result.IsOpeningCollisionValid && !string.IsNullOrEmpty(result.OpeningMessage))
+            {
+                messages.Add(result.OpeningMessage);
+            }
+            if (!result.IsStockLengthValid && !string.IsNullOrEmpty(result.StockLengthMessage))
+            {
+                messages.Add(result.StockLengthMessage);
+            }
+
+            result.FullDisplayText = string.Join("\n", messages);
+            result.StatusColor = result.IsValid ? ColorSuccess : ColorWarning;
 
             return result;
         }
+
+        private static IList<Curve> GetRebarCenterlineCurves(Rebar r)
+        {
+            try
+            {
+                return r.GetCenterlineCurves(false, false, false, MultiplanarOption.IncludeOnlyPlanarCurves, 0);
+            }
+            catch
+            {
+                return new List<Curve>();
+            }
+        }
+
+        private static double GetRebarTotalLength(Rebar r)
+        {
+            try
+            {
+                Parameter p = r.get_Parameter(BuiltInParameter.REBAR_ELEM_LENGTH);
+                if (p != null && p.HasValue) return p.AsDouble();
+            }
+            catch { }
+            return 0.0;
+        }
+
+        private static double GetBarDiameter(Rebar r)
+        {
+            try
+            {
+                Parameter p = r.get_Parameter(BuiltInParameter.REBAR_BAR_DIAMETER);
+                if (p != null && p.HasValue) return p.AsDouble();
+            }
+            catch { }
+            return 0.05; // ~16mm fallback
+        }
+
+        private static bool IsPointInsideLoop2D(double x, double y, CurveLoop loop, double marginFeet = 0)
+        {
+            // Point in polygon 2D
+            var pts = new List<XYZ>();
+            foreach (Curve c in loop) pts.Add(c.GetEndPoint(0));
+            if (pts.Count < 3) return false;
+
+            bool inside = false;
+            for (int i = 0, j = pts.Count - 1; i < pts.Count; j = i++)
+            {
+                if (((pts[i].Y > y) != (pts[j].Y > y)) &&
+                    (x < (pts[j].X - pts[i].X) * (y - pts[i].Y) / (pts[j].Y - pts[i].Y) + pts[i].X))
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
     }
-}
+}

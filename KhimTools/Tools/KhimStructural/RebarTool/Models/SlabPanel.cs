@@ -204,6 +204,14 @@ namespace KhimTools.RebarTool.Models
         public bool IsMerged { get; set; } = false;
         public List<string> MergedChildrenIds { get; set; } = new List<string>();
 
+        public XYZ Origin { get; set; } = XYZ.Zero;
+        public XYZ AxisU { get; set; } = XYZ.BasisX;
+        public XYZ AxisV { get; set; } = XYZ.BasisY;
+        public double LocalMinU { get; set; }
+        public double LocalMaxU { get; set; }
+        public double LocalMinV { get; set; }
+        public double LocalMaxV { get; set; }
+
         public SlabPanelRebarConfig Config { get; set; } = new SlabPanelRebarConfig();
         public bool IsSelected { get; set; } = true;
     }

@@ -107,6 +107,7 @@ namespace KhimTools.RebarTool.Core
                 createdRebars.AddRange(uBars);
             }
 
+            RebarLifecycleManager.TagRebars(createdRebars, profile.FoundationElement, "Foundation", "FootingReinforcement");
             return createdRebars;
         }
 
@@ -169,19 +170,38 @@ namespace KhimTools.RebarTool.Core
                 BoundingBoxXYZ bb = profile.BoundingBox;
                 double legFeet = UnitUtils.ConvertToInternalUnits(settings.DowelFootLegMm, UnitTypeId.Millimeters);
                 double extFeet = UnitUtils.ConvertToInternalUnits(settings.DowelExtensionMm, UnitTypeId.Millimeters);
-                double colSizeX = Math.Min(profile.LengthFeet * 0.4, 1.5);
-                double colSizeY = Math.Min(profile.WidthFeet * 0.4, 1.5);
 
-                double startX = profile.Center.X - colSizeX / 2.0;
-                double endX = profile.Center.X + colSizeX / 2.0;
-                double startY = profile.Center.Y - colSizeY / 2.0;
-                double endY = profile.Center.Y + colSizeY / 2.0;
+                // Ưu tiên 1: Kích thước cột thực tế trên móng
+                // Ưu tiên 2: Kích thước người dùng nhập tay trong cài đặt
+                double colSizeX;
+                double colSizeY;
+                XYZ center;
+                double rot = 0.0;
+
+                if (profile.SupportedColumn != null && profile.SupportedColumn.IsDetected)
+                {
+                    colSizeX = profile.SupportedColumn.SizeXFeet;
+                    colSizeY = profile.SupportedColumn.SizeYFeet;
+                    center = profile.SupportedColumn.Center;
+                    rot = profile.SupportedColumn.RotationRad;
+                }
+                else
+                {
+                    colSizeX = UnitUtils.ConvertToInternalUnits(settings.ManualColumnSizeXMm, UnitTypeId.Millimeters);
+                    colSizeY = UnitUtils.ConvertToInternalUnits(settings.ManualColumnSizeYMm, UnitTypeId.Millimeters);
+                    center = profile.Center;
+                    rot = 0.0;
+                    report?.AddWarning($"Không tự động tìm thấy Cột trên móng; sử dụng kích thước cổ cột cấu hình: {settings.ManualColumnSizeXMm}x{settings.ManualColumnSizeYMm}mm");
+                }
+
+                double halfBx = colSizeX / 2.0;
+                double halfBy = colSizeY / 2.0;
 
                 int nx = Math.Max(2, settings.DowelQtyX);
                 int ny = Math.Max(2, settings.DowelQtyY);
 
-                double stepX = (nx > 1) ? (endX - startX) / (nx - 1) : 0;
-                double stepY = (ny > 1) ? (endY - startY) / (ny - 1) : 0;
+                double stepX = (nx > 1) ? (colSizeX) / (nx - 1) : 0;
+                double stepY = (ny > 1) ? (colSizeY) / (ny - 1) : 0;
 
                 int barIndex = 0;
                 for (int i = 0; i < nx; i++)
@@ -190,8 +210,8 @@ namespace KhimTools.RebarTool.Core
                     {
                         if (i > 0 && i < nx - 1 && j > 0 && j < ny - 1) continue;
 
-                        double x = startX + i * stepX;
-                        double y = startY + j * stepY;
+                        double lx = -halfBx + i * stepX;
+                        double ly = -halfBy + j * stepY;
 
                         // So le 50%: thanh lẻ dâng cao thêm 1.3 * L0
                         double curExtFeet = (settings.StaggeredDowels && barIndex % 2 == 1) ? (extFeet * 1.3) : extFeet;
@@ -200,11 +220,11 @@ namespace KhimTools.RebarTool.Core
 
                         // Hướng bẻ chân quỳ: Xòe ra ngoài (Outward) hoặc Úp vào trong (Inward)
                         double dirSign = settings.DowelLegInward ? -1.0 : 1.0;
-                        double legDx = (x >= profile.Center.X) ? (legFeet * dirSign) : (-legFeet * dirSign);
+                        double legDx = (lx >= 0) ? (legFeet * dirSign) : (-legFeet * dirSign);
 
-                        XYZ pLegEnd = new XYZ(x + legDx, y, zBot);
-                        XYZ pCorner = new XYZ(x, y, zBot);
-                        XYZ pTop = new XYZ(x, y, zTop);
+                        XYZ pLegEnd = FoundationGeometryHelper.TransformLocalToWorld(center, rot, lx + legDx, ly, zBot);
+                        XYZ pCorner = FoundationGeometryHelper.TransformLocalToWorld(center, rot, lx, ly, zBot);
+                        XYZ pTop = FoundationGeometryHelper.TransformLocalToWorld(center, rot, lx, ly, zTop);
 
                         var curves = new List<Curve>
                         {
@@ -212,7 +232,14 @@ namespace KhimTools.RebarTool.Core
                             Line.CreateBound(pCorner, pTop)
                         };
 
-                        Rebar dowel = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisY, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                        XYZ norm = (pCorner - pLegEnd).CrossProduct(pTop - pCorner);
+                        if (norm.GetLength() < 0.001) norm = XYZ.BasisY;
+                        else norm = norm.Normalize();
+
+                        Rebar dowel = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                            _doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement,
+                            norm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, report);
+
                         if (dowel != null)
                         {
                             list.Add(dowel);
@@ -236,8 +263,25 @@ namespace KhimTools.RebarTool.Core
 
             try
             {
-                double colSizeX = Math.Min(profile.LengthFeet * 0.4, 1.5);
-                double colSizeY = Math.Min(profile.WidthFeet * 0.4, 1.5);
+                double colSizeX;
+                double colSizeY;
+                XYZ center;
+                double rot = 0.0;
+
+                if (profile.SupportedColumn != null && profile.SupportedColumn.IsDetected)
+                {
+                    colSizeX = profile.SupportedColumn.SizeXFeet;
+                    colSizeY = profile.SupportedColumn.SizeYFeet;
+                    center = profile.SupportedColumn.Center;
+                    rot = profile.SupportedColumn.RotationRad;
+                }
+                else
+                {
+                    colSizeX = UnitUtils.ConvertToInternalUnits(settings.ManualColumnSizeXMm, UnitTypeId.Millimeters);
+                    colSizeY = UnitUtils.ConvertToInternalUnits(settings.ManualColumnSizeYMm, UnitTypeId.Millimeters);
+                    center = profile.Center;
+                    rot = 0.0;
+                }
 
                 double halfBx = colSizeX / 2.0;
                 double halfBy = colSizeY / 2.0;
@@ -245,16 +289,14 @@ namespace KhimTools.RebarTool.Core
                 int qty = Math.Max(2, settings.DowelStirrupQty);
                 double stepZ = (zTopFdn - zBot) / (qty + 1);
 
-                XYZ center = profile.Center;
-
                 for (int k = 1; k <= qty; k++)
                 {
                     double z = zBot + k * stepZ;
 
-                    XYZ p1 = new XYZ(center.X - halfBx, center.Y - halfBy, z);
-                    XYZ p2 = new XYZ(center.X + halfBx, center.Y - halfBy, z);
-                    XYZ p3 = new XYZ(center.X + halfBx, center.Y + halfBy, z);
-                    XYZ p4 = new XYZ(center.X - halfBx, center.Y + halfBy, z);
+                    XYZ p1 = FoundationGeometryHelper.TransformLocalToWorld(center, rot, -halfBx, -halfBy, z);
+                    XYZ p2 = FoundationGeometryHelper.TransformLocalToWorld(center, rot, halfBx, -halfBy, z);
+                    XYZ p3 = FoundationGeometryHelper.TransformLocalToWorld(center, rot, halfBx, halfBy, z);
+                    XYZ p4 = FoundationGeometryHelper.TransformLocalToWorld(center, rot, -halfBx, halfBy, z);
 
                     var curves = new List<Curve>
                     {
@@ -264,7 +306,10 @@ namespace KhimTools.RebarTool.Core
                         Line.CreateBound(p4, p1)
                     };
 
-                    Rebar stirrup = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.StirrupTie, barType, null, null, profile.FoundationElement, XYZ.BasisZ, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                    Rebar stirrup = RebarShapeCreationHelper.CreateFromCurvesSafe(
+                        _doc, RebarStyle.StirrupTie, barType, null, null, profile.FoundationElement,
+                        XYZ.BasisZ, curves, RebarHookOrientation.Left, RebarHookOrientation.Right, report);
+
                     if (stirrup != null)
                     {
                         list.Add(stirrup);

@@ -72,146 +72,166 @@ namespace KhimTools.RebarTool.Core
             double zHatX = zTop1;
             double zHatY = zTop2;
 
-            // Tính BoundingBox thực tế từ ranh giới ô sàn (Boundary Polygon)
-            double bMinX = double.MaxValue, bMaxX = double.MinValue;
-            double bMinY = double.MaxValue, bMaxY = double.MinValue;
-            if (panel.Boundary != null && panel.Boundary.Any())
+            // Thiết lập hệ toạ độ phẳng Local 2D (Origin, AxisU, AxisV)
+            XYZ origin = panel.Origin ?? XYZ.Zero;
+            XYZ axisU = panel.AxisU != null && panel.AxisU.GetLength() > 0.5 ? panel.AxisU.Normalize() : XYZ.BasisX;
+            XYZ axisV = panel.AxisV != null && panel.AxisV.GetLength() > 0.5 ? panel.AxisV.Normalize() : XYZ.BasisY;
+
+            // Tính toán biên toạ độ phẳng Local (u, v)
+            double minU = panel.LocalMinU, maxU = panel.LocalMaxU;
+            double minV = panel.LocalMinV, maxV = panel.LocalMaxV;
+
+            if (Math.Abs(maxU - minU) < 0.01 || Math.Abs(maxV - minV) < 0.01)
             {
-                foreach (Curve c in panel.Boundary)
+                minU = double.MaxValue; maxU = double.MinValue;
+                minV = double.MaxValue; maxV = double.MinValue;
+
+                if (panel.Boundary != null && panel.Boundary.Any())
                 {
-                    XYZ p0 = c.GetEndPoint(0);
-                    XYZ p1 = c.GetEndPoint(1);
-                    bMinX = Math.Min(bMinX, Math.Min(p0.X, p1.X));
-                    bMaxX = Math.Max(bMaxX, Math.Max(p0.X, p1.X));
-                    bMinY = Math.Min(bMinY, Math.Min(p0.Y, p1.Y));
-                    bMaxY = Math.Max(bMaxY, Math.Max(p0.Y, p1.Y));
+                    foreach (Curve c in panel.Boundary)
+                    {
+                        XYZ p = c.GetEndPoint(0);
+                        XYZ vec = p - origin;
+                        double u = vec.DotProduct(axisU);
+                        double v = vec.DotProduct(axisV);
+                        minU = Math.Min(minU, u);
+                        maxU = Math.Max(maxU, u);
+                        minV = Math.Min(minV, v);
+                        maxV = Math.Max(maxV, v);
+                    }
+                }
+                else
+                {
+                    minU = 0; maxU = bb.Max.X - bb.Min.X;
+                    minV = 0; maxV = bb.Max.Y - bb.Min.Y;
                 }
             }
-            else
-            {
-                bMinX = bb.Min.X; bMaxX = bb.Max.X;
-                bMinY = bb.Min.Y; bMaxY = bb.Max.Y;
-            }
 
-            double beamAnchorFeet = ToFeet(cfg.Anchors.BeamAnchorAMm);
-            double slabAnchorFeet = ToFeet(cfg.Anchors.SlabAnchorBMm);
             double coverOffset = ToFeet(25);
 
             // ── 1. BOTTOM LAYER (LƯỚI ĐÁY) ──────────────────────────────────
             if (cfg.BottomLayer.Enabled)
             {
-                // Bottom X (Thanh ngang rải theo Y)
-                var botX = CreateBoundaryConstrainedRebars(panel.HostFloor, botXType,
-                    bMinY + coverOffset, bMaxY - coverOffset, zBotX,
-                    isXDirection: true, cfg.BottomLayer.SpacingXMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
-                    report, $"{panel.PanelId} - Thép đáy phương X");
-                createdRebars.AddRange(botX);
+                // Bottom U (Thanh dọc theo trục U rải theo trục V)
+                var botU = CreateBoundaryConstrainedRebars(panel.HostFloor, botXType,
+                    minV + coverOffset, maxV - coverOffset, zBotX,
+                    isUDirection: true, cfg.BottomLayer.SpacingXMm,
+                    panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset,
+                    report, $"{panel.PanelId} - Thép đáy phương U");
+                createdRebars.AddRange(botU);
 
-                // Bottom Y (Thanh dọc rải theo X)
-                var botY = CreateBoundaryConstrainedRebars(panel.HostFloor, botYType,
-                    bMinX + coverOffset, bMaxX - coverOffset, zBotY,
-                    isXDirection: false, cfg.BottomLayer.SpacingYMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
-                    report, $"{panel.PanelId} - Thép đáy phương Y");
-                createdRebars.AddRange(botY);
+                // Bottom V (Thanh dọc theo trục V rải theo trục U)
+                var botV = CreateBoundaryConstrainedRebars(panel.HostFloor, botYType,
+                    minU + coverOffset, maxU - coverOffset, zBotY,
+                    isUDirection: false, cfg.BottomLayer.SpacingYMm,
+                    panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset,
+                    report, $"{panel.PanelId} - Thép đáy phương V");
+                createdRebars.AddRange(botV);
             }
 
             // ── 2. TOP LAYER FULL MESH (LƯỚI TRÊN TOÀN DIỆN NẾU BẬT) ──────────
             if (cfg.TopLayer.Enabled)
             {
-                var topX = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshXType,
-                    bMinY + coverOffset, bMaxY - coverOffset, zTop1,
-                    isXDirection: true, cfg.TopLayer.SpacingXMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
-                    report, $"{panel.PanelId} - Lưới trên full X");
-                createdRebars.AddRange(topX);
+                var topU = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshXType,
+                    minV + coverOffset, maxV - coverOffset, zTop1,
+                    isUDirection: true, cfg.TopLayer.SpacingXMm,
+                    panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset,
+                    report, $"{panel.PanelId} - Lưới trên full U");
+                createdRebars.AddRange(topU);
 
-                var topY = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshYType,
-                    bMinX + coverOffset, bMaxX - coverOffset, zTop2,
-                    isXDirection: false, cfg.TopLayer.SpacingYMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
-                    report, $"{panel.PanelId} - Lưới trên full Y");
-                createdRebars.AddRange(topY);
+                var topV = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshYType,
+                    minU + coverOffset, maxU - coverOffset, zTop2,
+                    isUDirection: false, cfg.TopLayer.SpacingYMm,
+                    panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset,
+                    report, $"{panel.PanelId} - Lưới trên full V");
+                createdRebars.AddRange(topV);
             }
 
             // ── 3. HAT REINFORCE (MŨ GỐI) & TOP DISTRIBUTION ────────────────
             if (cfg.HatReinforce.Enabled)
             {
-                double spanX = Math.Abs(bMaxX - bMinX);
-                double spanY = Math.Abs(bMaxY - bMinY);
+                double spanU = Math.Abs(maxU - minU);
+                double spanV = Math.Abs(maxV - minV);
 
                 double facRatio = ParseHatFactor(cfg.HatReinforce.HatFactor); // 0.25 cho L/4
-                bool fullX = cfg.HatReinforce.IsFullSpan || (panel.WidthMm < cfg.Tolerances.MinSpanMm);
-                bool fullY = cfg.HatReinforce.IsFullSpan || (panel.LengthMm < cfg.Tolerances.MinSpanMm);
+                bool fullU = cfg.HatReinforce.IsFullSpan || (panel.WidthMm < cfg.Tolerances.MinSpanMm);
+                bool fullV = cfg.HatReinforce.IsFullSpan || (panel.LengthMm < cfg.Tolerances.MinSpanMm);
 
-                double hatLenX = fullX ? spanX : spanX * facRatio;
-                double hatLenY = fullY ? spanY : spanY * facRatio;
+                double hatLenU = fullU ? spanU : spanU * facRatio;
+                double hatLenV = fullV ? spanV : spanV * facRatio;
 
                 bool skipEdge0 = panel.Edges.Count > 0 && panel.Edges[0].SkipTopHat;
                 bool skipEdge1 = panel.Edges.Count > 1 && panel.Edges[1].SkipTopHat;
                 bool skipEdge2 = panel.Edges.Count > 2 && panel.Edges[2].SkipTopHat;
                 bool skipEdge3 = panel.Edges.Count > 3 && panel.Edges[3].SkipTopHat;
 
-                double stepY = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingXMm, UnitTypeId.Millimeters);
-                double stepX = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingYMm, UnitTypeId.Millimeters);
+                double stepV = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingXMm, UnitTypeId.Millimeters);
+                double stepU = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingYMm, UnitTypeId.Millimeters);
 
-                // Mũ gối gối trái phương X (X-min vươn sang phải)
+                // Mũ gối gối trái phương U (U-min vươn sang phải)
                 if (!skipEdge3)
                 {
-                    for (double y = bMinY + coverOffset; y <= bMaxY - coverOffset; y += stepY)
+                    for (double v = minV + coverOffset; v <= maxV - coverOffset; v += stepV)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsLocal(v, isAlongU: true, panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset);
                         foreach (var seg in segs)
                         {
-                            double hx1 = seg.Start;
-                            double hx2 = Math.Min(seg.End, seg.Start + hatLenX);
-                            CreateSingleStraightBar(panel.HostFloor, hatXType, new XYZ(hx1, y, zHatX), new XYZ(hx2, y, zHatX), createdRebars, report, "Mũ gối X trái");
+                            double u1 = seg.Start;
+                            double u2 = Math.Min(seg.End, seg.Start + hatLenU);
+                            XYZ p1 = origin + u1 * axisU + v * axisV + zHatX * XYZ.BasisZ;
+                            XYZ p2 = origin + u2 * axisU + v * axisV + zHatX * XYZ.BasisZ;
+                            CreateSingleStraightBar(panel.HostFloor, hatXType, p1, p2, createdRebars, report, "Mũ gối U trái");
                         }
                     }
                 }
 
-                // Mũ gối gối phải phương X (X-max vươn sang trái)
-                if (!skipEdge1 && !fullX)
+                // Mũ gối gối phải phương U (U-max vươn sang trái)
+                if (!skipEdge1 && !fullU)
                 {
-                    for (double y = bMinY + coverOffset; y <= bMaxY - coverOffset; y += stepY)
+                    for (double v = minV + coverOffset; v <= maxV - coverOffset; v += stepV)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsLocal(v, isAlongU: true, panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset);
                         foreach (var seg in segs)
                         {
-                            double hx1 = Math.Max(seg.Start, seg.End - hatLenX);
-                            double hx2 = seg.End;
-                            CreateSingleStraightBar(panel.HostFloor, hatXType, new XYZ(hx1, y, zHatX), new XYZ(hx2, y, zHatX), createdRebars, report, "Mũ gối X phải");
+                            double u1 = Math.Max(seg.Start, seg.End - hatLenU);
+                            double u2 = seg.End;
+                            XYZ p1 = origin + u1 * axisU + v * axisV + zHatX * XYZ.BasisZ;
+                            XYZ p2 = origin + u2 * axisU + v * axisV + zHatX * XYZ.BasisZ;
+                            CreateSingleStraightBar(panel.HostFloor, hatXType, p1, p2, createdRebars, report, "Mũ gối U phải");
                         }
                     }
                 }
 
-                // Mũ gối gối dưới phương Y (Y-min vươn lên trên)
+                // Mũ gối gối dưới phương V (V-min vươn lên trên)
                 if (!skipEdge0)
                 {
-                    for (double x = bMinX + coverOffset; x <= bMaxX - coverOffset; x += stepX)
+                    for (double u = minU + coverOffset; u <= maxU - coverOffset; u += stepU)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsLocal(u, isAlongU: false, panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset);
                         foreach (var seg in segs)
                         {
-                            double hy1 = seg.Start;
-                            double hy2 = Math.Min(seg.End, seg.Start + hatLenY);
-                            CreateSingleStraightBar(panel.HostFloor, hatYType, new XYZ(x, hy1, zHatY), new XYZ(x, hy2, zHatY), createdRebars, report, "Mũ gối Y dưới");
+                            double v1 = seg.Start;
+                            double v2 = Math.Min(seg.End, seg.Start + hatLenV);
+                            XYZ p1 = origin + u * axisU + v1 * axisV + zHatY * XYZ.BasisZ;
+                            XYZ p2 = origin + u * axisU + v2 * axisV + zHatY * XYZ.BasisZ;
+                            CreateSingleStraightBar(panel.HostFloor, hatYType, p1, p2, createdRebars, report, "Mũ gối V dưới");
                         }
                     }
                 }
 
-                // Mũ gối gối trên phương Y (Y-max vươn xuống dưới)
-                if (!skipEdge2 && !fullY)
+                // Mũ gối gối trên phương V (V-max vươn xuống dưới)
+                if (!skipEdge2 && !fullV)
                 {
-                    for (double x = bMinX + coverOffset; x <= bMaxX - coverOffset; x += stepX)
+                    for (double u = minU + coverOffset; u <= maxU - coverOffset; u += stepU)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsLocal(u, isAlongU: false, panel.Boundary, panel.Openings, origin, axisU, axisV, coverOffset);
                         foreach (var seg in segs)
                         {
-                            double hy1 = Math.Max(seg.Start, seg.End - hatLenY);
-                            double hy2 = seg.End;
-                            CreateSingleStraightBar(panel.HostFloor, hatYType, new XYZ(x, hy1, zHatY), new XYZ(x, hy2, zHatY), createdRebars, report, "Mũ gối Y trên");
+                            double v1 = Math.Max(seg.Start, seg.End - hatLenV);
+                            double v2 = seg.End;
+                            XYZ p1 = origin + u * axisU + v1 * axisV + zHatY * XYZ.BasisZ;
+                            XYZ p2 = origin + u * axisU + v2 * axisV + zHatY * XYZ.BasisZ;
+                            CreateSingleStraightBar(panel.HostFloor, hatYType, p1, p2, createdRebars, report, "Mũ gối V trên");
                         }
                     }
                 }
@@ -220,7 +240,8 @@ namespace KhimTools.RebarTool.Core
             // ── 4. SPACERS (THÉP CHÂN CHÓ KÊ SÀN) ───────────────────────────
             if (cfg.Spacer.Enabled)
             {
-                var chairs = CreateSpacers(panel.HostFloor, chairType, bMinX, bMaxX, bMinY, bMaxY, zBotX, zHatX, panel.Boundary, panel.Openings, cfg.Spacer, report, panel.PanelId);
+                var chairs = CreateSpacers(panel.HostFloor, chairType, minU, maxU, minV, maxV,
+                    origin, axisU, axisV, zBotX, zHatX, panel.Boundary, panel.Openings, cfg.Spacer, report, panel.PanelId);
                 createdRebars.AddRange(chairs);
             }
 
@@ -228,10 +249,11 @@ namespace KhimTools.RebarTool.Core
             if (panel.Openings != null && panel.Openings.Any())
             {
                 RebarBarType trimType = botXType ?? topMeshXType ?? barTypes.FirstOrDefault();
-                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, zBot1, zTop1, report);
+                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, origin, axisU, axisV, zBot1, zTop1, report);
                 createdRebars.AddRange(trimmers);
             }
 
+            RebarLifecycleManager.TagRebars(createdRebars, panel.HostFloor, "Slab", "SlabPanelReinforcement");
             return createdRebars;
         }
 
@@ -251,6 +273,13 @@ namespace KhimTools.RebarTool.Core
                 ThicknessMm = profile.ThicknessMm,
                 CoverTopFeet = profile.CoverTopFeet,
                 CoverBottomFeet = profile.CoverBottomFeet,
+                Origin = profile.Origin,
+                AxisU = profile.AxisU,
+                AxisV = profile.AxisV,
+                LocalMinU = profile.LocalMinU,
+                LocalMaxU = profile.LocalMaxU,
+                LocalMinV = profile.LocalMinV,
+                LocalMaxV = profile.LocalMaxV,
                 Boundary = profile.OuterBoundary,
                 Openings = profile.InnerOpenings ?? new List<CurveLoop>()
             };
@@ -276,8 +305,9 @@ namespace KhimTools.RebarTool.Core
 
         private List<Rebar> CreateBoundaryConstrainedRebars(Floor floor, RebarBarType barType,
             double startPerp, double endPerp, double zLevel,
-            bool isXDirection, double spacingMm,
-            CurveLoop boundary, List<CurveLoop> openings, double anchorFeet,
+            bool isUDirection, double spacingMm,
+            CurveLoop boundary, List<CurveLoop> openings,
+            XYZ origin, XYZ axisU, XYZ axisV, double coverFeet,
             RebarGenerationReport report = null, string groupName = "Thép sàn")
         {
             var list = new List<Rebar>();
@@ -286,24 +316,22 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 double spacingFeet = UnitUtils.ConvertToInternalUnits(spacingMm, UnitTypeId.Millimeters);
-                double coverFeet = ToFeet(25);
-                XYZ normal = isXDirection ? XYZ.BasisY : XYZ.BasisX;
 
                 for (double perp = startPerp; perp <= endPerp; perp += spacingFeet)
                 {
-                    var intervals = SlabGeometryHelper.GetSlabIntervalsAtCoord(
-                        perp, isXDirection, boundary, openings, anchorFeet, coverFeet);
+                    var intervals = SlabGeometryHelper.GetSlabIntervalsLocal(
+                        perp, isUDirection, boundary, openings, origin, axisU, axisV, coverFeet);
 
                     foreach (var seg in intervals)
                     {
                         if (seg.End - seg.Start < 0.5) continue; // Bỏ qua đoạn quá ngắn < 150mm
 
-                        XYZ p1 = isXDirection ? new XYZ(seg.Start, perp, zLevel) : new XYZ(perp, seg.Start, zLevel);
-                        XYZ p2 = isXDirection ? new XYZ(seg.End, perp, zLevel) : new XYZ(perp, seg.End, zLevel);
+                        XYZ p1 = origin + (isUDirection ? (seg.Start * axisU + perp * axisV) : (perp * axisU + seg.Start * axisV)) + zLevel * XYZ.BasisZ;
+                        XYZ p2 = origin + (isUDirection ? (seg.End * axisU + perp * axisV) : (perp * axisU + seg.End * axisV)) + zLevel * XYZ.BasisZ;
 
                         var curves = new List<Curve> { Line.CreateBound(p1, p2) };
                         Rebar rebar = RebarShapeCreationHelper.CreateFromCurvesSafe(
-                            _doc, RebarStyle.Standard, barType, null, null, floor, normal, curves,
+                            _doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisZ, curves,
                             RebarHookOrientation.Left, RebarHookOrientation.Right);
                         if (rebar != null)
                         {
@@ -322,7 +350,8 @@ namespace KhimTools.RebarTool.Core
         }
 
         private List<Rebar> CreateOpeningTrimmerBars(Floor floor, RebarBarType barType,
-            List<CurveLoop> openings, double zBot, double zTop, RebarGenerationReport report = null)
+            List<CurveLoop> openings, XYZ origin, XYZ axisU, XYZ axisV,
+            double zBot, double zTop, RebarGenerationReport report = null)
         {
             var list = new List<Rebar>();
             if (barType == null || openings == null || !openings.Any()) return list;
@@ -333,45 +362,50 @@ namespace KhimTools.RebarTool.Core
 
             foreach (var op in openings)
             {
-                double minX = double.MaxValue, maxX = double.MinValue;
-                double minY = double.MaxValue, maxY = double.MinValue;
+                double minU = double.MaxValue, maxU = double.MinValue;
+                double minV = double.MaxValue, maxV = double.MinValue;
 
                 foreach (Curve c in op)
                 {
                     XYZ p0 = c.GetEndPoint(0);
                     XYZ p1 = c.GetEndPoint(1);
-                    minX = Math.Min(minX, Math.Min(p0.X, p1.X));
-                    maxX = Math.Max(maxX, Math.Max(p0.X, p1.X));
-                    minY = Math.Min(minY, Math.Min(p0.Y, p1.Y));
-                    maxY = Math.Max(maxY, Math.Max(p0.Y, p1.Y));
+                    double u0 = (p0 - origin).DotProduct(axisU);
+                    double v0 = (p0 - origin).DotProduct(axisV);
+                    double u1 = (p1 - origin).DotProduct(axisU);
+                    double v1 = (p1 - origin).DotProduct(axisV);
+
+                    minU = Math.Min(minU, Math.Min(u0, u1));
+                    maxU = Math.Max(maxU, Math.Max(u0, u1));
+                    minV = Math.Min(minV, Math.Min(v0, v1));
+                    maxV = Math.Max(maxV, Math.Max(v0, v1));
                 }
 
-                double width = maxX - minX;
-                double height = maxY - minY;
-                if (width < 0.5 || height < 0.5) continue; // Bỏ qua lỗ quá nhỏ < 150mm
+                double widthU = maxU - minU;
+                double lengthV = maxV - minV;
+                if (widthU < 0.5 || lengthV < 0.5) continue; // Bỏ qua lỗ quá nhỏ < 150mm
 
-                // Thép gia cường 4 cạnh lỗ mở (Bottom & Top)
+                // Thép gia cường 4 cạnh lỗ mở (Bottom & Top) theo hệ trục Local
                 double[] zLevels = new double[] { zBot, zTop };
                 foreach (double z in zLevels)
                 {
-                    // 2 thanh song song cạnh dưới
-                    XYZ b1 = new XYZ(minX - anchLen, minY - cover, z);
-                    XYZ b2 = new XYZ(maxX + anchLen, minY - cover, z);
+                    // 2 thanh song song cạnh dưới (V-min, chạy theo U)
+                    XYZ b1 = origin + (minU - anchLen) * axisU + (minV - cover) * axisV + z * XYZ.BasisZ;
+                    XYZ b2 = origin + (maxU + anchLen) * axisU + (minV - cover) * axisV + z * XYZ.BasisZ;
                     CreateSingleStraightBar(floor, barType, b1, b2, list, report, "Gia cường lỗ mở cạnh dưới");
 
-                    // 2 thanh song song cạnh trên
-                    XYZ t1 = new XYZ(minX - anchLen, maxY + cover, z);
-                    XYZ t2 = new XYZ(maxX + anchLen, maxY + cover, z);
+                    // 2 thanh song song cạnh trên (V-max, chạy theo U)
+                    XYZ t1 = origin + (minU - anchLen) * axisU + (maxV + cover) * axisV + z * XYZ.BasisZ;
+                    XYZ t2 = origin + (maxU + anchLen) * axisU + (maxV + cover) * axisV + z * XYZ.BasisZ;
                     CreateSingleStraightBar(floor, barType, t1, t2, list, report, "Gia cường lỗ mở cạnh trên");
 
-                    // 2 thanh song song cạnh trái
-                    XYZ l1 = new XYZ(minX - cover, minY - anchLen, z);
-                    XYZ l2 = new XYZ(minX - cover, maxY + anchLen, z);
+                    // 2 thanh song song cạnh trái (U-min, chạy theo V)
+                    XYZ l1 = origin + (minU - cover) * axisU + (minV - anchLen) * axisV + z * XYZ.BasisZ;
+                    XYZ l2 = origin + (minU - cover) * axisU + (maxV + anchLen) * axisV + z * XYZ.BasisZ;
                     CreateSingleStraightBar(floor, barType, l1, l2, list, report, "Gia cường lỗ mở cạnh trái");
 
-                    // 2 thanh song song cạnh phải
-                    XYZ r1 = new XYZ(maxX + cover, minY - anchLen, z);
-                    XYZ r2 = new XYZ(maxX + cover, maxY + anchLen, z);
+                    // 2 thanh song song cạnh phải (U-max, chạy theo V)
+                    XYZ r1 = origin + (maxU + cover) * axisU + (minV - anchLen) * axisV + z * XYZ.BasisZ;
+                    XYZ r2 = origin + (maxU + cover) * axisU + (maxV + anchLen) * axisV + z * XYZ.BasisZ;
                     CreateSingleStraightBar(floor, barType, r1, r2, list, report, "Gia cường lỗ mở cạnh phải");
                 }
             }
@@ -402,15 +436,16 @@ namespace KhimTools.RebarTool.Core
         }
 
         private List<Rebar> CreateSpacers(Floor floor, RebarBarType barType,
-            double minX, double maxX, double minY, double maxY,
+            double minU, double maxU, double minV, double maxV,
+            XYZ origin, XYZ axisU, XYZ axisV,
             double zBot, double zTop, CurveLoop boundary, List<CurveLoop> openings,
             SlabSpacerSettings settings, RebarGenerationReport report = null, string panelId = "P")
         {
             var list = new List<Rebar>();
             if (barType == null) return list;
 
-            double stepXFeet = UnitUtils.ConvertToInternalUnits(settings.StepXMm, UnitTypeId.Millimeters);
-            double stepYFeet = UnitUtils.ConvertToInternalUnits(settings.StepYMm, UnitTypeId.Millimeters);
+            double stepUFeet = UnitUtils.ConvertToInternalUnits(settings.StepXMm, UnitTypeId.Millimeters);
+            double stepVFeet = UnitUtils.ConvertToInternalUnits(settings.StepYMm, UnitTypeId.Millimeters);
             double footLenFeet = UnitUtils.ConvertToInternalUnits(settings.HookLenMm > 0 ? settings.HookLenMm : 150, UnitTypeId.Millimeters); // Chân A/E: 150mm
             double bridgeWidthFeet = ToFeet(150); // Cầu trên C: 150mm
             double barDia = barType.BarModelDiameter;
@@ -418,30 +453,26 @@ namespace KhimTools.RebarTool.Core
             double hChair = zTop - zBot;
             if (hChair <= 0.1) return list;
 
-            for (double x = minX + stepXFeet; x < maxX - stepXFeet / 2.0; x += stepXFeet)
+            for (double u = minU + stepUFeet; u < maxU - stepUFeet / 2.0; u += stepUFeet)
             {
-                for (double y = minY + stepYFeet; y < maxY - stepYFeet / 2.0; y += stepYFeet)
+                for (double v = minV + stepVFeet; v < maxV - stepVFeet / 2.0; v += stepVFeet)
                 {
-                    // Chỉ đặt con kê CHÂN CHÓ NẾU ĐIỂM (x, y) NẰM TRONG BÊ TÔNG SÀN VÀ NGOÀI LỖ MỞ
-                    if (!SlabGeometryHelper.IsPointInsideSlab(new XYZ(x, y, 0), boundary, openings))
+                    XYZ ptWorld = origin + u * axisU + v * axisV;
+                    // Chỉ đặt con kê CHÂN CHÓ NẾU ĐIỂM (u, v) NẰM TRONG BÊ TÔNG SÀN VÀ NGOÀI LỖ MỞ
+                    if (!SlabGeometryHelper.IsPointInsideSlab(ptWorld, boundary, openings))
                         continue;
 
                     try
                     {
-                        // Hình dạng Con Kê Chân Chó Chuẩn Shape 31 (JP_T31 / BS 8666 / Eurocode 2):
-                        // P1: Chân trái dưới (zBot) -> P2: Gốc chân trái (zBot)
-                        // P2: Gốc chân trái -> P3: Đỉnh trái (zTop)
-                        // P3: Đỉnh trái -> P4: Đỉnh phải (zTop) (Cầu đỡ thép mặt trên)
-                        // P4: Đỉnh phải -> P5: Gốc chân phải (zBot)
-                        // P5: Gốc chân phải -> P6: Chân phải dưới (zBot)
+                        // Hình dạng Con Kê Chân Chó Chuẩn Shape 31 (JP_T31 / BS 8666 / Eurocode 2) định hướng theo hệ trục Local:
                         double halfBridge = bridgeWidthFeet / 2.0;
 
-                        XYZ p1 = new XYZ(x - halfBridge, y - footLenFeet, zBot);
-                        XYZ p2 = new XYZ(x - halfBridge, y, zBot);
-                        XYZ p3 = new XYZ(x - halfBridge, y, zTop);
-                        XYZ p4 = new XYZ(x + halfBridge, y, zTop);
-                        XYZ p5 = new XYZ(x + halfBridge, y, zBot);
-                        XYZ p6 = new XYZ(x + halfBridge, y + footLenFeet, zBot);
+                        XYZ p1 = ptWorld - halfBridge * axisU - footLenFeet * axisV + zBot * XYZ.BasisZ;
+                        XYZ p2 = ptWorld - halfBridge * axisU + zBot * XYZ.BasisZ;
+                        XYZ p3 = ptWorld - halfBridge * axisU + zTop * XYZ.BasisZ;
+                        XYZ p4 = ptWorld + halfBridge * axisU + zTop * XYZ.BasisZ;
+                        XYZ p5 = ptWorld + halfBridge * axisU + zBot * XYZ.BasisZ;
+                        XYZ p6 = ptWorld + halfBridge * axisU + footLenFeet * axisV + zBot * XYZ.BasisZ;
 
                         var curves = new List<Curve>
                         {
@@ -453,13 +484,11 @@ namespace KhimTools.RebarTool.Core
                         };
 
                         Rebar chair = RebarShapeCreationHelper.CreateFromCurvesSafe(
-                            _doc, RebarStyle.Standard, barType, null, null, floor, XYZ.BasisZ, curves,
+                            _doc, RebarStyle.Standard, barType, null, null, floor, axisV, curves,
                             RebarHookOrientation.Left, RebarHookOrientation.Right);
 
                         if (chair != null)
                         {
-                            // Gán tham số kích thước phân đoạn theo Rebar Shape 31 / Shared Parameter VNDC:
-                            // L1 = A - d/2, L2 = B - d, L3 = C - d, L4 = D - d, L5 = E - d/2
                             var shapeParams = new Dictionary<string, double>
                             {
                                 { "A", footLenFeet },

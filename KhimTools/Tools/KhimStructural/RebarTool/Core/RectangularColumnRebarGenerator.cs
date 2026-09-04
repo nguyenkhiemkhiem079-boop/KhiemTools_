@@ -110,6 +110,7 @@ namespace KhimTools.RebarTool.Core
             created.AddRange(CreateMainBars(input, profile, mainPoints, report));
             created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup));
 
+            RebarLifecycleManager.TagRebars(created, input.Column, "Column", "RectangularColumn");
             report?.AddSuccess(created.Count);
             return created;
         }
@@ -162,12 +163,27 @@ namespace KhimTools.RebarTool.Core
                 AnchorageType.Compression,
                 input.DesignStandard);
 
+            // Tự động phát hiện cột trên / dưới nếu chưa được gán thủ công
+            if (input.AdjacentColumnAbove == null && !input.IsTopRoofColumn)
+            {
+                var (_, autoAbove) = ColumnContinuityEngine.FindAdjacentColumns(_doc, input.Column);
+                input.AdjacentColumnAbove = autoAbove;
+            }
+            if (input.AdjacentColumnBelow == null && !input.IsFoundationColumn)
+            {
+                var (autoBelow, _) = ColumnContinuityEngine.FindAdjacentColumns(_doc, input.Column);
+                input.AdjacentColumnBelow = autoBelow;
+            }
+
+            var continuity = ColumnContinuityEngine.AnalyzeTransition(input.Column, input.AdjacentColumnAbove, mainDia, lapLength);
+            bool isTopRoof = input.IsTopRoofColumn || (continuity.TransitionType == ColumnTransitionType.TopRoofTerminated);
+            bool isLargeReduction = continuity.TransitionType == ColumnTransitionType.LargeReductionDoweled;
+
             double baseZBottom = (input.AdjacentColumnBelow != null)
                 ? profile.BaseCenter.Z
                 : profile.BaseCenter.Z - (input.IsFoundationColumn ? lapLength : (input.HasDowel ? ToFeet(400) : 0));
 
-            bool isTopRoof = input.AdjacentColumnAbove == null || input.IsTopRoofColumn;
-            double baseZTop = (!isTopRoof)
+            double baseZTop = (!isTopRoof && !isLargeReduction)
                 ? profile.TopCenter.Z + lapLength
                 : profile.TopCenter.Z - ToFeet(25); // sát mặt dưới nắp bê tông bảo vệ top
 
@@ -177,9 +193,9 @@ namespace KhimTools.RebarTool.Core
                 double zTop = baseZTop;
 
                 // Nối so le 50% ở đỉnh cột nếu có cột trên
-                if (!isTopRoof && input.StaggeredSplice && (i % 2 == 1))
+                if (!isTopRoof && !isLargeReduction && input.StaggeredSplice && (i % 2 == 1))
                 {
-                    zTop += 1.3 * lapLength;
+                    zTop += continuity.StaggerOffsetFeet;
                 }
 
                 var curves = new List<Curve>();
@@ -211,15 +227,16 @@ namespace KhimTools.RebarTool.Core
                     curves.Add(Line.CreateBound(footStart, footCorner));
                 }
 
-                // --- 2. CRANKED 1:6 SPLICE AT JOINT (NẾU CÓ CỘT TẦNG TRÊN) ---
-                if (!isTopRoof && input.EnableCrankedSplice)
+                // --- 2. CRANKED 1:6 SPLICE AT JOINT (KHI CÓ CỘT TẦNG TRÊN VÀ GIẢM TIẾT DIỆN <= 75mm) ---
+                if (!isTopRoof && !isLargeReduction && input.EnableCrankedSplice)
                 {
-                    double crankZStart = profile.TopCenter.Z - ToFeet(100);
-                    double crankHeight = mainDia * 6; // Độ dốc 1:6 chuẩn kỹ thuật
+                    // Inward step tính theo độ giảm tiết diện thực tế + đường kính thanh thép
+                    double inwardStep = continuity.MaxEdgeOffsetFeet > 0 ? (continuity.MaxEdgeOffsetFeet + mainDia) : mainDia;
+                    double crankHeight = Math.Max(mainDia * 6.0, inwardStep * 6.0); // Tuân thủ nghiêm ngặt độ dốc 1:6 tối đa
+                    double crankZStart = profile.TopCenter.Z - Math.Min(crankHeight, ToFeet(500));
                     double crankZEnd = crankZStart + crankHeight;
 
                     // Bẻ bóp vào trong tâm theo 1 phương duy nhất (đảm bảo đồng phẳng)
-                    double inwardStep = mainDia;
                     double crankLx = bendAlongY ? lx : (lx > 0 ? lx - inwardStep : lx + inwardStep);
                     double crankLy = bendAlongY ? (ly > 0 ? ly - inwardStep : ly + inwardStep) : ly;
 
@@ -240,8 +257,8 @@ namespace KhimTools.RebarTool.Core
                     curves.Add(Line.CreateBound(pt1, pt2));
                 }
 
-                // --- 3. TOP ROOF HOOK 90° (NẾU LÀ CỘT MÁI / KẾT THÚC) ---
-                if (isTopRoof && input.HasTopAnchor)
+                // --- 3. TOP HOOK 90° (KHI LÀ CỘT MÁI HOẶC ĐỘ THU TIẾT DIỆN > 75mm) ---
+                if ((isTopRoof && input.HasTopAnchor) || isLargeReduction)
                 {
                     double hookLen = RebarAnchorageCalculator.CalculateAnchorageLength(
                         UnitUtils.ConvertFromInternalUnits(mainDia, UnitTypeId.Millimeters),

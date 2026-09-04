@@ -30,5 +30,13 @@ namespace KhimTools.RebarTool.Models
         public BoundingBoxXYZ BoundingBox { get; set; }
         public double WidthMm { get; set; }
         public double LengthMm { get; set; }
+
+        // Hệ toạ độ phẳng Local 2D (AxisU, AxisV) hỗ trợ sàn xoay góc, sàn đa giác, L, T, bất quy tắc
+        public XYZ AxisU { get; set; } = XYZ.BasisX;
+        public XYZ AxisV { get; set; } = XYZ.BasisY;
+        public double LocalMinU { get; set; }
+        public double LocalMaxU { get; set; }
+        public double LocalMinV { get; set; }
+        public double LocalMaxV { get; set; }
     }
 }

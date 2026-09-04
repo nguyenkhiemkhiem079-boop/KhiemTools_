@@ -84,6 +84,7 @@ namespace KhimTools.RebarTool.Core
             created.AddRange(CreateMainBars(input, profile, mainBarRadius, report));
             created.AddRange(CreateStirrups(input, profile, stirrupRadius, report));
 
+            RebarLifecycleManager.TagRebars(created, input.Column, "Column", "CircularColumn");
             report?.AddSuccess(created.Count);
             return created;
         }
@@ -107,12 +108,27 @@ namespace KhimTools.RebarTool.Core
                 input.DesignStandard,
                 percentFactor);
 
+            // Tự động phát hiện cột trên / dưới nếu chưa được gán thủ công
+            if (input.AdjacentColumnAbove == null && !input.IsTopRoofColumn)
+            {
+                var (_, autoAbove) = ColumnContinuityEngine.FindAdjacentColumns(_doc, input.Column);
+                input.AdjacentColumnAbove = autoAbove;
+            }
+            if (input.AdjacentColumnBelow == null && !input.IsFoundationColumn)
+            {
+                var (autoBelow, _) = ColumnContinuityEngine.FindAdjacentColumns(_doc, input.Column);
+                input.AdjacentColumnBelow = autoBelow;
+            }
+
+            var continuity = ColumnContinuityEngine.AnalyzeTransition(input.Column, input.AdjacentColumnAbove, mainDia, lapLength);
+            bool isTopRoof = input.IsTopRoofColumn || (continuity.TransitionType == ColumnTransitionType.TopRoofTerminated);
+            bool isLargeReduction = continuity.TransitionType == ColumnTransitionType.LargeReductionDoweled;
+
             double baseZBottom = (input.AdjacentColumnBelow != null)
                 ? profile.BaseCenter.Z
                 : profile.BaseCenter.Z - (input.IsFoundationColumn ? lapLength : (input.HasDowel ? ToFeet(400) : 0));
 
-            bool isTopRoof = input.AdjacentColumnAbove == null || input.IsTopRoofColumn;
-            double baseZTop = (!isTopRoof)
+            double baseZTop = (!isTopRoof && !isLargeReduction)
                 ? profile.TopCenter.Z + lapLength
                 : profile.TopCenter.Z - ToFeet(25);
 
@@ -126,9 +142,9 @@ namespace KhimTools.RebarTool.Core
                 double y = profile.BaseCenter.Y + radius * sinA;
 
                 double zTop = baseZTop;
-                if (!isTopRoof && input.StaggeredSplice && (i % 2 == 1))
+                if (!isTopRoof && !isLargeReduction && input.StaggeredSplice && (i % 2 == 1))
                 {
-                    zTop += 1.3 * lapLength;
+                    zTop += continuity.StaggerOffsetFeet;
                 }
 
                 var curves = new List<Curve>();
@@ -150,14 +166,15 @@ namespace KhimTools.RebarTool.Core
                     curves.Add(Line.CreateBound(footStart, footCorner));
                 }
 
-                // 2. CRANKED 1:6 SPLICE AT JOINT
-                if (!isTopRoof && input.EnableCrankedSplice)
+                // 2. CRANKED 1:6 SPLICE AT JOINT (KHI CÓ CỘT TẦNG TRÊN VÀ ĐỘ THU TIẾT DIỆN <= 75mm)
+                if (!isTopRoof && !isLargeReduction && input.EnableCrankedSplice)
                 {
-                    double crankZStart = profile.TopCenter.Z - ToFeet(100);
-                    double crankHeight = mainDia * 6;
+                    double inwardStep = continuity.MaxEdgeOffsetFeet > 0 ? (continuity.MaxEdgeOffsetFeet + mainDia) : mainDia;
+                    double crankHeight = Math.Max(mainDia * 6.0, inwardStep * 6.0);
+                    double crankZStart = profile.TopCenter.Z - Math.Min(crankHeight, ToFeet(500));
                     double crankZEnd = crankZStart + crankHeight;
 
-                    double crankRadius = radius - mainDia;
+                    double crankRadius = Math.Max(0.1, radius - inwardStep);
                     double crankX = profile.BaseCenter.X + crankRadius * cosA;
                     double crankY = profile.BaseCenter.Y + crankRadius * sinA;
 
@@ -177,8 +194,8 @@ namespace KhimTools.RebarTool.Core
                     curves.Add(Line.CreateBound(pt1, pt2));
                 }
 
-                // 3. TOP ROOF HOOK 90°
-                if (isTopRoof && input.HasTopAnchor)
+                // 3. TOP HOOK 90° (KHI LÀ CỘT MÁI HOẶC ĐỘ THU TIẾT DIỆN > 75mm)
+                if ((isTopRoof && input.HasTopAnchor) || isLargeReduction)
                 {
                     double hookLen = RebarAnchorageCalculator.CalculateAnchorageLength(
                         UnitUtils.ConvertFromInternalUnits(mainDia, UnitTypeId.Millimeters),

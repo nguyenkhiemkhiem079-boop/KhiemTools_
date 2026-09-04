@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -32,10 +32,12 @@ namespace KhimTools.RebarTool.Core
         public int BottomMidExtraQty { get; set; } = 1;
         public RebarBarType BottomMidExtraBarType { get; set; }
 
+        public bool EnableSideBars { get; set; } = true;
         public bool AutoSideBars { get; set; } = true;
+        public bool ManualSideBars { get; set; } = false;
         public int SideBarQty { get; set; } = 2;
         /// <summary>
-        /// TCVN 5574:2018 Äiá»u 10.3.5.4: NgÆ°á»¡ng chiá»u cao dáº§m tá»± Ä‘á»™ng báº­t thÃ©p sÆ°á»n (máº·c Ä‘á»‹nh 700mm).
+        /// TCVN 5574:2018 Điều 10.3.5.4: Ngưỡng chiều cao dầm tự động bật thép sườn (mặc định 700mm).
         /// </summary>
         public double SideBarThresholdMm { get; set; } = 700.0;
 
@@ -59,7 +61,7 @@ namespace KhimTools.RebarTool.Core
     }
 
     /// <summary>
-    /// Sinh thÃ©p chá»§ (Top/Bottom/Side), thÃ©p tÄƒng cÆ°á»ng (Gá»‘i/Bá»¥ng) vÃ  thÃ©p Ä‘ai A1/A2/A1 cho Dáº§m.
+    /// Sinh thÃ©p chá»§ (Top/Bottom/Side), thÃ©p tÄƒng cÆ°á» ng (Gá»‘i/Bá»¥ng) vÃ  thÃ©p Ä‘ai A1/A2/A1 cho Dáº§m.
     /// </summary>
     public class BeamRebarGenerator
     {
@@ -106,37 +108,42 @@ namespace KhimTools.RebarTool.Core
             double halfH = profile.H / 2.0 - cover - stirrupDia / 2.0;
 
             if (halfB <= 0 || halfH <= 0)
-                throw new InvalidOperationException("Tiáº¿t diá»‡n dáº§m quÃ¡ nhá» so vá»›i lá»›p báº£o vá»‡ Ä‘Ã£ chá»n.");
+                throw new InvalidOperationException("Tiết diện dầm quá nhỏ so với lớp bảo vệ đã chọn.");
 
-            // ÄÃ£ loáº¡i bá» kiá»ƒm tra cáº£nh bÃ¡o hÃ m lÆ°á»£ng thÃ©p an toÃ n káº¿t cáº¥u theo yÃªu cáº§u
-            // 1. ThÃ©p chá»§ trÃªn cháº¡y suá»‘t
-            created.AddRange(CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia));
+            // 1. Thép chủ trên chạy suốt
+            created.AddRange(CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia, report));
 
-            // 2. ThÃ©p chá»§ dÆ°á»›i cháº¡y suá»‘t
-            created.AddRange(CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia));
+            // 2. Thép chủ dưới chạy suốt
+            created.AddRange(CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia, report));
 
-            // 3. ThÃ©p tÄƒng cÆ°á»ng gá»‘i trÃ¡i & gá»‘i pháº£i (Top Extra)
+            // 3. Thép tăng cường gối trái & gối phải (Top Extra)
             if (input.TopLeftExtraQty > 0)
-                created.AddRange(CreateTopLeftExtraBars(input, profile, cover, stirrupDia, topMainDia));
+                created.AddRange(CreateTopLeftExtraBars(input, profile, cover, stirrupDia, topMainDia, report));
             if (input.TopRightExtraQty > 0)
-                created.AddRange(CreateTopRightExtraBars(input, profile, cover, stirrupDia, topMainDia));
+                created.AddRange(CreateTopRightExtraBars(input, profile, cover, stirrupDia, topMainDia, report));
 
-            // 4. ThÃ©p tÄƒng cÆ°á»ng bá»¥ng (Bottom Mid Extra)
+            // 4. Thép tăng cường bụng (Bottom Mid Extra)
             if (input.BottomMidExtraQty > 0)
-                created.AddRange(CreateBottomMidExtraBars(input, profile, cover, stirrupDia, botMainDia));
+                created.AddRange(CreateBottomMidExtraBars(input, profile, cover, stirrupDia, botMainDia, report));
 
-            // 5. ThÃ©p sÆ°á»n dáº§m (Side/Skin Bars)
+            // 5. Thép sườn dầm (Side/Skin Bars) - Fix triệt để bug Section F: AutoSideBars = false thật sự tắt thép sườn
             double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
-            if ((input.AutoSideBars && hMm >= input.SideBarThresholdMm) || input.SideBarQty > 0)
+            bool shouldGenerateSideBars = input.EnableSideBars && (
+                input.AutoSideBars
+                    ? (hMm >= input.SideBarThresholdMm && input.SideBarQty > 0)
+                    : (input.ManualSideBars && input.SideBarQty > 0)
+            );
+
+            if (shouldGenerateSideBars)
             {
                 RebarBarType sideType = input.SideBarType ?? input.StirrupBarType;
-                created.AddRange(CreateSideBars(input, profile, cover, stirrupDia, sideType));
+                created.AddRange(CreateSideBars(input, profile, cover, stirrupDia, sideType, report));
             }
 
-            // 6. ThÃ©p Ä‘ai phÃ¢n vÃ¹ng A1 / A2 / A1
-            created.AddRange(CreateBeamStirrups(input, profile, halfB, halfH));
+            // 6. Thép đai phân vùng A1 / A2 / A1
+            created.AddRange(CreateBeamStirrups(input, profile, halfB, halfH, report));
 
-            // 7. ThÃ©p Ä‘ai treo chá»‘ng giáº­t dáº§m phá»¥ giao dáº§m chÃ­nh (Gap 7b)
+            // 7. Thép đai treo chống giật dầm phụ giao dầm chính
             created.AddRange(CreateHangerStirrups(input, profile, halfB, halfH, report));
 
             var containment = RebarSafetyValidator.CheckRebarContainment(input.Beam, created);
@@ -144,14 +151,11 @@ namespace KhimTools.RebarTool.Core
             {
                 report?.AddWarning($"Có {containment.outCount} thanh thép dầm vượt ngoài phạm vi hình học host: {containment.warning}");
             }
+            RebarLifecycleManager.TagRebars(created, input.Beam, "Beam", "BeamReinforcement");
             report?.AddSuccess(created.Count);
             return created;
-        }
-
-        // â”€â”€â”€ TOP CONTINUOUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-        private List<Rebar> CreateTopContinuousBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+        }        private List<Rebar> CreateTopContinuousBars(BeamRebarInput input,
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int qty = Math.Max(input.TopContinuousQty, 2);
@@ -177,7 +181,8 @@ namespace KhimTools.RebarTool.Core
                     profile.RightVector, // Normal of the vertical bending plane
                     curves,
                     RebarHookOrientation.Right,
-                    RebarHookOrientation.Right);
+                    RebarHookOrientation.Right,
+                    report);
 
                 if (bar != null)
                 {
@@ -186,9 +191,10 @@ namespace KhimTools.RebarTool.Core
                 else
                 {
                     // Fallback to straight bar if bend fails
+                    report?.AddWarning($"Thanh thép chủ trên gập uốn neo dầm không tạo được móc uốn chính xác theo Revit solver, tạo thanh thẳng neo.");
                     XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, -startAnch.Extension);
                     XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainTopBarType, start, end);
+                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainTopBarType, start, end, report);
                     if (fallbackBar != null) bars.Add(fallbackBar);
                 }
             }
@@ -196,10 +202,10 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ BOTTOM CONTINUOUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── BOTTOM CONTINUOUS ──────────────────────────────────────────────────
 
         private List<Rebar> CreateBottomContinuousBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int qty = Math.Max(input.BottomContinuousQty, 2);
@@ -225,7 +231,8 @@ namespace KhimTools.RebarTool.Core
                     profile.RightVector,
                     curves,
                     RebarHookOrientation.Right,
-                    RebarHookOrientation.Right);
+                    RebarHookOrientation.Right,
+                    report);
 
                 if (bar != null)
                 {
@@ -233,9 +240,10 @@ namespace KhimTools.RebarTool.Core
                 }
                 else
                 {
+                    report?.AddWarning($"Thanh thép chủ dưới gập uốn neo dầm không tạo được móc uốn chính xác theo Revit solver, tạo thanh thẳng neo.");
                     XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, -startAnch.Extension);
                     XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainBottomBarType, start, end);
+                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainBottomBarType, start, end, report);
                     if (fallbackBar != null) bars.Add(fallbackBar);
                 }
             }
@@ -243,17 +251,23 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ TOP EXTRA (LEFT & RIGHT) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── TOP EXTRA (LEFT & RIGHT) ───────────────────────────────────
 
         private List<Rebar> CreateTopLeftExtraBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int qty = input.TopLeftExtraQty;
-            double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia; // lá»›p 2
+            double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia; // lớp 2
 
-            double zStart = -ToFeet(300);
-            double zEnd = profile.Length / 3.0; // cáº¯t á»Ÿ L/3
+            // Chiều dài neo gối chuẩn theo tiêu chuẩn thiết kế (thay vì cố định 300mm)
+            double mainDiaMm = UnitUtils.ConvertFromInternalUnits(mainDia, UnitTypeId.Millimeters);
+            var std = RebarDesignStandardFactory.Create(input.DesignStandard);
+            double reqLdMm = std.GetAnchorageLength(mainDiaMm, input.ConcreteGrade, input.SteelGrade, AnchorageType.TensionStraight);
+            double reqLdFeet = UnitUtils.ConvertToInternalUnits(reqLdMm, UnitTypeId.Millimeters);
+
+            double zStart = -reqLdFeet;
+            double zEnd = profile.Length / 3.0; // cắt ở L/3
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
@@ -267,7 +281,7 @@ namespace KhimTools.RebarTool.Core
                 XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zStart);
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zEnd);
 
-                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
+                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end, report);
                 if (bar != null) bars.Add(bar);
             }
 
@@ -275,14 +289,19 @@ namespace KhimTools.RebarTool.Core
         }
 
         private List<Rebar> CreateTopRightExtraBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int qty = input.TopRightExtraQty;
             double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia;
 
-            double zStart = profile.Length * 2.0 / 3.0; // báº¯t Ä‘áº§u tá»« 2L/3
-            double zEnd = profile.Length + ToFeet(300);
+            double mainDiaMm = UnitUtils.ConvertFromInternalUnits(mainDia, UnitTypeId.Millimeters);
+            var std = RebarDesignStandardFactory.Create(input.DesignStandard);
+            double reqLdMm = std.GetAnchorageLength(mainDiaMm, input.ConcreteGrade, input.SteelGrade, AnchorageType.TensionStraight);
+            double reqLdFeet = UnitUtils.ConvertToInternalUnits(reqLdMm, UnitTypeId.Millimeters);
+
+            double zStart = profile.Length * 2.0 / 3.0; // bắt đầu từ 2L/3
+            double zEnd = profile.Length + reqLdFeet;
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
@@ -296,23 +315,23 @@ namespace KhimTools.RebarTool.Core
                 XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zStart);
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zEnd);
 
-                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
+                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end, report);
                 if (bar != null) bars.Add(bar);
             }
 
             return bars;
         }
 
-        // â”€â”€â”€ BOTTOM MID EXTRA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── BOTTOM MID EXTRA ───────────────────────────────────────────────────
 
         private List<Rebar> CreateBottomMidExtraBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int qty = input.BottomMidExtraQty;
             double yBot = -profile.H / 2.0 + cover + stirrupDia + mainDia / 2.0 + mainDia;
 
-            double zStart = profile.Length * 0.15; // cáº¯t cÃ¡ch gá»‘i L/6
+            double zStart = profile.Length * 0.15; // cắt cách gối L/6
             double zEnd = profile.Length * 0.85;
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
@@ -327,17 +346,17 @@ namespace KhimTools.RebarTool.Core
                 XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, zStart);
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, zEnd);
 
-                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
+                Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end, report);
                 if (bar != null) bars.Add(bar);
             }
 
             return bars;
         }
 
-        // â”€â”€â”€ SIDE BARS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── SIDE BARS ──────────────────────────────────────────────────────────
 
         private List<Rebar> CreateSideBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, RebarBarType sideType)
+            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, RebarBarType sideType, RebarGenerationReport report = null)
         {
             var bars = new List<Rebar>();
             int sidePairs = Math.Max(input.SideBarQty / 2, 1);
@@ -353,26 +372,26 @@ namespace KhimTools.RebarTool.Core
             {
                 double y = -profile.H / 2.0 + cover + stirrupDia + sideDia + i * (usableH / (sidePairs + 1));
 
-                // Thanh trÃ¡i
+                // Thanh trái
                 XYZ startL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zStart);
                 XYZ endL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zEnd);
-                Rebar barL = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startL, endL);
+                Rebar barL = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startL, endL, report);
                 if (barL != null) bars.Add(barL);
 
-                // Thanh pháº£i
+                // Thanh phải
                 XYZ startR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zStart);
                 XYZ endR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zEnd);
-                Rebar barR = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startR, endR);
+                Rebar barR = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startR, endR, report);
                 if (barR != null) bars.Add(barR);
             }
 
             return bars;
         }
 
-        // â”€â”€â”€ STIRRUPS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ─── STIRRUPS ───────────────────────────────────────────────────────────
 
         private List<Rebar> CreateBeamStirrups(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH)
+            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH, RebarGenerationReport report = null)
         {
             var hoops = new List<Rebar>();
 

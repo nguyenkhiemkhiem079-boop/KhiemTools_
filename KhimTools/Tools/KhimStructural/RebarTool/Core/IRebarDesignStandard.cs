@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace KhimTools.RebarTool.Core
 {
@@ -39,6 +39,21 @@ namespace KhimTools.RebarTool.Core
             double percentLappedFactor = 1.5);
 
         /// <summary>
+        /// Khoảng hở tối thiểu giữa các thanh cốt thép song song tính bằng mm.
+        /// </summary>
+        double GetMinClearSpacing(double barDiameterMm, double maxAggregateSizeMm = 20.0, bool isTopBar = false);
+
+        /// <summary>
+        /// Chiều dài đoạn neo đuôi móc (Hook tail length) tính bằng mm.
+        /// </summary>
+        double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true);
+
+        /// <summary>
+        /// Lớp bê tông bảo vệ tối thiểu theo loại cấu kiện và cấp độ bền/môi trường (mm).
+        /// </summary>
+        double GetMinConcreteCoverMm(string memberType, string exposureClass = "XC1");
+
+        /// <summary>
         /// Kiểm tra hàm lượng thép cột (As / Ac).
         /// </summary>
         (bool isValid, double ratioPercent, string warningMessage) ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2);
@@ -69,6 +84,35 @@ namespace KhimTools.RebarTool.Core
         {
             // EN 1992-1-1 Figure 8.1: standard hook / bend -> >= 5 * ds
             return 5.0 * barDiameterMm;
+        }
+
+        public double GetMinClearSpacing(double barDiameterMm, double maxAggregateSizeMm = 20.0, bool isTopBar = false)
+        {
+            // EN 1992-1-1 Clause 8.2: s_clear >= max(k1 * ds, dg + k2, 20mm). k1 = 1.0, k2 = 5mm.
+            return Math.Max(barDiameterMm, Math.Max(maxAggregateSizeMm + 5.0, 20.0));
+        }
+
+        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true)
+        {
+            // EN 1992-1-1 Figure 8.1:
+            // Đai uốn 135° hoặc 150°: >= max(5 * ds, 50mm) với uốn chuẩn, hoặc 10 * ds cho động đất
+            if (isStirrup)
+            {
+                return Math.Max(10.0 * barDiameterMm, 70.0);
+            }
+            // Thép chủ móc 90° / 135°: >= 5 * ds (hoặc 12 * ds cho neo đầy đủ)
+            return Math.Max(bendAngleDeg >= 135.0 ? 5.0 * barDiameterMm : 10.0 * barDiameterMm, 100.0);
+        }
+
+        public double GetMinConcreteCoverMm(string memberType, string exposureClass = "XC1")
+        {
+            // EN 1992-1-1 Clause 4.4.1: c_nom = c_min + Delta_c_dev (Delta_c_dev ~ 10mm)
+            string m = (memberType ?? "").ToLowerInvariant();
+            if (m.Contains("column") || m.Contains("cot")) return 30.0;
+            if (m.Contains("beam") || m.Contains("dam")) return 30.0;
+            if (m.Contains("slab") || m.Contains("san")) return 20.0;
+            if (m.Contains("foundation") || m.Contains("mong")) return 50.0;
+            return 25.0;
         }
 
         public double GetAnchorageLength(double barDiameterMm, ConcreteGrade concrete, SteelGrade steel, AnchorageType type)
@@ -149,6 +193,42 @@ namespace KhimTools.RebarTool.Core
         {
             // TCVN 5574:2018 Điều 10.3.5.7 -> >= 5 * ds
             return 5.0 * barDiameterMm;
+        }
+
+        public double GetMinClearSpacing(double barDiameterMm, double maxAggregateSizeMm = 20.0, bool isTopBar = false)
+        {
+            // TCVN 5574:2018 Điều 10.3.5.2 & 10.3.5.3:
+            // - Cốt thép dưới: s_clear >= max(ds, 25mm, d_agg)
+            // - Cốt thép trên: s_clear >= max(ds, 30mm, d_agg)
+            double baseMin = isTopBar ? 30.0 : 25.0;
+            return Math.Max(barDiameterMm, Math.Max(baseMin, maxAggregateSizeMm));
+        }
+
+        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true)
+        {
+            // TCVN 5574:2018 Điều 10.3.5.7 & Mục móc uốn đai:
+            // - Đai kháng chấn 135°: >= max(10 * ds, 75mm)
+            // - Móc neo 90° cốt dọc: >= max(12 * ds, 150mm)
+            if (isStirrup)
+            {
+                return Math.Max(10.0 * barDiameterMm, 75.0);
+            }
+            return Math.Max(bendAngleDeg >= 135.0 ? 6.0 * barDiameterMm : 12.0 * barDiameterMm, 150.0);
+        }
+
+        public double GetMinConcreteCoverMm(string memberType, string exposureClass = "XC1")
+        {
+            // TCVN 5574:2018 Bảng 18 (Lớp bê tông bảo vệ tối thiểu):
+            // - Bản sàn, tường: 20mm (trong nhà khô ráo), 25mm (ngoài trời)
+            // - Dầm, sườn: 25mm (trong nhà), 30mm (ngoài trời)
+            // - Cột: 25mm hoặc >= d_s (trong nhà), 30mm (ngoài trời)
+            // - Móng toàn khối: 40mm (có bê tông lót), 70mm (không bê tông lót)
+            string m = (memberType ?? "").ToLowerInvariant();
+            if (m.Contains("column") || m.Contains("cot")) return 30.0;
+            if (m.Contains("beam") || m.Contains("dam")) return 30.0;
+            if (m.Contains("slab") || m.Contains("san")) return 25.0;
+            if (m.Contains("foundation") || m.Contains("mong")) return 50.0;
+            return 25.0;
         }
 
         public double GetAnchorageLength(double barDiameterMm, ConcreteGrade concrete, SteelGrade steel, AnchorageType type)

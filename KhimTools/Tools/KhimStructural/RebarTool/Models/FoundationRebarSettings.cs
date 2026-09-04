@@ -55,6 +55,11 @@ namespace KhimTools.RebarTool.Models
         public string DowelStirrupDiaLabel { get; set; } = "d10";
         public int DowelStirrupQty { get; set; } = 3; // Đai lồng cố định chân cột nằm trong lòng móng
 
+        // Nhận diện cổ cột thực tế / Nhập tay kích thước (Tránh ước lượng 40% móng sai lệch)
+        public bool AutoDetectHostColumn { get; set; } = true;
+        public double ManualColumnSizeXMm { get; set; } = 400;
+        public double ManualColumnSizeYMm { get; set; } = 400;
+
         // ── 5. Tiêu Chuẩn Thiết Kế & Vật Liệu ──────────────────────────────
         public string DesignCode { get; set; } = "TCVN 5574:2018"; // TCVN 5574:2018 hoặc Eurocode 2
         public string ConcreteGrade { get; set; } = "B25";
