@@ -42,6 +42,12 @@
     <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
       <protection id="rename" action="remove" />
     </rule>
+    <rule pattern="match('^KhimTools\.Core\.RibbonBuilder$')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
+    <rule pattern="match('^KhimTools\.Core\.RegistrationDiagnostics$')" inherit="false">
+      <protection id="rename" action="remove" />
+    </rule>
     <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
       <protection id="rename" action="remove" />
     </rule>
