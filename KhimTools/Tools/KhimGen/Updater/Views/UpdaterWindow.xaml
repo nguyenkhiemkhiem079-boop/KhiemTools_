@@ -4,8 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="KhimTools Update" 
-        Height="470" Width="390"
+        Title="K-TOOLS Commercial Update" 
+        Height="520" Width="430"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -15,7 +15,8 @@
 
     <Window.Resources>
         <LinearGradientBrush x:Key="BrandGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#2563EB" Offset="0"/>
+            <GradientStop Color="#1E40AF" Offset="0"/>
+            <GradientStop Color="#4F46E5" Offset="0.5"/>
             <GradientStop Color="#7C3AED" Offset="1"/>
         </LinearGradientBrush>
 
@@ -23,7 +24,7 @@
             <Setter Property="Background" Value="#F1F5F9"/>
             <Setter Property="Foreground" Value="#334155"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="BorderBrush" Value="#CBD5E1"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -71,46 +72,66 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="SuccessButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#059669"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#047857"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#065F46"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="12">
-        <!-- Main Card with DropShadow -->
         <Border Background="White" CornerRadius="16" BorderBrush="#E2E8F0" BorderThickness="1">
             <Border.Effect>
-                <DropShadowEffect BlurRadius="18" Direction="270" ShadowDepth="4" Opacity="0.18" Color="#0F172A"/>
+                <DropShadowEffect BlurRadius="20" Direction="270" ShadowDepth="4" Opacity="0.18" Color="#0F172A"/>
             </Border.Effect>
 
-            <Grid Margin="20,18,20,18">
+            <Grid Margin="22,18,22,18">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/> <!-- Header -->
-                    <RowDefinition Height="Auto"/> <!-- Version Box -->
-                    <RowDefinition Height="Auto"/> <!-- Release Date -->
-                    <RowDefinition Height="*"/>    <!-- Changelog -->
-                    <RowDefinition Height="Auto"/> <!-- Status / Notice -->
-                    <RowDefinition Height="Auto"/> <!-- Action Button -->
+                    <RowDefinition Height="Auto"/> <!-- 0: Header -->
+                    <RowDefinition Height="Auto"/> <!-- 1: Version Comparison -->
+                    <RowDefinition Height="Auto"/> <!-- 2: Release Date & Meta -->
+                    <RowDefinition Height="*"/>    <!-- 3: Changelog -->
+                    <RowDefinition Height="Auto"/> <!-- 4: Verification Status -->
+                    <RowDefinition Height="Auto"/> <!-- 5: Progress Bar -->
+                    <RowDefinition Height="Auto"/> <!-- 6: Action Buttons -->
                 </Grid.RowDefinitions>
 
                 <!-- HEADER -->
-                <Grid Grid.Row="0" Margin="0,0,0,16" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid Grid.Row="0" Margin="0,0,0,14" MouseLeftButtonDown="Header_MouseLeftButtonDown">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Logo Badge -->
                     <Border Grid.Column="0" Width="42" Height="42" CornerRadius="10" Background="{StaticResource BrandGradient}">
                         <TextBlock Text="K" Foreground="White" FontSize="22" FontWeight="Bold" 
                                    HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
                     </Border>
 
-                    <!-- Title & Notification -->
                     <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="KhimTools" FontSize="17" FontWeight="Bold" Foreground="#1E293B" FontFamily="Segoe UI"/>
-                        <TextBlock Text="Có phiên bản mới! 🔔" FontSize="13" FontWeight="SemiBold" Foreground="#2563EB" Margin="0,2,0,0"/>
+                        <TextBlock Text="K-TOOLS Commercial Update" FontSize="16" FontWeight="Bold" Foreground="#0F172A" FontFamily="Segoe UI"/>
+                        <TextBlock x:Name="TxtHeaderSubtitle" Text="Kiểm tra hệ thống cập nhật tự động..." FontSize="12.5" FontWeight="Medium" Foreground="#2563EB" Margin="0,2,0,0"/>
                     </StackPanel>
 
-                    <!-- Close Button -->
                     <Button Grid.Column="2" Click="BtnClose_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" Cursor="Hand">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
@@ -122,8 +143,8 @@
                     </Button>
                 </Grid>
 
-                <!-- VERSION COMPARISON BOX -->
-                <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="12" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16,12" Margin="0,0,0,14">
+                <!-- VERSION COMPARISON -->
+                <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="12" BorderBrush="#E2E8F0" BorderThickness="1" Padding="14,10" Margin="0,0,0,12">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -132,67 +153,100 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" HorizontalAlignment="Left">
-                            <TextBlock Text="Hiện tại" FontSize="12" Foreground="#64748B" FontWeight="Medium"/>
-                            <TextBlock x:Name="TxtCurrentVersion" Text="v2.0.0" FontSize="20" FontWeight="Bold" Foreground="#334155" Margin="0,4,0,0"/>
+                            <TextBlock Text="Hiện tại (Current)" FontSize="11" Foreground="#64748B" FontWeight="Medium"/>
+                            <TextBlock x:Name="TxtCurrentVersion" Text="2.7.0" FontSize="18" FontWeight="Bold" Foreground="#334155" Margin="0,2,0,0"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Column="1" Text="➔" FontSize="18" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,8,8,0"/>
+                        <TextBlock Grid.Column="1" Text="➔" FontSize="16" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,4,8,0"/>
 
                         <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                            <TextBlock Text="Phiên bản mới" FontSize="12" Foreground="#2563EB" FontWeight="Medium"/>
-                            <TextBlock x:Name="TxtLatestVersion" Text="v2.1.0" FontSize="20" FontWeight="Bold" Foreground="#7C3AED" Margin="0,4,0,0"/>
+                            <TextBlock Text="Mới nhất (Latest)" FontSize="11" Foreground="#2563EB" FontWeight="Medium"/>
+                            <TextBlock x:Name="TxtLatestVersion" Text="2.7.1" FontSize="18" FontWeight="Bold" Foreground="#7C3AED" Margin="0,2,0,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>
 
-                <!-- RELEASE DATE -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,12">
-                    <TextBlock Text="📅" FontSize="14" Margin="0,0,6,0"/>
-                    <TextBlock Text="Ngày phát hành:" FontSize="13" Foreground="#64748B" FontWeight="Medium"/>
-                    <TextBlock x:Name="TxtReleaseDate" Text=" 2026-08-20" FontSize="13" Foreground="#1E293B" FontWeight="SemiBold"/>
-                </StackPanel>
+                <!-- METADATA (Date, Build, Commit) -->
+                <Grid Grid.Row="2" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                        <TextBlock Text="📅 Ngày: " FontSize="12" Foreground="#64748B"/>
+                        <TextBlock x:Name="TxtReleaseDate" Text="2026-09-05" FontSize="12" Foreground="#1E293B" FontWeight="SemiBold"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <TextBlock Text="🔖 Commit: " FontSize="12" Foreground="#64748B"/>
+                        <TextBlock x:Name="TxtCommit" Text="bb21af01" FontSize="12" Foreground="#2563EB" FontWeight="SemiBold"/>
+                    </StackPanel>
+                </Grid>
 
                 <!-- CHANGELOG -->
-                <StackPanel Grid.Row="3" Margin="0,0,0,12">
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <TextBlock Text="📋" FontSize="14" Margin="0,0,6,0"/>
-                        <TextBlock Text="Có gì mới:" FontSize="13" Foreground="#1E293B" FontWeight="SemiBold"/>
-                    </StackPanel>
+                <Border Grid.Row="3" Background="#FAFAFA" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="10,8" Margin="0,0,0,10">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Nội dung cập nhật (Changelog):" FontSize="12" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,6"/>
+                        <ScrollViewer Grid.Row="1" MaxHeight="90" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl x:Name="ListChangelog">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="✔" Foreground="#059669" FontSize="11" Margin="0,2,6,0" FontWeight="Bold"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
 
-                    <ScrollViewer MaxHeight="100" VerticalScrollBarVisibility="Auto">
-                        <ItemsControl x:Name="ListChangelog">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,3">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="✔" Foreground="#059669" FontSize="12" Margin="0,2,8,0" FontWeight="Bold"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12.5" Foreground="#334155" TextWrapping="Wrap"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-                </StackPanel>
-
-                <!-- STATUS / NOTICE -->
-                <Border Grid.Row="4" x:Name="PanelStatus" Margin="0,0,0,14" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="8" Padding="10,8" Visibility="Collapsed">
-                    <StackPanel HorizontalAlignment="Center">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="☑" Foreground="#059669" FontSize="15" FontWeight="Bold" Margin="0,0,6,0"/>
-                            <TextBlock Text="Cài đặt hoàn tất!" Foreground="#059669" FontSize="13.5" FontWeight="Bold"/>
-                        </StackPanel>
-                        <TextBlock Text="Khởi động lại Revit để áp dụng phiên bản mới." Foreground="#047857" FontSize="11.5" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                <!-- VERIFICATION STATUS CHECKLIST -->
+                <Border Grid.Row="4" x:Name="PanelVerificationChecklist" Margin="0,0,0,10" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="8" Padding="10,8" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="✓ Trạng thái xác thực gói (Production Verification):" FontSize="11.5" FontWeight="Bold" Foreground="#166534" Margin="0,0,0,4"/>
+                        <TextBlock Text="  ✓ Đã tải hoàn tất về Staging an toàn" FontSize="11" Foreground="#15803D"/>
+                        <TextBlock Text="  ✓ Kiểm tra tính toàn vẹn SHA256 PASSED" FontSize="11" Foreground="#15803D"/>
+                        <TextBlock Text="  ✓ Cấu trúc Bundle &amp; PackageContents.xml PASSED" FontSize="11" Foreground="#15803D"/>
+                        <TextBlock Text="  ✓ Tương thích phiên bản Revit hiện tại PASSED" FontSize="11" Foreground="#15803D"/>
                     </StackPanel>
                 </Border>
 
-                <!-- PROGRESS BAR -->
-                <ProgressBar Grid.Row="4" x:Name="ProgressBarDownload" Height="6" Margin="0,0,0,14" Value="0" Maximum="100" Visibility="Collapsed" Foreground="#2563EB"/>
+                <!-- STATUS BANNER (for error or up-to-date) -->
+                <Border Grid.Row="4" x:Name="PanelStatusMessage" Margin="0,0,0,10" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="8" Padding="10,8" Visibility="Collapsed">
+                    <TextBlock x:Name="TxtStatusDetail" Text="Đang xử lý..." FontSize="11.5" Foreground="#1E40AF" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                </Border>
 
-                <!-- ACTION BUTTON -->
-                <Button Grid.Row="5" x:Name="BtnAction" Content="Cập nhật ngay" Style="{StaticResource PrimaryButton}" Height="38" Click="BtnAction_Click"/>
+                <!-- PROGRESS BAR -->
+                <ProgressBar Grid.Row="5" x:Name="ProgressBarDownload" Height="6" Margin="0,0,0,12" Value="0" Maximum="100" Visibility="Collapsed" Foreground="#2563EB"/>
+
+                <!-- ACTION BUTTONS -->
+                <Grid Grid.Row="6">
+                    <!-- State A: Download Button -->
+                    <Button x:Name="BtnDownload" Content="Tải &amp; Xác thực (Download &amp; Verify)" Style="{StaticResource PrimaryButton}" Height="38" Click="BtnDownload_Click"/>
+
+                    <!-- State B: Restart & Update / Later Panel -->
+                    <Grid x:Name="PanelRestartActions" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="10"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" x:Name="BtnRestartUpdate" Content="Khởi động lại &amp; Cập nhật (Restart &amp; Update)" Style="{StaticResource SuccessButton}" Height="38" Click="BtnRestartUpdate_Click"/>
+                        <Button Grid.Column="2" x:Name="BtnLater" Content="Để sau (Later)" Style="{StaticResource ModernButton}" Height="38" Width="100" Click="BtnLater_Click"/>
+                    </Grid>
+
+                    <!-- State C: Close Only Button -->
+                    <Button x:Name="BtnCloseOnly" Content="Đóng" Style="{StaticResource ModernButton}" Height="38" Visibility="Collapsed" Click="BtnClose_Click"/>
+                </Grid>
             </Grid>
         </Border>
     </Grid>

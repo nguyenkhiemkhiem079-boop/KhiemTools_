@@ -1,6 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
 using Autodesk.Revit.UI;
+using KhimTools.Tools.Updater.Models;
+using KhimTools.Tools.Updater.Services;
 using KhimTools.Tools.Workspace.Views;
 
 namespace KhimTools.Core
@@ -8,9 +12,11 @@ namespace KhimTools.Core
     /// <summary>
     /// Application-level entry point cho toàn bộ K-TOOLS.
     /// Chịu trách nhiệm:
-    ///   1. Khởi tạo ActionEventHandler (cách ly an toàn)
-    ///   2. Đăng ký Dockable Pane Khim Workspace (cách ly an toàn)
-    ///   3. Xây dựng Ribbon UI K-TOOLS (cách ly hoàn toàn giữa các panel)
+    ///   0. Startup Forensic Diagnostics & Version Model tracking (Loaded DLL, SHA256, Build, Commit)
+    ///   1. Duplicate Installation & Stale DLL Scanning
+    ///   2. Khởi tạo ActionEventHandler (cách ly an toàn)
+    ///   3. Đăng ký Dockable Pane Khim Workspace (cách ly an toàn)
+    ///   4. Xây dựng Ribbon UI K-TOOLS (cách ly hoàn toàn giữa các panel)
     /// </summary>
     public sealed class App : IExternalApplication
     {
@@ -21,18 +27,33 @@ namespace KhimTools.Core
         {
             if (application == null) return Result.Failed;
 
-            // 0. Ghi nhận thông tin DLL triển khai phục vụ Forensic Diagnostics
+            // 0. Ghi nhận thông tin DLL triển khai phục vụ Forensic Diagnostics (Phần 13)
             try
             {
-                var asm = typeof(App).Assembly;
-                string loc = asm.Location;
-                var ver = asm.GetName().Version;
-                string writeTime = !string.IsNullOrEmpty(loc) && System.IO.File.Exists(loc)
-                    ? System.IO.File.GetLastWriteTime(loc).ToString("yyyy-MM-dd HH:mm:ss")
-                    : "Unknown";
-
+                var verModel = VersionModel.FromAssembly(typeof(App).Assembly);
                 RegistrationDiagnostics.RecordWarning("Deployment", 
-                    $"Startup assembly: '{loc}' | Version: {ver} | Built/Modified: {writeTime}");
+                    $"Loaded DLL: '{verModel.LoadedAssemblyPath}' | Version: {verModel.ProductVersion} | Build: {verModel.BuildId} | Commit: {verModel.GitCommit} | FileVer: {verModel.FileVersion} | SHA256: {verModel.Sha256Checksum} | Mode: PRODUCTION");
+
+                // Asynchronously scan for duplicate bundles and rogue .addin files (Phần 12)
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        var scanReport = DuplicateInstallationScanner.Scan();
+                        if (scanReport.HasDuplicateConflict)
+                        {
+                            foreach (var w in scanReport.Warnings)
+                            {
+                                RegistrationDiagnostics.RecordWarning("DuplicateBundleConflict", w);
+                            }
+                            RegistrationDiagnostics.PersistLog();
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Trace.WriteLine($"[K-TOOLS] Duplicate scanner error: {ex.Message}");
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -65,6 +86,16 @@ namespace KhimTools.Core
             try
             {
                 RibbonBuilder.BuildRibbon(application);
+
+                // Ghi nhận Startup Success Marker (Phần 17)
+                try
+                {
+                    string markerDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KTools");
+                    if (!Directory.Exists(markerDir)) Directory.CreateDirectory(markerDir);
+                    string markerPath = Path.Combine(markerDir, "startup_success.marker");
+                    File.WriteAllText(markerPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | Version: 2.7.1 | Status: SUCCESS");
+                }
+                catch { }
             }
             catch (Exception ex)
             {

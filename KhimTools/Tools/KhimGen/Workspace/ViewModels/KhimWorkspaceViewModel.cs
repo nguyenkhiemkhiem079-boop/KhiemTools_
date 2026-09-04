@@ -165,7 +165,7 @@ namespace KhimTools.Tools.Workspace.ViewModels
         {
             App.EventHandler.Raise(app =>
             {
-                RunCommandByName(app, "KhimTools.Tools.Updater.Commands.CmdCheckUpdate");
+                RunCommandByName(app, "KhimTools.Updater.Commands.CmdCheckUpdate");
             });
         }
 

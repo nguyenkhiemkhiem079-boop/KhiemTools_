@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Diagnostics;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -15,7 +16,8 @@ namespace KhimTools.Updater.Commands
         {
             try
             {
-                var updateService = new UpdateService();
+                string revitVersion = commandData?.Application?.Application?.VersionNumber;
+                var updateService = new UpdateService(revitVersion);
                 var task = updateService.CheckForUpdatesAsync();
                 task.Wait();
                 var updateInfo = task.Result;
@@ -27,7 +29,8 @@ namespace KhimTools.Updater.Commands
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("KhimTools Update", "Lỗi kiểm tra cập nhật: " + ex.Message);
+                Trace.WriteLine($"[K-TOOLS CmdCheckUpdate] Error: {ex.Message}");
+                TaskDialog.Show("K-TOOLS Update", "Lỗi kiểm tra cập nhật: " + ex.Message);
                 return Result.Failed;
             }
         }

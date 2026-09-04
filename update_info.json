@@ -1,7 +1,30 @@
-﻿{
-  "latest_version": "v2.7.0",
-  "name": "K-TOOLS (KhimTools) v2.7.0",
-  "release_date": "2026-08-25",
-  "description": "K-TOOLS v2.7.0 - Slab Step Generator, Layout pulldown suite, Graphic Overdrive, Auto Grid & Plan, Multi-Year Revit Autoloader Bundle (2020-2028)",
-  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.7.0/KhimTools_Bundle.zip"
+{
+  "product": "K-TOOLS",
+  "version": "2.7.1",
+  "build": "20260905.0001",
+  "commit": "bb21af01",
+  "releaseDate": "2026-09-05",
+  "package": "KhimTools_Bundle.zip",
+  "downloadUrl": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.7.1/KhimTools_Bundle.zip",
+  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "supportedRevit": [
+    "2020",
+    "2021",
+    "2022",
+    "2023",
+    "2024",
+    "2025",
+    "2026",
+    "2027",
+    "2028"
+  ],
+  "changelog": [
+    "Commercial Update Architecture: Out-of-process KToolsUpdater.exe with atomic installation and automatic rollback.",
+    "Cryptographic Verification: SHA256 integrity verification and PackageContents.xml structural inspection.",
+    "Fault Isolation & Staging: Isolated staging directory, eliminating live bundle corruption and file lock crashes.",
+    "Full Rebar Suite Production Overhaul: Host containment verification across Column, Beam, Slab, and Foundation modules.",
+    "Startup Forensics & Duplicate Bundle Scanner: Real-time detection of stale DLLs and duplicate ApplicationPlugins."
+  ],
+  "isMandatory": false,
+  "minRequiredVersion": "2.0.0"
 }

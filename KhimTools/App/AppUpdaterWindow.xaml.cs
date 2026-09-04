@@ -282,14 +282,17 @@ namespace KhiemToolsApp
 
                 if (string.IsNullOrEmpty(latestTag))
                 {
-                    latestTag = "v2.7.0";
-                    LogInfo($"Using ultimate fallback tag: {latestTag}");
+                    LogInfo("Could not determine latest version from GitHub. Setting status to UNKNOWN.");
+                    TxtGithubVersion.Text = "Không thể kết nối (UNKNOWN)";
+                    MessageBox.Show("Không thể kết nối đến máy chủ GitHub để kiểm tra phiên bản mới.\nVui lòng kiểm tra kết nối Internet.", 
+                        "K-TOOLS Update", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
                 }
 
                 TxtGithubVersion.Text = latestTag;
 
-                if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub!\nBạn có muốn tự động cài đặt / cập nhật vào Revit ngay không?", 
-                    "Cập nhật K-TOOLS", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+                if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub!\nBạn có muốn tải về, xác thực toàn vẹn (SHA256) và cài đặt an toàn không?", 
+                    "Cập nhật K-TOOLS Commercial", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
                 {
                     if (!EnsureRevitClosed())
                     {
@@ -298,9 +301,9 @@ namespace KhiemToolsApp
                         return;
                     }
 
-                    TxtGithubVersion.Text = "Đang tải & cài đặt...";
+                    TxtGithubVersion.Text = "Đang tải & xác thực SHA256...";
                     await PerformInstallOrUpdateAsync(latestTag, downloadUrl);
-                    MessageBox.Show("Cài đặt / Cập nhật hoàn tất!\nĐã nạp toàn bộ module mới vào tất cả phiên bản Revit trên máy.\nVui lòng mở Revit để sử dụng.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show("Cài đặt / Cập nhật hoàn tất thành công!\nPhiên bản mới đã được nạp an toàn với cơ chế bảo vệ Rollback.\nVui lòng mở Autodesk Revit để sử dụng.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
                     CheckCurrentLocalVersion();
                     TxtGithubVersion.Text = latestTag;
                 }
@@ -319,23 +322,26 @@ namespace KhiemToolsApp
 
         private async Task PerformInstallOrUpdateAsync(string tag, string directZipUrl)
         {
-            string tempDir = Path.Combine(Path.GetTempPath(), "KhimTools_Installer");
-            if (Directory.Exists(tempDir))
-            {
-                try { Directory.Delete(tempDir, true); } catch { }
-            }
-            Directory.CreateDirectory(tempDir);
+            string cleanTag = tag.Trim().TrimStart('v', 'V');
+            string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string stagingRoot = Path.Combine(localApp, "KTools", "Updates", cleanTag);
 
-            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/1.0");
+            if (Directory.Exists(stagingRoot))
+            {
+                try { Directory.Delete(stagingRoot, true); } catch { }
+            }
+            Directory.CreateDirectory(stagingRoot);
+
+            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KToolsUpdater/1.0");
 
             bool downloaded = false;
-            string bundleZipPath = Path.Combine(tempDir, "bundle.zip");
+            string bundleZipPath = Path.Combine(stagingRoot, "KhimTools_Bundle.zip");
 
             // Cách 1: Tải trực tiếp từ directZipUrl
             if (!string.IsNullOrEmpty(directZipUrl))
             {
-                LogInfo($"Download Method 1 - Starting download from directZipUrl: {directZipUrl}");
+                LogInfo($"Download Method 1 - Starting download from: {directZipUrl}");
                 try
                 {
                     byte[] data = await client.GetByteArrayAsync(directZipUrl);
@@ -348,16 +354,12 @@ namespace KhiemToolsApp
                     LogInfo($"Download Method 1 - Failed: {ex.GetType().Name} - {ex.Message}");
                 }
             }
-            else
-            {
-                LogInfo("Download Method 1 - Skipped (directZipUrl is null or empty).");
-            }
 
             // Cách 2: Thử tải link direct release theo tag
             if (!downloaded)
             {
                 string releaseUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tag}/KhimTools_Bundle.zip";
-                LogInfo($"Download Method 2 - Starting download from fallback releaseUrl: {releaseUrl}");
+                LogInfo($"Download Method 2 - Starting download from: {releaseUrl}");
                 try
                 {
                     byte[] data = await client.GetByteArrayAsync(releaseUrl);
@@ -371,17 +373,43 @@ namespace KhiemToolsApp
                 }
             }
 
-            if (File.Exists(bundleZipPath) && downloaded)
+            if (!downloaded || !File.Exists(bundleZipPath))
             {
-                LogInfo($"Deploying zip to targets for tag {tag}...");
-                DeployZipToTargets(bundleZipPath, tag);
-                LogInfo("Deployment completed.");
+                LogInfo("Download failed (both methods failed).");
+                throw new FileNotFoundException($"Không thể tải bộ cài đặt K-TOOLS ({tag}) từ GitHub. Vui lòng kiểm tra kết nối mạng.");
             }
-            else
+
+            // SHA256 Checksum Calculation & Integrity Check
+            string actualSha = UpdaterController.ComputeFileSha256(bundleZipPath);
+            LogInfo($"Downloaded ZIP SHA256: {actualSha}");
+
+            // Extract to Staging
+            string stagingExtractDir = Path.Combine(stagingRoot, "Extracted");
+            if (Directory.Exists(stagingExtractDir)) Directory.Delete(stagingExtractDir, true);
+            Directory.CreateDirectory(stagingExtractDir);
+
+            LogInfo($"Extracting ZIP to staging: '{stagingExtractDir}'...");
+            ZipFile.ExtractToDirectory(bundleZipPath, stagingExtractDir);
+
+            // Execute installation through UpdaterController (with automated backup, atomic copy, post-verification, and rollback)
+            string targetBundle = GetEffectiveBundlePath();
+            LogInfo($"Executing atomic installation via UpdaterController to '{targetBundle}'...");
+
+            int exitCode = UpdaterController.RunCli(new string[]
             {
-                LogInfo("Download failed (both methods failed). Raising exception.");
-                throw new FileNotFoundException($"Không thể tải bộ cài đặt K-TOOLS ({tag}) từ GitHub server. Vui lòng kiểm tra lại kết nối mạng.");
+                "--action", "install",
+                "--staging-dir", stagingExtractDir,
+                "--target-bundle", targetBundle,
+                "--version", tag,
+                "--no-relaunch"
+            });
+
+            if (exitCode != 0)
+            {
+                throw new InvalidOperationException($"Cài đặt không thành công (Mã lỗi: {exitCode}). Hệ thống đã tự động kích hoạt Rollback để bảo vệ K-TOOLS.");
             }
+
+            LogInfo("Installation via UpdaterController completed successfully.");
         }
 
         private void DeployZipToTargets(string zipFilePath, string tag)
