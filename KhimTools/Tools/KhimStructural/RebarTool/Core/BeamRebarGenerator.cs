@@ -146,11 +146,23 @@ namespace KhimTools.RebarTool.Core
             // 7. Thép đai treo chống giật dầm phụ giao dầm chính
             created.AddRange(CreateHangerStirrups(input, profile, halfB, halfH, report));
 
-            var containment = RebarSafetyValidator.CheckRebarContainment(input.Beam, created);
-            if (containment.outCount > 0)
+            // P0 Geometry-First Validation: Kiểm tra thể tích Solid thực và các mặt cắt ngang/dọc
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
+                _doc, input.Beam, created, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
+            if (!containmentReport.OverallPassed)
             {
-                report?.AddWarning($"Có {containment.outCount} thanh thép dầm vượt ngoài phạm vi hình học host: {containment.warning}");
+                if (containmentReport.Protrusions.Any())
+                {
+                    var firstProt = containmentReport.Protrusions.First();
+                    report?.AddError(input.Beam, "Physical Bar Protrusion",
+                        new InvalidOperationException($"P0 CRITICAL: Cốt thép lòi ra ngoài bê tông {firstProt.OutsideDistanceMm:F1}mm tại {firstProt.FaceDesc}."));
+                }
+                if (containmentReport.CoverViolations.Any())
+                {
+                    report?.AddWarning($"Vi phạm lớp bảo vệ bê tông: {containmentReport.CoverViolations.Count} vị trí. Min cover = {containmentReport.MinActualCoverFoundMm:F1}mm");
+                }
             }
+
             RebarLifecycleManager.TagRebars(created, input.Beam, "Beam", "BeamReinforcement");
             report?.AddSuccess(created.Count);
             return created;

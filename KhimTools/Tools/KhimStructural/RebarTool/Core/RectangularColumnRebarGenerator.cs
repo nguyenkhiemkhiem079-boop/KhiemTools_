@@ -110,6 +110,23 @@ namespace KhimTools.RebarTool.Core
             created.AddRange(CreateMainBars(input, profile, mainPoints, report));
             created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup));
 
+            // P0 Geometry-First Validation
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
+                _doc, input.Column, created, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
+            if (!containmentReport.OverallPassed)
+            {
+                if (containmentReport.Protrusions.Any())
+                {
+                    var firstProt = containmentReport.Protrusions.First();
+                    report?.AddError(input.Column, "Physical Bar Protrusion",
+                        new InvalidOperationException($"P0 CRITICAL: Cốt thép cột lòi ra ngoài bê tông {firstProt.OutsideDistanceMm:F1}mm tại {firstProt.FaceDesc}."));
+                }
+                if (containmentReport.CoverViolations.Any())
+                {
+                    report?.AddWarning($"Vi phạm lớp bảo vệ cột: {containmentReport.CoverViolations.Count} vị trí. Min cover = {containmentReport.MinActualCoverFoundMm:F1}mm");
+                }
+            }
+
             RebarLifecycleManager.TagRebars(created, input.Column, "Column", "RectangularColumn");
             report?.AddSuccess(created.Count);
             return created;

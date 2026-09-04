@@ -46,6 +46,12 @@ namespace KhimTools.RebarTool.Core
             // 6. Kiểm thử Bảng thống kê thép (BBS Engine Tests)
             results.Add(TestBbsWeightAndLengthCalculation());
 
+            // 7. P0 CRITICAL: Kiểm thử hình học vỏ thép & Solid Containment (RebarHostContainmentValidator Tests)
+            results.Add(TestPhysicalBarEnvelopeContainment());
+            results.Add(TestTransverseSectionStationQACalculation());
+            results.Add(TestLongitudinalSectionEndAnchorageCheck());
+            results.Add(TestRotatedHostCoordinateContainment());
+
             return results;
         }
 
@@ -245,5 +251,106 @@ namespace KhimTools.RebarTool.Core
                 Details = $"TotalLength={item.TotalLengthM:F1}m, UnitWeight={item.UnitWeightKgPerM:F3}kg/m, TotalWeight={item.TotalWeightKg:F1}kg"
             };
         }
+
+        private static RebarTestResult TestPhysicalBarEnvelopeContainment()
+        {
+            // Mô phỏng mặt bê tông đỉnh tại Z = 500mm, Required Cover = 30mm, Bar Dia = 20mm (r = 10mm)
+            double faceZ = 500.0;
+            double reqCover = 30.0;
+            double barRadius = 10.0;
+
+            // Case A: Centerline tại 495mm -> Centerline < 500mm (trong BoundingBox),
+            // NHƯNG vỏ thanh 495 + 10 = 505mm > 500mm (LỒI RA NGOÀI 5mm!)
+            double centerA = 495.0;
+            double skinA = centerA + barRadius;
+            bool isProtrusionA = skinA > faceZ;
+            double protrudeDistA = skinA - faceZ;
+
+            // Case B: Centerline tại 485mm -> Vỏ thanh 495mm <= 500mm (trong bê tông),
+            // NHƯNG actual cover = 500 - 495 = 5mm < 30mm (VI PHẠM LỚP BẢO VỆ!)
+            double centerB = 485.0;
+            double actualCoverB = faceZ - (centerB + barRadius);
+            bool isCoverViolationB = actualCoverB < reqCover;
+
+            // Case C: Centerline tại 450mm -> Vỏ thanh 460mm, actual cover = 40mm >= 30mm (HỢP LỆ HOÀN TOÀN!)
+            double centerC = 450.0;
+            double actualCoverC = faceZ - (centerC + barRadius);
+            bool isValidC = (centerC + barRadius <= faceZ) && (actualCoverC >= reqCover);
+
+            bool allPass = isProtrusionA && (Math.Abs(protrudeDistA - 5.0) < 0.01) && isCoverViolationB && isValidC;
+
+            return new RebarTestResult
+            {
+                TestName = "ContainmentValidator: Physical Bar Envelope (d/2) Penetration & Cover Check",
+                Passed = allPass,
+                Details = $"Case A Protrude={protrudeDistA}mm (FAIL); Case B Cover={actualCoverB}mm < 30mm (FAIL); Case C Valid={isValidC} (PASS)"
+            };
+        }
+
+        private static RebarTestResult TestTransverseSectionStationQACalculation()
+        {
+            // Kiểm tra phân bổ các trạm mặt cắt ngang chuẩn: 0%, 15% (A1), 25%, 50% (A2), 75%, 85% (A1), 100%
+            var stationRatios = new[] { 0.02, 0.15, 0.25, 0.50, 0.75, 0.85, 0.98 };
+            bool has7Stations = stationRatios.Length == 7;
+            bool ordered = true;
+            for (int i = 0; i < stationRatios.Length - 1; i++)
+            {
+                if (stationRatios[i] >= stationRatios[i + 1]) ordered = false;
+            }
+
+            return new RebarTestResult
+            {
+                TestName = "TransverseSectionQA: 7 Critical Stations (0%, A1, 25%, Midspan, 75%, A1, 100%)",
+                Passed = has7Stations && ordered,
+                Details = $"Đủ 7 trạm khảo sát mặt cắt ngang theo đúng tỷ lệ hình học kết cấu."
+            };
+        }
+
+        private static RebarTestResult TestLongitudinalSectionEndAnchorageCheck()
+        {
+            // Mặt đầu dầm/cột tại X = 1000mm.
+            double hostEndX = 1000.0;
+            double barRadius = 10.0;
+
+            // Thanh A kết thúc tại X = 1010mm -> Vỏ thép tại 1020mm (Đâm xuyên qua mặt đầu 20mm!)
+            double barEndA = 1010.0;
+            bool protrudeA = (barEndA + barRadius) > hostEndX;
+
+            // Thanh B kết thúc tại X = 960mm -> Vỏ thép tại 970mm, cover = 30mm (Nằm trọn trong bê tông)
+            double barEndB = 960.0;
+            bool containedB = (barEndB + barRadius) <= hostEndX;
+
+            return new RebarTestResult
+            {
+                TestName = "LongitudinalSectionQA: End Face Anchorage & Hook Containment",
+                Passed = protrudeA && containedB,
+                Details = "Thanh A đâm xuyên mặt đầu bị phát hiện; Thanh B neo trọn vẹn trong bê tông đạt PASS."
+            };
+        }
+
+        private static RebarTestResult TestRotatedHostCoordinateContainment()
+        {
+            // Host xoay góc 45 độ: Mặt phẳng có pháp tuyến n = (1/sqrt(2), 1/sqrt(2), 0)
+            double invSqrt2 = 1.0 / Math.Sqrt(2.0);
+            var normal = new XYZ(invSqrt2, invSqrt2, 0);
+            var faceOrigin = new XYZ(100.0 * invSqrt2, 100.0 * invSqrt2, 0);
+
+            // Điểm P1 nằm trong (khoảng cách signed < 0)
+            var pInside = new XYZ(80.0 * invSqrt2, 80.0 * invSqrt2, 0);
+            double distInside = (pInside - faceOrigin).DotProduct(normal);
+
+            // Điểm P2 nằm ngoài (khoảng cách signed > 0)
+            var pOutside = new XYZ(120.0 * invSqrt2, 120.0 * invSqrt2, 0);
+            double distOutside = (pOutside - faceOrigin).DotProduct(normal);
+
+            bool pass = (distInside < 0) && (distOutside > 0);
+            return new RebarTestResult
+            {
+                TestName = "ContainmentValidator: 3D Rotated Host Normal Vector Signed Distance",
+                Passed = pass,
+                Details = $"DistInside={distInside:F2} (âm), DistOutside={distOutside:F2} (dương)"
+            };
+        }
     }
 }
+

@@ -107,6 +107,23 @@ namespace KhimTools.RebarTool.Core
                 createdRebars.AddRange(uBars);
             }
 
+            // P0 Geometry-First Validation
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
+                _doc, profile.FoundationElement, createdRebars, settings.CustomCoverMm > 0 ? settings.CustomCoverMm : 50.0);
+            if (!containmentReport.OverallPassed)
+            {
+                if (containmentReport.Protrusions.Any())
+                {
+                    var firstProt = containmentReport.Protrusions.First();
+                    report?.AddError(profile.FoundationElement, "Physical Bar Protrusion",
+                        new InvalidOperationException($"P0 CRITICAL: Cốt thép móng lòi ra ngoài bê tông {firstProt.OutsideDistanceMm:F1}mm tại {firstProt.FaceDesc}."));
+                }
+                if (containmentReport.CoverViolations.Any())
+                {
+                    report?.AddWarning($"Vi phạm lớp bảo vệ móng: {containmentReport.CoverViolations.Count} vị trí. Min cover = {containmentReport.MinActualCoverFoundMm:F1}mm");
+                }
+            }
+
             RebarLifecycleManager.TagRebars(createdRebars, profile.FoundationElement, "Foundation", "FootingReinforcement");
             return createdRebars;
         }
