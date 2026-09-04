@@ -26,7 +26,8 @@ namespace KhimTools.Core
 
     /// <summary>
     /// Giám sát và ghi nhận trạng thái khởi tạo giao diện/công cụ (Fault Isolation & Diagnostics).
-    /// Ghi nhận lỗi từng panel, từng nút bấm độc lập, không làm sập chuỗi khởi động.
+    /// Ghi nhận chi tiết: Module, Panel, Tool, Command, Exception type, Message, Stack trace.
+    /// Không bao giờ nuốt lỗi rỗng và không làm sập chuỗi khởi động.
     /// </summary>
     public static class RegistrationDiagnostics
     {
@@ -75,16 +76,43 @@ namespace KhimTools.Core
         {
             var record = GetOrCreate(moduleName);
             record.Warnings.Add(message);
-            Trace.WriteLine($"[K-TOOLS WARN][{moduleName}] {message}");
+            Trace.WriteLine($"[K-TOOLS WARN][Module:{moduleName}] {message}");
         }
 
         public static void RecordError(string moduleName, string message, Exception ex = null)
         {
+            RecordError(moduleName, moduleName, string.Empty, string.Empty, message, ex);
+        }
+
+        public static void RecordError(
+            string moduleName,
+            string panelName,
+            string toolName,
+            string commandClass,
+            string message,
+            Exception ex = null)
+        {
             var record = GetOrCreate(moduleName);
             record.Status = record.RegisteredCount > 0 ? RegistrationStatus.Partial : RegistrationStatus.Failed;
-            string detail = ex != null ? $"{message} | Exception: {ex.GetType().Name}: {ex.Message}" : message;
+
+            var sb = new StringBuilder();
+            sb.Append($"[Module: {moduleName}] [Panel: {panelName}]");
+            if (!string.IsNullOrEmpty(toolName)) sb.Append($" [Tool: {toolName}]");
+            if (!string.IsNullOrEmpty(commandClass)) sb.Append($" [Command: {commandClass}]");
+            sb.Append($" - {message}");
+
+            if (ex != null)
+            {
+                sb.Append($" | ExceptionType: {ex.GetType().FullName} | Message: {ex.Message}");
+                if (!string.IsNullOrEmpty(ex.StackTrace))
+                {
+                    sb.Append($" | StackTrace: {ex.StackTrace.Replace(Environment.NewLine, " -> ")}");
+                }
+            }
+
+            string detail = sb.ToString();
             record.Errors.Add(detail);
-            Trace.WriteLine($"[K-TOOLS ERROR][{moduleName}] {detail}");
+            Trace.WriteLine($"[K-TOOLS ERROR] {detail}");
         }
 
         public static IReadOnlyDictionary<string, ModuleDiagnosticRecord> GetAllRecords()
