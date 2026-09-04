@@ -30,19 +30,19 @@ namespace KhimTools.Core
             string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
             // 1. Panel: K-GEN (Gom gọn đẹp mắt)
-            BuildGenPanel(application, assemblyPath);
+            try { BuildGenPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-GEN error: " + ex); }
 
             // 2. Panel: Override (Palette màu 3x3 + Halftone + Reset + Setting Color)
-            BuildOverridePanel(application, assemblyPath);
+            try { BuildOverridePanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] Override error: " + ex); }
 
             // 3. Panel: K-STRUCTURAL
-            BuildStructuralPanel(application, assemblyPath);
+            try { BuildStructuralPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-STRUCTURAL error: " + ex); }
 
             // 4. Panel: K-ARCHITECTURAL
-            BuildArchPanel(application, assemblyPath);
+            try { BuildArchPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-ARCHITECTURAL error: " + ex); }
 
             // 5. Panel: K-MEP
-            BuildMepPanel(application, assemblyPath);
+            try { BuildMepPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-MEP error: " + ex); }
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -285,21 +285,21 @@ namespace KhimTools.Core
             RibbonPanel panel = GetOrCreatePanel(application, TabName, OverridePanelName);
 
             // ── STACK 1: ĐỎ, CAM, VÀNG ──
-            var redData = CreateColorSwatchData("CmdOverrideRed", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png", "Gán màu Đỏ (Red) cho đối tượng đang chọn");
-            var orangeData = CreateColorSwatchData("CmdOverrideOrange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png", "Gán màu Cam (Orange) cho đối tượng đang chọn");
-            var yellowData = CreateColorSwatchData("CmdOverrideYellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png", "Gán màu Vàng (Yellow) cho đối tượng đang chọn");
+            var redData = CreateColorSwatchData("CmdOverrideRed", "Red", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png", "Gán màu Đỏ (Red) cho đối tượng đang chọn");
+            var orangeData = CreateColorSwatchData("CmdOverrideOrange", "Orange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png", "Gán màu Cam (Orange) cho đối tượng đang chọn");
+            var yellowData = CreateColorSwatchData("CmdOverrideYellow", "Yellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png", "Gán màu Vàng (Yellow) cho đối tượng đang chọn");
             panel.AddStackedItems(redData, orangeData, yellowData);
 
             // ── STACK 2: XANH LÁ, CYAN, XANH DƯƠNG ──
-            var greenData = CreateColorSwatchData("CmdOverrideGreen", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png", "Gán màu Xanh lá (Green) cho đối tượng đang chọn");
-            var cyanData = CreateColorSwatchData("CmdOverrideCyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png", "Gán màu Xanh lơ (Cyan) cho đối tượng đang chọn");
-            var blueData = CreateColorSwatchData("CmdOverrideBlue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png", "Gán màu Xanh dương (Blue) cho đối tượng đang chọn");
+            var greenData = CreateColorSwatchData("CmdOverrideGreen", "Green", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png", "Gán màu Xanh lá (Green) cho đối tượng đang chọn");
+            var cyanData = CreateColorSwatchData("CmdOverrideCyan", "Cyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png", "Gán màu Xanh lơ (Cyan) cho đối tượng đang chọn");
+            var blueData = CreateColorSwatchData("CmdOverrideBlue", "Blue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png", "Gán màu Xanh dương (Blue) cho đối tượng đang chọn");
             panel.AddStackedItems(greenData, cyanData, blueData);
 
             // ── STACK 3: MAGENTA, XÁM, TÙY CHỌN (GRADIENT) ──
-            var magentaData = CreateColorSwatchData("CmdOverrideMagenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png", "Gán màu Hồng cánh sen (Magenta) cho đối tượng đang chọn");
-            var grayData = CreateColorSwatchData("CmdOverrideGray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png", "Gán màu Xám (Gray) cho đối tượng đang chọn");
-            var customData = CreateColorSwatchData("CmdOverrideCustom", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png", "Chọn màu tùy chỉnh từ bảng màu (Custom Color Picker)");
+            var magentaData = CreateColorSwatchData("CmdOverrideMagenta", "Magenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png", "Gán màu Hồng cánh sen (Magenta) cho đối tượng đang chọn");
+            var grayData = CreateColorSwatchData("CmdOverrideGray", "Gray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png", "Gán màu Xám (Gray) cho đối tượng đang chọn");
+            var customData = CreateColorSwatchData("CmdOverrideCustom", "Custom", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png", "Chọn màu tùy chỉnh từ bảng màu (Custom Color Picker)");
             panel.AddStackedItems(magentaData, grayData, customData);
 
             // ── LARGE BUTTON 1: ON/OFF HALFTONE ──
@@ -340,11 +340,24 @@ namespace KhimTools.Core
                 Image = LoadImage("override_setting_16.png")
             };
             panel.AddItem(settingData);
+
+            // Ẩn text cho các ô màu swatch để giữ giao diện bảng màu 3x3 icon vuông gọn đẹp
+            TryHideSwatchButtonTexts(
+                "CmdOverrideRed", "CmdOverrideOrange", "CmdOverrideYellow",
+                "CmdOverrideGreen", "CmdOverrideCyan", "CmdOverrideBlue",
+                "CmdOverrideMagenta", "CmdOverrideGray", "CmdOverrideCustom"
+            );
         }
 
-        private static PushButtonData CreateColorSwatchData(string id, string className, string assemblyPath, string iconName, string tooltip)
+        private static PushButtonData CreateColorSwatchData(string id, string text, string className, string assemblyPath, string iconName, string tooltip)
         {
-            return new PushButtonData(id, " ", assemblyPath, className)
+            // Bảo vệ tuyệt đối không bao giờ để text rỗng hoặc whitespace gây ArgumentException trong Revit API
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                text = "\u200B"; // Zero-width space không bị Revit Trim() thành chuỗi rỗng
+            }
+
+            return new PushButtonData(id, text, assemblyPath, className)
             {
                 ToolTip = tooltip,
                 Image = LoadImage(iconName),
@@ -565,24 +578,102 @@ namespace KhimTools.Core
         private static void AddPulldownItem(PulldownButton pulldown, string name, string text,
             string className, string assemblyPath, string smallIconName)
         {
-            var data = new PushButtonData(name, text, assemblyPath, className)
+            if (string.IsNullOrWhiteSpace(text)) text = name;
+            try
             {
-                ToolTip = "Bật/Tắt hiển thị hoặc căn chỉnh đối tượng trong Active View.",
-                Image = LoadImage(smallIconName)
-            };
-            pulldown.AddPushButton(data);
+                var data = new PushButtonData(name, text, assemblyPath, className)
+                {
+                    ToolTip = "Bật/Tắt hiển thị hoặc căn chỉnh đối tượng trong Active View.",
+                    Image = LoadImage(smallIconName)
+                };
+                pulldown.AddPushButton(data);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS] Lỗi thêm pulldown item '" + name + "': " + ex.Message);
+            }
         }
 
         private static void AddPushButton(SplitButton splitButton, string name, string text,
             string className, string assemblyPath, string toolTip, string largeIconName, string smallIconName)
         {
-            var data = new PushButtonData(name, text, assemblyPath, className)
+            if (string.IsNullOrWhiteSpace(text)) text = name;
+            try
             {
-                ToolTip = toolTip,
-                LargeImage = LoadImage(largeIconName),
-                Image = LoadImage(smallIconName)
-            };
-            splitButton.AddPushButton(data);
+                var data = new PushButtonData(name, text, assemblyPath, className)
+                {
+                    ToolTip = toolTip,
+                    LargeImage = LoadImage(largeIconName),
+                    Image = LoadImage(smallIconName)
+                };
+                splitButton.AddPushButton(data);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS] Lỗi thêm split button item '" + name + "': " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Ẩn text cho các nút RibbonButton (như color swatches) thông qua AdWindows ComponentManager bằng reflection an toàn.
+        /// </summary>
+        private static void TryHideSwatchButtonTexts(params string[] buttonIds)
+        {
+            if (buttonIds == null || buttonIds.Length == 0) return;
+
+            try
+            {
+                var compMgrType = Type.GetType("Autodesk.Windows.ComponentManager, AdWindows");
+                if (compMgrType == null) return;
+
+                var ribbonProp = compMgrType.GetProperty("Ribbon", BindingFlags.Public | BindingFlags.Static);
+                if (ribbonProp == null) return;
+                var ribbon = ribbonProp.GetValue(null, null);
+                if (ribbon == null) return;
+
+                var tabsProp = ribbon.GetType().GetProperty("Tabs");
+                if (tabsProp == null) return;
+                var tabs = tabsProp.GetValue(ribbon, null) as System.Collections.IEnumerable;
+                if (tabs == null) return;
+
+                foreach (var tab in tabs)
+                {
+                    if (tab == null) continue;
+                    var idProp = tab.GetType().GetProperty("Id");
+                    string tabId = idProp != null ? idProp.GetValue(tab, null) as string : null;
+                    if (!string.Equals(tabId, TabName, StringComparison.OrdinalIgnoreCase)) continue;
+
+                    var panelsProp = tab.GetType().GetProperty("Panels");
+                    if (panelsProp == null) continue;
+                    var panels = panelsProp.GetValue(tab, null) as System.Collections.IEnumerable;
+                    if (panels == null) continue;
+
+                    foreach (var p in panels)
+                    {
+                        if (p == null) continue;
+                        var findItemMethod = p.GetType().GetMethod("FindItem", new[] { typeof(string), typeof(bool) });
+                        if (findItemMethod == null) continue;
+
+                        foreach (var btnId in buttonIds)
+                        {
+                            try
+                            {
+                                var item = findItemMethod.Invoke(p, new object[] { btnId, true });
+                                if (item != null)
+                                {
+                                    var showTextProp = item.GetType().GetProperty("ShowText");
+                                    if (showTextProp != null)
+                                    {
+                                        showTextProp.SetValue(item, false, null);
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private static BitmapImage LoadImage(string resourceOrFileName)

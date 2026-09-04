@@ -38,12 +38,10 @@
          (Revit tìm class theo full name trong .addin và qua reflection)
     ================================================================ -->
 
-    <!-- IExternalApplication & Core Reflection Proxies -->
-    <rule pattern="match('^KhimTools\.Core\.App$')" inherit="false">
+    <!-- IExternalApplication, Core Reflection Proxies & RibbonBuilder -->
+    <rule pattern="match('^KhimTools\.Core\.')" inherit="false">
       <protection id="rename" action="remove" />
-    </rule>
-    <rule pattern="match('^KhimTools\.Core\.KhimCmdProxy')" inherit="false">
-      <protection id="rename" action="remove" />
+      <protection id="constants" action="remove" />
     </rule>
 
     <!-- Tất cả External Commands (tất cả class trong namespace .Commands.*) -->
