@@ -72,8 +72,10 @@ namespace KhimTools.Tools.Updater.Services
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[KhimTools.UpdateService] Lỗi khi tải gói cập nhật từ '{downloadUrl}': {ex.Message}");
+                Trace.WriteLine($"[KhimTools.UpdateService] Lỗi ngoại lệ trong DownloadAndStageUpdateAsync: {ex.GetType().Name} - {ex.Message}");
                 return false;
             }
         }

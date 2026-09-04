@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -37,7 +37,10 @@ namespace KhimTools.OverrideTool.Services
                         return loaded;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[K-TOOLS OverrideColorSettings] Lỗi đọc cấu hình màu từ '{SettingsPath}': {ex.Message}");
+            }
             return new OverrideColorSettings();
         }
 
@@ -50,7 +53,10 @@ namespace KhimTools.OverrideTool.Services
                     Directory.CreateDirectory(dir);
                 File.WriteAllText(SettingsPath, JsonConvert.SerializeObject(this, Formatting.Indented));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[K-TOOLS OverrideColorSettings] Lỗi lưu cấu hình màu vào '{SettingsPath}': {ex.Message}");
+            }
         }
 
         public static List<OverrideColorPreset> DefaultPresets()

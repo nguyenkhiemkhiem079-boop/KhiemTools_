@@ -29,7 +29,10 @@ namespace KhimTools.Core
                     return id => (int)propIntValue.GetValue(id, null);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[K-TOOLS ElementIdCompat] Lỗi reflection khởi tạo Value/IntegerValue: {ex.Message}");
+            }
 
             return id => -1;
         }

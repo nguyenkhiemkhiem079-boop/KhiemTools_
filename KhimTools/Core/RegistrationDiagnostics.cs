@@ -47,8 +47,9 @@ namespace KhimTools.Core
                     if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
                     return Path.Combine(dir, "startup_diagnostics.log");
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Trace.WriteLine($"[K-TOOLS RegistrationDiagnostics] Lỗi truy cập thư mục Addins ({ex.Message}), chuyển sang thư mục Temp.");
                     return Path.Combine(Path.GetTempPath(), "khimtools_startup_diagnostics.log");
                 }
             }

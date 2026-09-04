@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Newtonsoft.Json;
 
@@ -80,7 +80,10 @@ namespace KhimTools.Core
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[K-TOOLS LanguageManager] Không thể nạp cấu hình ngôn ngữ từ '{ConfigPath}': {ex.Message}");
+            }
         }
 
         private static void SaveConfig()
@@ -96,7 +99,10 @@ namespace KhimTools.Core
                 string json = JsonConvert.SerializeObject(new LanguageConfigData { Language = _currentLanguage }, Formatting.Indented);
                 File.WriteAllText(ConfigPath, json);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Trace.WriteLine($"[K-TOOLS LanguageManager] Không thể lưu cấu hình ngôn ngữ vào '{ConfigPath}': {ex.Message}");
+            }
         }
 
         private class LanguageConfigData

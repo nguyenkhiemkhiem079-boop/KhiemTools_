@@ -197,21 +197,48 @@ Revit Application Startup (App.OnStartup)
 
 ---
 
-## 11. Git
+## 11. Hardening Pass & DLL Deployment Verification
 
-- **Branch**: `fix/ribbon-panel-persistence`
-- **Commit**: `1308172` (fix: complete fault-isolation architecture, detailed diagnostics logging, and verified QA report)
-- **Working tree**: Clean (chỉ bao gồm các file mã nguồn được chỉnh sửa có chủ đích và báo cáo QA).
-- **Diff summary**:
-  - `KhimTools/Core/RegistrationDiagnostics.cs`: Thêm mới bộ ghi log chẩn đoán và quản lý lỗi phân vùng.
-  - `KhimTools/Core/RibbonBuilder.cs`: Cải tiến cơ chế đăng ký an toàn và thay thế khoảng trắng bằng `\u200B`.
-  - `KhimTools/Core/App.cs`: Cách ly các thành phần trong `OnStartup`.
-  - `KhimTools/KhimTools.crproj`: Cấu hình ngoại lệ Obfuscation cho RibbonBuilder và RegistrationDiagnostics.
-  - `QA_KHEMTOOLS_PANEL_STABILITY.md`: Báo cáo thẩm định QA.
+### A. Loại bỏ toàn bộ Silent Catch
+Đã rà soát và loại bỏ 100% các khối `catch { }` hoặc `catch (Exception) { }` không ghi log trên toàn bộ luồng Ribbon, Startup, Resource và Deployment:
+1. `KhimTools/Core/LanguageManager.cs`: Ghi log chi tiết khi không thể đọc hoặc lưu cấu hình ngôn ngữ (`LoadConfig` & `SaveConfig`).
+2. `KhimTools/Core/ElementIdCompat.cs`: Ghi log cảnh báo khi reflection khởi tạo `Value` hoặc `IntegerValue` gặp sự cố.
+3. `KhimTools/Core/RegistrationDiagnostics.cs`: Ghi log khi truy cập thư mục Addins `%AppData%` bị từ chối trước khi fallback sang `%Temp%`.
+4. `KhimTools/Tools/KhimGen/Updater/Services/UpdateService.cs`: Ghi log lỗi kết nối/tải gói cập nhật trong `DownloadAndStageUpdateAsync`.
+5. `KhimTools/Tools/KhimGen/OverrideTool/Services/OverrideColorSettings.cs`: Ghi log lỗi đọc và lưu cấu hình bảng màu presets.
+6. `KhimTools/Core/RibbonBuilder.cs`: 100% khối catch đều ghi nhận qua `RegistrationDiagnostics.RecordError` hoặc `RegistrationDiagnostics.RecordWarning`.
+
+### B. Kiểm tra cơ chế Thay thế DLL Deployment
+- **Cơ chế Triển khai**:
+  - Target `DeployKhimToolsBundle` tự động copy các file DLL sau khi build vào:
+    `%ProgramData%\Autodesk\ApplicationPlugins\KhimTools.bundle\Contents\Legacy` (net48)
+    và `...\Contents\Modern` (net8.0-windows).
+- **Phát hiện Rủi ro Stale DLL (DLL cũ không được thay thế)**:
+  - Nếu Revit đang mở trong lúc build, file `KhimTools.dll` bị Windows CLR memory-map khóa (`File in use`).
+  - Ngoài ra, nếu người dùng từng cài add-in thủ công tại `%AppData%\Autodesk\Revit\Addins\<Year>\`, Revit sẽ ưu tiên nạp DLL cũ từ `%AppData%` thay vì bundle mới trong `%ProgramData%`.
+- **Biện pháp Khắc phục & Chẩn đoán Trực tiếp**:
+  - Trong `App.OnStartup()`, hệ thống tự động ghi nhận đường dẫn tuyệt đối của DLL đang chạy, phiên bản assembly, và thời gian chỉnh sửa file (`File.GetLastWriteTime`) vào `startup_diagnostics.log`.
+  - Nếu Revit nạp nhầm file DLL cũ ở thư mục khác, người dùng và developer có thể mở ngay file log để nhận diện vị trí file DLL thực tế đang được nạp.
 
 ---
 
-## 12. Remaining Risks
+## 12. Git
+
+- **Branch**: `fix/ribbon-panel-persistence`
+- **Commit**: `4d29c3a502dbb10282ca6580ee5acd05c1b93a12` (fix: Hardening pass - eliminate silent catches and add runtime assembly forensics)
+- **Working tree**: Clean
+- **Files Modified in Hardening Pass**:
+  - `KhimTools/Core/App.cs`
+  - `KhimTools/Core/ElementIdCompat.cs`
+  - `KhimTools/Core/LanguageManager.cs`
+  - `KhimTools/Core/RegistrationDiagnostics.cs`
+  - `KhimTools/Tools/KhimGen/OverrideTool/Services/OverrideColorSettings.cs`
+  - `KhimTools/Tools/KhimGen/Updater/Services/UpdateService.cs`
+  - `QA_KHEMTOOLS_PANEL_STABILITY.md`
+
+---
+
+## 13. Remaining Risks
 
 1. **Hiển thị thực tế trên các phiên bản Revit khác nhau**:
    - Revit 2020 - 2024 chạy trên .NET Framework 4.8, trong khi Revit 2025 - 2028 chạy trên .NET 8.0 Windows. Cơ chế `\u200B` đã được kiểm chứng trên `RevitAPIUI.dll` v23.0; cần người dùng kiểm tra trực quan một lần trên Revit 2025/2026 thực tế để xác nhận độ tương thích hoàn hảo của icon swatch.
