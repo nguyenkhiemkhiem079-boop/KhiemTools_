@@ -133,80 +133,12 @@ namespace KhimTools.RebarTool.Core
                 if (primaryEx == null) primaryEx = ex;
             }
 
-            // Nếu không cho phép fallback hạ cấp, dừng lại và báo lỗi chính xác
-            if (!allowDegradedFallback)
-            {
-                string msg = $"Không thể tạo thanh thép theo đúng thiết kế: {primaryEx?.Message ?? "Revit Rebar solver returned null"}";
-                report?.AddWarning(msg);
-                return RebarCreationResult.FailedResult(msg);
-            }
-
-            // --- CƠ CHẾ SAFE FALLBACK CÓ BÁO CÁO MINH BẠCH (DEGRADED) ---
-
-            // Fallback 1: Nếu có hook bị lỗi tham số bán kính uốn/chiều dài, thử bỏ hook NHƯNG ghi nhận Degraded
-            if (hooksRequested)
-            {
-                try
-                {
-                    Rebar bar = Rebar.CreateFromCurves(
-                        doc, style, barType, null, null, host,
-                        norm, curves, hookOrient0, hookOrient1, true, false);
-
-                    if (bar == null)
-                    {
-                        bar = Rebar.CreateFromCurves(
-                            doc, style, barType, null, null, host,
-                            norm, curves, hookOrient0, hookOrient1, true, true);
-                    }
-
-                    if (bar != null)
-                    {
-                        result.Rebar = bar;
-                        result.Status = CreationStatus.Degraded;
-                        result.AppliedStyle = style;
-                        result.HooksApplied = false;
-                        result.DegradationReason = $"Đã tự động loại bỏ móc neo (Hooks) vì Revit không giải được hình học: {primaryEx?.Message}";
-                        report?.AddWarning($"[DEGRADED] {result.DegradationReason}");
-                        return result;
-                    }
-                }
-                catch { }
-            }
-
-            // Fallback 2: Nếu StirrupTie bị lỗi hình học kín, thử chuyển Standard NHƯNG ghi nhận Degraded
-            if (style != RebarStyle.Standard)
-            {
-                try
-                {
-                    Rebar bar = Rebar.CreateFromCurves(
-                        doc, RebarStyle.Standard, barType, null, null, host,
-                        norm, curves, hookOrient0, hookOrient1, true, false);
-
-                    if (bar == null)
-                    {
-                        bar = Rebar.CreateFromCurves(
-                            doc, RebarStyle.Standard, barType, null, null, host,
-                            norm, curves, hookOrient0, hookOrient1, true, true);
-                    }
-
-                    if (bar != null)
-                    {
-                        result.Rebar = bar;
-                        result.Status = CreationStatus.Degraded;
-                        result.AppliedStyle = RebarStyle.Standard;
-                        result.HooksApplied = false;
-                        result.DegradationReason = $"Đã chuyển kiểu thép từ {style} sang Standard: {primaryEx?.Message}";
-                        report?.AddWarning($"[DEGRADED] {result.DegradationReason}");
-                        return result;
-                    }
-                }
-                catch { }
-            }
-
-            // Nếu toàn bộ fallback đều thất bại
+            // TUÂN THỦ NGUYÊN TẮC ZERO SILENT DEGRADATION:
+            // Tuyệt đối KHÔNG tự ý tước bỏ Hook (móc neo) hoặc hạ cấp StirrupTie -> Standard để làm cho Revit chạy qua.
+            // Một thanh thép bị thiếu hook hoặc sai loại đai sẽ dẫn đến nguy hiểm kết cấu nghiêm trọng.
             string finalError = primaryEx != null
-                ? $"Thất bại tạo Rebar từ Curves: [{primaryEx.GetType().Name}] {primaryEx.Message}"
-                : "Thất bại tạo Rebar từ Curves: Không tìm thấy hình dạng phù hợp.";
+                ? $"Thất bại tạo Rebar từ Curves: [{primaryEx.GetType().Name}] {primaryEx.Message} (NEED DESIGN INPUT / GEOMETRY UNSOLVABLE)."
+                : "Thất bại tạo Rebar từ Curves: Không tìm thấy hình dạng phù hợp hoặc tham số uốn không hợp lệ (NOT SUPPORTED).";
 
             report?.AddError(host, "Tạo Rebar hình học", primaryEx ?? new InvalidOperationException(finalError));
             return RebarCreationResult.FailedResult(finalError);

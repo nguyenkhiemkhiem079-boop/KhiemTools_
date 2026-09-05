@@ -85,6 +85,20 @@ namespace KhimTools.RebarTool.Core
             IEnumerable<Rebar> rebars,
             double? customCoverMm = null)
         {
+            return ValidateHostContainmentWithIntent(
+                doc, host, rebars, new DetailingIntentContext(host, DetailingIntentType.StandardInternal), customCoverMm);
+        }
+
+        /// <summary>
+        /// Đánh giá toàn diện 3D Solid Containment với hỗ trợ DetailingIntentContext (phân biệt vươn sang ConnectedHost vs đâm thủng tự do)
+        /// </summary>
+        public static ContainmentValidationReport ValidateHostContainmentWithIntent(
+            Document doc,
+            Element host,
+            IEnumerable<Rebar> rebars,
+            DetailingIntentContext intentContext,
+            double? customCoverMm = null)
+        {
             var report = new ContainmentValidationReport();
             if (host == null || !host.IsValidObject)
             {
@@ -112,14 +126,14 @@ namespace KhimTools.RebarTool.Core
             // 1. Kiểm tra 3D Physical Bar Containment (Đường tim + bán kính d/2)
             foreach (var rebar in rebarList)
             {
-                ValidateSingleRebar(rebar, host, solids, facePlanes, report);
+                ValidateSingleRebar(rebar, host, solids, facePlanes, intentContext, report);
             }
 
             // 2. Khảo sát mặt cắt ngang (Transverse Sections QA: 0%, 25%, 50%, 75%, 100% + critical zones)
             ValidateTransverseSections(host, rebarList, facePlanes, report);
 
             // 3. Khảo sát mặt cắt dọc (Longitudinal Sections QA)
-            ValidateLongitudinalSection(host, rebarList, facePlanes, report);
+            ValidateLongitudinalSection(host, rebarList, facePlanes, intentContext, report);
 
             // Kết luận tổng thể
             report.OverallPassed = (report.Protrusions.Count == 0) &&
@@ -146,6 +160,7 @@ namespace KhimTools.RebarTool.Core
             Element host,
             List<Solid> solids,
             List<HostFacePlane> facePlanes,
+            DetailingIntentContext intentContext,
             ContainmentValidationReport report)
         {
             double barDiaFeet = GetBarDiameter(rebar);
@@ -200,22 +215,35 @@ namespace KhimTools.RebarTool.Core
                             // Nếu signedDistMm > -barRadiusMm: vỏ thanh thép đã nhô ra ngoài bề mặt bê tông!
                             if (signedDistMm > -barRadiusMm + 0.1) // 0.1mm tolerance sai số số thực
                             {
-                                double protrudeMm = signedDistMm + barRadiusMm;
-                                report.MaxProtrusionDistanceFoundMm = Math.Max(report.MaxProtrusionDistanceFoundMm, protrudeMm);
-
-                                report.Protrusions.Add(new ContainmentViolation
+                                // Kiểm tra xem có phải chủ đích vươn sang ConnectedHost hợp lệ không
+                                bool isAuthorizedExtension = false;
+                                if (intentContext != null && intentContext.IntentType != DetailingIntentType.StandardInternal)
                                 {
-                                    RebarId = rebar.Id,
-                                    HostId = host.Id,
-                                    RebarRole = role,
-                                    ViolationPoint = pt,
-                                    OutsideDistanceMm = Math.Round(protrudeMm, 2),
-                                    RequiredCoverMm = Math.Round(reqCoverMm, 1),
-                                    ActualCoverMm = Math.Round(-signedDistMm - barRadiusMm, 1),
-                                    ViolationType = "ProtrusionOutsideHost",
-                                    CurveSegmentDesc = $"Seg {segIndex}, BarPos {barIdx + 1}/{barCount}, Dia {barDiaMm:F0}mm",
-                                    FaceDesc = $"{fp.FaceType} Face"
-                                });
+                                    if (intentContext.IsPointContained(pt, barRadiusMm, out bool insideConnected) && insideConnected)
+                                    {
+                                        isAuthorizedExtension = true;
+                                    }
+                                }
+
+                                if (!isAuthorizedExtension)
+                                {
+                                    double protrudeMm = signedDistMm + barRadiusMm;
+                                    report.MaxProtrusionDistanceFoundMm = Math.Max(report.MaxProtrusionDistanceFoundMm, protrudeMm);
+
+                                    report.Protrusions.Add(new ContainmentViolation
+                                    {
+                                        RebarId = rebar.Id,
+                                        HostId = host.Id,
+                                        RebarRole = role,
+                                        ViolationPoint = pt,
+                                        OutsideDistanceMm = Math.Round(protrudeMm, 2),
+                                        RequiredCoverMm = Math.Round(reqCoverMm, 1),
+                                        ActualCoverMm = Math.Round(-signedDistMm - barRadiusMm, 1),
+                                        ViolationType = "ProtrusionOutsideHost",
+                                        CurveSegmentDesc = $"Seg {segIndex}, BarPos {barIdx + 1}/{barCount}, Dia {barDiaMm:F0}mm",
+                                        FaceDesc = $"{fp.FaceType} Face"
+                                    });
+                                }
                             }
                             else
                             {
@@ -364,6 +392,7 @@ namespace KhimTools.RebarTool.Core
             Element host,
             List<Rebar> rebars,
             List<HostFacePlane> facePlanes,
+            DetailingIntentContext intentContext,
             ContainmentValidationReport report)
         {
             var endPlanes = facePlanes.Where(f => f.FaceType == "End").ToList();
@@ -394,9 +423,25 @@ namespace KhimTools.RebarTool.Core
                             double signedDistMm = UnitUtils.ConvertFromInternalUnits((pt - ep.Origin).DotProduct(ep.Normal), UnitTypeId.Millimeters);
                             if (signedDistMm > -barRadiusMm + 0.1)
                             {
-                                longRes.Passed = false;
-                                longRes.ViolatedBarsCount++;
-                                longRes.FailureReasons.Add($"Đầu thanh thép đâm xuyên ra ngoài mặt biên: lồi {signedDistMm + barRadiusMm:F1}mm");
+                                bool authorized = false;
+                                if (intentContext != null && intentContext.IntentType != DetailingIntentType.StandardInternal)
+                                {
+                                    if (intentContext.IsPointContained(pt, barRadiusMm, out bool insideConn) && insideConn)
+                                    {
+                                        authorized = true;
+                                    }
+                                }
+
+                                if (!authorized)
+                                {
+                                    longRes.Passed = false;
+                                    longRes.ViolatedBarsCount++;
+                                    longRes.FailureReasons.Add($"Đầu thanh thép đâm xuyên ra ngoài mặt biên: lồi {signedDistMm + barRadiusMm:F1}mm");
+                                }
+                                else
+                                {
+                                    longRes.ContainedBarsCount++;
+                                }
                             }
                             else
                             {
@@ -410,7 +455,7 @@ namespace KhimTools.RebarTool.Core
             report.LongitudinalSections.Add(longRes);
         }
 
-        private static List<Solid> ExtractHostSolids(Element host)
+        public static List<Solid> ExtractHostSolids(Element host)
         {
             var list = new List<Solid>();
             if (host == null) return list;

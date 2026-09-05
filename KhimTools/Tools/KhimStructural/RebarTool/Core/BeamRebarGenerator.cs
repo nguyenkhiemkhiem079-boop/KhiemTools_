@@ -146,9 +146,21 @@ namespace KhimTools.RebarTool.Core
             // 7. Thép đai treo chống giật dầm phụ giao dầm chính
             created.AddRange(CreateHangerStirrups(input, profile, halfB, halfH, report));
 
-            // P0 Geometry-First Validation: Kiểm tra thể tích Solid thực và các mặt cắt ngang/dọc
-            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
-                _doc, input.Beam, created, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
+            // P0 Geometry-First Validation: Kiểm tra thể tích Solid thực và các mặt cắt ngang/dọc với DetailingIntent
+            FamilyInstance colStart, colEnd;
+            FamilyInstance suppBeamStart, suppBeamEnd;
+            DetermineEndCondition(input.Beam, profile.StartPoint, out colStart, out suppBeamStart);
+            DetermineEndCondition(input.Beam, profile.EndPoint, out colEnd, out suppBeamEnd);
+
+            var intentContext = new DetailingIntentContext(input.Beam, DetailingIntentType.BeamSupport);
+            if (colStart != null) intentContext.ConnectedHost = colStart;
+            else if (suppBeamStart != null) intentContext.ConnectedHost = suppBeamStart;
+
+            if (colEnd != null) intentContext.AdditionalConnectedHosts.Add(colEnd);
+            else if (suppBeamEnd != null) intentContext.AdditionalConnectedHosts.Add(suppBeamEnd);
+
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainmentWithIntent(
+                _doc, input.Beam, created, intentContext, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
             if (!containmentReport.OverallPassed)
             {
                 if (containmentReport.Protrusions.Any())
@@ -202,12 +214,8 @@ namespace KhimTools.RebarTool.Core
                 }
                 else
                 {
-                    // Fallback to straight bar if bend fails
-                    report?.AddWarning($"Thanh thép chủ trên gập uốn neo dầm không tạo được móc uốn chính xác theo Revit solver, tạo thanh thẳng neo.");
-                    XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, -startAnch.Extension);
-                    XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainTopBarType, start, end, report);
-                    if (fallbackBar != null) bars.Add(fallbackBar);
+                    string errMsg = "Thanh thép chủ trên uốn móc neo gối không tạo được hình học chính xác theo Revit solver (NEED DESIGN INPUT). Không tạo thanh thẳng thay thế.";
+                    report?.AddError(input.Beam, "Thép chủ trên gập uốn neo dầm", new InvalidOperationException(errMsg));
                 }
             }
 
@@ -252,11 +260,8 @@ namespace KhimTools.RebarTool.Core
                 }
                 else
                 {
-                    report?.AddWarning($"Thanh thép chủ dưới gập uốn neo dầm không tạo được móc uốn chính xác theo Revit solver, tạo thanh thẳng neo.");
-                    XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, -startAnch.Extension);
-                    XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainBottomBarType, start, end, report);
-                    if (fallbackBar != null) bars.Add(fallbackBar);
+                    string errMsg = "Thanh thép chủ dưới uốn móc neo gối không tạo được hình học chính xác theo Revit solver (NEED DESIGN INPUT). Không tạo thanh thẳng thay thế.";
+                    report?.AddError(input.Beam, "Thép chủ dưới gập uốn neo dầm", new InvalidOperationException(errMsg));
                 }
             }
 

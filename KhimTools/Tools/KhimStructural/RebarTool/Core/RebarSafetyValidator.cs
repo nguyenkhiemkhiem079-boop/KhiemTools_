@@ -57,80 +57,103 @@ namespace KhimTools.RebarTool.Core
         /// Kiểm tra nhanh hình học: Xem có thanh thép nào vượt ra ngoài BoundingBox của cấu kiện host (kèm dung sai cover).
         /// Hỗ trợ kiểm tra hướng local đối với cấu kiện xoay (FamilyInstance).
         /// </summary>
-        public static (int outCount, string warning) CheckRebarContainment(Element host, IEnumerable<Rebar> rebars, double toleranceMm = 20.0)
+        /// <summary>
+        /// Kiểm tra chính xác hình học cốt thép nằm trong bê tông bằng tọa độ Local của host hoặc DetailingIntentContext.
+        /// Loại bỏ hoàn toàn dung sai võ đoán 20mm.
+        /// </summary>
+        public static (int outCount, string warning) CheckRebarContainment(
+            Element host,
+            IEnumerable<Rebar> rebars,
+            DetailingIntentContext intentContext = null,
+            double toleranceMm = 0.0)
         {
             if (host == null || rebars == null) return (0, null);
+
+            var rebarList = rebars.Where(r => r != null && r.IsValidObject).ToList();
+            if (rebarList.Count == 0) return (0, null);
+
+            // 1. Nếu có Document và trích xuất được hình học Solid, ưu tiên chạy RebarHostContainmentValidator
+            if (host.Document != null)
+            {
+                try
+                {
+                    var report = RebarHostContainmentValidator.ValidateHostContainmentWithIntent(
+                        host.Document, host, rebarList, intentContext ?? new DetailingIntentContext(host, DetailingIntentType.StandardInternal));
+
+                    int protCount = report.Protrusions.Count;
+                    string msg = protCount > 0
+                        ? $"⚠ Phát hiện {protCount} vị trí thanh thép lồi ra ngoài khối bê tông của cấu kiện."
+                        : null;
+                    return (protCount, msg);
+                }
+                catch
+                {
+                    // Fallback sang phân tích hình học Local BoundingBox nếu không trích xuất được Solid
+                }
+            }
+
+            // 2. Phân tích hình học Local Transform cho FamilyInstance
+            Transform tf = (host as FamilyInstance)?.GetTransform() ?? Transform.Identity;
+            Transform invTf = tf.Inverse;
 
             BoundingBoxXYZ hostBox = host.get_BoundingBox(null);
             if (hostBox == null) return (0, null);
 
             double tolFeet = UnitUtils.ConvertToInternalUnits(toleranceMm, UnitTypeId.Millimeters);
 
-            bool isColumn = host.Category != null &&
-                (host.Category.BuiltInCategory == BuiltInCategory.OST_Columns ||
-                 host.Category.BuiltInCategory == BuiltInCategory.OST_StructuralColumns);
-
-            // Nếu host là FamilyInstance (Cột, Dầm) có Transform xoay
-            Transform tf = (host as FamilyInstance)?.GetTransform();
-            bool hasCustomTransform = tf != null && !tf.AlmostEqual(Transform.Identity);
+            // Tính toán biên Local của Host
+            XYZ localMin = invTf.OfPoint(hostBox.Min);
+            XYZ localMax = invTf.OfPoint(hostBox.Max);
+            double minX = Math.Min(localMin.X, localMax.X) - tolFeet;
+            double maxX = Math.Max(localMin.X, localMax.X) + tolFeet;
+            double minY = Math.Min(localMin.Y, localMax.Y) - tolFeet;
+            double maxY = Math.Max(localMin.Y, localMax.Y) + tolFeet;
+            double minZ = Math.Min(localMin.Z, localMax.Z) - tolFeet;
+            double maxZ = Math.Max(localMin.Z, localMax.Z) + tolFeet;
 
             int outCount = 0;
-
-            if (hasCustomTransform)
+            foreach (var r in rebarList)
             {
-                Transform invTf = tf.Inverse;
-                // Duyệt qua các rebar và chuyển toạ độ điểm về local space của host
-                foreach (var r in rebars)
+                var curves = GetRebarCenterlineCurves(r);
+                bool barOut = false;
+                foreach (var c in curves)
                 {
-                    if (r == null || !r.IsValidObject) continue;
-                    var curves = GetRebarCenterlineCurves(r);
-                    bool barOut = false;
-                    foreach (var c in curves)
+                    var pts = new[] { c.GetEndPoint(0), c.Evaluate(0.5, true), c.GetEndPoint(1) };
+                    foreach (var pt in pts)
                     {
-                        var pts = new[] { c.GetEndPoint(0), c.Evaluate(0.5, true), c.GetEndPoint(1) };
-                        foreach (var pt in pts)
+                        XYZ localPt = invTf.OfPoint(pt);
+                        if (localPt.X < minX || localPt.X > maxX ||
+                            localPt.Y < minY || localPt.Y > maxY ||
+                            localPt.Z < minZ || localPt.Z > maxZ)
                         {
-                            XYZ localPt = invTf.OfPoint(pt);
-                            // Điểm localPt cần nằm trong phạm vi kích thước của host
-                            // BoundingBox trong local space tương ứng
+                            // Kiểm tra xem có được phép vươn sang ConnectedHost không
+                            if (intentContext != null && intentContext.IntentType != DetailingIntentType.StandardInternal)
+                            {
+                                if (intentContext.IsPointContained(pt, 0, out bool insideConn) && insideConn)
+                                {
+                                    continue; // Điểm nằm trong cấu kiện liên kết
+                                }
+                            }
+
+                            barOut = true;
+                            break;
                         }
                     }
-                    if (barOut) outCount++;
+                    if (barOut) break;
                 }
-            }
-
-            // Kiểm tra theo World BoundingBox với tolerance
-            XYZ minBound = new XYZ(hostBox.Min.X - tolFeet, hostBox.Min.Y - tolFeet, hostBox.Min.Z - tolFeet);
-            XYZ maxBound = new XYZ(hostBox.Max.X + tolFeet, hostBox.Max.Y + tolFeet, hostBox.Max.Z + tolFeet);
-
-            foreach (var r in rebars)
-            {
-                if (r == null || !r.IsValidObject) continue;
-                BoundingBoxXYZ rBox = r.get_BoundingBox(null);
-                if (rBox == null) continue;
-
-                bool isOut = (rBox.Min.X < minBound.X || rBox.Max.X > maxBound.X ||
-                              rBox.Min.Y < minBound.Y || rBox.Max.Y > maxBound.Y);
-
-                if (!isColumn)
-                {
-                    if (rBox.Min.Z < minBound.Z || rBox.Max.Z > maxBound.Z)
-                    {
-                        isOut = true;
-                    }
-                }
-
-                if (isOut)
-                {
-                    outCount++;
-                }
+                if (barOut) outCount++;
             }
 
             string warn = outCount > 0
-                ? $"⚠ Phát hiện {outCount} thanh thép có thể vượt ra ngoài biên cấu kiện — kiểm tra lại kích thước/cover"
+                ? $"⚠ Phát hiện {outCount} thanh thép vượt ra ngoài biên hình học cấu kiện (Độ dôi > {toleranceMm:F1}mm)"
                 : null;
 
             return (outCount, warn);
+        }
+
+        public static (int outCount, string warning) CheckRebarContainment(Element host, IEnumerable<Rebar> rebars, double toleranceMm)
+        {
+            return CheckRebarContainment(host, rebars, null, toleranceMm);
         }
 
         /// <summary>

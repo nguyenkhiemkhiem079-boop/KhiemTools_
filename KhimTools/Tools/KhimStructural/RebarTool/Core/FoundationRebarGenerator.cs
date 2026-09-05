@@ -107,9 +107,17 @@ namespace KhimTools.RebarTool.Core
                 createdRebars.AddRange(uBars);
             }
 
-            // P0 Geometry-First Validation
-            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
-                _doc, profile.FoundationElement, createdRebars, settings.CustomCoverMm > 0 ? settings.CustomCoverMm : 50.0);
+            // P0 Geometry-First Validation with Detailing Intent
+            var intentCtx = new DetailingIntentContext
+            {
+                CurrentHost = profile.FoundationElement,
+                ConnectedHost = (settings.EnableColumnDowels && profile.SupportedColumn != null) ? profile.SupportedColumn.Column : null,
+                IntentType = settings.EnableColumnDowels ? DetailingIntentType.FoundationStarter : DetailingIntentType.StandardInternal,
+                RequiredCoverMm = settings.CustomCoverMm > 0 ? settings.CustomCoverMm : 50.0
+            };
+
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainmentWithIntent(
+                _doc, profile.FoundationElement, createdRebars, intentCtx, settings.CustomCoverMm > 0 ? settings.CustomCoverMm : 50.0);
             if (!containmentReport.OverallPassed)
             {
                 if (containmentReport.Protrusions.Any())

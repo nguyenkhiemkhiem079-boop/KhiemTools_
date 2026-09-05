@@ -84,9 +84,11 @@ namespace KhimTools.RebarTool.Core
             created.AddRange(CreateMainBars(input, profile, mainBarRadius, report));
             created.AddRange(CreateStirrups(input, profile, stirrupRadius, report));
 
-            // P0 Geometry-First Validation
-            var containmentReport = RebarHostContainmentValidator.ValidateHostContainment(
-                _doc, input.Column, created, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
+            // P0 Geometry-First Validation với DetailingIntentContext (phân biệt nối cột tầng trên vs đâm thủng tự do)
+            var intentType = input.AdjacentColumnAbove != null ? DetailingIntentType.ColumnContinuation : DetailingIntentType.TopTermination;
+            var intentContext = new DetailingIntentContext(input.Column, input.AdjacentColumnAbove, intentType);
+            var containmentReport = RebarHostContainmentValidator.ValidateHostContainmentWithIntent(
+                _doc, input.Column, created, intentContext, input.CustomCoverFeet.HasValue ? UnitUtils.ConvertFromInternalUnits(input.CustomCoverFeet.Value, UnitTypeId.Millimeters) : (double?)null);
             if (!containmentReport.OverallPassed)
             {
                 if (containmentReport.Protrusions.Any())
@@ -249,17 +251,8 @@ namespace KhimTools.RebarTool.Core
                     }
                     else
                     {
-                        XYZ pt1 = new XYZ(x, y, baseZBottom);
-                        XYZ pt2 = new XYZ(x, y, zTop);
-                        Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Column, input.MainBarType, pt1, pt2);
-                        if (fallbackBar != null)
-                        {
-                            bars.Add(fallbackBar);
-                        }
-                        else
-                        {
-                            report?.AddError(input.Column, "Thép chủ cột tròn (Main Rebar)", new InvalidOperationException("Không thể khởi tạo thanh thép chủ."));
-                        }
+                        string errMsg = $"Không thể khởi tạo thanh thép uốn cổ chai/móc neo tại góc {angle:F2} rad: Revit shape solver không giải được hình học. Tuyệt đối không thay thế bằng thanh thẳng sai thiết kế (NEED DESIGN INPUT).";
+                        report?.AddError(input.Column, "Thép chủ cột tròn (Main Rebar)", new InvalidOperationException(errMsg));
                     }
                 }
             }

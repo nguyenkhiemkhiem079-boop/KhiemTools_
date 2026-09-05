@@ -138,10 +138,16 @@ namespace KhimTools.RebarTool.Core
             double diffB = (profCur.B - profAbove.B) / 2.0;
             double diffH = (profCur.H - profAbove.H) / 2.0;
 
-            // Bổ sung độ lệch tâm nếu có
+            // Bổ sung độ lệch tâm theo hệ tọa độ Local của cột
             XYZ deltaCenter = profAbove.BaseCenter - profCur.TopCenter;
-            double offB = Math.Max(0, diffB + Math.Abs(deltaCenter.X));
-            double offH = Math.Max(0, diffH + Math.Abs(deltaCenter.Y));
+            double rot = profCur.RotationRad;
+            XYZ basisX = new XYZ(Math.Cos(rot), Math.Sin(rot), 0);
+            XYZ basisY = new XYZ(-Math.Sin(rot), Math.Cos(rot), 0);
+            double deltaLocalX = deltaCenter.DotProduct(basisX);
+            double deltaLocalY = deltaCenter.DotProduct(basisY);
+
+            double offB = Math.Max(0, diffB + Math.Abs(deltaLocalX));
+            double offH = Math.Max(0, diffH + Math.Abs(deltaLocalY));
 
             info.OffsetB = offB;
             info.OffsetH = offH;
