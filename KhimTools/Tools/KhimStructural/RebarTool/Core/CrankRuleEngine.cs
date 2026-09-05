@@ -17,13 +17,19 @@ namespace KhimTools.RebarTool.Core
     }
 
     /// <summary>
-    /// Bộ quy chuẩn và tính toán uốn xiên cổ chai (Crank Engine - Section 43 & Eurocode 2 / ACI 318):
-    /// Độ dốc tối đa 1:6, giới hạn độ lệch <= 75mm. Nếu > 75mm bắt buộc dùng thép chờ rời (Separate Starter Dowels).
+    /// Bộ quy chuẩn và tính toán uốn xiên cổ chai (Crank Engine - Section 43):
+    /// - PHÂN LOẠI QUY CHUẨN:
+    ///   1. Độ dốc tối đa 1:6: Quy chuẩn cấu tạo dự án / Thực hành kỹ thuật kết cấu (ACI 318-19 §25.7.1.4 / BS 8666 / IStructE Manual).
+    ///      (Lưu ý: EN 1992-1-1 không quy định trực tiếp tỷ lệ 1:6 mà quản lý qua đường kính uốn Cl. 8.3 và lực kéo tách ngang Cl. 8.4.1/8.7.4.1).
+    ///   2. Giới hạn độ lệch offset <= 75mm: Quy chuẩn cấu tạo dự án (ACI 318-19 §25.7.1.3 / IStructE Manual). Nếu > 75mm bắt buộc dùng thép chờ rời (Separate Starter Dowels).
+    ///   3. Bán kính uốn tại điểm bẻ: Tuân thủ nghiêm ngặt Eurocode 2 EN 1992-1-1 Cl. 8.3 Table 8.1N (Mandrel diameter 4d hoặc 7d).
     /// </summary>
     public static class CrankRuleEngine
     {
-        public const double MaxCrankOffsetMm = 75.0; // Eurocode 2 / ACI 318 threshold
-        public const double MaxCrankSlope = 6.0;     // 1:6 slope (height >= 6 * offset)
+        /// <summary>Giới hạn độ lệch offset tối đa cho phép uốn xiên (75mm theo ACI 318-19 §25.7.1.3 / IStructE Detailing Practice)</summary>
+        public const double MaxCrankOffsetMm = 75.0; // Project Detailing Practice Rule
+        /// <summary>Độ dốc uốn xiên tối đa (1:6 theo ACI 318-19 §25.7.1.4 / BS 8666 / IStructE Detailing Practice)</summary>
+        public const double MaxCrankSlope = 6.0;     // 1:6 slope (height >= 6 * offset) - Project Detailing Practice Rule
 
         /// <summary>
         /// Thẩm định khả năng uốn xiên cổ chai theo hình học tiết diện và tiêu chuẩn

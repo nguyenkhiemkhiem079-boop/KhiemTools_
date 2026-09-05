@@ -32,25 +32,31 @@ namespace KhimTools.RebarTool.Core
         /// <summary>Độ lệch lớn nhất tại bất kỳ mép nào (feet)</summary>
         public double MaxEdgeOffsetFeet { get; set; }
 
-        /// <summary>Độ dốc bẻ cổ chai (mặc định 1:6 theo ACI 318 / Eurocode 2 / TCVN 5574)</summary>
+        /// <summary>Độ dốc bẻ cổ chai (mặc định 1:6 theo quy chuẩn cấu tạo dự án / ACI 318-19 §25.7.1.4 / BS 8666 / IStructE Manual)</summary>
         public double CrankSlope { get; set; } = 6.0;
 
         /// <summary>Chiều cao đoạn bẻ cổ chai yêu cầu = 6 × (offset + d_b)</summary>
         public double CrankHeightFeet { get; set; }
 
-        /// <summary>Liệu có cần đặt thép chờ rời (Starter Dowels) vì độ thu tiết diện vượt quá 75mm</summary>
+        /// <summary>Liệu có cần đặt thép chờ rời (Starter Dowels) vì độ thu tiết diện vượt quá 75mm (Project Detailing Rule)</summary>
         public bool RequiresSeparateDowels { get; set; } = false;
 
         /// <summary>Chiều dài nối chồng chuẩn Ls (feet)</summary>
         public double LapLengthFeet { get; set; }
 
-        /// <summary>Độ so le nối chồng 50% (feet) = 1.3 × Ls</summary>
+        /// <summary>
+        /// Khoảng cách so le tim-đến-tim giữa 2 mối nối lân cận (feet) = 1.3 × Ls.
+        /// CƠ SỞ KỸ THUẬT:
+        /// EN 1992-1-1 Cl. 8.7.2 & Figure 8.8 yêu cầu khoảng cách hở giữa 2 đầu mối nối so le a >= 0.3*l_0.
+        /// Do đó, khoảng cách tim-đến-tim s_stagger >= 1.0*l_0 + 0.3*l_0 = 1.3*l_0 để hai mối nối không bị xem là cùng mặt cắt.
+        /// (LƯU Ý: Đây là khoảng cách bố trí so le hình học, KHÔNG PHẢI hệ số nhân chiều dài nối chồng alpha_6).
+        /// </summary>
         public double StaggerOffsetFeet { get; set; }
     }
 
     public static class ColumnContinuityEngine
     {
-        private const double MaxCrankOffsetLimitMm = 75.0; // 75mm theo ACI 318-19 Section 25.7.1.4 & TCVN
+        private const double MaxCrankOffsetLimitMm = 75.0; // Project Detailing Practice Rule (ACI 318-19 §25.7.1.3 / IStructE Manual)
 
         /// <summary>
         /// Tự động tìm cột trên (ColumnAbove) và cột dưới (ColumnBelow) dọc theo trục đứng (Vertical Stack)

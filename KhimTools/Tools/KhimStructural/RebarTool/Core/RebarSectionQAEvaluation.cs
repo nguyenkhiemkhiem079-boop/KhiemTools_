@@ -55,10 +55,15 @@ namespace KhimTools.RebarTool.Core
                 res.FailureReasons.Add($"Lớp bảo vệ tại mặt cắt ({actualCoverFoundMm:F1}mm) nhỏ hơn yêu cầu ({expectedCoverMm:F1}mm).");
             }
 
-            if (actualSpacingFoundMm < 25.0)
+            if (actualSpacingFoundMm < 20.0)
             {
                 res.Passed = false;
-                res.FailureReasons.Add($"Khoảng cách hở giữa các thanh ({actualSpacingFoundMm:F1}mm) < 25mm (Vi phạm Eurocode 2 Cl. 8.2).");
+                res.FailureReasons.Add($"Khoảng cách hở giữa các thanh ({actualSpacingFoundMm:F1}mm) < 20mm (Vi phạm baseline EN 1992-1-1 Cl. 8.2).");
+            }
+            else if (actualSpacingFoundMm < 25.0)
+            {
+                // Cảnh báo quy chuẩn dự án (aggregate d_g = 20mm + 5mm)
+                res.FailureReasons.Add($"Khoảng cách hở ({actualSpacingFoundMm:F1}mm) nhỏ hơn quy chuẩn cấu tạo dự án (25mm / d_g + 5mm).");
             }
 
             res.DiagnosticSummary = res.Passed
@@ -66,6 +71,33 @@ namespace KhimTools.RebarTool.Core
                 : $"Mặt cắt ngang không đạt: {string.Join("; ", res.FailureReasons)}";
 
             return res;
+        }
+
+        /// <summary>
+        /// Tạo danh sách 7 trạm kiểm thử mặt cắt ngang dọc theo chiều dài nhịp dầm/cột.
+        /// Loại bỏ hoàn toàn sự trùng lặp tên trạm (Gối trái A1 vs Gối phải A2).
+        /// </summary>
+        public static List<(string StationName, double Ratio, XYZ StationPoint)> GetCriticalTransverseStations(
+            XYZ startPoint, XYZ endPoint)
+        {
+            var defs = new (string name, double ratio)[]
+            {
+                ("Station 1: Gối trái / Chân cột (0%)", 0.0),
+                ("Station 2: Vùng đai dày A1 - Gối trái (15%)", 0.15),
+                ("Station 3: Một phần tư nhịp (25%)", 0.25),
+                ("Station 4: Giữa nhịp / Giữa cột (50%)", 0.50),
+                ("Station 5: Ba phần tư nhịp (75%)", 0.75),
+                ("Station 6: Vùng đai dày A2 - Gối phải (85%)", 0.85),
+                ("Station 7: Gối phải / Đỉnh cột (100%)", 1.0)
+            };
+
+            var list = new List<(string, double, XYZ)>();
+            XYZ dir = endPoint - startPoint;
+            foreach (var d in defs)
+            {
+                list.Add((d.name, d.ratio, startPoint + dir * d.ratio));
+            }
+            return list;
         }
 
         /// <summary>

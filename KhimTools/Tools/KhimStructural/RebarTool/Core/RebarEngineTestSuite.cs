@@ -78,15 +78,19 @@ namespace KhimTools.RebarTool.Core
             var ec2 = new EurocodeRebarStandard();
             double lapTension = ec2.GetLapSpliceLength(20.0, ConcreteGrade.C30_37, SteelGrade.CB500_V, AnchorageType.TensionStraight);
             double lapComp = ec2.GetLapSpliceLength(20.0, ConcreteGrade.C30_37, SteelGrade.CB500_V, AnchorageType.Compression);
-            double clearSpace = ec2.GetMinClearSpacing(20.0, 20.0);
+            double clearSpaceEc2Baseline = ec2.GetMinClearSpacing(16.0, 10.0); // max(16, 10+5, 20) = 20mm (EC2 recommended baseline)
+            double clearSpaceProject = ec2.GetMinClearSpacing(20.0, 20.0);    // max(20, 20+5, 20) = 25mm (Project dg=20mm rule)
             double hookTail = ec2.GetHookTailLength(20.0, 90.0);
 
-            bool pass = (lapTension > 0) && (lapComp <= lapTension) && (clearSpace >= 25.0) && (hookTail >= 100.0);
+            bool pass = (lapTension > 0) && (lapComp <= lapTension) && 
+                        (Math.Abs(clearSpaceEc2Baseline - 20.0) < 0.01) &&
+                        (Math.Abs(clearSpaceProject - 25.0) < 0.01) &&
+                        (hookTail >= 100.0);
             return new RebarTestResult
             {
                 TestName = "Standards: Eurocode 2 (EC2) Formulas",
                 Passed = pass,
-                Details = $"LapTension={lapTension:F1}mm, LapComp={lapComp:F1}mm, ClearSpacing={clearSpace}mm, HookTail={hookTail}mm"
+                Details = $"LapTension={lapTension:F1}mm, LapComp={lapComp:F1}mm, ClearSpacing: EC2_Baseline={clearSpaceEc2Baseline}mm / Project={clearSpaceProject}mm, HookTail={hookTail}mm"
             };
         }
 
@@ -126,15 +130,18 @@ namespace KhimTools.RebarTool.Core
 
         private static RebarTestResult TestMinClearSpacing()
         {
-            var standard = new TcvnRebarStandard();
-            double minClear = standard.GetMinClearSpacing(25.0, 20.0);
-            bool pass = minClear >= 25.0;
+            var standard = new EurocodeRebarStandard();
+            // 1. Kiểm tra baseline Eurocode 2 (EN 1992-1-1 Cl. 8.2(2) Note: s_g = 20mm)
+            double ec2Base = standard.GetMinClearSpacing(16.0, 10.0); // max(16, 15, 20) = 20mm
+            // 2. Kiểm tra quy chuẩn dự án (Project Rule baseline với cốt liệu dg = 20mm + 5mm = 25mm)
+            double projectMinClear = standard.GetMinClearSpacing(25.0, 20.0); // max(25, 25, 20) = 25mm
+            bool pass = (Math.Abs(ec2Base - 20.0) < 0.01) && (projectMinClear >= 25.0);
 
             return new RebarTestResult
             {
-                TestName = "SafetyValidator: Min Clear Rebar Spacing (>= 25mm / d_max)",
+                TestName = "SafetyValidator: Min Clear Rebar Spacing (EC2 20mm baseline vs Project 25mm rule)",
                 Passed = pass,
-                Details = $"MinClearSpacing={minClear}mm >= 25mm"
+                Details = $"EC2_Base={ec2Base}mm (EN 1992-1-1 Cl. 8.2), Project_Rule={projectMinClear}mm >= 25mm"
             };
         }
 
@@ -201,36 +208,37 @@ namespace KhimTools.RebarTool.Core
             bool pass = Math.Abs(slope - 6.0) < 0.001;
             return new RebarTestResult
             {
-                TestName = "ColumnContinuity: 1:6 Crank Slope with Section Reduction",
+                TestName = "ColumnContinuity: 1:6 Crank Slope (Project Detailing Rule / ACI 318 / BS 8666 / IStructE)",
                 Passed = pass,
-                Details = $"Slope={slope:F1} (CrankHeight={crankHeight * 304.8:F0}mm cho inward={totalInward * 304.8:F0}mm)"
+                Details = $"Slope={slope:F1} (CrankHeight={crankHeight * 304.8:F0}mm cho inward={totalInward * 304.8:F0}mm) - Project Detailing Rule"
             };
         }
 
         private static RebarTestResult TestColumnLargeReductionDowels()
         {
-            double offsetMm = 100.0; // Thu nhỏ 100mm > 75mm giới hạn tiêu chuẩn
-            bool requiresDowels = offsetMm > 75.0;
+            double offsetMm = 100.0; // Thu nhỏ 100mm > 75mm giới hạn quy chuẩn cấu tạo
+            bool requiresDowels = offsetMm > StructuralConnectionResolver.MaxCrankOffsetMm;
 
             return new RebarTestResult
             {
-                TestName = "ColumnContinuity: Section Reduction > 75mm requires separate starter dowels",
+                TestName = "ColumnContinuity: Section Reduction > 75mm requires separate starter dowels (Project Detailing Rule)",
                 Passed = requiresDowels,
-                Details = $"Offset={offsetMm}mm > 75mm -> RequiresSeparateDowels={requiresDowels}"
+                Details = $"Offset={offsetMm}mm > 75mm -> RequiresSeparateDowels={requiresDowels} (Project Detailing Rule)"
             };
         }
 
         private static RebarTestResult TestColumnStaggeredSpliceOffset()
         {
             double lapFeet = UnitUtils.ConvertToInternalUnits(800.0, UnitTypeId.Millimeters);
+            // EN 1992-1-1 Cl. 8.7.2 & Figure 8.8: khoảng cách hở a >= 0.3*l_0 -> khoảng cách tim-đến-tim staggerOffset >= 1.3*l_0
             double staggerOffset = lapFeet * 1.3;
 
             bool pass = Math.Abs(staggerOffset / lapFeet - 1.3) < 0.001;
             return new RebarTestResult
             {
-                TestName = "ColumnContinuity: 50% Staggered Splice Offset (1.3 * Ls)",
+                TestName = "ColumnContinuity: Staggered Splice Center-to-Center Spacing (EC2 Fig 8.8: a >= 0.3*l_0 -> s_stagger >= 1.3*l_0)",
                 Passed = pass,
-                Details = $"Offset = {staggerOffset * 304.8:F0}mm = 1.3 * {lapFeet * 304.8:F0}mm"
+                Details = $"Offset = {staggerOffset * 304.8:F0}mm = 1.3 * {lapFeet * 304.8:F0}mm (Longitudinal spacing between lap centers per EC2 Fig 8.8; distinct from alpha_6 lap multiplier)"
             };
         }
 
@@ -307,20 +315,22 @@ namespace KhimTools.RebarTool.Core
 
         private static RebarTestResult TestTransverseSectionStationQACalculation()
         {
-            // Kiểm tra phân bổ các trạm mặt cắt ngang chuẩn: 0%, 15% (A1), 25%, 50% (A2), 75%, 85% (A1), 100%
-            var stationRatios = new[] { 0.02, 0.15, 0.25, 0.50, 0.75, 0.85, 0.98 };
-            bool has7Stations = stationRatios.Length == 7;
+            // Kiểm tra 7 trạm khảo sát mặt cắt ngang không trùng lặp tên trạm (Gối trái A1 vs Gối phải A2)
+            var stations = RebarSectionQAEvaluation.GetCriticalTransverseStations(XYZ.Zero, new XYZ(6000.0, 0, 0));
+            bool has7Stations = stations.Count == 7;
+            bool uniqueNames = stations.Select(s => s.StationName).Distinct().Count() == 7;
             bool ordered = true;
-            for (int i = 0; i < stationRatios.Length - 1; i++)
+            for (int i = 0; i < stations.Count - 1; i++)
             {
-                if (stationRatios[i] >= stationRatios[i + 1]) ordered = false;
+                if (stations[i].Ratio >= stations[i + 1].Ratio) ordered = false;
             }
 
+            bool pass = has7Stations && uniqueNames && ordered;
             return new RebarTestResult
             {
-                TestName = "TransverseSectionQA: 7 Critical Stations (0%, A1, 25%, Midspan, 75%, A1, 100%)",
-                Passed = has7Stations && ordered,
-                Details = $"Đủ 7 trạm khảo sát mặt cắt ngang theo đúng tỷ lệ hình học kết cấu."
+                TestName = "TransverseSectionQA: 7 Critical Stations (0%, A1 Left, 25%, Midspan, 75%, A2 Right, 100%)",
+                Passed = pass,
+                Details = $"Đủ 7 trạm khảo sát mặt cắt ngang không trùng lặp: A1 (15% gối trái) và A2 (85% gối phải) phân biệt rõ ràng."
             };
         }
 
@@ -480,9 +490,9 @@ namespace KhimTools.RebarTool.Core
 
             return new RebarTestResult
             {
-                TestName = "ColumnTransition: 75mm Threshold (<= 75mm Crank 1:6 vs > 75mm Separate Dowels)",
+                TestName = "ColumnTransition: 75mm Threshold (Project Detailing Rule: <= 75mm Crank 1:6 vs > 75mm Separate Dowels)",
                 Passed = pass,
-                Details = $"Limit={limit}mm | 50mm: Crank={canCrankSmall}, Dowel={reqDowelsSmall}; 75mm: Crank={canCrankExact}, Dowel={reqDowelsExact}; 76mm: Crank={canCrankLarge}, Dowel={reqDowelsLarge}"
+                Details = $"Limit={limit}mm (Project Detailing Rule) | 50mm: Crank={canCrankSmall}, Dowel={reqDowelsSmall}; 75mm: Crank={canCrankExact}, Dowel={reqDowelsExact}; 76mm: Crank={canCrankLarge}, Dowel={reqDowelsLarge}"
             };
         }
 
@@ -788,16 +798,16 @@ namespace KhimTools.RebarTool.Core
             double stockLenMm = 12500.0;
             bool stockExceeded = stockLenMm > RebarEngineeringValidator.CommercialMaxStockLengthMm;
 
-            // 3. Nghẽn thép nút khung quá mức (> 8% diện tích)
+            // 3. Nghẽn thép nút khung quá mức (> 8% diện tích theo Constructability / Project Detailing Rule)
             bool congestionCaught = !BeamColumnJointEngine.ValidateJointCongestion(40, 20, 200000.0, out string warningMsg);
 
             bool pass = crankRejected && stockExceeded && congestionCaught;
 
             return new RebarTestResult
             {
-                TestName = "FailureInjection: Extended Constraints (Crank > 75mm, Stock > 11.7m, Joint Congestion)",
+                TestName = "FailureInjection: Extended Constraints (Crank > 75mm, Stock > 11.7m, Constructability Joint Congestion > 8%)",
                 Passed = pass,
-                Details = $"Crank > 75mm Rejected={crankRejected}; Stock > 11.7m Flagged={stockExceeded}; Congestion Flagged={congestionCaught}"
+                Details = $"Crank > 75mm Rejected={crankRejected}; Stock > 11.7m Flagged={stockExceeded}; Constructability Congestion Flagged={congestionCaught}"
             };
         }
     }

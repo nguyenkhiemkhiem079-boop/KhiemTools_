@@ -90,7 +90,11 @@ namespace KhimTools.RebarTool.Core
         }
 
         /// <summary>
-        /// Kiểm tra mật độ / độ thông thoáng cốt thép trong nút khung
+        /// Kiểm tra mật độ / độ thông thoáng cốt thép trong nút khung.
+        /// PHÂN LOẠI: Quy chuẩn biện pháp thi công & cấu tạo dự án (Constructability / Project Detailing Rule).
+        /// (LƯU Ý: EN 1992-1-1 không có điều khoản quy định trực tiếp tỷ lệ 8% cho nút khung;
+        /// giới hạn 8% này được kế thừa từ ngưỡng hàm lượng thép tối đa tại vị trí nối chồng cột EN 1992-1-1 Cl. 9.5.2(3)
+        /// và hướng dẫn thi công thực tế nhằm chống rỗ tổ ong, đảm bảo bê tông chèn lọt qua khe cốt thép).
         /// </summary>
         public static bool ValidateJointCongestion(int columnBarCount, int beamBarCount, double jointAreaMm2, out string warning)
         {
@@ -99,9 +103,9 @@ namespace KhimTools.RebarTool.Core
             double approxBarArea = totalBars * (Math.PI * 25.0 * 25.0 / 4.0); // Giả định thanh D25
             double ratio = (jointAreaMm2 > 0) ? (approxBarArea / jointAreaMm2) * 100.0 : 0;
 
-            if (ratio > 8.0) // Quá 8% diện tích nút khung
+            if (ratio > 8.0) // Vượt quá 8% diện tích mặt cắt ngang nút khung (Constructability threshold)
             {
-                warning = $"High rebar congestion in beam-column joint ({ratio:F1}% steel ratio). Risk of honeycombing; aggregate compaction may be hindered.";
+                warning = $"Constructability warning: High rebar congestion in beam-column joint ({ratio:F1}% steel ratio > 8.0% constructability limit). Risk of honeycombing; aggregate compaction may be hindered.";
                 return false;
             }
 

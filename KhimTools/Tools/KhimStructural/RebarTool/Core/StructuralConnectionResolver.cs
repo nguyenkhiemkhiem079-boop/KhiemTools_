@@ -77,8 +77,8 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public static class StructuralConnectionResolver
     {
-        public const double MaxCrankOffsetMm = 75.0; // Eurocode 2 / ACI limit for 1:6 crank slope
-        public const double MaxCrankSlope = 6.0;     // Độ dốc tối đa 1:6 (chiều cao uốn >= 6 * độ dời ngang)
+        public const double MaxCrankOffsetMm = 75.0; // Project Detailing Practice Rule (ACI 318-19 §25.7.1.3 / IStructE Detailing Manual)
+        public const double MaxCrankSlope = 6.0;     // Project Detailing Practice Rule: 1:6 max slope (ACI 318-19 §25.7.1.4 / BS 8666)
 
         /// <summary>
         /// Trích xuất hệ toạ độ Local (BasisX, BasisY, BasisZ) của cấu kiện dạng thanh (Cột, Dầm)

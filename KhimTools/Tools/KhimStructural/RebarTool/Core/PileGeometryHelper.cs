@@ -23,11 +23,19 @@ namespace KhimTools.RebarTool.Core
 
     public class PileCageSettings
     {
+        /// <summary>
+        /// Số lượng thanh thép chủ dọc bố trí đều theo chu vi tròn.
+        /// LƯU Ý KỸ THUẬT: Số lượng và đường kính thanh thép chủ được ấn định chính xác theo bảng thống kê
+        /// bản vẽ KC-09 (không suy đoán phạm vi 16-24 thanh). Giá trị mặc định là 16 thanh.
+        /// </summary>
         public int MainBarCount { get; set; } = 16;
         public double MainBarDiameterMm { get; set; } = 20.0;
         public double SpiralDiameterMm { get; set; } = 10.0;
         public double SpiralPitchHeadMm { get; set; } = 100.0;
         public double SpiralPitchBodyMm { get; set; } = 200.0;
+        /// <summary>
+        /// Đường kính vành đai định hình (Stiffener ring): D16 (hoặc D20 theo bản vẽ kết cấu KC-09 và tính toán độ cứng cẩu lắp lồng thép).
+        /// </summary>
         public double StiffenerDiameterMm { get; set; } = 16.0;
         public double StiffenerSpacingMm { get; set; } = 2000.0;
         public int SonicTestingTubeCount { get; set; } = 3;

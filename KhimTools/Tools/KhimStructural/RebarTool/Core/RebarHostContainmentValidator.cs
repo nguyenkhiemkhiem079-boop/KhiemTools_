@@ -302,16 +302,16 @@ namespace KhimTools.RebarTool.Core
 
             if (length < 0.5) return;
 
-            // Danh sách các trạm kiểm thử mặt cắt ngang theo tỷ lệ chiều dài
+            // Danh sách các trạm kiểm thử mặt cắt ngang theo tỷ lệ chiều dài (Phân biệt rõ vùng gia cường đai gối trái A1 và gối phải A2)
             var stations = new List<(string name, double ratio)>
             {
-                ("Station 0% (Gối/Đáy)", 0.02),
-                ("Station 15% (Vùng dày A1)", 0.15),
-                ("Station 25% (Một phần tư nhịp)", 0.25),
+                ("Station 0% (Gối trái / Đáy cột)", 0.02),
+                ("Station 15% (Vùng đai dày A1 - Gối trái)", 0.15),
+                ("Station 25% (Một phần tư nhịp / cột)", 0.25),
                 ("Station 50% (Giữa nhịp / Giữa cột)", 0.50),
-                ("Station 75% (Ba phần tư nhịp)", 0.75),
-                ("Station 85% (Vùng dày A1)", 0.85),
-                ("Station 100% (Gối/Đỉnh)", 0.98)
+                ("Station 75% (Ba phần tư nhịp / cột)", 0.75),
+                ("Station 85% (Vùng đai dày A2 - Gối phải)", 0.85),
+                ("Station 100% (Gối phải / Đỉnh cột)", 0.98)
             };
 
             foreach (var st in stations)
