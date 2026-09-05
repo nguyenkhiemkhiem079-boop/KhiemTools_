@@ -548,6 +548,56 @@ namespace KhimTools.Core
                 "icon_cover_setup_32.png",
                 "icon_cover_setup_16.png");
             SafeAddItem(panel, coverData, StructuralPanelName, "Cover Setup", "KhimTools.RebarTool.Commands.CmdProjectCoverSetup");
+
+            panel.AddSeparator();
+
+            // 7. Family Manager (Large Button)
+            var famMgrData = CreateSafePushButtonData(
+                "CmdFamilyManager",
+                "Family" + Environment.NewLine + "Manager",
+                assemblyPath,
+                "KhimTools.FamilyManager.Commands.CmdFamilyManager",
+                StructuralPanelName,
+                "Family Manager",
+                "Quản lý và nạp Family thư viện KhimTools: Structure (chọn từng cái), Rebar (nạp toàn bộ một lần).",
+                "icon_family_mgr_32.png",
+                "icon_family_mgr_16.png");
+            SafeAddItem(panel, famMgrData, StructuralPanelName, "Family Manager", "KhimTools.FamilyManager.Commands.CmdFamilyManager");
+
+            // 8. Quick Draft SplitButton (Column default + Beam / Foundation / Wall / Slab)
+            var quickDraftSplitData = new SplitButtonData("QuickDraftSplitButton", "Quick" + Environment.NewLine + "Draft")
+            {
+                ToolTip = "Đặt nhanh các cấu kiện kết cấu cơ bản. Tự động kiểm tra và gợi ý nạp Family nếu thiếu."
+            };
+
+            var quickDraftSplit = SafeAddItem(panel, quickDraftSplitData, StructuralPanelName, "Quick Draft SplitButton", string.Empty) as SplitButton;
+            if (quickDraftSplit != null)
+            {
+                SafeAddSplitButtonItem(quickDraftSplit, "CmdQuickColumn", "Quick Column",
+                    "KhimTools.QuickDraft.Commands.CmdQuickColumn", assemblyPath,
+                    "Đặt Cột Kết Cấu nhanh. Nếu Family chưa nạp sẽ gợi ý tải ngay.",
+                    "rebar_col_32.png", "rebar_col_16.png", StructuralPanelName);
+
+                SafeAddSplitButtonItem(quickDraftSplit, "CmdQuickBeam", "Quick Beam",
+                    "KhimTools.QuickDraft.Commands.CmdQuickBeam", assemblyPath,
+                    "Đặt Dầm Kết Cấu nhanh. Nếu Family chưa nạp sẽ gợi ý tải ngay.",
+                    "rebar_beam_32.png", "rebar_beam_16.png", StructuralPanelName);
+
+                SafeAddSplitButtonItem(quickDraftSplit, "CmdQuickFoundation", "Quick Foundation",
+                    "KhimTools.QuickDraft.Commands.CmdQuickFoundation", assemblyPath,
+                    "Đặt Móng Kết Cấu nhanh. Nếu Family chưa nạp sẽ gợi ý tải ngay.",
+                    "rebar_fdn_32.png", "rebar_fdn_16.png", StructuralPanelName);
+
+                SafeAddSplitButtonItem(quickDraftSplit, "CmdQuickWall", "Quick Wall",
+                    "KhimTools.QuickDraft.Commands.CmdQuickWall", assemblyPath,
+                    "Kích hoạt lệnh tạo Tường Kết Cấu nhanh (Structural Wall).",
+                    "icon_cover_setup_32.png", "icon_cover_setup_16.png", StructuralPanelName);
+
+                SafeAddSplitButtonItem(quickDraftSplit, "CmdQuickSlab", "Quick Slab",
+                    "KhimTools.QuickDraft.Commands.CmdQuickSlab", assemblyPath,
+                    "Kích hoạt lệnh tạo Sàn Kết Cấu nhanh (Structural Floor).",
+                    "rebar_slab_32.png", "rebar_slab_16.png", StructuralPanelName);
+            }
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
