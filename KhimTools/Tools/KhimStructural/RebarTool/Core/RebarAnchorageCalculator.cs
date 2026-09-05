@@ -29,8 +29,88 @@ namespace KhimTools.RebarTool.Core
         Eurocode2
     }
 
+    public class AnchorageCalculationResult
+    {
+        public double RequiredAnchorageLengthMm { get; set; }
+        public double ActualAnchorageLengthMm { get; set; }
+        public bool IsValid { get; set; } = true;
+        public string Status { get; set; } = "PASS";
+        public string Reason { get; set; } = "";
+    }
+
+    public class LapSpliceCalculationResult
+    {
+        public double RequiredLapLengthMm { get; set; }
+        public double ActualLapLengthMm { get; set; }
+        public string SpliceZone { get; set; } = "Central Column / Midspan Zone";
+        public string TransverseDetailingRequirement { get; set; } = "Enclosed Stirrups / Confinement Ties";
+        public bool IsValid { get; set; } = true;
+        public string Status { get; set; } = "PASS";
+        public string Reason { get; set; } = "";
+    }
+
     public static class RebarAnchorageCalculator
     {
+        public static AnchorageCalculationResult CalculateAnchorageDetailed(
+            double barDiameterMm,
+            ConcreteGrade concrete,
+            SteelGrade steel,
+            AnchorageType type,
+            DesignCode code,
+            double availableLengthMm = 0)
+        {
+            double reqLen = CalculateAnchorageLength(barDiameterMm, concrete, steel, type, code);
+            var res = new AnchorageCalculationResult
+            {
+                RequiredAnchorageLengthMm = reqLen,
+                ActualAnchorageLengthMm = (availableLengthMm > 0) ? availableLengthMm : reqLen
+            };
+
+            if (availableLengthMm > 0 && availableLengthMm < reqLen)
+            {
+                res.IsValid = false;
+                res.Status = "ENGINEERING_VALIDATION_FAILED";
+                res.Reason = $"Available anchorage ({availableLengthMm:F0}mm) < Required anchorage ({reqLen:F0}mm).";
+            }
+            else
+            {
+                res.Status = "PASS";
+                res.Reason = $"Anchorage satisfied: {res.ActualAnchorageLengthMm:F0}mm >= {reqLen:F0}mm under {code}.";
+            }
+
+            return res;
+        }
+
+        public static LapSpliceCalculationResult CalculateLapDetailed(
+            double barDiameterMm,
+            ConcreteGrade concrete,
+            SteelGrade steel,
+            AnchorageType type,
+            DesignCode code,
+            double availableLapMm = 0,
+            double percentLappedFactor = 1.5)
+        {
+            double reqLap = CalculateLapLength(barDiameterMm, concrete, steel, type, code, 30, percentLappedFactor);
+            var res = new LapSpliceCalculationResult
+            {
+                RequiredLapLengthMm = reqLap,
+                ActualLapLengthMm = (availableLapMm > 0) ? availableLapMm : reqLap
+            };
+
+            if (availableLapMm > 0 && availableLapMm < reqLap)
+            {
+                res.IsValid = false;
+                res.Status = "ENGINEERING_VALIDATION_FAILED";
+                res.Reason = $"Available lap length ({availableLapMm:F0}mm) < Required lap ({reqLap:F0}mm).";
+            }
+            else
+            {
+                res.Status = "PASS";
+                res.Reason = $"Lap splice satisfied: {res.ActualLapLengthMm:F0}mm >= {reqLap:F0}mm under {code}.";
+            }
+
+            return res;
+        }
         public static double CalculateAnchorageLength(
             double barDiameterMm,
             ConcreteGrade concrete,
@@ -152,6 +232,14 @@ namespace KhimTools.RebarTool.Core
             double f_ck = 25; // C25/30 fallback
             switch (concrete)
             {
+                case ConcreteGrade.B15: f_ck = 15; break;
+                case ConcreteGrade.B20: f_ck = 20; break;
+                case ConcreteGrade.B25: f_ck = 25; break;
+                case ConcreteGrade.B30: f_ck = 30; break;
+                case ConcreteGrade.B35: f_ck = 35; break;
+                case ConcreteGrade.B40: f_ck = 40; break;
+                case ConcreteGrade.B45: f_ck = 45; break;
+                case ConcreteGrade.B50: f_ck = 50; break;
                 case ConcreteGrade.C20_25: f_ck = 20; break;
                 case ConcreteGrade.C25_30: f_ck = 25; break;
                 case ConcreteGrade.C30_37: f_ck = 30; break;
@@ -167,6 +255,10 @@ namespace KhimTools.RebarTool.Core
             double f_yk = 500; // B500 fallback
             switch (steel)
             {
+                case SteelGrade.CB240_T: f_yk = 240; break;
+                case SteelGrade.CB300_V: f_yk = 300; break;
+                case SteelGrade.CB400_V: f_yk = 400; break;
+                case SteelGrade.CB500_V: f_yk = 500; break;
                 case SteelGrade.B400: f_yk = 400; break;
                 case SteelGrade.B500: f_yk = 500; break;
             }
