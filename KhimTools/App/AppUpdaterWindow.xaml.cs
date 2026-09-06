@@ -1,9 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows;
@@ -16,13 +16,12 @@ namespace KhiemToolsApp
         private const string RepoOwner = "nguyenkhiemkhiem079-boop";
         private const string RepoName = "KhiemTools_";
         private const string RegistryKeyName = "KhiemToolsUpdater";
+        private const long MinimumBundleBytes = 64 * 1024;
 
-        // Thư mục cài đặt Revit Addin Bundle chuẩn của Autodesk (%ProgramData%)
         private readonly string _programDataBundlePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
             @"Autodesk\ApplicationPlugins\KhimTools.bundle");
 
-        // Thư mục cài đặt Revit Addin Bundle cho User (%AppData%)
         private readonly string _appDataBundlePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             @"Autodesk\ApplicationPlugins\KhimTools.bundle");
@@ -39,26 +38,34 @@ namespace KhiemToolsApp
         {
             try
             {
-                var ver = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                Version ver = Assembly.GetExecutingAssembly().GetName().Version;
                 if (ver != null)
                 {
                     TxtUpdaterVersion.Text = $"K-TOOLS Updater v{ver.Major}.{ver.Minor}.{ver.Build}";
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogInfo($"Unable to read updater version: {ex.Message}");
+            }
         }
 
         private static void LogInfo(string message)
         {
             try
             {
-                string logDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KhimTools");
+                string logDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "KhimTools");
                 Directory.CreateDirectory(logDir);
-                string logPath = Path.Combine(logDir, "update_log.txt");
-                string logLine = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}";
-                File.AppendAllText(logPath, logLine);
+                File.AppendAllText(
+                    Path.Combine(logDir, "update_log.txt"),
+                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}{Environment.NewLine}");
             }
-            catch { }
+            catch
+            {
+                // Logging must never break the updater.
+            }
         }
 
         private string GetEffectiveBundlePath()
@@ -68,146 +75,239 @@ namespace KhiemToolsApp
 
         private void CheckCurrentLocalVersion()
         {
-            try
+            string localTag = GetLocalVersionTag();
+            TxtLocalVersion.Text = localTag ?? (Directory.Exists(GetEffectiveBundlePath()) ? "Đã cài" : "Chưa cài");
+        }
+
+        private string GetLocalVersionTag()
+        {
+            string bundlePath = GetEffectiveBundlePath();
+            if (!Directory.Exists(bundlePath))
             {
-                string bundlePath = GetEffectiveBundlePath();
-                if (!Directory.Exists(bundlePath))
-                {
-                    TxtLocalVersion.Text = "Chưa cài";
-                    return;
-                }
+                return null;
+            }
 
-                // 1. Kiểm tra file update_info.json trong bundle (nếu có)
-                string localInfoPath = Path.Combine(bundlePath, "update_info.json");
-                if (File.Exists(localInfoPath))
+            string installedVersionPath = Path.Combine(bundlePath, "installed_version.txt");
+            if (File.Exists(installedVersionPath))
+            {
+                try
                 {
-                    string infoJson = File.ReadAllText(localInfoPath);
-                    Match mTag = Regex.Match(infoJson, "\"latest_version\"\\s*:\\s*\"([^\"]+)\"");
-                    if (mTag.Success && !string.IsNullOrWhiteSpace(mTag.Groups[1].Value))
+                    string value = NormalizeVersionTag(File.ReadAllText(installedVersionPath));
+                    if (TryParseVersionTag(value, out _))
                     {
-                        TxtLocalVersion.Text = mTag.Groups[1].Value;
-                        return;
+                        return value;
                     }
                 }
-
-                // 2. Kiểm tra file installed_version.txt trong bundle
-                string versionTxtPath = Path.Combine(bundlePath, "installed_version.txt");
-                if (File.Exists(versionTxtPath))
+                catch (Exception ex)
                 {
-                    string v = File.ReadAllText(versionTxtPath).Trim();
-                    if (!string.IsNullOrEmpty(v))
-                    {
-                        TxtLocalVersion.Text = v;
-                        return;
-                    }
+                    LogInfo($"Read installed_version.txt failed: {ex.Message}");
                 }
+            }
 
-                // 3. Kiểm tra PackageContents.xml trong bundle
-                string packageXmlPath = Path.Combine(bundlePath, "PackageContents.xml");
-                if (File.Exists(packageXmlPath))
+            string packageXmlPath = Path.Combine(bundlePath, "PackageContents.xml");
+            if (File.Exists(packageXmlPath))
+            {
+                try
                 {
                     string xml = File.ReadAllText(packageXmlPath);
-                    Match m = Regex.Match(xml, "AppVersion\\s*=\\s*\"([^\"]+)\"");
-                    if (m.Success)
+                    Match match = Regex.Match(xml, "AppVersion\\s*=\\s*\"([^\"]+)\"", RegexOptions.IgnoreCase);
+                    if (match.Success)
                     {
-                        string ver = m.Groups[1].Value.Trim();
-                        if (ver != "1.0.0" && ver != "1.0.0.0")
+                        string value = NormalizeVersionTag(match.Groups[1].Value);
+                        if (TryParseVersionTag(value, out _))
                         {
-                            TxtLocalVersion.Text = ver.StartsWith("v") ? ver : "v" + ver;
-                            return;
+                            return value;
                         }
                     }
                 }
-
-                // 4. Kiểm tra DLL FileVersion & AssemblyVersion
-                string[] possibleDlls = new string[]
+                catch (Exception ex)
                 {
-                    Path.Combine(bundlePath, "Contents", "Legacy", "KhimTools.dll"),
-                    Path.Combine(bundlePath, "Contents", "Modern", "KhimTools.dll"),
-                    Path.Combine(bundlePath, "Legacy", "KhimTools.dll"),
-                    Path.Combine(bundlePath, "Modern", "KhimTools.dll")
-                };
-
-                foreach (var dll in possibleDlls)
-                {
-                    if (File.Exists(dll))
-                    {
-                        try
-                        {
-                            var fvi = FileVersionInfo.GetVersionInfo(dll);
-                            if (!string.IsNullOrEmpty(fvi.FileVersion) && fvi.FileVersion != "1.0.0.0" && fvi.FileVersion != "0.0.0.0")
-                            {
-                                TxtLocalVersion.Text = "v" + fvi.FileVersion;
-                                return;
-                            }
-
-                            // Fallback: Read assembly version via reflection if FileVersion is stripped/invalid
-                            var asm = System.Reflection.Assembly.LoadFrom(dll);
-                            var asmVer = asm.GetName().Version;
-                            if (asmVer != null && asmVer.ToString() != "0.0.0.0" && asmVer.ToString() != "1.0.0.0")
-                            {
-                                TxtLocalVersion.Text = "v" + asmVer.ToString(3);
-                                return;
-                            }
-                        }
-                        catch { }
-                    }
+                    LogInfo($"Read PackageContents.xml failed: {ex.Message}");
                 }
-
-                TxtLocalVersion.Text = "Đã cài";
             }
-            catch
+
+            string[] possibleDlls =
             {
-                TxtLocalVersion.Text = Directory.Exists(GetEffectiveBundlePath()) ? "Đã cài" : "Chưa cài";
+                Path.Combine(bundlePath, "Contents", "Legacy", "KhimTools.dll"),
+                Path.Combine(bundlePath, "Contents", "Modern", "KhimTools.dll"),
+                Path.Combine(bundlePath, "Legacy", "KhimTools.dll"),
+                Path.Combine(bundlePath, "Modern", "KhimTools.dll")
+            };
+
+            foreach (string dll in possibleDlls)
+            {
+                if (!File.Exists(dll))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    FileVersionInfo fileVersion = FileVersionInfo.GetVersionInfo(dll);
+                    string value = NormalizeVersionTag(fileVersion.FileVersion);
+                    if (TryParseVersionTag(value, out _))
+                    {
+                        return value;
+                    }
+
+                    Version assemblyVersion = AssemblyName.GetAssemblyName(dll).Version;
+                    if (assemblyVersion != null)
+                    {
+                        value = NormalizeVersionTag(assemblyVersion.ToString(3));
+                        if (TryParseVersionTag(value, out _))
+                        {
+                            return value;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogInfo($"Read DLL version failed for {dll}: {ex.Message}");
+                }
             }
+
+            string localInfoPath = Path.Combine(bundlePath, "update_info.json");
+            if (File.Exists(localInfoPath))
+            {
+                try
+                {
+                    string infoJson = File.ReadAllText(localInfoPath);
+                    Match tagMatch = Regex.Match(
+                        infoJson,
+                        "\"latest_version\"\\s*:\\s*\"([^\"]+)\"",
+                        RegexOptions.IgnoreCase);
+
+                    if (tagMatch.Success)
+                    {
+                        string value = NormalizeVersionTag(tagMatch.Groups[1].Value);
+                        if (TryParseVersionTag(value, out _))
+                        {
+                            return value;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    LogInfo($"Read local update_info.json failed: {ex.Message}");
+                }
+            }
+
+            return null;
+        }
+
+        private static string NormalizeVersionTag(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            string normalized = value.Trim();
+            if (normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized.Substring(1);
+            }
+
+            return "v" + normalized;
+        }
+
+        private static bool TryParseVersionTag(string value, out Version version)
+        {
+            version = null;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            string normalized = value.Trim();
+            if (normalized.StartsWith("v", StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized.Substring(1);
+            }
+
+            int suffixIndex = normalized.IndexOf('-');
+            if (suffixIndex >= 0)
+            {
+                normalized = normalized.Substring(0, suffixIndex);
+            }
+
+            return Version.TryParse(normalized, out version);
         }
 
         private void LoadRegistrySettings()
         {
             try
             {
-                using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", false);
-                if (key != null)
-                {
-                    ChkAutoStart.IsChecked = (key.GetValue(RegistryKeyName) != null);
-                }
+                using RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                    false);
+
+                ChkAutoStart.IsChecked = key?.GetValue(RegistryKeyName) != null;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogInfo($"Load auto-start setting failed: {ex.Message}");
+            }
         }
 
         private bool EnsureRevitClosed()
         {
-            var revitProcesses = Process.GetProcessesByName("Revit");
-            if (revitProcesses.Length == 0) return true;
+            Process[] revitProcesses = Process.GetProcessesByName("Revit");
+            if (revitProcesses.Length == 0)
+            {
+                return true;
+            }
 
-            var msgResult = MessageBox.Show(
+            MessageBoxResult result = MessageBox.Show(
                 $"Phát hiện Autodesk Revit đang mở ({revitProcesses.Length} tiến trình).\n\n" +
-                "Để cập nhật DLL mới trực tiếp vào Revit, bạn cần đóng Revit trước.\n\n" +
-                "• Bấm 'Yes' để tự động đóng Revit (hãy chắc chắn bạn đã lưu bản vẽ).\n" +
-                "• Bấm 'No' để tự đóng Revit bằng tay rồi thử lại.",
+                "K-TOOLS chỉ cập nhật khi Revit đã đóng để tránh file DLL bị khóa.\n\n" +
+                "Bấm Yes để gửi yêu cầu đóng Revit. Hãy lưu toàn bộ bản vẽ trước khi tiếp tục.\n" +
+                "Updater sẽ KHÔNG ép tắt Revit nếu Revit chưa đóng an toàn.",
                 "Đóng Revit trước khi cập nhật",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
-            if (msgResult == MessageBoxResult.Yes)
+            if (result != MessageBoxResult.Yes)
             {
-                foreach (var p in revitProcesses)
+                return false;
+            }
+
+            foreach (Process process in revitProcesses)
+            {
+                try
                 {
-                    try
-                    {
-                        p.CloseMainWindow();
-                        if (!p.WaitForExit(3000))
-                        {
-                            p.Kill();
-                        }
-                    }
-                    catch { }
+                    process.CloseMainWindow();
+                }
+                catch (Exception ex)
+                {
+                    LogInfo($"Could not request Revit close (PID {process.Id}): {ex.Message}");
+                }
+            }
+
+            DateTime deadline = DateTime.UtcNow.AddSeconds(15);
+            while (DateTime.UtcNow < deadline)
+            {
+                bool anyRunning = false;
+                foreach (Process process in Process.GetProcessesByName("Revit"))
+                {
+                    anyRunning = true;
+                    process.Dispose();
                 }
 
-                // Chờ thêm 1 giây để OS nhả file lock
-                System.Threading.Thread.Sleep(1000);
-                return true;
+                if (!anyRunning)
+                {
+                    return true;
+                }
+
+                System.Threading.Thread.Sleep(500);
             }
+
+            MessageBox.Show(
+                "Revit vẫn đang chạy nên K-TOOLS chưa thể cập nhật.\n\n" +
+                "Vui lòng đóng Revit thủ công sau khi lưu công việc rồi thử lại.",
+                "Chưa thể cập nhật",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
 
             return false;
         }
@@ -216,100 +316,98 @@ namespace KhiemToolsApp
         {
             BtnCheckUpdate.IsEnabled = false;
             TxtGithubVersion.Text = "Đang kiểm tra...";
-            LogInfo("=== Bắt đầu kiểm tra cập nhật ===");
+            LogInfo("=== Begin update check ===");
 
             try
             {
-                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-                client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/1.0");
+                UpdateDescriptor descriptor = await GetLatestReleaseAsync();
+                TxtGithubVersion.Text = descriptor.Tag;
 
-                string latestTag = null;
-                string downloadUrl = null;
-
-                // Lớp 1: Đọc trực tiếp từ update_info.json trên GitHub master
-                string infoUrl = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/master/update_info.json?t={DateTime.UtcNow.Ticks}";
-                LogInfo($"Layer 1 - Fetching update_info: {infoUrl}");
-                try
+                string localTag = GetLocalVersionTag();
+                if (!TryParseVersionTag(descriptor.Tag, out Version remoteVersion))
                 {
-                    string infoJson = await client.GetStringAsync(infoUrl);
-                    LogInfo($"Layer 1 - Response body: {infoJson}");
-                    Match mTag = Regex.Match(infoJson, "\"latest_version\"\\s*:\\s*\"([^\"]+)\"");
-                    if (mTag.Success)
-                    {
-                        latestTag = mTag.Groups[1].Value;
-                        LogInfo($"Layer 1 - Parsed tag: {latestTag}");
-                    }
-                    Match mUrl = Regex.Match(infoJson, "\"download_url\"\\s*:\\s*\"([^\"]+)\"");
-                    if (mUrl.Success)
-                    {
-                        downloadUrl = mUrl.Groups[1].Value;
-                        LogInfo($"Layer 1 - Parsed download_url: {downloadUrl}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    LogInfo($"Layer 1 - Error: {ex.GetType().Name} - {ex.Message}");
+                    throw new InvalidDataException($"Phiên bản trên GitHub không hợp lệ: {descriptor.Tag}");
                 }
 
-                // Lớp 2: Kiểm tra GitHub Releases API (fallback)
-                if (string.IsNullOrEmpty(latestTag))
+                if (TryParseVersionTag(localTag, out Version localVersion))
                 {
-                    string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
-                    LogInfo($"Layer 2 - Fetching API releases/latest: {apiUrl}");
-                    try
+                    int comparison = localVersion.CompareTo(remoteVersion);
+                    if (comparison == 0)
                     {
-                        string releaseJson = await client.GetStringAsync(apiUrl);
-                        LogInfo($"Layer 2 - Response body: {releaseJson}");
-                        Match tagMatch = Regex.Match(releaseJson, "\"tag_name\"\\s*:\\s*\"([^\"]+)\"");
-                        if (tagMatch.Success)
-                        {
-                            latestTag = tagMatch.Groups[1].Value;
-                            LogInfo($"Layer 2 - Parsed tag: {latestTag}");
-                        }
-
-                        Match zipMatch = Regex.Match(releaseJson, "\"browser_download_url\"\\s*:\\s*\"([^\"]+KhimTools_Bundle\\.zip|[^\"]+\\.zip)\"");
-                        if (zipMatch.Success)
-                        {
-                            downloadUrl = zipMatch.Groups[1].Value;
-                            LogInfo($"Layer 2 - Parsed download_url: {downloadUrl}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogInfo($"Layer 2 - Error: {ex.GetType().Name} - {ex.Message}");
-                    }
-                }
-
-                if (string.IsNullOrEmpty(latestTag))
-                {
-                    latestTag = "v2.7.0";
-                    LogInfo($"Using ultimate fallback tag: {latestTag}");
-                }
-
-                TxtGithubVersion.Text = latestTag;
-
-                if (MessageBox.Show($"Tìm thấy phiên bản {latestTag} trên GitHub!\nBạn có muốn tự động cài đặt / cập nhật vào Revit ngay không?", 
-                    "Cập nhật K-TOOLS", MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
-                {
-                    if (!EnsureRevitClosed())
-                    {
-                        TxtGithubVersion.Text = latestTag;
-                        LogInfo("Revit is still running. Aborting install.");
+                        MessageBox.Show(
+                            $"Bạn đang dùng phiên bản mới nhất ({descriptor.Tag}).",
+                            "K-TOOLS đã cập nhật",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
                         return;
                     }
 
-                    TxtGithubVersion.Text = "Đang tải & cài đặt...";
-                    await PerformInstallOrUpdateAsync(latestTag, downloadUrl);
-                    MessageBox.Show("Cài đặt / Cập nhật hoàn tất!\nĐã nạp toàn bộ module mới vào tất cả phiên bản Revit trên máy.\nVui lòng mở Revit để sử dụng.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
-                    CheckCurrentLocalVersion();
-                    TxtGithubVersion.Text = latestTag;
+                    if (comparison > 0)
+                    {
+                        MessageBox.Show(
+                            $"Phiên bản đang cài ({localTag}) mới hơn phiên bản public trên GitHub ({descriptor.Tag}).\n\n" +
+                            "Updater sẽ không tự động hạ phiên bản.",
+                            "Không cần cập nhật",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                        return;
+                    }
                 }
+
+                string action = string.IsNullOrWhiteSpace(localTag) ? "cài đặt" : "cập nhật";
+                MessageBoxResult installResult = MessageBox.Show(
+                    $"Phiên bản mới nhất: {descriptor.Tag}\n" +
+                    $"Phiên bản hiện tại: {localTag ?? "không xác định"}\n\n" +
+                    $"Bạn có muốn {action} K-TOOLS ngay không?",
+                    "Cập nhật K-TOOLS",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
+
+                if (installResult != MessageBoxResult.Yes)
+                {
+                    return;
+                }
+
+                if (!EnsureRevitClosed())
+                {
+                    return;
+                }
+
+                TxtGithubVersion.Text = "Đang tải & cài đặt...";
+                await PerformInstallOrUpdateAsync(descriptor);
+
+                CheckCurrentLocalVersion();
+                TxtGithubVersion.Text = descriptor.Tag;
+
+                MessageBox.Show(
+                    $"K-TOOLS {descriptor.Tag} đã được cài đặt thành công.\n\n" +
+                    "Bạn có thể mở lại Revit để sử dụng.",
+                    "Cập nhật hoàn tất",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogInfo($"Permission error: {ex}");
+                TxtGithubVersion.Text = "Thiếu quyền";
+                MessageBox.Show(
+                    "Windows không cho phép ghi vào thư mục cài đặt K-TOOLS.\n\n" +
+                    "Hãy đóng Updater, chạy K-TOOLS Updater bằng quyền Administrator rồi thử lại.",
+                    "Thiếu quyền cài đặt",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
             catch (Exception ex)
             {
-                LogInfo($"General Error: {ex.GetType().Name} - {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+                LogInfo($"Update failed: {ex}");
                 TxtGithubVersion.Text = "Lỗi cập nhật";
-                MessageBox.Show($"Lỗi cập nhật: {ex.Message}\n\nChi tiết: {ex.StackTrace}", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(
+                    $"Không thể cập nhật K-TOOLS.\n\n{ex.Message}\n\n" +
+                    "Phiên bản hiện tại được giữ nguyên nếu quá trình cài đặt chưa hoàn tất.\n" +
+                    "Chi tiết kỹ thuật đã được ghi vào update_log.txt.",
+                    "Lỗi cập nhật",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
             finally
             {
@@ -317,217 +415,462 @@ namespace KhiemToolsApp
             }
         }
 
-        private async Task PerformInstallOrUpdateAsync(string tag, string directZipUrl)
+        private async Task<UpdateDescriptor> GetLatestReleaseAsync()
         {
-            string tempDir = Path.Combine(Path.GetTempPath(), "KhimTools_Installer");
-            if (Directory.Exists(tempDir))
+            using var client = CreateHttpClient(TimeSpan.FromSeconds(15));
+            Exception releaseApiError = null;
+
+            try
             {
-                try { Directory.Delete(tempDir, true); } catch { }
+                string apiUrl = $"https://api.github.com/repos/{RepoOwner}/{RepoName}/releases/latest";
+                string releaseJson = await client.GetStringAsync(apiUrl);
+
+                Match tagMatch = Regex.Match(
+                    releaseJson,
+                    "\"tag_name\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.IgnoreCase);
+
+                Match assetMatch = Regex.Match(
+                    releaseJson,
+                    "\"browser_download_url\"\\s*:\\s*\"([^\"]+(?:KhimTools_Bundle|K-TOOLS_Bundle)\\.zip)\"",
+                    RegexOptions.IgnoreCase);
+
+                if (tagMatch.Success)
+                {
+                    string tag = NormalizeVersionTag(tagMatch.Groups[1].Value);
+                    string url = assetMatch.Success ? assetMatch.Groups[1].Value : null;
+                    ValidateRemoteDescriptor(tag, url, allowMissingUrl: true);
+                    LogInfo($"Latest release from GitHub API: {tag}");
+                    return new UpdateDescriptor(tag, url);
+                }
+
+                releaseApiError = new InvalidDataException("GitHub Releases API không trả về tag_name hợp lệ.");
             }
+            catch (Exception ex)
+            {
+                releaseApiError = ex;
+                LogInfo($"GitHub Releases API failed: {ex.GetType().Name} - {ex.Message}");
+            }
+
+            try
+            {
+                string infoUrl =
+                    $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/master/update_info.json?t={DateTime.UtcNow.Ticks}";
+                string infoJson = await client.GetStringAsync(infoUrl);
+
+                Match tagMatch = Regex.Match(
+                    infoJson,
+                    "\"latest_version\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.IgnoreCase);
+                Match urlMatch = Regex.Match(
+                    infoJson,
+                    "\"download_url\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.IgnoreCase);
+
+                if (!tagMatch.Success)
+                {
+                    throw new InvalidDataException("update_info.json không có latest_version hợp lệ.");
+                }
+
+                string tag = NormalizeVersionTag(tagMatch.Groups[1].Value);
+                string url = urlMatch.Success ? urlMatch.Groups[1].Value : null;
+                ValidateRemoteDescriptor(tag, url, allowMissingUrl: true);
+                LogInfo($"Latest release from update_info.json fallback: {tag}");
+                return new UpdateDescriptor(tag, url);
+            }
+            catch (Exception infoError)
+            {
+                LogInfo($"update_info.json fallback failed: {infoError.GetType().Name} - {infoError.Message}");
+                throw new InvalidOperationException(
+                    "Không thể kiểm tra phiên bản mới từ GitHub. " +
+                    "Vui lòng kiểm tra kết nối Internet và thử lại.",
+                    new AggregateException(releaseApiError, infoError));
+            }
+        }
+
+        private static HttpClient CreateHttpClient(TimeSpan timeout)
+        {
+            var client = new HttpClient { Timeout = timeout };
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/2.7.1");
+            client.DefaultRequestHeaders.CacheControl =
+                new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
+            return client;
+        }
+
+        private static void ValidateRemoteDescriptor(string tag, string url, bool allowMissingUrl)
+        {
+            if (!TryParseVersionTag(tag, out _))
+            {
+                throw new InvalidDataException($"Remote version tag không hợp lệ: {tag}");
+            }
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                if (allowMissingUrl)
+                {
+                    return;
+                }
+
+                throw new InvalidDataException("GitHub release không có file K-TOOLS bundle.");
+            }
+
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ||
+                uri.Scheme != Uri.UriSchemeHttps ||
+                !string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase) ||
+                !uri.AbsolutePath.StartsWith(
+                    $"/{RepoOwner}/{RepoName}/releases/download/",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("Download URL không thuộc GitHub Release chính thức của K-TOOLS.");
+            }
+        }
+
+        private async Task PerformInstallOrUpdateAsync(UpdateDescriptor descriptor)
+        {
+            string tempDir = Path.Combine(
+                Path.GetTempPath(),
+                "KhimTools_Installer_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
 
-            using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/1.0");
-
-            bool downloaded = false;
-            string bundleZipPath = Path.Combine(tempDir, "bundle.zip");
-
-            // Cách 1: Tải trực tiếp từ directZipUrl
-            if (!string.IsNullOrEmpty(directZipUrl))
+            try
             {
-                LogInfo($"Download Method 1 - Starting download from directZipUrl: {directZipUrl}");
+                string bundleZipPath = Path.Combine(tempDir, "bundle.zip");
+                await DownloadBundleAsync(descriptor, bundleZipPath);
+                ValidateZipFile(bundleZipPath);
+                DeployZipToTargets(bundleZipPath, descriptor.Tag);
+            }
+            finally
+            {
+                TryDeleteDirectory(tempDir);
+            }
+        }
+
+        private async Task DownloadBundleAsync(UpdateDescriptor descriptor, string destinationPath)
+        {
+            string[] candidateUrls =
+            {
+                descriptor.DownloadUrl,
+                $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{descriptor.Tag}/KhimTools_Bundle.zip",
+                $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{descriptor.Tag}/K-TOOLS_Bundle.zip"
+            };
+
+            Exception lastError = null;
+
+            foreach (string url in candidateUrls)
+            {
+                if (string.IsNullOrWhiteSpace(url))
+                {
+                    continue;
+                }
+
                 try
                 {
-                    byte[] data = await client.GetByteArrayAsync(directZipUrl);
-                    File.WriteAllBytes(bundleZipPath, data);
-                    downloaded = true;
-                    LogInfo("Download Method 1 - Completed successfully.");
+                    ValidateRemoteDescriptor(descriptor.Tag, url, allowMissingUrl: false);
+                    LogInfo($"Downloading bundle from {url}");
+
+                    using var client = CreateHttpClient(TimeSpan.FromMinutes(3));
+                    using HttpResponseMessage response = await client.GetAsync(url);
+                    response.EnsureSuccessStatusCode();
+
+                    byte[] data = await response.Content.ReadAsByteArrayAsync();
+                    if (data.LongLength < MinimumBundleBytes)
+                    {
+                        throw new InvalidDataException(
+                            $"File tải về quá nhỏ ({data.LongLength} bytes), có thể không phải bundle hợp lệ.");
+                    }
+
+                    File.WriteAllBytes(destinationPath, data);
+                    ValidateZipFile(destinationPath);
+                    LogInfo($"Bundle download OK: {data.LongLength} bytes");
+                    return;
                 }
                 catch (Exception ex)
                 {
-                    LogInfo($"Download Method 1 - Failed: {ex.GetType().Name} - {ex.Message}");
-                }
-            }
-            else
-            {
-                LogInfo("Download Method 1 - Skipped (directZipUrl is null or empty).");
-            }
-
-            // Cách 2: Thử tải link direct release theo tag
-            if (!downloaded)
-            {
-                string releaseUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tag}/KhimTools_Bundle.zip";
-                LogInfo($"Download Method 2 - Starting download from fallback releaseUrl: {releaseUrl}");
-                try
-                {
-                    byte[] data = await client.GetByteArrayAsync(releaseUrl);
-                    File.WriteAllBytes(bundleZipPath, data);
-                    downloaded = true;
-                    LogInfo("Download Method 2 - Completed successfully.");
-                }
-                catch (Exception ex)
-                {
-                    LogInfo($"Download Method 2 - Failed: {ex.GetType().Name} - {ex.Message}");
+                    lastError = ex;
+                    LogInfo($"Download failed from {url}: {ex.GetType().Name} - {ex.Message}");
+                    TryDeleteFile(destinationPath);
                 }
             }
 
-            if (File.Exists(bundleZipPath) && downloaded)
+            throw new InvalidOperationException(
+                $"Không thể tải K-TOOLS {descriptor.Tag} từ GitHub Release.",
+                lastError);
+        }
+
+        private static void ValidateZipFile(string zipFilePath)
+        {
+            if (!File.Exists(zipFilePath))
             {
-                LogInfo($"Deploying zip to targets for tag {tag}...");
-                DeployZipToTargets(bundleZipPath, tag);
-                LogInfo("Deployment completed.");
+                throw new FileNotFoundException("Không tìm thấy file bundle vừa tải.", zipFilePath);
             }
-            else
+
+            var fileInfo = new FileInfo(zipFilePath);
+            if (fileInfo.Length < MinimumBundleBytes)
             {
-                LogInfo("Download failed (both methods failed). Raising exception.");
-                throw new FileNotFoundException($"Không thể tải bộ cài đặt K-TOOLS ({tag}) từ GitHub server. Vui lòng kiểm tra lại kết nối mạng.");
+                throw new InvalidDataException("Bundle tải về không hợp lệ hoặc bị thiếu dữ liệu.");
+            }
+
+            using FileStream stream = File.OpenRead(zipFilePath);
+            if (stream.Length < 4 ||
+                stream.ReadByte() != 0x50 ||
+                stream.ReadByte() != 0x4B)
+            {
+                throw new InvalidDataException("File tải về không phải ZIP hợp lệ.");
+            }
+
+            stream.Position = 0;
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: false);
+            if (archive.Entries.Count == 0)
+            {
+                throw new InvalidDataException("Bundle ZIP không chứa dữ liệu.");
             }
         }
 
         private void DeployZipToTargets(string zipFilePath, string tag)
         {
-            // Dọn dẹp các file .addin rác cũ và bundle AppData thừa trước khi cài
-            CleanLegacyAddinFiles();
-
             string target = _programDataBundlePath;
-            Directory.CreateDirectory(target);
-
-            string backupDir = target + "_backup";
-            if (Directory.Exists(target))
+            string parent = Directory.GetParent(target)?.FullName;
+            if (string.IsNullOrWhiteSpace(parent))
             {
-                try
-                {
-                    if (Directory.Exists(backupDir)) Directory.Delete(backupDir, true);
-                    CopyDirectory(target, backupDir);
-                }
-                catch { }
+                throw new InvalidOperationException("Không xác định được thư mục cài đặt K-TOOLS.");
             }
+
+            Directory.CreateDirectory(parent);
+
+            string operationId = Guid.NewGuid().ToString("N");
+            string stagingRoot = Path.Combine(parent, $"KhimTools.bundle.__staging_{operationId}");
+            string backupRoot = Path.Combine(parent, $"KhimTools.bundle.__backup_{operationId}");
+
+            bool oldInstallMoved = false;
+            bool newInstallMoved = false;
+            bool deploymentSucceeded = false;
 
             try
             {
-                ExtractZipSafely(zipFilePath, target);
+                ExtractZipSafely(zipFilePath, stagingRoot);
+                string packageRoot = ResolvePackageRoot(stagingRoot);
+                ValidateExtractedBundle(packageRoot);
 
-                // Verify: Kiểm tra xem KhimTools.dll có thực sự tồn tại trong bundle mới giải nén không
-                bool legacyDllExists = File.Exists(Path.Combine(target, "Contents", "Legacy", "KhimTools.dll"));
-                bool modernDllExists = File.Exists(Path.Combine(target, "Contents", "Modern", "KhimTools.dll"));
+                File.WriteAllText(Path.Combine(packageRoot, "installed_version.txt"), tag);
 
-                if (!legacyDllExists && !modernDllExists)
+                if (Directory.Exists(target))
                 {
-                    if (Directory.Exists(backupDir))
-                    {
-                        CopyDirectory(backupDir, target);
-                    }
-                    throw new InvalidDataException("Bộ cài đặt tải về bị hỏng hoặc thiếu KhimTools.dll! Đã tự động khôi phục lại phiên bản trước đó.");
+                    Directory.Move(target, backupRoot);
+                    oldInstallMoved = true;
                 }
 
+                Directory.Move(packageRoot, target);
+                newInstallMoved = true;
+
+                ValidateExtractedBundle(target);
+                string installedTag = NormalizeVersionTag(
+                    File.ReadAllText(Path.Combine(target, "installed_version.txt")));
+                if (!string.Equals(installedTag, NormalizeVersionTag(tag), StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException("Xác minh phiên bản sau cài đặt thất bại.");
+                }
+
+                CleanLegacyAddinFiles();
+
+                if (oldInstallMoved)
+                {
+                    TryDeleteDirectory(backupRoot);
+                }
+
+                deploymentSucceeded = true;
+                LogInfo($"Deployment successful: {tag}");
+            }
+            catch (Exception deploymentError)
+            {
+                LogInfo($"Deployment failed: {deploymentError}");
+
+                Exception rollbackError = null;
                 try
                 {
-                    File.WriteAllText(Path.Combine(target, "installed_version.txt"), tag);
-                }
-                catch { }
+                    if (newInstallMoved && Directory.Exists(target))
+                    {
+                        Directory.Delete(target, true);
+                    }
 
-                if (Directory.Exists(backupDir))
+                    if (oldInstallMoved && Directory.Exists(backupRoot))
+                    {
+                        Directory.Move(backupRoot, target);
+                    }
+                }
+                catch (Exception ex)
                 {
-                    try { Directory.Delete(backupDir, true); } catch { }
+                    rollbackError = ex;
+                    LogInfo($"Rollback failed: {ex}");
+                }
+
+                if (rollbackError != null)
+                {
+                    throw new InvalidOperationException(
+                        "Cập nhật thất bại và quá trình khôi phục phiên bản cũ cũng gặp lỗi. " +
+                        "Vui lòng kiểm tra update_log.txt trước khi mở Revit.",
+                        new AggregateException(deploymentError, rollbackError));
+                }
+
+                throw;
+            }
+            finally
+            {
+                TryDeleteDirectory(stagingRoot);
+                if (deploymentSucceeded)
+                {
+                    TryDeleteDirectory(backupRoot);
                 }
             }
-            catch
+        }
+
+        private static string ResolvePackageRoot(string stagingRoot)
+        {
+            if (IsBundleRoot(stagingRoot))
             {
-                if (Directory.Exists(backupDir) && !Directory.Exists(target))
-                {
-                    CopyDirectory(backupDir, target);
-                }
-                throw;
+                return stagingRoot;
+            }
+
+            string nestedBundle = Path.Combine(stagingRoot, "KhimTools.bundle");
+            if (Directory.Exists(nestedBundle) && IsBundleRoot(nestedBundle))
+            {
+                return nestedBundle;
+            }
+
+            throw new InvalidDataException(
+                "Cấu trúc bundle không hợp lệ: không tìm thấy PackageContents.xml/KhimTools.dll ở vị trí mong đợi.");
+        }
+
+        private static bool IsBundleRoot(string root)
+        {
+            if (!Directory.Exists(root))
+            {
+                return false;
+            }
+
+            bool hasPackageXml = File.Exists(Path.Combine(root, "PackageContents.xml"));
+            bool hasDll =
+                File.Exists(Path.Combine(root, "Contents", "Legacy", "KhimTools.dll")) ||
+                File.Exists(Path.Combine(root, "Contents", "Modern", "KhimTools.dll")) ||
+                File.Exists(Path.Combine(root, "Legacy", "KhimTools.dll")) ||
+                File.Exists(Path.Combine(root, "Modern", "KhimTools.dll"));
+
+            return hasPackageXml && hasDll;
+        }
+
+        private static void ValidateExtractedBundle(string root)
+        {
+            if (!IsBundleRoot(root))
+            {
+                throw new InvalidDataException(
+                    "Bundle thiếu PackageContents.xml hoặc KhimTools.dll. Không thay đổi bản cài hiện tại.");
             }
         }
 
         private static void ExtractZipSafely(string zipPath, string destinationDirectory)
         {
             Directory.CreateDirectory(destinationDirectory);
+
+            string destinationRoot = Path.GetFullPath(destinationDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+
             using var archive = ZipFile.OpenRead(zipPath);
-            foreach (var entry in archive.Entries)
+            foreach (ZipArchiveEntry entry in archive.Entries)
             {
+                string fullPath = Path.GetFullPath(Path.Combine(destinationDirectory, entry.FullName));
+                if (!fullPath.StartsWith(destinationRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidDataException(
+                        $"Bundle chứa đường dẫn không an toàn: {entry.FullName}");
+                }
+
                 if (string.IsNullOrEmpty(entry.Name))
                 {
-                    string subDir = Path.Combine(destinationDirectory, entry.FullName);
-                    Directory.CreateDirectory(subDir);
+                    Directory.CreateDirectory(fullPath);
                     continue;
                 }
 
-                string targetFilePath = Path.Combine(destinationDirectory, entry.FullName);
-                string parentDir = Path.GetDirectoryName(targetFilePath);
+                string parentDir = Path.GetDirectoryName(fullPath);
                 if (!string.IsNullOrEmpty(parentDir))
                 {
                     Directory.CreateDirectory(parentDir);
                 }
 
-                entry.ExtractToFile(targetFilePath, overwrite: true);
+                entry.ExtractToFile(fullPath, overwrite: true);
             }
         }
 
         private static void CleanLegacyAddinFiles()
         {
-            try
+            string appDataBundle = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                @"Autodesk\ApplicationPlugins\KhimTools.bundle");
+            TryDeleteDirectory(appDataBundle);
+
+            string[] baseAddinFolders =
             {
-                // 1. Xóa thư mục KhimTools.bundle tàn dư trong %APPDATA%\Autodesk\ApplicationPlugins\ (tránh trùng AddInId với ProgramData)
-                string appDataBundle = Path.Combine(
+                Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    @"Autodesk\ApplicationPlugins\KhimTools.bundle");
-                if (Directory.Exists(appDataBundle))
+                    @"Autodesk\Revit\Addins"),
+                Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+                    @"Autodesk\Revit\Addins")
+            };
+
+            int[] years = { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
+
+            foreach (string baseDir in baseAddinFolders)
+            {
+                if (!Directory.Exists(baseDir))
                 {
-                    try { Directory.Delete(appDataBundle, true); } catch { }
+                    continue;
                 }
 
-                // 2. Dọn dẹp file .addin cũ trong %APPDATA%\Autodesk\Revit\Addins và %PROGRAMDATA%\Autodesk\Revit\Addins
-                string[] baseAddinFolders = new string[]
+                foreach (int year in years)
                 {
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\Revit\Addins")
-                };
-
-                int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
-
-                foreach (var baseDir in baseAddinFolders)
-                {
-                    if (!Directory.Exists(baseDir)) continue;
-
-                    foreach (int year in years)
+                    string yearFolder = Path.Combine(baseDir, year.ToString());
+                    if (!Directory.Exists(yearFolder))
                     {
-                        string yearFolder = Path.Combine(baseDir, year.ToString());
-                        if (!Directory.Exists(yearFolder)) continue;
-
-                        string addinFile = Path.Combine(yearFolder, "KhimTools.addin");
-                        if (File.Exists(addinFile))
-                        {
-                            try { File.Delete(addinFile); } catch { }
-                        }
-
-                        string pluginDir = Path.Combine(yearFolder, "KhimTools");
-                        if (Directory.Exists(pluginDir))
-                        {
-                            try { Directory.Delete(pluginDir, true); } catch { }
-                        }
+                        continue;
                     }
+
+                    TryDeleteFile(Path.Combine(yearFolder, "KhimTools.addin"));
+                    TryDeleteDirectory(Path.Combine(yearFolder, "KhimTools"));
                 }
             }
-            catch { }
         }
 
-        private static void CopyDirectory(string sourceDir, string destinationDir)
+        private static void TryDeleteFile(string path)
         {
-            var dir = new DirectoryInfo(sourceDir);
-            Directory.CreateDirectory(destinationDir);
-
-            foreach (FileInfo file in dir.GetFiles())
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
             {
-                string targetFilePath = Path.Combine(destinationDir, file.Name);
-                file.CopyTo(targetFilePath, true);
+                return;
             }
 
-            foreach (DirectoryInfo subDir in dir.GetDirectories())
+            try
             {
-                string newDestDir = Path.Combine(destinationDir, subDir.Name);
-                CopyDirectory(subDir.FullName, newDestDir);
+                File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                LogInfo($"Cleanup file failed ({path}): {ex.Message}");
+            }
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.Delete(path, true);
+            }
+            catch (Exception ex)
+            {
+                LogInfo($"Cleanup directory failed ({path}): {ex.Message}");
             }
         }
 
@@ -541,58 +884,66 @@ namespace KhiemToolsApp
                     UseShellExecute = true
                 });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogInfo($"Open feedback URL failed: {ex.Message}");
+            }
         }
 
         private void BtnUninstall_Click(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("Bạn có chắc chắn muốn gỡ cài đặt K-TOOLS khỏi máy tính không?", 
-                "Xác nhận gỡ bỏ", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(
+                    "Bạn có chắc chắn muốn gỡ cài đặt K-TOOLS khỏi máy tính không?",
+                    "Xác nhận gỡ bỏ",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
-                try
+                return;
+            }
+
+            try
+            {
+                if (!EnsureRevitClosed())
                 {
-                    if (!EnsureRevitClosed()) return;
-
-                    if (Directory.Exists(_programDataBundlePath))
-                    {
-                        Directory.Delete(_programDataBundlePath, true);
-                    }
-                    if (Directory.Exists(_appDataBundlePath))
-                    {
-                        Directory.Delete(_appDataBundlePath, true);
-                    }
-
-                    // Dọn dẹp cả file .addin và thư mục plugin trong %APPDATA% & %PROGRAMDATA%
-                    string[] revitAddinsBases = new string[]
-                    {
-                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Autodesk\Revit\Addins"),
-                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\Revit\Addins")
-                    };
-
-                    int[] years = new int[] { 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028 };
-                    foreach (var revitAddinsBase in revitAddinsBases)
-                    {
-                        if (!Directory.Exists(revitAddinsBase)) continue;
-                        foreach (int year in years)
-                        {
-                            string yearDir = Path.Combine(revitAddinsBase, year.ToString());
-                            if (!Directory.Exists(yearDir)) continue;
-
-                            string addinFile = Path.Combine(yearDir, "KhimTools.addin");
-                            if (File.Exists(addinFile)) try { File.Delete(addinFile); } catch { }
-
-                            string pluginDir = Path.Combine(yearDir, "KhimTools");
-                            if (Directory.Exists(pluginDir)) try { Directory.Delete(pluginDir, true); } catch { }
-                        }
-                    }
-
-                    TxtLocalVersion.Text = "Chưa cài";
-                    MessageBox.Show("Đã gỡ cài đặt thành công!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
                 }
-                catch (Exception ex)
+
+                if (Directory.Exists(_programDataBundlePath))
                 {
-                    MessageBox.Show("Lỗi gỡ cài đặt (hãy đảm bảo đã đóng Revit trước khi gỡ): " + ex.Message);
+                    Directory.Delete(_programDataBundlePath, true);
                 }
+
+                if (Directory.Exists(_appDataBundlePath))
+                {
+                    Directory.Delete(_appDataBundlePath, true);
+                }
+
+                CleanLegacyAddinFiles();
+                TxtLocalVersion.Text = "Chưa cài";
+
+                MessageBox.Show(
+                    "Đã gỡ cài đặt K-TOOLS thành công.",
+                    "Thông báo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                LogInfo($"Uninstall permission error: {ex}");
+                MessageBox.Show(
+                    "Không đủ quyền để gỡ K-TOOLS. Hãy chạy Updater bằng quyền Administrator.",
+                    "Thiếu quyền",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            catch (Exception ex)
+            {
+                LogInfo($"Uninstall failed: {ex}");
+                MessageBox.Show(
+                    "Không thể gỡ K-TOOLS: " + ex.Message,
+                    "Lỗi gỡ cài đặt",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
             }
         }
 
@@ -600,19 +951,43 @@ namespace KhiemToolsApp
         {
             try
             {
-                using RegistryKey key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Run", true);
-                if (key == null) return;
+                using RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run",
+                    true);
+                if (key == null)
+                {
+                    return;
+                }
 
                 if (ChkAutoStart.IsChecked == true)
                 {
-                    key.SetValue(RegistryKeyName, Process.GetCurrentProcess().MainModule.FileName);
+                    string executable = Process.GetCurrentProcess().MainModule?.FileName;
+                    if (!string.IsNullOrWhiteSpace(executable))
+                    {
+                        key.SetValue(RegistryKeyName, $"\"{executable}\"");
+                    }
                 }
                 else
                 {
                     key.DeleteValue(RegistryKeyName, false);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                LogInfo($"Save auto-start setting failed: {ex.Message}");
+            }
+        }
+
+        private sealed class UpdateDescriptor
+        {
+            public UpdateDescriptor(string tag, string downloadUrl)
+            {
+                Tag = tag;
+                DownloadUrl = downloadUrl;
+            }
+
+            public string Tag { get; }
+            public string DownloadUrl { get; }
         }
     }
 }
