@@ -20,6 +20,9 @@ namespace KhimTools.Tools.Updater.Models
         [JsonProperty("version")]
         public string Version { get; set; } = "";
 
+        [JsonProperty("updater_version")]
+        public string UpdaterVersion { get; set; } = "";
+
         [JsonProperty("build")]
         public string Build { get; set; } = "";
 

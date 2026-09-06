@@ -32,10 +32,10 @@ namespace KhimTools.Core
             form.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
         }
 
-        private static string GetDefaultVersionTag()
+        public static string GetDefaultVersionTag()
         {
             var ver = typeof(KhimUiStyle).Assembly.GetName().Version;
-            return ver != null ? $"v{ver.Major}.{ver.Minor} Commercial" : "v2.7 Commercial";
+            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build} Pro" : "v2.7.1 Pro";
         }
 
         // ── Header Banner Generator ─────────────────────────────────────────

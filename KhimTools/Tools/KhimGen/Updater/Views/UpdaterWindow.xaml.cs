@@ -59,6 +59,7 @@ namespace KhimTools.Tools.Updater.Views
                 case UpdateCheckStatus.ReadyToInstall:
                     TxtHeaderSubtitle.Text = "Bản cập nhật đã sẵn sàng cài đặt! ✓";
                     PanelVerificationChecklist.Visibility = Visibility.Visible;
+                    PanelSaveReminder.Visibility = Visibility.Visible;
                     BtnDownload.Visibility = Visibility.Collapsed;
                     PanelRestartActions.Visibility = Visibility.Visible;
                     BtnCloseOnly.Visibility = Visibility.Collapsed;
@@ -106,6 +107,7 @@ namespace KhimTools.Tools.Updater.Views
                 TxtHeaderSubtitle.Text = "Gói cập nhật đã được xác thực an toàn! ✓";
                 BtnDownload.Visibility = Visibility.Collapsed;
                 PanelVerificationChecklist.Visibility = Visibility.Visible;
+                PanelSaveReminder.Visibility = Visibility.Visible;
                 PanelRestartActions.Visibility = Visibility.Visible;
             }
             else

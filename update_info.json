@@ -1,12 +1,13 @@
 {
   "product": "K-TOOLS",
   "version": "2.7.1",
+  "updater_version": "2.7.1",
   "build": "20260905.0001",
   "commit": "bb21af01",
   "releaseDate": "2026-09-05",
   "package": "KhimTools_Bundle.zip",
   "downloadUrl": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.7.1/KhimTools_Bundle.zip",
-  "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "supportedRevit": [
     "2020",
     "2021",

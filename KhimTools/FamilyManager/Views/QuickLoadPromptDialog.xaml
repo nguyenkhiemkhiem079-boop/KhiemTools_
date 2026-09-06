@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="KhimTools Quick Draft" 
+        Title="K-TOOLS Quick Structure" 
         Height="360" Width="480"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
@@ -96,7 +96,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Text="KHIMTOOLS — QUICK PLACEMENT" FontWeight="Bold" FontSize="11" Foreground="#38BDF8"/>
+                        <TextBlock Text="K-TOOLS — QUICK STRUCTURE" FontWeight="Bold" FontSize="11" Foreground="#38BDF8"/>
                         <TextBlock x:Name="TxtTitle" Text="Required Family Missing" FontWeight="Bold" FontSize="17" Foreground="White" Margin="0,4,0,0"/>
                     </StackPanel>
 

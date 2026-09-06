@@ -38,7 +38,8 @@ namespace KhimTools.RebarTool.Core
             double offsetMm,
             double barDiameterMm,
             double availableHeightMm,
-            double nominalCoverMm = 30.0)
+            double nominalCoverMm = 30.0,
+            IRebarDesignStandard standard = null)
         {
             var res = new CrankEvaluationResult
             {
@@ -71,8 +72,9 @@ namespace KhimTools.RebarTool.Core
             res.RequiredCrankHeightMm = totalInward * MaxCrankSlope;
             res.CrankSlope = MaxCrankSlope;
 
-            // Bán kính uốn tối thiểu theo Eurocode 2 (Table 8.1N)
-            res.BendRadiusMm = (barDiameterMm <= 16.0) ? (2.0 * barDiameterMm) : (3.5 * barDiameterMm);
+            // Bán kính uốn tối thiểu theo tiêu chuẩn thiết kế (AUDIT-20: Mandrel diameter / 2)
+            var std = standard ?? new EurocodeRebarStandard();
+            res.BendRadiusMm = std.GetMinMandrelDiameter(barDiameterMm) / 2.0;
 
             // 4. Kiểm tra chiều cao khả dụng trong vùng nối / nút dầm sàn
             if (availableHeightMm > 0 && res.RequiredCrankHeightMm > availableHeightMm)

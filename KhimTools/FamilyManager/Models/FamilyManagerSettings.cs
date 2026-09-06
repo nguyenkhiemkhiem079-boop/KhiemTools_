@@ -17,7 +17,7 @@ namespace KhimTools.FamilyManager.Models
         {
             { "Column", "M_Concrete-Square-Column" },
             { "Beam", "M_Concrete-Rectangular-Beam" },
-            { "Foundation", "Móng cọc 1 tim" },
+            { "Foundation", "M_Footing-Pad-Single" },
             { "Wall", "Generic - 200mm" },
             { "Slab", "Generic 150mm" }
         };
@@ -25,6 +25,12 @@ namespace KhimTools.FamilyManager.Models
         public bool AlwaysLoadRebarCompletely { get; set; } = true;
         public bool OverwriteExistingTypes { get; set; } = false;
         public bool AutoScanOnOpen { get; set; } = true;
+
+        [JsonIgnore]
+        public bool WasFallbackToDefault { get; private set; } = false;
+
+        [JsonIgnore]
+        public string LastLoadError { get; private set; }
 
         private static readonly string SettingsDirectory = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -48,9 +54,28 @@ namespace KhimTools.FamilyManager.Models
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                // Fallback to default if file corrupt or unreadable
+                // AUDIT-03: Do NOT silently swallow corrupt config.
+                // Preserve the corrupt file for user recovery and record the incident.
+                try
+                {
+                    string backupPath = SettingsFilePath + $".corrupt.{DateTime.UtcNow:yyyyMMdd_HHmmss}.bak";
+                    if (File.Exists(SettingsFilePath))
+                    {
+                        File.Copy(SettingsFilePath, backupPath, true);
+                    }
+                    string logDir = Path.Combine(SettingsDirectory, "logs");
+                    if (!Directory.Exists(logDir)) Directory.CreateDirectory(logDir);
+                    string logPath = Path.Combine(logDir, "family_manager.log");
+                    File.AppendAllText(logPath, $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Failed to load settings. Backed up to {backupPath}. Error: {ex.Message}\n{ex.StackTrace}\n\n");
+                }
+                catch { }
+
+                var fallback = CreateDefault();
+                fallback.WasFallbackToDefault = true;
+                fallback.LastLoadError = ex.Message;
+                return fallback;
             }
 
             return CreateDefault();

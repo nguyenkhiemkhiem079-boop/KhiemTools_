@@ -54,7 +54,7 @@ namespace KhimTools.Tools.Updater.Services
             {
                 using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
                 {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("K-TOOLS-Client/2.7.1");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd($"K-TOOLS-Client/{currentVer}");
                     string json = await client.GetStringAsync(cacheBustUrl);
 
                     if (!string.IsNullOrWhiteSpace(json))
@@ -117,7 +117,7 @@ namespace KhimTools.Tools.Updater.Services
             {
                 using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) })
                 {
-                    client.DefaultRequestHeaders.UserAgent.ParseAdd("K-TOOLS-Updater/2.7.1");
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd($"K-TOOLS-Updater/{GetCurrentVersion()}");
 
                     using (var response = await client.GetAsync(updateInfo.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
                     {
@@ -217,11 +217,8 @@ namespace KhimTools.Tools.Updater.Services
             string[] candidatePaths = new string[]
             {
                 Path.Combine(asmDir ?? "", "KToolsUpdater.exe"),
-                Path.Combine(asmDir ?? "", "KhimTools_Installer.exe"),
                 Path.Combine(asmDir ?? "", "..", "..", "KToolsUpdater.exe"),
-                Path.Combine(asmDir ?? "", "..", "..", "KhimTools_Installer.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\ApplicationPlugins\KhimTools.bundle\Contents\KToolsUpdater.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"Autodesk\ApplicationPlugins\KhimTools.bundle\Contents\KhimTools_Installer.exe"),
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"KTools\KToolsUpdater.exe")
             };
 

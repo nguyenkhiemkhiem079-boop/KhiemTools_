@@ -46,7 +46,7 @@ namespace KhimTools.RebarTool.Core
         /// <summary>
         /// Chiều dài đoạn neo đuôi móc (Hook tail length) tính bằng mm.
         /// </summary>
-        double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true);
+        double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true, bool isSeismicDesign = false);
 
         /// <summary>
         /// Lớp bê tông bảo vệ tối thiểu theo loại cấu kiện và cấp độ bền/môi trường (mm).
@@ -92,13 +92,15 @@ namespace KhimTools.RebarTool.Core
             return Math.Max(barDiameterMm, Math.Max(maxAggregateSizeMm + 5.0, 20.0));
         }
 
-        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true)
+        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true, bool isSeismicDesign = false)
         {
             // EN 1992-1-1 Figure 8.1:
             // Đai uốn 135° hoặc 150°: >= max(5 * ds, 50mm) với uốn chuẩn, hoặc 10 * ds cho động đất
             if (isStirrup)
             {
-                return Math.Max(10.0 * barDiameterMm, 70.0);
+                return isSeismicDesign 
+                    ? Math.Max(10.0 * barDiameterMm, 70.0)
+                    : Math.Max(5.0 * barDiameterMm, 50.0);
             }
             // Thép chủ móc 90° / 135°: >= 5 * ds (hoặc 12 * ds cho neo đầy đủ)
             return Math.Max(bendAngleDeg >= 135.0 ? 5.0 * barDiameterMm : 10.0 * barDiameterMm, 100.0);
@@ -204,14 +206,17 @@ namespace KhimTools.RebarTool.Core
             return Math.Max(barDiameterMm, Math.Max(baseMin, maxAggregateSizeMm));
         }
 
-        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true)
+        public double GetHookTailLength(double barDiameterMm, double bendAngleDeg = 135.0, bool isStirrup = true, bool isSeismicDesign = false)
         {
             // TCVN 5574:2018 Điều 10.3.5.7 & Mục móc uốn đai:
             // - Đai kháng chấn 135°: >= max(10 * ds, 75mm)
+            // - Đai thông thường 135°: >= max(5 * ds, 50mm)
             // - Móc neo 90° cốt dọc: >= max(12 * ds, 150mm)
             if (isStirrup)
             {
-                return Math.Max(10.0 * barDiameterMm, 75.0);
+                return isSeismicDesign
+                    ? Math.Max(10.0 * barDiameterMm, 75.0)
+                    : Math.Max(5.0 * barDiameterMm, 50.0);
             }
             return Math.Max(bendAngleDeg >= 135.0 ? 6.0 * barDiameterMm : 12.0 * barDiameterMm, 150.0);
         }

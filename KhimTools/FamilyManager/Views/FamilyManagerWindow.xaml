@@ -146,6 +146,7 @@
                     <!-- Options -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                         <CheckBox x:Name="ChkOverwriteExisting" Content="Overwrite parameter values on reload" VerticalAlignment="Center" FontSize="12" Foreground="#475569" Margin="0,0,16,0" ToolTip="Non-destructive by default. If checked, updates parameter definitions from file."/>
+                        <Button Style="{StaticResource ModernButton}" Content="📁 Manage Sources" Click="BtnManageSources_Click" Padding="10,6" FontSize="12" Margin="0,0,8,0"/>
                         <Button Style="{StaticResource ModernButton}" Content="🔄 Rescan Folders" Click="BtnRescan_Click" Padding="10,6" FontSize="12"/>
                     </StackPanel>
                 </Grid>
@@ -188,12 +189,26 @@
                 <!-- Right Family Items Detail View -->
                 <Grid Grid.Column="1" Margin="16">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Warnings Banner (optional) -->
                         <RowDefinition Height="Auto"/> <!-- Group Banner & Selective/Bi-state rule explanation -->
+                        <RowDefinition Height="Auto"/> <!-- Rebar Single Toggle Info Card -->
                         <RowDefinition Height="*"/>    <!-- Families DataGrid / List -->
                     </Grid.RowDefinitions>
 
+                    <!-- Warnings Banner -->
+                    <Border Grid.Row="0" x:Name="BannerWarnings" Background="#FEF3C7" BorderBrush="#FCD34D" BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,10" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="TxtWarningNotice" Text="Some library folders could not be accessed." FontSize="12" Foreground="#92400E" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Style="{StaticResource ModernButton}" Content="View Details" Click="BtnViewWarnings_Click" FontSize="11" Padding="8,3"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Group Banner -->
-                    <Border Grid.Row="0" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
+                    <Border Grid.Row="1" x:Name="BannerGroupHeader" Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
@@ -213,11 +228,26 @@
                         </Grid>
                     </Border>
 
+                    <!-- Rebar Info Card (single toggle instead of individual shape checkboxes) -->
+                    <Border Grid.Row="2" x:Name="CardRebarInfo" Background="#F0FDF4" BorderBrush="#86EFAC" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,12" Visibility="Collapsed">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="📦 Rebar Shape Library (T00-T80) — Complete Engineering Suite" FontWeight="Bold" FontSize="14" Foreground="#166534"/>
+                                <TextBlock Text="The Revit API and K-TOOLS Rebar Engine require all shapes to be loaded together. Shapes are managed as a single complete library." FontSize="12" Foreground="#15803D" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="ChkRebarSingleToggle" Content="Include Entire Rebar Suite" FontWeight="SemiBold" FontSize="13" Foreground="#166534" VerticalAlignment="Center" Click="ChkRebarSingleToggle_Click"/>
+                        </Grid>
+                    </Border>
+
                     <!-- Families List -->
-                    <DataGrid Grid.Row="1" x:Name="GridFamilies" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F1F5F9" BorderThickness="1" BorderBrush="#E2E8F0" Background="White" RowHeight="36">
+                    <DataGrid Grid.Row="3" x:Name="GridFamilies" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#F1F5F9" BorderThickness="1" BorderBrush="#E2E8F0" Background="White" RowHeight="36">
                         <DataGrid.Columns>
                             <!-- Checkbox Column -->
-                            <DataGridTemplateColumn Width="40" Header="">
+                            <DataGridTemplateColumn x:Name="ColCheckbox" Width="40" Header="">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>

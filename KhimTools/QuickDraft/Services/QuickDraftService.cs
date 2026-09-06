@@ -40,7 +40,12 @@ namespace KhimTools.QuickDraft.Services
                     var managerWin = new FamilyManagerWindow(doc);
                     managerWin.ShowDialog();
 
-                    // Re-check after closing Family Manager
+                    // Re-check after closing Family Manager: reload settings in case preferred family was changed
+                    var settings = FamilyManagerSettings.Load();
+                    if (settings.PreferredFamilies != null && settings.PreferredFamilies.TryGetValue(elementName, out var updatedPref) && !string.IsNullOrWhiteSpace(updatedPref))
+                    {
+                        preferredFamilyName = updatedPref;
+                    }
                     targetSymbol = FindSymbol(doc, category, preferredFamilyName);
                 }
                 else if (prompt.UserAction == QuickLoadPromptAction.LoadSingleFamily)
@@ -56,32 +61,29 @@ namespace KhimTools.QuickDraft.Services
                         }
                         else
                         {
-                            TaskDialog.Show("KhimTools Quick Draft", $"Failed to load family '{preferredFamilyName}':\n{loadRes.Failures.FirstOrDefault().Value}");
+                            TaskDialog.Show("K-TOOLS — Quick Structure", $"Failed to load family '{preferredFamilyName}':\n{loadRes.Failures.FirstOrDefault().Value}");
                             return Result.Failed;
                         }
                     }
                     else
                     {
-                        TaskDialog.Show("KhimTools Quick Draft", $"Family file for '{preferredFamilyName}' was not found in library folders.");
+                        TaskDialog.Show("K-TOOLS — Quick Structure", $"Family file for '{preferredFamilyName}' was not found in library folders.");
                         return Result.Failed;
                     }
                 }
             }
 
-            // Fallback: If preferred family not found, try any loaded symbol in category
+            // ZERO SILENT FALLBACK POLICY:
+            // If the exact preferred family could not be found or loaded after all user-facing options
+            // were exhausted, we MUST NOT substitute any other family. Report the failure explicitly.
             if (targetSymbol == null)
             {
-                targetSymbol = new FilteredElementCollector(doc)
-                    .OfCategory(category)
-                    .OfClass(typeof(FamilySymbol))
-                    .Cast<FamilySymbol>()
-                    .FirstOrDefault();
-
-                if (targetSymbol == null)
-                {
-                    TaskDialog.Show("KhimTools Quick Draft", $"No loaded {elementName} families found in project. Please load one via Family Manager.");
-                    return Result.Cancelled;
-                }
+                TaskDialog.Show(
+                    "K-TOOLS — Quick Structure",
+                    $"The required family '{preferredFamilyName}' is not available in the active project.\n\n" +
+                    $"Please use Family Manager to load the correct '{preferredFamilyName}' family, then try again.\n\n" +
+                    "Do NOT substitute another family — the exact structural type is required.");
+                return Result.Failed;
             }
 
             // 3. Ensure symbol is active
@@ -103,12 +105,12 @@ namespace KhimTools.QuickDraft.Services
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException)
             {
-                // User pressed Escape to end placement - normal Revit behavior
+                // User pressed Escape to end placement — normal Revit behavior, not a failure
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("KhimTools Quick Draft", $"Placement error:\n{ex.Message}");
+                TaskDialog.Show("K-TOOLS — Quick Structure", $"Placement error:\n{ex.Message}");
                 return Result.Failed;
             }
         }

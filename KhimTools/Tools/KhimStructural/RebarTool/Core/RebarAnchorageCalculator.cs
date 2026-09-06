@@ -121,6 +121,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (concrete == ConcreteGrade.Auto || steel == SteelGrade.Auto)
             {
+                System.Diagnostics.Debug.WriteLine($"[RebarAnchorageCalculator] Warning: ConcreteGrade ({concrete}) or SteelGrade ({steel}) is Auto. Using empirical fallback anchorage {fallbackMultiplier}d = {barDiameterMm * fallbackMultiplier:F1}mm.");
                 return barDiameterMm * fallbackMultiplier;
             }
 
@@ -145,6 +146,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (concrete == ConcreteGrade.Auto || steel == SteelGrade.Auto)
             {
+                System.Diagnostics.Debug.WriteLine($"[RebarAnchorageCalculator] Warning: ConcreteGrade ({concrete}) or SteelGrade ({steel}) is Auto. Using empirical fallback lap {fallbackMultiplier}d = {barDiameterMm * fallbackMultiplier:F1}mm.");
                 return barDiameterMm * fallbackMultiplier;
             }
 

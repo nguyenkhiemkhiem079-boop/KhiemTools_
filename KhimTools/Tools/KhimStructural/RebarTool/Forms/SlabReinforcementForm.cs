@@ -131,7 +131,7 @@ namespace KhimTools.RebarTool.Forms
             var header = KhimUiStyle.CreateHeaderBanner(
                 "KHIM TOOLS — Multi-Panel Slab Detailing Engine",
                 "Panel System, Bottom/Top Mesh, Support Hats, Distribution Bars & Spacers",
-                "v2.7.0 Pro");
+                null);
             Controls.Add(header);
 
             // 1. Bottom Control Panel

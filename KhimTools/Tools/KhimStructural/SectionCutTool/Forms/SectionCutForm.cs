@@ -142,7 +142,7 @@ namespace KhimTools.SectionCutTool.Forms
             var header = KhimUiStyle.CreateHeaderBanner(
                 "📐 TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
                 "Auto Longitudinal & Cross-Section View Generator for Rebar Detailing",
-                "v2.7.0");
+                null);
             Controls.Add(header);
 
             // 2. Main Content Container

@@ -10,6 +10,7 @@
     <Version>2.7.1</Version>
     <AssemblyVersion>2.7.1.0</AssemblyVersion>
     <FileVersion>2.7.1.0</FileVersion>
+    <StartupObject>KhiemToolsApp.Program</StartupObject>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
   </PropertyGroup>

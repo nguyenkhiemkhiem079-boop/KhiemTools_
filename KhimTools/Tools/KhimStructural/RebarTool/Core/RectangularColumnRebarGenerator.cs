@@ -58,8 +58,8 @@ namespace KhimTools.RebarTool.Core
         public ConcreteGrade ConcreteGrade { get; set; } = ConcreteGrade.Auto;
         public SteelGrade SteelGrade { get; set; } = SteelGrade.Auto;
 
-        /// <summary>Hệ số nối chồng: Ls = multiplier × d (30d nén, 40d kéo, 45d đặc biệt).</summary>
-        public double LapLengthMultiplier { get; set; } = 30;
+        /// <summary>Hệ số nối chồng fallback khi để Auto grade: Ls = multiplier × d (35d TCVN, 30d Eurocode).</summary>
+        public double LapLengthMultiplier { get; set; } = 35;
 
         /// <summary>Nối so le 50% — nửa số thanh nối ở 1 cao độ, nửa còn lại cách 1.3×Ls.</summary>
         public bool StaggeredSplice { get; set; } = true;
@@ -173,14 +173,23 @@ namespace KhimTools.RebarTool.Core
         {
             var bars = new List<Rebar>();
 
+            double percentFactor = input.StaggeredSplice
+                ? (input.DesignStandard == DesignCode.TCVN5574_2018 ? 1.2 : 1.0)
+                : 1.5;
+
             double mainDia = input.MainBarType.BarModelDiameter;
+            double fallbackMult = (input.LapLengthMultiplier > 0)
+                ? input.LapLengthMultiplier
+                : (input.DesignStandard == DesignCode.TCVN5574_2018 ? 35.0 : 30.0);
+
             double lapLength = RebarLapSpliceHelper.CalculateLapLength(
                 mainDia,
-                input.LapLengthMultiplier,
+                fallbackMult,
                 input.ConcreteGrade,
                 input.SteelGrade,
                 AnchorageType.Compression,
-                input.DesignStandard);
+                input.DesignStandard,
+                percentFactor);
 
             // Tự động phát hiện cột trên / dưới nếu chưa được gán thủ công
             if (input.AdjacentColumnAbove == null && !input.IsTopRoofColumn)

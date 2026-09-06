@@ -29,11 +29,11 @@ namespace KhimTools.FamilyManager.Views
             Loaded += (s, e) => InitializeData();
         }
 
-        private void InitializeData()
+        private void InitializeData(bool forceRescan = false)
         {
             try
             {
-                _groups = FamilyDiscoveryService.DiscoverGroups(_settings);
+                _groups = FamilyDiscoveryService.DiscoverGroups(_settings, forceRescan);
                 FamilyStatusService.UpdateStatuses(_doc, _groups);
 
                 ListGroups.ItemsSource = _groups;
@@ -42,11 +42,51 @@ namespace KhimTools.FamilyManager.Views
                     ListGroups.SelectedIndex = 0;
                 }
 
+                // Check for scan warnings or corrupt settings fallback
+                if (_settings.WasFallbackToDefault)
+                {
+                    BannerWarnings.Visibility = System.Windows.Visibility.Visible;
+                    TxtWarningNotice.Text = "⚠️ Settings fell back to defaults due to corrupted configuration (backed up).";
+                }
+                else if (FamilyDiscoveryService.LastScanWarnings.Count > 0)
+                {
+                    BannerWarnings.Visibility = System.Windows.Visibility.Visible;
+                    TxtWarningNotice.Text = $"⚠️ {FamilyDiscoveryService.LastScanWarnings.Count} library directory warning(s) detected during scan.";
+                }
+                else
+                {
+                    BannerWarnings.Visibility = System.Windows.Visibility.Collapsed;
+                }
+
                 UpdateOverallSummary();
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Failed to initialize family library:\n{ex.Message}", "KhimTools Family Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Failed to initialize family library:\n{ex.Message}", "K-TOOLS Family Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void BtnViewWarnings_Click(object sender, RoutedEventArgs e)
+        {
+            var msgs = new List<string>();
+            if (_settings.WasFallbackToDefault && !string.IsNullOrEmpty(_settings.LastLoadError))
+            {
+                msgs.Add($"Settings Error: {_settings.LastLoadError}");
+            }
+            msgs.AddRange(FamilyDiscoveryService.LastScanWarnings);
+
+            string details = msgs.Count > 0 ? string.Join("\n• ", msgs) : "No diagnostic warnings.";
+            MessageBox.Show($"Diagnostic scan warnings:\n• {details}", "K-TOOLS Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        private void BtnManageSources_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new LibrarySourcesDialog(_settings);
+            dlg.Owner = this;
+            if (dlg.ShowDialog() == true)
+            {
+                FamilyDiscoveryService.InvalidateCache();
+                InitializeData(forceRescan: true);
             }
         }
 
@@ -58,9 +98,24 @@ namespace KhimTools.FamilyManager.Views
             TxtSelectedGroupName.Text = _selectedGroup.DisplayName;
             TxtSelectedGroupRule.Text = _selectedGroup.RuleDescription;
 
-            // Show Select/Deselect buttons only for selective groups (not Rebar)
-            BtnSelectAllInGroup.Visibility = _selectedGroup.IsSelective ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-            BtnClearAllInGroup.Visibility = _selectedGroup.IsSelective ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            bool isRebar = _selectedGroup.GroupType == FamilyGroupType.Rebar;
+
+            // Rebar suite uses single info card and single toggle instead of per-shape checkboxes
+            if (isRebar)
+            {
+                CardRebarInfo.Visibility = System.Windows.Visibility.Visible;
+                ChkRebarSingleToggle.IsChecked = _selectedGroup.IsChecked == true;
+                ColCheckbox.Visibility = System.Windows.Visibility.Collapsed;
+                BtnSelectAllInGroup.Visibility = System.Windows.Visibility.Collapsed;
+                BtnClearAllInGroup.Visibility = System.Windows.Visibility.Collapsed;
+            }
+            else
+            {
+                CardRebarInfo.Visibility = System.Windows.Visibility.Collapsed;
+                ColCheckbox.Visibility = System.Windows.Visibility.Visible;
+                BtnSelectAllInGroup.Visibility = _selectedGroup.IsSelective ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+                BtnClearAllInGroup.Visibility = _selectedGroup.IsSelective ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            }
 
             _currentView = CollectionViewSource.GetDefaultView(_selectedGroup.Families);
             if (_currentView != null)
@@ -77,6 +132,13 @@ namespace KhimTools.FamilyManager.Views
                 fam.PropertyChanged += OnFamilyItemPropertyChanged;
             }
 
+            UpdateOverallSummary();
+        }
+
+        private void ChkRebarSingleToggle_Click(object sender, RoutedEventArgs e)
+        {
+            bool isChecked = ChkRebarSingleToggle.IsChecked == true;
+            _selectedGroup?.SetAllChildren(isChecked);
             UpdateOverallSummary();
         }
 
@@ -117,7 +179,8 @@ namespace KhimTools.FamilyManager.Views
 
         private void BtnRescan_Click(object sender, RoutedEventArgs e)
         {
-            InitializeData();
+            FamilyDiscoveryService.InvalidateCache();
+            InitializeData(forceRescan: true);
         }
 
         private void UpdateOverallSummary()
@@ -134,7 +197,7 @@ namespace KhimTools.FamilyManager.Views
             var selectedItems = _groups.SelectMany(g => g.Families).Where(f => f.IsSelected).ToList();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("Please select at least one family to load.", "KhimTools Family Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Please select at least one family to load.", "K-TOOLS Family Manager", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -149,8 +212,11 @@ namespace KhimTools.FamilyManager.Views
             {
                 var result = FamilyLoaderService.LoadFamilies(_doc, selectedItems, overwrite, (famName, current, total) =>
                 {
-                    ProgressBarLoad.Value = current;
-                    TxtOverallSummary.Text = $"Loading {famName} ({current}/{total})...";
+                    Dispatcher.Invoke(() =>
+                    {
+                        ProgressBarLoad.Value = current;
+                        TxtOverallSummary.Text = $"Loading {famName} ({current}/{total})...";
+                    });
                 });
 
                 // Refresh document statuses
@@ -167,12 +233,12 @@ namespace KhimTools.FamilyManager.Views
                     report += "\n\nFailed items:\n" + string.Join("\n", result.Failures.Select(f => $"• {f.Key}: {f.Value}"));
                 }
 
-                MessageBox.Show(report, "KhimTools Family Manager", MessageBoxButton.OK,
+                MessageBox.Show(report, "K-TOOLS Family Manager", MessageBoxButton.OK,
                     result.FailedCount > 0 ? MessageBoxImage.Warning : MessageBoxImage.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Unexpected error during loading:\n{ex.Message}", "KhimTools Family Manager", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Unexpected error during loading:\n{ex.Message}", "K-TOOLS Family Manager", MessageBoxButton.OK, MessageBoxImage.Error);
             }
             finally
             {

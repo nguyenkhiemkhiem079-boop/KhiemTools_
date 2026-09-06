@@ -37,12 +37,15 @@ namespace KhimTools.FamilyManager.Services
 
     /// <summary>
     /// Service responsible for loading families into a Revit Document safely,
-    /// isolating errors, tracking progress, and non-destructively updating existing content.
+    /// isolating errors per-family, tracking progress, and non-destructively updating existing content.
+    /// Each family is loaded in its own isolated transaction so one failure cannot roll back the
+    /// entire batch — critical for large Rebar libraries with 200+ shapes.
     /// </summary>
     public class FamilyLoaderService
     {
         /// <summary>
         /// Loads a collection of family items into the document.
+        /// Each family uses its own transaction for fault isolation.
         /// </summary>
         public static FamilyLoadResult LoadFamilies(
             Document doc,
@@ -58,39 +61,41 @@ namespace KhimTools.FamilyManager.Services
 
             var loadOptions = new NonDestructiveFamilyLoadOptions(overwriteExisting);
 
-            using (var tx = new Transaction(doc, "Load KhimTools Families"))
+            int current = 0;
+            int total = itemsToLoad.Count;
+
+            foreach (var item in itemsToLoad)
             {
-                tx.Start();
+                current++;
+                progressCallback?.Invoke(item.FamilyName, current, total);
 
-                int current = 0;
-                int total = itemsToLoad.Count;
-
-                foreach (var item in itemsToLoad)
+                if (!File.Exists(item.FilePath))
                 {
-                    current++;
-                    progressCallback?.Invoke(item.FamilyName, current, total);
+                    item.Status = FamilyItemStatus.NotFound;
+                    item.ErrorMessage = $"File not found: {item.FilePath}";
+                    result.RecordFailure(item.FamilyName, item.ErrorMessage);
+                    continue;
+                }
 
-                    if (!File.Exists(item.FilePath))
-                    {
-                        item.Status = FamilyItemStatus.NotFound;
-                        item.ErrorMessage = $"File not found: {item.FilePath}";
-                        result.RecordFailure(item.FamilyName, item.ErrorMessage);
-                        continue;
-                    }
+                // If not overwriting and already confirmed loaded, skip (but do not trust stale flag).
+                if (!overwriteExisting && item.IsLoadedInProject)
+                {
+                    item.Status = FamilyItemStatus.UpToDate;
+                    result.RecordUpToDate(item.FamilyName);
+                    continue;
+                }
 
-                    // If not overwriting and already loaded, count as up to date
-                    if (!overwriteExisting && item.IsLoadedInProject)
-                    {
-                        item.Status = FamilyItemStatus.UpToDate;
-                        result.RecordUpToDate(item.FamilyName);
-                        continue;
-                    }
-
+                // Each family in its own transaction — one failure cannot abort the entire batch.
+                using (var tx = new Transaction(doc, $"Load Family: {item.FamilyName}"))
+                {
                     try
                     {
+                        tx.Start();
                         bool success = doc.LoadFamily(item.FilePath, loadOptions, out Family loadedFamily);
+
                         if (success && loadedFamily != null)
                         {
+                            // Explicit success: API confirmed new load.
                             item.IsLoadedInProject = true;
                             item.Status = FamilyItemStatus.Loaded;
                             item.ErrorMessage = null;
@@ -105,27 +110,66 @@ namespace KhimTools.FamilyManager.Services
                             }
 
                             result.RecordLoaded(item.FamilyName);
+                            tx.Commit();
                         }
                         else
                         {
-                            // If doc.LoadFamily returns false, it usually means the family is already loaded and identical
-                            item.IsLoadedInProject = true;
-                            item.Status = FamilyItemStatus.UpToDate;
-                            result.RecordUpToDate(item.FamilyName);
+                            // doc.LoadFamily() returned false — two distinct cases:
+                            //   (A) Family already loaded and identical  → UpToDate
+                            //   (B) Silent load failure                  → LoadFailed
+                            // Disambiguate by verifying the family is actually in the document.
+                            bool actuallyInDocument = IsFamilyInDocument(doc, item.FamilyName);
+                            if (actuallyInDocument)
+                            {
+                                item.IsLoadedInProject = true;
+                                item.Status = FamilyItemStatus.UpToDate;
+                                result.RecordUpToDate(item.FamilyName);
+                                tx.RollBack(); // Nothing was modified.
+                            }
+                            else
+                            {
+                                // Family is NOT in the document: genuine silent failure.
+                                item.IsLoadedInProject = false;
+                                item.Status = FamilyItemStatus.LoadFailed;
+                                item.ErrorMessage = "LoadFamily() returned false and family is not present in document.";
+                                result.RecordFailure(item.FamilyName, item.ErrorMessage);
+                                tx.RollBack();
+                            }
                         }
                     }
                     catch (Exception ex)
                     {
+                        if (tx.GetStatus() == TransactionStatus.Started)
+                        {
+                            try { tx.RollBack(); } catch { }
+                        }
                         item.Status = FamilyItemStatus.LoadFailed;
                         item.ErrorMessage = ex.Message;
                         result.RecordFailure(item.FamilyName, ex.Message);
                     }
                 }
-
-                tx.Commit();
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// Verifies that a family with the given name is actually present in the Revit document.
+        /// Used to disambiguate a silent false-returning doc.LoadFamily() call.
+        /// </summary>
+        private static bool IsFamilyInDocument(Document doc, string familyName)
+        {
+            try
+            {
+                return new FilteredElementCollector(doc)
+                    .OfClass(typeof(Family))
+                    .Cast<Family>()
+                    .Any(f => string.Equals(f.Name, familyName, StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>

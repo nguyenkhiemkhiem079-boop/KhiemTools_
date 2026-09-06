@@ -93,7 +93,8 @@ namespace KhimTools.Core
                     string markerDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "KTools");
                     if (!Directory.Exists(markerDir)) Directory.CreateDirectory(markerDir);
                     string markerPath = Path.Combine(markerDir, "startup_success.marker");
-                    File.WriteAllText(markerPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | Version: 2.7.1 | Status: SUCCESS");
+                    string version = typeof(App).Assembly.GetName().Version?.ToString(3) ?? "2.7.1";
+                    File.WriteAllText(markerPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} | Version: {version} | Status: SUCCESS");
                 }
                 catch { }
             }

@@ -16,14 +16,47 @@ namespace KhimTools.FamilyManager.Services
         // Matches Revit backup suffix: .0001.rfa, .0023.rfa, etc.
         private static readonly Regex BackupRegex = new Regex(@"\.\d{3,5}\.rfa$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-        public static List<FamilyGroupModel> DiscoverGroups(FamilyManagerSettings settings = null)
+        public static List<string> LastScanWarnings { get; } = new List<string>();
+
+        private static List<FamilyGroupModel> _cachedGroups;
+        private static DateTime _cacheTimestamp = DateTime.MinValue;
+        private static readonly TimeSpan CacheValidityDuration = TimeSpan.FromMinutes(2);
+        private static readonly object _cacheLock = new object();
+
+        public static void InvalidateCache()
         {
+            lock (_cacheLock)
+            {
+                _cachedGroups = null;
+                _cacheTimestamp = DateTime.MinValue;
+            }
+        }
+
+        public static List<FamilyGroupModel> DiscoverGroups(FamilyManagerSettings settings = null, bool forceRescan = false)
+        {
+            lock (_cacheLock)
+            {
+                if (!forceRescan && _cachedGroups != null && (DateTime.UtcNow - _cacheTimestamp) < CacheValidityDuration)
+                {
+                    return _cachedGroups;
+                }
+            }
+
             var sources = FamilySourceResolver.ResolveAllSources(settings);
-            return DiscoverFromSources(sources);
+            var discovered = DiscoverFromSources(sources);
+
+            lock (_cacheLock)
+            {
+                _cachedGroups = discovered;
+                _cacheTimestamp = DateTime.UtcNow;
+            }
+
+            return discovered;
         }
 
         public static List<FamilyGroupModel> DiscoverFromSources(IEnumerable<FamilyLibrarySource> sources)
         {
+            LastScanWarnings.Clear();
             // Dictionary by GroupType -> (FamilyName -> FamilyItemModel)
             var groupMap = new Dictionary<FamilyGroupType, Dictionary<string, FamilyItemModel>>();
 
@@ -99,9 +132,10 @@ namespace KhimTools.FamilyManager.Services
                             }
                         }
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Directory access failure, safe skip
+                        // AUDIT-13: Log specific directory path and error instead of bare catch
+                        LastScanWarnings.Add($"Directory scan warning [{path}]: {ex.Message}");
                     }
                 }
             }

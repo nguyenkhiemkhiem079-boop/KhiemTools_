@@ -91,7 +91,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.7.0)";
+            Text = "K-TOOLS — Bố trí Thép Móng (Foundation Rebar)";
             Width = 920;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -101,9 +101,9 @@ namespace KhimTools.RebarTool.Forms
 
             // Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Foundation Reinforcement Engine",
+                "K-TOOLS — Foundation Reinforcement Engine",
                 "Automated Bottom/Top Meshes, Column Starter Bars & Edge Ties (TCVN 5574 & Eurocode 2/7)",
-                "v2.7.0 Pro");
+                null);
             Controls.Add(header);
 
             // Bottom Panel

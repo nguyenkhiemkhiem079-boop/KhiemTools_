@@ -37,17 +37,34 @@ namespace KhimTools.FamilyManager.Services
             {
                 candidateRoots.Add(assemblyDir);
 
-                // Check parent directories (for dev / build output scenarios, up to 5 levels)
+                // Check parent directories (up to 3 levels, e.g. Modern -> Contents -> KhimTools.bundle)
                 var current = new DirectoryInfo(assemblyDir);
-                for (int i = 0; i < 5 && current != null; i++)
+                for (int i = 0; i < 3 && current != null; i++)
                 {
                     candidateRoots.Add(current.FullName);
                     current = current.Parent;
                 }
             }
 
+            // Production bundle paths in ProgramData and AppData
+            string commonAppData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+            if (!string.IsNullOrEmpty(commonAppData))
+            {
+                string bundleContents = Path.Combine(commonAppData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents");
+                if (Directory.Exists(bundleContents)) candidateRoots.Add(bundleContents);
+                string bundleRoot = Path.Combine(commonAppData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle");
+                if (Directory.Exists(bundleRoot)) candidateRoots.Add(bundleRoot);
+            }
+
+            string userAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (!string.IsNullOrEmpty(userAppData))
+            {
+                string userBundleContents = Path.Combine(userAppData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents");
+                if (Directory.Exists(userBundleContents)) candidateRoots.Add(userBundleContents);
+            }
+
             // Also check AppData KhimTools location
-            var appDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "KhimTools", "Families");
+            var appDataDir = Path.Combine(userAppData, "KhimTools", "Families");
             if (Directory.Exists(appDataDir))
             {
                 candidateRoots.Add(appDataDir);

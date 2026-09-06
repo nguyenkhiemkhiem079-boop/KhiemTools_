@@ -165,11 +165,22 @@ namespace KhimTools.RebarTool.Core
             info.LocalDeltaY_Mm = dyMm;
             info.LocalDeltaZ_Mm = dzMm;
 
-            // Kích thước local của 2 cột
-            double dimX_Below = UnitUtils.ConvertFromInternalUnits(Math.Abs(bbBelow.Max.X - bbBelow.Min.X), UnitTypeId.Millimeters);
-            double dimY_Below = UnitUtils.ConvertFromInternalUnits(Math.Abs(bbBelow.Max.Y - bbBelow.Min.Y), UnitTypeId.Millimeters);
-            double dimX_Above = UnitUtils.ConvertFromInternalUnits(Math.Abs(bbAbove.Max.X - bbAbove.Min.X), UnitTypeId.Millimeters);
-            double dimY_Above = UnitUtils.ConvertFromInternalUnits(Math.Abs(bbAbove.Max.Y - bbAbove.Min.Y), UnitTypeId.Millimeters);
+            // Kích thước local của 2 cột từ Profile hình học thực tế (AUDIT-16: tránh sai số khi cột bị xoay)
+            var fiBelow = columnBelow as FamilyInstance;
+            var fiAbove = columnAbove as FamilyInstance;
+
+            double dimX_Below = fiBelow != null 
+                ? UnitUtils.ConvertFromInternalUnits(RectangularColumnGeometryHelper.GetRectangularProfile(fiBelow).B, UnitTypeId.Millimeters)
+                : UnitUtils.ConvertFromInternalUnits(Math.Abs(bbBelow.Max.X - bbBelow.Min.X), UnitTypeId.Millimeters);
+            double dimY_Below = fiBelow != null
+                ? UnitUtils.ConvertFromInternalUnits(RectangularColumnGeometryHelper.GetRectangularProfile(fiBelow).H, UnitTypeId.Millimeters)
+                : UnitUtils.ConvertFromInternalUnits(Math.Abs(bbBelow.Max.Y - bbBelow.Min.Y), UnitTypeId.Millimeters);
+            double dimX_Above = fiAbove != null
+                ? UnitUtils.ConvertFromInternalUnits(RectangularColumnGeometryHelper.GetRectangularProfile(fiAbove).B, UnitTypeId.Millimeters)
+                : UnitUtils.ConvertFromInternalUnits(Math.Abs(bbAbove.Max.X - bbAbove.Min.X), UnitTypeId.Millimeters);
+            double dimY_Above = fiAbove != null
+                ? UnitUtils.ConvertFromInternalUnits(RectangularColumnGeometryHelper.GetRectangularProfile(fiAbove).H, UnitTypeId.Millimeters)
+                : UnitUtils.ConvertFromInternalUnits(Math.Abs(bbAbove.Max.Y - bbAbove.Min.Y), UnitTypeId.Millimeters);
 
             double edgeDiffX = Math.Max(0, (dimX_Below - dimX_Above) / 2.0 + Math.Abs(dxMm));
             double edgeDiffY = Math.Max(0, (dimY_Below - dimY_Above) / 2.0 + Math.Abs(dyMm));
