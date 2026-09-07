@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Core;
+using KhimTools.Core.Family;
 using KhimTools.Core.UI;
 using KhimTools.SlabStep.Models;
 using KhimTools.SlabStep.Services;
@@ -373,23 +374,19 @@ namespace KhimTools.SlabStep.Forms
         
         private void AutoLoadDefaultFamily()
         {
-            string defaultPath = @"c:\Users\khiem.nguyen\Documents\KhimTools_v2\KhimTools\Family\RINCO_AN_Step.rfa";
-            if (File.Exists(defaultPath))
+            var fam = FamilyManager.GetOrLoadFamily(_doc, FamilyConstants.RincoAnStep);
+            if (fam != null)
             {
-                var fam = SlabStepService.LoadStepFamily(_doc, defaultPath);
-                if (fam != null)
+                LoadData();
+                
+                // Tìm và select symbol của family vừa loaded
+                for (int i = 0; i < _cboFamilies.Items.Count; i++)
                 {
-                    LoadData();
-                    
-                    // Tìm và select symbol của family vừa loaded
-                    for (int i = 0; i < _cboFamilies.Items.Count; i++)
+                    var item = _cboFamilies.Items[i] as ComboBoxItem;
+                    if (item != null && item.Symbol.Family.Name.Equals(FamilyConstants.RincoAnStep, StringComparison.OrdinalIgnoreCase))
                     {
-                        var item = _cboFamilies.Items[i] as ComboBoxItem;
-                        if (item != null && item.Symbol.Family.Name.Equals("RINCO_AN_Step", StringComparison.OrdinalIgnoreCase))
-                        {
-                            _cboFamilies.SelectedIndex = i;
-                            break;
-                        }
+                        _cboFamilies.SelectedIndex = i;
+                        break;
                     }
                 }
             }
@@ -403,7 +400,7 @@ namespace KhimTools.SlabStep.Forms
                 ofd.Title = "Chọn file Family nách sàn giật cấp";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    var fam = SlabStepService.LoadStepFamily(_doc, ofd.FileName);
+                    var fam = FamilyManager.LoadFamilySafely(_doc, ofd.FileName);
                     if (fam != null)
                     {
                         LoadData();

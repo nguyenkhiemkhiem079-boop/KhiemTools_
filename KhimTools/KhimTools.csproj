@@ -87,6 +87,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>RebarShapes\%(Filename)%(Extension)</TargetPath>
     </None>
+    <None Include="Family\*.rfa">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>Families\%(Filename)%(Extension)</TargetPath>
+    </None>
   </ItemGroup>
 
   <!-- Post-build: dong goi .bundle va copy vao ApplicationPlugins -->
@@ -101,6 +105,7 @@
     <ItemGroup>
       <BundleDlls Include="$(OutDir)*.dll" />
       <BundleRfas Include="$(OutDir)RebarShapes\*.rfa" />
+      <BundleStandardFamilies Include="$(OutDir)Families\*.rfa" />
       <AddinManifest Include="Deploy\$(VersionFolder)\KhimTools.addin" />
       <PackageManifest Include="Deploy\PackageContents.xml" />
     </ItemGroup>
@@ -120,6 +125,14 @@
     <MakeDir Directories="$(BundleVersionDir)\RebarShapes" />
     <Copy SourceFiles="@(BundleRfas)"
           DestinationFolder="$(BundleVersionDir)\RebarShapes"
+          SkipUnchangedFiles="true"
+          Retries="5"
+          RetryDelayMilliseconds="1000"
+          ContinueOnError="WarnAndContinue" />
+
+    <MakeDir Directories="$(BundleRoot)\Contents\Families\Standard" />
+    <Copy SourceFiles="@(BundleStandardFamilies)"
+          DestinationFolder="$(BundleRoot)\Contents\Families\Standard"
           SkipUnchangedFiles="true"
           Retries="5"
           RetryDelayMilliseconds="1000"

@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using KhiemToolsApp.Deployment;
+using KhimTools.Core.Family;
 
 namespace KhimTools.Tests
 {
@@ -13,9 +14,16 @@ namespace KhimTools.Tests
         private static int _passed = 0;
         private static int _failed = 0;
         private static readonly Dictionary<string, string> FixtureCache = new Dictionary<string, string>();
+        private static string _workspaceProjectRoot = null;
 
         public static int Main(string[] args)
         {
+            if (args != null && args.Length > 0 && !string.IsNullOrEmpty(args[0]))
+            {
+                _workspaceProjectRoot = args[0];
+                ResetResolverWithProjectRoot();
+            }
+
             Console.WriteLine("=========================================================");
             Console.WriteLine(" K-TOOLS UPDATER & DEPLOYMENT SECURITY TEST SUITE");
             Console.WriteLine(" Evidence-Based Audit: Zip Slip, Rollback, SemVer, Backup");
@@ -51,6 +59,13 @@ namespace KhimTools.Tests
                 RunTest("Test 21: MSI-Managed Boundary Guard (Blocks Raw ZIP Overwrite)", Test_21_MsiManaged_BlocksRawZipOverwrite);
                 RunTest("Test 22: MSI Package SHA-256 Checksum Verification & Mismatch Protection", Test_22_MsiPackage_Sha256Verification);
                 RunTest("Test 23: Release Manifest MSI Metadata Parsing & Validation", Test_23_UpdateInfoJson_MsiMetadata);
+
+                // Phase 5: Family Manager Tests
+                RunTest("Test 24: FamilyPathResolver Probe Hierarchy & Custom Probes", Test_24_FamilyPathResolver_ProbeOrder);
+                RunTest("Test 25: FamilyPathResolver Resolves Built-in RINCO_AN_Step.rfa", Test_25_FamilyPathResolver_ResolvesRincoAnStep);
+                RunTest("Test 26: FamilyPathResolver Case-Insensitive & Extension Normalization", Test_26_FamilyPathResolver_Normalization);
+                RunTest("Test 27: FamilyPathResolver Library Scanning & Metadata", Test_27_FamilyPathResolver_ScanLibraryMetadata);
+                RunTest("Test 28: FamilyPathResolver Missing Family Graceful Handling", Test_28_FamilyPathResolver_MissingFamilyGraceful);
             }
             finally
             {
@@ -1024,6 +1039,159 @@ namespace KhimTools.Tests
             if (!msiShaMatch.Success)
             {
                 throw new Exception("Missing 'sha256_msi' in update_info.json!");
+            }
+        }
+
+        private static void ResetResolverWithProjectRoot()
+        {
+            FamilyPathResolver.ResetCustomProbes();
+            if (!string.IsNullOrEmpty(_workspaceProjectRoot))
+            {
+                string devFamily = Path.Combine(_workspaceProjectRoot, "Family");
+                if (Directory.Exists(devFamily))
+                {
+                    FamilyPathResolver.RegisterProbePath(devFamily);
+                }
+            }
+            else
+            {
+                string cwd = Directory.GetCurrentDirectory();
+                string cand = Path.Combine(cwd, "KhimTools", "Family");
+                if (Directory.Exists(cand)) FamilyPathResolver.RegisterProbePath(cand);
+                string cand2 = Path.Combine(cwd, "Family");
+                if (Directory.Exists(cand2)) FamilyPathResolver.RegisterProbePath(cand2);
+                string cand3 = Path.Combine(cwd, "..", "KhimTools", "Family");
+                if (Directory.Exists(cand3)) FamilyPathResolver.RegisterProbePath(Path.GetFullPath(cand3));
+            }
+        }
+
+        // 24. FamilyPathResolver: Probe Hierarchy Order & Custom Probe Registration
+        private static void Test_24_FamilyPathResolver_ProbeOrder()
+        {
+            string sandbox = CreateSandbox("Test24");
+            try
+            {
+                string customDir = Path.Combine(sandbox, "CustomLibrary");
+                Directory.CreateDirectory(customDir);
+                string testRfa = Path.Combine(customDir, "TestFamily.rfa");
+                File.WriteAllText(testRfa, "RIFF_MOCK_RFA");
+
+                FamilyPathResolver.ResetCustomProbes();
+                FamilyPathResolver.RegisterProbePath(customDir);
+
+                string resolved = FamilyPathResolver.ResolveFamilyPath("TestFamily");
+                if (resolved == null)
+                {
+                    throw new Exception("Custom probe path failed to resolve TestFamily.rfa");
+                }
+
+                if (!string.Equals(Path.GetFullPath(resolved), Path.GetFullPath(testRfa), StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(string.Format("Expected resolved path '{0}', got '{1}'", testRfa, resolved));
+                }
+            }
+            finally
+            {
+                ResetResolverWithProjectRoot();
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 25. FamilyPathResolver: Resolution of Built-in RINCO_AN_Step.rfa
+        private static void Test_25_FamilyPathResolver_ResolvesRincoAnStep()
+        {
+            string resolved = FamilyPathResolver.ResolveFamilyPath(FamilyConstants.RincoAnStep);
+            if (resolved == null)
+            {
+                throw new Exception(string.Format("Failed to resolve built-in family '{0}'!", FamilyConstants.RincoAnStep));
+            }
+
+            if (!File.Exists(resolved))
+            {
+                throw new Exception(string.Format("Resolved path does not exist on disk: '{0}'", resolved));
+            }
+
+            if (!resolved.EndsWith(FamilyConstants.RfaExtension, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception(string.Format("Resolved path does not end with .rfa: '{0}'", resolved));
+            }
+        }
+
+        // 26. FamilyPathResolver: Case-Insensitive & Extension Normalization
+        private static void Test_26_FamilyPathResolver_Normalization()
+        {
+            string path1 = FamilyPathResolver.ResolveFamilyPath("RINCO_AN_Step");
+            string path2 = FamilyPathResolver.ResolveFamilyPath("rinco_an_step.rfa");
+            string path3 = FamilyPathResolver.ResolveFamilyPath("  RINCO_AN_STEP  ");
+
+            if (path1 == null || path2 == null || path3 == null)
+            {
+                throw new Exception("Failed to resolve family across normalized variants");
+            }
+
+            if (!string.Equals(path1, path2, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(path1, path3, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Normalized variants resolved to disparate paths!");
+            }
+        }
+
+        // 27. FamilyPathResolver: Library Scanning & FamilyFileInfo Metadata
+        private static void Test_27_FamilyPathResolver_ScanLibraryMetadata()
+        {
+            var families = FamilyPathResolver.ScanAvailableFamilies();
+            if (families == null || families.Count == 0)
+            {
+                throw new Exception("ScanAvailableFamilies returned empty library collection!");
+            }
+
+            bool foundRinco = false;
+            foreach (var item in families)
+            {
+                if (string.IsNullOrEmpty(item.Name) || string.IsNullOrEmpty(item.FullPath))
+                {
+                    throw new Exception("FamilyFileInfo contains null or empty Name/FullPath");
+                }
+
+                if (item.FormattedSize == null || item.FormattedSize.Length == 0)
+                {
+                    throw new Exception(string.Format("FamilyFileInfo formatted size missing for {0}", item.Name));
+                }
+
+                if (string.Equals(item.Name, FamilyConstants.RincoAnStep, StringComparison.OrdinalIgnoreCase))
+                {
+                    foundRinco = true;
+                }
+            }
+
+            if (!foundRinco)
+            {
+                throw new Exception("ScanAvailableFamilies failed to inventory RINCO_AN_Step!");
+            }
+        }
+
+        // 28. FamilyPathResolver: Missing Family Handling
+        private static void Test_28_FamilyPathResolver_MissingFamilyGraceful()
+        {
+            try
+            {
+                string nonExistentName = "NonExistent_Family_12345_XYZ";
+
+                bool exists = FamilyPathResolver.FamilyExists(nonExistentName);
+                if (exists)
+                {
+                    throw new Exception("FamilyExists erroneously returned true for non-existent family!");
+                }
+
+                string path = FamilyPathResolver.ResolveFamilyPath(nonExistentName);
+                if (path != null)
+                {
+                    throw new Exception("ResolveFamilyPath returned non-null for non-existent family!");
+                }
+            }
+            finally
+            {
+                ResetResolverWithProjectRoot();
             }
         }
     }

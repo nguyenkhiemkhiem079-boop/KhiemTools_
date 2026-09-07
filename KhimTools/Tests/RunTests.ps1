@@ -17,6 +17,9 @@ $sourceFiles = @(
     (Join-Path $projectRoot "App\Deployment\DeploymentValidator.cs"),
     (Join-Path $projectRoot "App\Deployment\InstallationClassifier.cs"),
     (Join-Path $projectRoot "App\Deployment\SafeDeploymentEngine.cs"),
+    (Join-Path $projectRoot "Core\Family\FamilyConstants.cs"),
+    (Join-Path $projectRoot "Core\Family\FamilyFileInfo.cs"),
+    (Join-Path $projectRoot "Core\Family\FamilyPathResolver.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 
@@ -29,14 +32,14 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 try {
-    & $outputExe
+    & $outputExe "$projectRoot"
     $testExitCode = $LASTEXITCODE
 } catch {
     Write-Host "Direct execution blocked by policy, executing in-memory via Assembly.Load..." -ForegroundColor Yellow
     $bytes = [System.IO.File]::ReadAllBytes($outputExe)
     $asm = [System.Reflection.Assembly]::Load($bytes)
     $entry = $asm.EntryPoint
-    $res = $entry.Invoke($null, @(,[string[]]@()))
+    $res = $entry.Invoke($null, @(,[string[]]@("$projectRoot")))
     $testExitCode = if ($null -eq $res) { 0 } else { [int]$res }
 }
 

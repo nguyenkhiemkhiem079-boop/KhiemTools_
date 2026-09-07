@@ -15,17 +15,7 @@ namespace KhimTools.SlabStep.Services
         /// </summary>
         public static Family LoadStepFamily(Document doc, string rfaPath)
         {
-            if (doc == null || string.IsNullOrEmpty(rfaPath) || !File.Exists(rfaPath))
-                return null;
-
-            Family family = null;
-            using (var tx = new Transaction(doc, "K-TOOLS - Load Step Family"))
-            {
-                tx.Start();
-                doc.LoadFamily(rfaPath, out family);
-                tx.Commit();
-            }
-            return family;
+            return KhimTools.Core.Family.FamilyManager.LoadFamilySafely(doc, rfaPath);
         }
 
         /// <summary>
