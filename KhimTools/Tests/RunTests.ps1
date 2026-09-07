@@ -23,6 +23,8 @@ $sourceFiles = @(
     (Join-Path $projectRoot "Tools\KhimStructural\QuickStructure\Services\GridIntersectionHelper.cs"),
     (Join-Path $projectRoot "Tools\KhimStructural\QuickStructure\Models\QuickStructureSettings.cs"),
     (Join-Path $projectRoot "Tools\KhimArchitectural\QuickArchi\Models\QuickArchiSettings.cs"),
+    (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs"),
+    (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\IRebarDesignStandard.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 

@@ -9,6 +9,7 @@ using KhimTools.Core.Family;
 using KhimTools.Structural.QuickStructure.Services;
 using KhimTools.Structural.QuickStructure.Models;
 using KhimTools.Architectural.QuickArchi.Models;
+using KhimTools.RebarTool.Core;
 
 namespace KhimTools.Tests
 {
@@ -83,6 +84,14 @@ namespace KhimTools.Tests
                 RunTest("Test 36: Standard 43-Shape Inventory Completeness Audit", Test_36_RebarShape_43InventoryCompleteness);
                 RunTest("Test 37: Missing Rebar Shape Graceful Handling & Probe Fallback", Test_37_RebarShape_MissingGraceful);
                 RunTest("Test 38: Rebar Shape Category Tagging in Family Scanner", Test_38_RebarShape_CategoryScanning);
+
+                // Phase 8: Rebar Engineering Tests
+                RunTest("Test 39: Rebar Anchorage Calculator — TCVN 5574:2018 Formulas", Test_39_RebarAnchorage_TCVN5574);
+                RunTest("Test 40: Rebar Anchorage Calculator — Eurocode 2 (EN 1992-1-1)", Test_40_RebarAnchorage_Eurocode2);
+                RunTest("Test 41: Lap Splice Length Calculations (TCVN vs Eurocode 2)", Test_41_RebarLapSplice_Calculations);
+                RunTest("Test 42: Mandrel Diameter & Bend Radius Standards Verification", Test_42_MandrelAndBendRadius);
+                RunTest("Test 43: Column Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_43_ColumnSteelRatio_Validation);
+                RunTest("Test 44: Beam Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_44_BeamSteelRatio_Validation);
             }
             finally
             {
@@ -1493,6 +1502,215 @@ namespace KhimTools.Tests
             if (!hasT00 || !hasT51)
             {
                 throw new Exception("JP_T00 or JP_T51 missing from rebar category scanner!");
+            }
+        }
+
+        // 39. Rebar Anchorage Calculator — TCVN 5574:2018 Formulas
+        private static void Test_39_RebarAnchorage_TCVN5574()
+        {
+            double barDia = 18.0;
+            // CB400-V, B25, TensionStraight
+            double ldStraight = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018);
+
+            // Math check: Rs=350, Rbt=1.05, eta1=2.5, eta2=1.0 -> fbd=2.625 -> lan = 18*350/(4*2.625) = 600mm
+            if (Math.Abs(ldStraight - 600.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN TensionStraight Ld expected 600.0mm, got {0:F2}mm", ldStraight));
+            }
+
+            // Hooked tension: alpha = 0.7 -> 420mm
+            double ldHooked = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionHooked, DesignCode.TCVN5574_2018);
+            if (Math.Abs(ldHooked - 420.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN TensionHooked Ld expected 420.0mm, got {0:F2}mm", ldHooked));
+            }
+
+            // Compression: alpha = 0.75 -> 450mm
+            double ldComp = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.Compression, DesignCode.TCVN5574_2018);
+            if (Math.Abs(ldComp - 450.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN Compression Ld expected 450.0mm, got {0:F2}mm", ldComp));
+            }
+
+            // Minimum boundary check: max(15*d, 200mm) = 270mm
+            double ldSmall = RebarAnchorageCalculator.CalculateAnchorageLength(
+                10.0, ConcreteGrade.B40, SteelGrade.CB240_T, AnchorageType.TensionHooked, DesignCode.TCVN5574_2018);
+            if (ldSmall < 200.0)
+            {
+                throw new Exception("TCVN Ld failed minimum bound of 200mm!");
+            }
+        }
+
+        // 40. Rebar Anchorage Calculator — Eurocode 2 (EN 1992-1-1)
+        private static void Test_40_RebarAnchorage_Eurocode2()
+        {
+            double barDia = 18.0;
+            // B500, C25/30, TensionStraight
+            double ldStraight = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.TensionStraight, DesignCode.Eurocode2);
+
+            // Math check: lb_rqd ~ 726.2mm
+            if (ldStraight < 600.0 || ldStraight > 850.0)
+            {
+                throw new Exception(string.Format("Eurocode 2 TensionStraight Ld expected ~726mm, got {0:F2}mm", ldStraight));
+            }
+
+            // Hooked tension: alpha_1 = 0.7 -> ~508.3mm
+            double ldHooked = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.TensionHooked, DesignCode.Eurocode2);
+            if (ldHooked >= ldStraight || ldHooked < 400.0 || ldHooked > 600.0)
+            {
+                throw new Exception(string.Format("Eurocode 2 TensionHooked Ld unexpected: {0:F2}mm", ldHooked));
+            }
+
+            // Compression: minimum bound check
+            double ldComp = RebarAnchorageCalculator.CalculateAnchorageLength(
+                barDia, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.Compression, DesignCode.Eurocode2);
+            if (ldComp < 300.0 || ldComp > 850.0)
+            {
+                throw new Exception(string.Format("Eurocode 2 Compression Ld unexpected: {0:F2}mm", ldComp));
+            }
+        }
+
+        // 41. Lap Splice Length Calculations (TCVN vs Eurocode 2)
+        private static void Test_41_RebarLapSplice_Calculations()
+        {
+            double barDia = 18.0;
+            // TCVN 5574:2018: factor = 1.5 -> Lap = 1.5 * 600 = 900mm
+            double lapTcvn = RebarAnchorageCalculator.CalculateLapLength(
+                barDia, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018, 35, 1.5);
+            if (Math.Abs(lapTcvn - 900.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN Lap length expected 900.0mm, got {0:F2}mm", lapTcvn));
+            }
+
+            // Eurocode 2: factor = 1.5 -> Lap = 1.5 * 726.2 ~ 1089.3mm
+            double lapEc2 = RebarAnchorageCalculator.CalculateLapLength(
+                barDia, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.TensionStraight, DesignCode.Eurocode2, 30, 1.5);
+            if (lapEc2 < 900.0 || lapEc2 > 1250.0)
+            {
+                throw new Exception(string.Format("Eurocode 2 Lap length expected ~1089mm, got {0:F2}mm", lapEc2));
+            }
+
+            // Minimum boundary: Lap must always be >= Anchorage
+            if (lapTcvn < 600.0 || lapEc2 < 700.0)
+            {
+                throw new Exception("Lap splice length must not be smaller than anchorage length!");
+            }
+        }
+
+        // 42. Mandrel Diameter & Bend Radius Standards Verification
+        private static void Test_42_MandrelAndBendRadius()
+        {
+            var ec2 = new EurocodeRebarStandard();
+            var tcvn = new TcvnRebarStandard();
+
+            // Eurocode 2: <= 16mm is 4*d, > 16mm is 7*d
+            double ec2D12 = ec2.GetMinMandrelDiameter(12.0);
+            double ec2D20 = ec2.GetMinMandrelDiameter(20.0);
+            if (Math.Abs(ec2D12 - 48.0) > 1e-3 || Math.Abs(ec2D20 - 140.0) > 1e-3)
+            {
+                throw new Exception(string.Format("Eurocode 2 Mandrel mismatch: D12={0}mm (exp 48), D20={1}mm (exp 140)", ec2D12, ec2D20));
+            }
+
+            // TCVN 5574:2018:
+            // Deformed (CB400-V): < 20mm is 5*d, >= 20mm is 8*d
+            double tcvnD12Def = tcvn.GetMinMandrelDiameter(12.0, "CB400-V");
+            double tcvnD25Def = tcvn.GetMinMandrelDiameter(25.0, "CB400-V");
+            if (Math.Abs(tcvnD12Def - 60.0) > 1e-3 || Math.Abs(tcvnD25Def - 200.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN Deformed Mandrel mismatch: D12={0}mm (exp 60), D25={1}mm (exp 200)", tcvnD12Def, tcvnD25Def));
+            }
+
+            // Smooth (CB240-T): < 20mm is 2.5*d, >= 20mm is 4*d
+            double tcvnD10Smooth = tcvn.GetMinMandrelDiameter(10.0, "CB240-T");
+            double tcvnD20Smooth = tcvn.GetMinMandrelDiameter(20.0, "CB240-T");
+            if (Math.Abs(tcvnD10Smooth - 25.0) > 1e-3 || Math.Abs(tcvnD20Smooth - 80.0) > 1e-3)
+            {
+                throw new Exception(string.Format("TCVN Smooth Mandrel mismatch: D10={0}mm (exp 25), D20={1}mm (exp 80)", tcvnD10Smooth, tcvnD20Smooth));
+            }
+
+            // Straight length after bend: both require >= 5*d
+            double ec2Straight = ec2.GetMinStraightLengthAfterBend(16.0);
+            double tcvnStraight = tcvn.GetMinStraightLengthAfterBend(16.0);
+            if (Math.Abs(ec2Straight - 80.0) > 1e-3 || Math.Abs(tcvnStraight - 80.0) > 1e-3)
+            {
+                throw new Exception("Straight length after bend expected 80mm (5 * 16)!");
+            }
+        }
+
+        // 43. Column Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)
+        private static void Test_43_ColumnSteelRatio_Validation()
+        {
+            var ec2 = new EurocodeRebarStandard();
+            var tcvn = new TcvnRebarStandard();
+
+            double colArea = 400.0 * 400.0; // 160,000 mm2
+            // Normal: 8 D20 = 2513.3 mm2 (1.57%)
+            double normalAs = 8.0 * (Math.PI * 20.0 * 20.0 / 4.0);
+            var ec2Norm = ec2.ValidateColumnSteelRatio(normalAs, colArea);
+            var tcvnNorm = tcvn.ValidateColumnSteelRatio(normalAs, colArea);
+            if (!ec2Norm.IsValid || !tcvnNorm.IsValid)
+            {
+                throw new Exception("Normal column steel ratio (1.57%) should be valid in both EC2 and TCVN!");
+            }
+
+            // Too low: 2 D10 = 157.08 mm2 (0.098%)
+            double lowAs = 2.0 * (Math.PI * 10.0 * 10.0 / 4.0);
+            var ec2Low = ec2.ValidateColumnSteelRatio(lowAs, colArea);
+            var tcvnLow = tcvn.ValidateColumnSteelRatio(lowAs, colArea);
+            if (ec2Low.IsValid || tcvnLow.IsValid)
+            {
+                throw new Exception("Sub-minimum column steel ratio (< 0.1%) should fail validation in both standards!");
+            }
+
+            // Too high: 24 D25 = 11781 mm2 (7.36%)
+            double highAs = 24.0 * (Math.PI * 25.0 * 25.0 / 4.0);
+            var ec2High = ec2.ValidateColumnSteelRatio(highAs, colArea);
+            var tcvnHigh = tcvn.ValidateColumnSteelRatio(highAs, colArea);
+            if (ec2High.IsValid || tcvnHigh.IsValid)
+            {
+                throw new Exception("Super-maximum column steel ratio (7.36%) should fail validation in both standards!");
+            }
+        }
+
+        // 44. Beam Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)
+        private static void Test_44_BeamSteelRatio_Validation()
+        {
+            var ec2 = new EurocodeRebarStandard();
+            var tcvn = new TcvnRebarStandard();
+
+            double b = 300.0;
+            double d = 600.0; // bd = 180,000 mm2
+
+            // Normal: 3 D20 Top (942.5 mm2, 0.52%), 3 D20 Bot (942.5 mm2, 0.52%)
+            double normalAs = 3.0 * (Math.PI * 20.0 * 20.0 / 4.0);
+            var ec2Norm = ec2.ValidateBeamSteelRatio(normalAs, normalAs, b, d);
+            var tcvnNorm = tcvn.ValidateBeamSteelRatio(normalAs, normalAs, b, d);
+            if (!ec2Norm.IsValid || !tcvnNorm.IsValid)
+            {
+                throw new Exception("Normal beam steel ratio (0.52%) should be valid in both EC2 and TCVN!");
+            }
+
+            // Too low: Top 1 D10 (78.5 mm2, 0.044%)
+            double lowAs = 1.0 * (Math.PI * 10.0 * 10.0 / 4.0);
+            var ec2Low = ec2.ValidateBeamSteelRatio(lowAs, normalAs, b, d);
+            var tcvnLow = tcvn.ValidateBeamSteelRatio(lowAs, normalAs, b, d);
+            if (ec2Low.IsValid || tcvnLow.IsValid)
+            {
+                throw new Exception("Sub-minimum beam steel ratio (0.044%) should fail validation in both standards!");
+            }
+
+            // Too high: Top 16 D25 (7854 mm2, 4.36%)
+            double highAs = 16.0 * (Math.PI * 25.0 * 25.0 / 4.0);
+            var ec2High = ec2.ValidateBeamSteelRatio(highAs, normalAs, b, d);
+            var tcvnHigh = tcvn.ValidateBeamSteelRatio(highAs, normalAs, b, d);
+            if (ec2High.IsValid || tcvnHigh.IsValid)
+            {
+                throw new Exception("Super-maximum beam steel ratio (4.36%) should fail validation in both standards!");
             }
         }
     }

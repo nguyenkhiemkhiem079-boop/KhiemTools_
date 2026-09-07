@@ -1,7 +1,60 @@
-﻿using System;
+using System;
 
 namespace KhimTools.RebarTool.Core
 {
+    /// <summary>
+    /// Kết quả kiểm tra hàm lượng thép cột (As / Ac).
+    /// Hỗ trợ cả C# 5.0 (thuộc tính) và C# 7+ (Deconstruct tuple).
+    /// </summary>
+    public class ColumnSteelRatioResult
+    {
+        public bool IsValid { get; set; }
+        public double RatioPercent { get; set; }
+        public string WarningMessage { get; set; }
+
+        public ColumnSteelRatioResult(bool isValid, double ratioPercent, string warningMessage)
+        {
+            IsValid = isValid;
+            RatioPercent = ratioPercent;
+            WarningMessage = warningMessage;
+        }
+
+        public void Deconstruct(out bool isValid, out double ratioPercent, out string warningMessage)
+        {
+            isValid = IsValid;
+            ratioPercent = RatioPercent;
+            warningMessage = WarningMessage;
+        }
+    }
+
+    /// <summary>
+    /// Kết quả kiểm tra hàm lượng thép dầm (As / bd).
+    /// Hỗ trợ cả C# 5.0 (thuộc tính) và C# 7+ (Deconstruct tuple).
+    /// </summary>
+    public class BeamSteelRatioResult
+    {
+        public bool IsValid { get; set; }
+        public double TopRatioPercent { get; set; }
+        public double BotRatioPercent { get; set; }
+        public string WarningMessage { get; set; }
+
+        public BeamSteelRatioResult(bool isValid, double topRatioPercent, double botRatioPercent, string warningMessage)
+        {
+            IsValid = isValid;
+            TopRatioPercent = topRatioPercent;
+            BotRatioPercent = botRatioPercent;
+            WarningMessage = warningMessage;
+        }
+
+        public void Deconstruct(out bool isValid, out double topRatioPercent, out double botRatioPercent, out string warningMessage)
+        {
+            isValid = IsValid;
+            topRatioPercent = TopRatioPercent;
+            botRatioPercent = BotRatioPercent;
+            warningMessage = WarningMessage;
+        }
+    }
+
     /// <summary>
     /// Strategy Interface quy định số liệu uốn bẻ, neo và nối chồng cốt thép theo tiêu chuẩn thiết kế.
     /// </summary>
@@ -41,12 +94,12 @@ namespace KhimTools.RebarTool.Core
         /// <summary>
         /// Kiểm tra hàm lượng thép cột (As / Ac).
         /// </summary>
-        (bool isValid, double ratioPercent, string warningMessage) ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2);
+        ColumnSteelRatioResult ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2);
 
         /// <summary>
         /// Kiểm tra hàm lượng thép dầm (As / (b * d)).
         /// </summary>
-        (bool isValid, double topRatioPercent, double botRatioPercent, string warningMessage) ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm);
+        BeamSteelRatioResult ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm);
     }
 
     /// <summary>
@@ -54,7 +107,10 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public class EurocodeRebarStandard : IRebarDesignStandard
     {
-        public DesignCode StandardCode => DesignCode.Eurocode2;
+        public DesignCode StandardCode
+        {
+            get { return DesignCode.Eurocode2; }
+        }
 
         public double GetMinMandrelDiameter(double barDiameterMm, string steelGrade = null)
         {
@@ -81,23 +137,37 @@ namespace KhimTools.RebarTool.Core
             return RebarAnchorageCalculator.CalculateLapLength(barDiameterMm, concrete, steel, type, DesignCode.Eurocode2, 30, percentLappedFactor);
         }
 
-        public (bool isValid, double ratioPercent, string warningMessage) ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2)
+        public ColumnSteelRatioResult ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2)
         {
-            if (sectionAreaMm2 <= 0) return (false, 0, "Diện tích tiết diện cột không hợp lệ.");
+            if (sectionAreaMm2 <= 0)
+            {
+                return new ColumnSteelRatioResult(false, 0, "Diện tích tiết diện cột không hợp lệ.");
+            }
+
             double ratio = (totalAsMm2 / sectionAreaMm2) * 100.0;
             // EN 1992-1-1 Clause 9.5.2: rho_min = 0.2%, rho_max = 4.0%
             if (ratio < 0.2)
-                return (false, ratio, $"Hàm lượng thép cột μ = {ratio:F2}% < μ_min (0.2%) theo Eurocode 2 (EN 1992-1-1 Clause 9.5.2).");
+            {
+                string msg = string.Format("Hàm lượng thép cột μ = {0:F2}% < μ_min (0.2%) theo Eurocode 2 (EN 1992-1-1 Clause 9.5.2).", ratio);
+                return new ColumnSteelRatioResult(false, ratio, msg);
+            }
             if (ratio > 4.0)
-                return (false, ratio, $"Hàm lượng thép cột μ = {ratio:F2}% > μ_max (4.0%) theo Eurocode 2 (EN 1992-1-1 Clause 9.5.2).");
+            {
+                string msg = string.Format("Hàm lượng thép cột μ = {0:F2}% > μ_max (4.0%) theo Eurocode 2 (EN 1992-1-1 Clause 9.5.2).", ratio);
+                return new ColumnSteelRatioResult(false, ratio, msg);
+            }
 
-            return (true, ratio, null);
+            return new ColumnSteelRatioResult(true, ratio, null);
         }
 
-        public (bool isValid, double topRatioPercent, double botRatioPercent, string warningMessage) ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm)
+        public BeamSteelRatioResult ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm)
         {
             double bd = bMm * dMm;
-            if (bd <= 0) return (false, 0, 0, "Kích thước tiết diện dầm không hợp lệ.");
+            if (bd <= 0)
+            {
+                return new BeamSteelRatioResult(false, 0, 0, "Kích thước tiết diện dầm không hợp lệ.");
+            }
+
             double topRatio = (topAsMm2 / bd) * 100.0;
             double botRatio = (botAsMm2 / bd) * 100.0;
             // EN 1992-1-1 Clause 9.2.1.1: rho_min = 0.13%, rho_max = 4.0%
@@ -106,14 +176,15 @@ namespace KhimTools.RebarTool.Core
             if (topRatio < 0.13 || botRatio < 0.13)
             {
                 valid = false;
-                msg = $"Hàm lượng thép dầm (Top: {topRatio:F2}%, Bot: {botRatio:F2}%) nhỏ hơn μ_min (0.13%) theo Eurocode 2.";
+                msg = string.Format("Hàm lượng thép dầm (Top: {0:F2}%, Bot: {1:F2}%) nhỏ hơn μ_min (0.13%) theo Eurocode 2.", topRatio, botRatio);
             }
             else if (topRatio > 4.0 || botRatio > 4.0)
             {
                 valid = false;
-                msg = $"Hàm lượng thép dầm (Top: {topRatio:F2}%, Bot: {botRatio:F2}%) vượt quá μ_max (4.0%) theo Eurocode 2.";
+                msg = string.Format("Hàm lượng thép dầm (Top: {0:F2}%, Bot: {1:F2}%) vượt quá μ_max (4.0%) theo Eurocode 2.", topRatio, botRatio);
             }
-            return (valid, topRatio, botRatio, msg);
+
+            return new BeamSteelRatioResult(valid, topRatio, botRatio, msg);
         }
     }
 
@@ -122,7 +193,10 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public class TcvnRebarStandard : IRebarDesignStandard
     {
-        public DesignCode StandardCode => DesignCode.TCVN5574_2018;
+        public DesignCode StandardCode
+        {
+            get { return DesignCode.TCVN5574_2018; }
+        }
 
         public double GetMinMandrelDiameter(double barDiameterMm, string steelGrade = null)
         {
@@ -161,23 +235,37 @@ namespace KhimTools.RebarTool.Core
             return RebarAnchorageCalculator.CalculateLapLength(barDiameterMm, concrete, steel, type, DesignCode.TCVN5574_2018, 35, percentLappedFactor);
         }
 
-        public (bool isValid, double ratioPercent, string warningMessage) ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2)
+        public ColumnSteelRatioResult ValidateColumnSteelRatio(double totalAsMm2, double sectionAreaMm2)
         {
-            if (sectionAreaMm2 <= 0) return (false, 0, "Diện tích tiết diện cột không hợp lệ.");
+            if (sectionAreaMm2 <= 0)
+            {
+                return new ColumnSteelRatioResult(false, 0, "Diện tích tiết diện cột không hợp lệ.");
+            }
+
             double ratio = (totalAsMm2 / sectionAreaMm2) * 100.0;
             // TCVN 5574:2018 Điều 10.3.2: mu_min = 0.4%, mu_max = 5.0%
             if (ratio < 0.4)
-                return (false, ratio, $"Hàm lượng thép cột μ = {ratio:F2}% < μ_min (0.4%) theo TCVN 5574:2018 (Điều 10.3.2).");
+            {
+                string msg = string.Format("Hàm lượng thép cột μ = {0:F2}% < μ_min (0.4%) theo TCVN 5574:2018 (Điều 10.3.2).", ratio);
+                return new ColumnSteelRatioResult(false, ratio, msg);
+            }
             if (ratio > 5.0)
-                return (false, ratio, $"Hàm lượng thép cột μ = {ratio:F2}% > μ_max (5.0%) theo TCVN 5574:2018 (Điều 10.3.2).");
+            {
+                string msg = string.Format("Hàm lượng thép cột μ = {0:F2}% > μ_max (5.0%) theo TCVN 5574:2018 (Điều 10.3.2).", ratio);
+                return new ColumnSteelRatioResult(false, ratio, msg);
+            }
 
-            return (true, ratio, null);
+            return new ColumnSteelRatioResult(true, ratio, null);
         }
 
-        public (bool isValid, double topRatioPercent, double botRatioPercent, string warningMessage) ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm)
+        public BeamSteelRatioResult ValidateBeamSteelRatio(double topAsMm2, double botAsMm2, double bMm, double dMm)
         {
             double bd = bMm * dMm;
-            if (bd <= 0) return (false, 0, 0, "Kích thước tiết diện dầm không hợp lệ.");
+            if (bd <= 0)
+            {
+                return new BeamSteelRatioResult(false, 0, 0, "Kích thước tiết diện dầm không hợp lệ.");
+            }
+
             double topRatio = (topAsMm2 / bd) * 100.0;
             double botRatio = (botAsMm2 / bd) * 100.0;
             // TCVN 5574:2018 Điều 10.3.2: mu_min = 0.1%, mu_max = 4.0%
@@ -186,14 +274,15 @@ namespace KhimTools.RebarTool.Core
             if (topRatio < 0.1 || botRatio < 0.1)
             {
                 valid = false;
-                msg = $"Hàm lượng thép dầm (Top: {topRatio:F2}%, Bot: {botRatio:F2}%) nhỏ hơn μ_min (0.1%) theo TCVN 5574:2018 (Điều 10.3.2).";
+                msg = string.Format("Hàm lượng thép dầm (Top: {0:F2}%, Bot: {1:F2}%) nhỏ hơn μ_min (0.1%) theo TCVN 5574:2018 (Điều 10.3.2).", topRatio, botRatio);
             }
             else if (topRatio > 4.0 || botRatio > 4.0)
             {
                 valid = false;
-                msg = $"Hàm lượng thép dầm (Top: {topRatio:F2}%, Bot: {botRatio:F2}%) vượt quá μ_max (4.0%) theo TCVN 5574:2018 (Điều 10.3.2).";
+                msg = string.Format("Hàm lượng thép dầm (Top: {0:F2}%, Bot: {1:F2}%) vượt quá μ_max (4.0%) theo TCVN 5574:2018 (Điều 10.3.2).", topRatio, botRatio);
             }
-            return (valid, topRatio, botRatio, msg);
+
+            return new BeamSteelRatioResult(valid, topRatio, botRatio, msg);
         }
     }
 
