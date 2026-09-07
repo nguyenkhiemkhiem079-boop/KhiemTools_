@@ -226,6 +226,8 @@ namespace KhiemToolsApp
 
                 string latestTag = null;
                 string downloadUrl = null;
+                string downloadUrlMsi = null;
+                string sha256Msi = null;
 
                 // Lớp 1: Đọc trực tiếp từ update_info.json trên GitHub master
                 string infoUrl = $"https://raw.githubusercontent.com/{RepoOwner}/{RepoName}/master/update_info.json?t={DateTime.UtcNow.Ticks}";
@@ -254,6 +256,22 @@ namespace KhiemToolsApp
                         {
                             LogInfo($"Layer 1 - Rejected download_url: {reason} ({candidateUrl})");
                         }
+                    }
+                    Match mMsi = Regex.Match(infoJson, "\"download_url_msi\"\\s*:\\s*\"([^\"]+)\"");
+                    if (mMsi.Success)
+                    {
+                        string candidateMsi = mMsi.Groups[1].Value;
+                        if (UrlSecurityValidator.IsSecureOfficialUrl(candidateMsi, false, out string reasonMsi))
+                        {
+                            downloadUrlMsi = candidateMsi;
+                            LogInfo($"Layer 1 - Parsed valid download_url_msi: {downloadUrlMsi}");
+                        }
+                    }
+                    Match mSha = Regex.Match(infoJson, "\"sha256_msi\"\\s*:\\s*\"([^\"]+)\"");
+                    if (mSha.Success)
+                    {
+                        sha256Msi = mSha.Groups[1].Value;
+                        LogInfo($"Layer 1 - Parsed sha256_msi: {sha256Msi}");
                     }
                 }
                 catch (Exception ex)
@@ -318,7 +336,7 @@ namespace KhiemToolsApp
                     }
 
                     TxtGithubVersion.Text = "Đang tải & cài đặt...";
-                    await PerformInstallOrUpdateAsync(latestTag, downloadUrl);
+                    await PerformInstallOrUpdateAsync(latestTag, downloadUrl, downloadUrlMsi, sha256Msi);
                     MessageBox.Show("Cài đặt / Cập nhật hoàn tất!\nĐã nạp toàn bộ module mới an toàn vào tất cả phiên bản Revit trên máy.\nVui lòng mở Revit để sử dụng.", "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
                     CheckCurrentLocalVersion();
                     TxtGithubVersion.Text = latestTag;
@@ -360,7 +378,7 @@ namespace KhiemToolsApp
             }
         }
 
-        private async Task PerformInstallOrUpdateAsync(string tag, string directZipUrl)
+        private async Task PerformInstallOrUpdateAsync(string tag, string directZipUrl, string msiUrl = null, string expectedMsiSha256 = null)
         {
             string tempDir = Path.Combine(Path.GetTempPath(), "KhimTools_Download_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
@@ -368,6 +386,47 @@ namespace KhiemToolsApp
             using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
             client.DefaultRequestHeaders.UserAgent.ParseAdd("KhimToolsUpdater/1.0");
 
+            // Priority 1: If MSI installer is available or target is MSI-managed, deploy via authoritative Windows Installer
+            if (!string.IsNullOrEmpty(msiUrl) || InstallationClassifier.IsMsiManaged())
+            {
+                string targetMsiUrl = msiUrl;
+                if (string.IsNullOrEmpty(targetMsiUrl))
+                {
+                    targetMsiUrl = $"https://github.com/{RepoOwner}/{RepoName}/releases/download/{tag}/K-TOOLS.msi";
+                }
+
+                if (UrlSecurityValidator.IsSecureOfficialUrl(targetMsiUrl, false, out string msiRejectReason))
+                {
+                    LogInfo($"MSI Deploy - Starting download from: {targetMsiUrl}");
+                    string msiLocalPath = Path.Combine(tempDir, "K-TOOLS.msi");
+                    try
+                    {
+                        byte[] msiData = await client.GetByteArrayAsync(targetMsiUrl);
+                        File.WriteAllBytes(msiLocalPath, msiData);
+                        LogInfo("MSI Deploy - Download completed. Executing authoritative MSI deployment...");
+
+                        var engine = new SafeDeploymentEngine();
+                        engine.DeployMsi(msiLocalPath, expectedMsiSha256, LogInfo);
+                        LogInfo("MSI Deploy - Authoritative deployment completed successfully.");
+                        return;
+                    }
+                    catch (Exception ex)
+                    {
+                        LogInfo($"MSI Deploy - Execution encountered error: {ex.Message}");
+                        // If machine is already MSI-managed, we cannot fall back to raw ZIP
+                        if (InstallationClassifier.IsMsiManaged())
+                        {
+                            throw;
+                        }
+                    }
+                }
+                else
+                {
+                    LogInfo($"MSI Deploy - URL rejected by security validator: {msiRejectReason}");
+                }
+            }
+
+            // Priority 2: Staged ZIP deployment for legacy non-MSI installations
             bool downloaded = false;
             string bundleZipPath = Path.Combine(tempDir, "bundle.zip");
 
@@ -449,6 +508,26 @@ namespace KhiemToolsApp
                 try
                 {
                     if (!EnsureRevitClosed()) return;
+
+                    // If installation is managed by MSI, perform authoritative Windows Installer uninstall
+                    if (InstallationClassifier.IsMsiManaged())
+                    {
+                        LogInfo("Uninstall: Detected MSI-managed installation. Invoking msiexec /x...");
+                        var psi = new ProcessStartInfo
+                        {
+                            FileName = "msiexec.exe",
+                            Arguments = "/x {B73A7490-6831-4F58-9D26-C18244B27DF1} /passive /norestart",
+                            UseShellExecute = true
+                        };
+                        using (var p = Process.Start(psi))
+                        {
+                            p.WaitForExit();
+                        }
+                        LogInfo("Uninstall: Windows Installer process completed.");
+                        TxtLocalVersion.Text = "Chưa cài";
+                        MessageBox.Show("Đã gỡ cài đặt K-TOOLS an toàn qua Windows Installer!", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                        return;
+                    }
 
                     if (Directory.Exists(_programDataBundlePath))
                     {

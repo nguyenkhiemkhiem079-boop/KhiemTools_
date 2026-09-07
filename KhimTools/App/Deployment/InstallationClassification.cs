@@ -25,6 +25,12 @@ namespace KhiemToolsApp.Deployment
         UserManaged,
 
         /// <summary>
+        /// Authoritative active installation managed by Windows Installer (MSI).
+        /// Direct file modifications are forbidden; updates must be performed via MSI MajorUpgrade.
+        /// </summary>
+        MsiManaged,
+
+        /// <summary>
         /// Third-party or unrecognized addin/bundle. Must NEVER be modified or removed.
         /// </summary>
         Unknown

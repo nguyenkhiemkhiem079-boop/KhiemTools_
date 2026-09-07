@@ -86,4 +86,14 @@ namespace KhiemToolsApp.Deployment
             TargetPath = targetPath;
         }
     }
+
+    /// <summary>
+    /// Thrown when a direct file-copy deployment is attempted against an MSI-managed installation,
+    /// which would corrupt Windows Installer component registration state.
+    /// </summary>
+    public class MsiManagedDeploymentException : DeploymentException
+    {
+        public MsiManagedDeploymentException(string message) : base(message) { }
+        public MsiManagedDeploymentException(string message, Exception innerException) : base(message, innerException) { }
+    }
 }

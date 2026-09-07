@@ -20,6 +20,7 @@ namespace KhiemToolsApp.Deployment
         public bool SimulateSwapFailure { get; set; }
         public bool SimulatePostInstallVerificationFailure { get; set; }
         public bool SimulateRollbackFailure { get; set; }
+        public bool SimulateMsiInstallFailure { get; set; }
         public int MaxRetainedBackups { get; set; }
 
         public SafeDeploymentEngine()
@@ -29,6 +30,7 @@ namespace KhiemToolsApp.Deployment
             SimulateSwapFailure = false;
             SimulatePostInstallVerificationFailure = false;
             SimulateRollbackFailure = false;
+            SimulateMsiInstallFailure = false;
             MaxRetainedBackups = DefaultMaxRetainedBackups;
         }
 
@@ -49,6 +51,15 @@ namespace KhiemToolsApp.Deployment
             if (string.IsNullOrWhiteSpace(targetBundlePath))
             {
                 throw new ArgumentNullException("targetBundlePath");
+            }
+
+            // 0. Boundary Guard: If the installation is MSI-managed, block direct ZIP extraction
+            if (InstallationClassifier.IsMsiManaged())
+            {
+                throw new MsiManagedDeploymentException(
+                    "The current K-TOOLS installation is managed by Windows Installer (MSI). " +
+                    "Direct ZIP file overwrite is blocked to protect Windows Installer component integrity. " +
+                    "Please update using the authoritative K-TOOLS.msi installer.");
             }
 
             if (logger != null) logger(string.Format("Starting safe staged deployment for version '{0}' -> '{1}'", expectedVersion, targetBundlePath));
@@ -385,6 +396,79 @@ namespace KhiemToolsApp.Deployment
             {
                 CopyDirectoryRecursive(subDir, Path.Combine(destDir, Path.GetFileName(subDir)));
             }
+        }
+
+        /// <summary>
+        /// Computes and verifies the SHA-256 hash of an MSI installer package against expected checksum.
+        /// </summary>
+        public static bool VerifyMsiSha256(string msiFilePath, string expectedSha256, out string actualSha256)
+        {
+            if (string.IsNullOrWhiteSpace(msiFilePath) || !File.Exists(msiFilePath))
+            {
+                throw new FileNotFoundException(string.Format("MSI file not found at: {0}", msiFilePath));
+            }
+
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            using (var stream = File.OpenRead(msiFilePath))
+            {
+                byte[] hashBytes = sha.ComputeHash(stream);
+                actualSha256 = BitConverter.ToString(hashBytes).Replace("-", "").ToUpperInvariant();
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                return true; // No hash to compare against
+            }
+
+            return string.Equals(actualSha256, expectedSha256.Trim().ToUpperInvariant(), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Deploys or upgrades K-TOOLS via the authoritative MSI installer.
+        /// Validates SHA-256 integrity and invokes msiexec.exe safely.
+        /// </summary>
+        public void DeployMsi(string msiFilePath, string expectedSha256, Action<string> logger)
+        {
+            if (string.IsNullOrWhiteSpace(msiFilePath) || !File.Exists(msiFilePath))
+            {
+                throw new FileNotFoundException(string.Format("MSI package not found at '{0}'.", msiFilePath));
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedSha256))
+            {
+                if (logger != null) logger("Verifying MSI package SHA-256 checksum...");
+                string actualHash;
+                if (!VerifyMsiSha256(msiFilePath, expectedSha256, out actualHash))
+                {
+                    throw new DeploymentValidationException(
+                        string.Format("MSI checksum mismatch! Expected '{0}', actual '{1}'.", expectedSha256, actualHash));
+                }
+                if (logger != null) logger(string.Format("MSI SHA-256 checksum verified: {0}", actualHash));
+            }
+
+            if (SimulateMsiInstallFailure)
+            {
+                throw new DeploymentException("SIMULATED ERROR: msiexec installation aborted with simulated exit code 1603.");
+            }
+
+            if (logger != null) logger(string.Format("Launching Windows Installer (msiexec) for package: {0}", msiFilePath));
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "msiexec.exe",
+                Arguments = string.Format("/i \"{0}\" /passive /norestart", msiFilePath),
+                UseShellExecute = true
+            };
+
+            using (var process = System.Diagnostics.Process.Start(psi))
+            {
+                process.WaitForExit();
+                if (process.ExitCode != 0 && process.ExitCode != 3010) // 3010 = reboot required
+                {
+                    throw new DeploymentException(
+                        string.Format("MSI installation failed with msiexec exit code {0}.", process.ExitCode));
+                }
+            }
+            if (logger != null) logger("MSI installation completed successfully.");
         }
     }
 }

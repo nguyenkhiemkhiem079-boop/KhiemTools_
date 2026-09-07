@@ -45,6 +45,12 @@ namespace KhimTools.Tests
                 RunTest("Test 17: SemVer 2.0 Prerelease Ordering (beta < rc1 < 2.7.1 < 2.7.2)", Test_17_SemVerOrdering);
                 RunTest("Test 18: UserManaged & Unknown Installations Preservation", Test_18_UserManagedAndUnknownPreservation);
                 RunTest("Test 19: Backup Retention Pruning (No Uncontrolled Accumulation)", Test_19_BackupRetentionPruning);
+
+                // Phase 4: Updater -> MSI Transition Tests
+                RunTest("Test 20: MSI-Managed Installation Detection & Classification", Test_20_MsiManaged_Classification);
+                RunTest("Test 21: MSI-Managed Boundary Guard (Blocks Raw ZIP Overwrite)", Test_21_MsiManaged_BlocksRawZipOverwrite);
+                RunTest("Test 22: MSI Package SHA-256 Checksum Verification & Mismatch Protection", Test_22_MsiPackage_Sha256Verification);
+                RunTest("Test 23: Release Manifest MSI Metadata Parsing & Validation", Test_23_UpdateInfoJson_MsiMetadata);
             }
             finally
             {
@@ -846,6 +852,178 @@ namespace KhimTools.Tests
             finally
             {
                 CleanupSandbox(sandbox);
+            }
+        }
+
+        // 20. MSI-Managed Installation Detection & Classification
+        private static void Test_20_MsiManaged_Classification()
+        {
+            string sandbox = CreateSandbox("Test20");
+            try
+            {
+                string target = Path.Combine(sandbox, "KhimTools.bundle");
+                CreateMockBundle(target, "2.7.0", true, true);
+
+                // When MSI detection override is false: classified as standard Current
+                InstallationClassifier.MsiDetectionOverride = delegate() { return false; };
+                var normalClass = InstallationClassifier.ClassifyBundle(target, target);
+                if (normalClass != InstallationClassification.Current)
+                {
+                    throw new Exception(string.Format("Expected Current, got: {0}", normalClass));
+                }
+
+                // When MSI detection override is true (InstalledVia == 'MSI'): classified as MsiManaged
+                InstallationClassifier.MsiDetectionOverride = delegate() { return true; };
+                var msiClass = InstallationClassifier.ClassifyBundle(target, target);
+                if (msiClass != InstallationClassification.MsiManaged)
+                {
+                    throw new Exception(string.Format("Expected MsiManaged, got: {0}", msiClass));
+                }
+            }
+            finally
+            {
+                InstallationClassifier.MsiDetectionOverride = null;
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 21. MSI-Managed Boundary Guard (Blocks Raw ZIP Overwrite)
+        private static void Test_21_MsiManaged_BlocksRawZipOverwrite()
+        {
+            string sandbox = CreateSandbox("Test21");
+            try
+            {
+                string target = Path.Combine(sandbox, "KhimTools.bundle");
+                CreateMockBundle(target, "2.7.0", true, true);
+                File.WriteAllText(Path.Combine(target, "msi_sentinel.txt"), "ORIGINAL_MSI_PAYLOAD");
+
+                string zip = CreateMockZip(sandbox, "update.zip", delegate(string dir) {
+                    CreateMockBundle(dir, "2.8.0", true, true);
+                });
+
+                // Simulate that current installation is MSI-managed
+                InstallationClassifier.MsiDetectionOverride = delegate() { return true; };
+
+                var engine = new SafeDeploymentEngine();
+                bool caughtMsiBlocked = false;
+                try
+                {
+                    engine.DeployZip(zip, target, "2.8.0", null);
+                }
+                catch (MsiManagedDeploymentException)
+                {
+                    caughtMsiBlocked = true;
+                }
+
+                if (!caughtMsiBlocked)
+                {
+                    throw new Exception("DeployZip failed to block raw ZIP extraction against an MSI-managed target!");
+                }
+
+                // Verify the original MSI bundle was completely untouched
+                if (!File.Exists(Path.Combine(target, "msi_sentinel.txt")) ||
+                    File.ReadAllText(Path.Combine(target, "msi_sentinel.txt")) != "ORIGINAL_MSI_PAYLOAD")
+                {
+                    throw new Exception("MSI target was modified despite MsiManagedDeploymentException!");
+                }
+            }
+            finally
+            {
+                InstallationClassifier.MsiDetectionOverride = null;
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 22. MSI Package SHA-256 Checksum Verification & Mismatch Protection
+        private static void Test_22_MsiPackage_Sha256Verification()
+        {
+            string sandbox = CreateSandbox("Test22");
+            try
+            {
+                string mockMsi = Path.Combine(sandbox, "MockPackage.msi");
+                File.WriteAllText(mockMsi, "MOCK_MSI_BINARY_CONTENT_SJTL_2026");
+
+                string actualHash;
+                bool validNoHash = SafeDeploymentEngine.VerifyMsiSha256(mockMsi, null, out actualHash);
+                if (!validNoHash || string.IsNullOrEmpty(actualHash))
+                {
+                    throw new Exception("Failed to compute SHA-256 hash for mock MSI.");
+                }
+
+                // Test matching hash
+                string dummy1;
+                bool match = SafeDeploymentEngine.VerifyMsiSha256(mockMsi, actualHash, out dummy1);
+                if (!match)
+                {
+                    throw new Exception("Matching SHA-256 hash was rejected!");
+                }
+
+                // Test mismatched hash
+                string badHash = "E2462CCA1A90EB5C9FA7D2DFD8694B6AF3F7EC14919B201B51CF4CE6AFFD0000";
+                string dummy2;
+                bool mismatch = SafeDeploymentEngine.VerifyMsiSha256(mockMsi, badHash, out dummy2);
+                if (mismatch)
+                {
+                    throw new Exception("Mismatched SHA-256 hash was erroneously accepted!");
+                }
+
+                // DeployMsi with bad hash must throw DeploymentValidationException
+                var engine = new SafeDeploymentEngine();
+                bool caughtMismatch = false;
+                try
+                {
+                    engine.DeployMsi(mockMsi, badHash, null);
+                }
+                catch (DeploymentValidationException)
+                {
+                    caughtMismatch = true;
+                }
+
+                if (!caughtMismatch)
+                {
+                    throw new Exception("DeployMsi failed to throw DeploymentValidationException on SHA-256 mismatch!");
+                }
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 23. Release Manifest MSI Metadata Parsing & Validation
+        private static void Test_23_UpdateInfoJson_MsiMetadata()
+        {
+            string manifestPath = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\update_info.json"));
+            if (!File.Exists(manifestPath))
+            {
+                manifestPath = Path.Combine(Directory.GetCurrentDirectory(), "update_info.json");
+            }
+            if (!File.Exists(manifestPath))
+            {
+                throw new FileNotFoundException("update_info.json not found at: " + manifestPath);
+            }
+
+            string json = File.ReadAllText(manifestPath);
+
+            // Verify download_url_msi exists
+            var msiUrlMatch = System.Text.RegularExpressions.Regex.Match(json, "\"download_url_msi\"\\s*:\\s*\"([^\"]+)\"");
+            if (!msiUrlMatch.Success)
+            {
+                throw new Exception("Missing 'download_url_msi' in update_info.json!");
+            }
+
+            string msiUrl = msiUrlMatch.Groups[1].Value;
+            string rejectReason;
+            if (!UrlSecurityValidator.IsSecureOfficialUrl(msiUrl, false, out rejectReason))
+            {
+                throw new Exception("MSI download URL in update_info.json failed security policy: " + rejectReason);
+            }
+
+            // Verify sha256_msi exists
+            var msiShaMatch = System.Text.RegularExpressions.Regex.Match(json, "\"sha256_msi\"\\s*:\\s*\"([^\"]*)\"");
+            if (!msiShaMatch.Success)
+            {
+                throw new Exception("Missing 'sha256_msi' in update_info.json!");
             }
         }
     }

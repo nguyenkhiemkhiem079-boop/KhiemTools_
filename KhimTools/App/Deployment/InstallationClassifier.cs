@@ -18,7 +18,41 @@ namespace KhiemToolsApp.Deployment
         };
 
         /// <summary>
-        /// Classifies a bundle directory as Current, Legacy, UserManaged, or Unknown.
+        /// Test simulation hook to override MSI detection in unit tests.
+        /// </summary>
+        public static Func<bool> MsiDetectionOverride { get; set; }
+
+        /// <summary>
+        /// Checks if K-TOOLS is currently deployed and managed via Windows Installer (MSI).
+        /// Checks HKLM\SOFTWARE\K-TOOLS for InstalledVia == "MSI".
+        /// </summary>
+        public static bool IsMsiManaged()
+        {
+            if (MsiDetectionOverride != null)
+            {
+                return MsiDetectionOverride();
+            }
+
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\K-TOOLS"))
+                {
+                    if (key != null)
+                    {
+                        var val = key.GetValue("InstalledVia") as string;
+                        if (string.Equals(val, "MSI", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>
+        /// Classifies a bundle directory as Current, MsiManaged, Legacy, UserManaged, or Unknown.
         /// </summary>
         public static InstallationClassification ClassifyBundle(string bundlePath, string authoritativeBundlePath)
         {
@@ -33,6 +67,10 @@ namespace KhiemToolsApp.Deployment
                               Path.GetFullPath(authoritativeBundlePath).TrimEnd('\\'),
                               StringComparison.OrdinalIgnoreCase))
             {
+                if (IsMsiManaged())
+                {
+                    return InstallationClassification.MsiManaged;
+                }
                 return InstallationClassification.Current;
             }
 

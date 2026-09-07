@@ -246,9 +246,9 @@ $testDetails = ""
 try {
     $testScript = Join-Path $repoRoot "KhimTools\Tests\RunTests.ps1"
     $testOut = & powershell -ExecutionPolicy Bypass -File $testScript 2>&1
-    if ($LASTEXITCODE -eq 0 -and ($testOut -match "19 Passed, 0 Failed")) {
+    if ($LASTEXITCODE -eq 0 -and ($testOut -match "RESULTS:\s+(\d+)\s+Passed,\s+0\s+Failed")) {
         $testRunSuccess = $true
-        $testDetails = "19/19 security tests passed"
+        $testDetails = "$($Matches[1])/$($Matches[1]) security tests passed"
     } else {
         $testDetails = "Failed or unexpected output: " + ($testOut | Out-String)
     }
