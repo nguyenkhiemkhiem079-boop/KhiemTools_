@@ -1,0 +1,30 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <StandardDirectory Id="CommonAppDataFolder">
+      <Directory Id="DIR_Autodesk" Name="Autodesk">
+        <Directory Id="DIR_ApplicationPlugins" Name="ApplicationPlugins">
+          <Directory Id="BUNDLEFOLDER" Name="KhimTools.bundle">
+            <Directory Id="CONTENTSFOLDER" Name="Contents">
+              
+              <!-- Legacy Revit 2020-2024 (.NET Framework 4.8) -->
+              <Directory Id="LEGACYFOLDER" Name="Legacy">
+                <Directory Id="LEGACYREBARFOLDER" Name="RebarShapes" />
+              </Directory>
+
+              <!-- Modern Revit 2025-2028 (.NET 8.0) -->
+              <Directory Id="MODERNFOLDER" Name="Modern">
+                <Directory Id="MODERNREBARFOLDER" Name="RebarShapes" />
+              </Directory>
+
+              <!-- Standard Family Library Templates -->
+              <Directory Id="FAMILIESFOLDER" Name="Families">
+                <Directory Id="STANDARDFAMILIESFOLDER" Name="Standard" />
+              </Directory>
+
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+  </Fragment>
+</Wix>

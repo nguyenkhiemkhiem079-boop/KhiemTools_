@@ -1,0 +1,38 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <Feature Id="Complete" Title="K-TOOLS Complete Suite" Description="Complete installation of K-TOOLS for Autodesk Revit" Level="1" Display="expand" ConfigurableDirectory="BUNDLEFOLDER">
+
+      <!-- Mandatory Core Feature -->
+      <Feature Id="CoreTools" Title="Core Runtime" Description="Authoritative Revit bundle manifest, AddIn descriptor, registry ownership and system integration" Level="1" Absent="disallow">
+        <ComponentRef Id="C_PackageContentsXml" />
+        <ComponentRef Id="C_RegistryOwnership" />
+      </Feature>
+
+      <!-- Revit 2020-2024 (.NET Framework 4.8) -->
+      <Feature Id="RevitLegacy" Title="K-TOOLS for Revit 2020-2024 (.NET 4.8)" Description="Binaries and components optimized for Autodesk Revit 2020 through 2024" Level="2">
+        <Condition Level="1">HAS_LEGACY_REVIT = 1</Condition>
+        <ComponentRef Id="C_LegacyAddin" />
+        <ComponentRef Id="C_LegacyDlls" />
+      </Feature>
+
+      <!-- Revit 2025-2028 (.NET 8.0) -->
+      <Feature Id="RevitModern" Title="K-TOOLS for Revit 2025-2028 (.NET 8.0)" Description="Binaries and components optimized for Autodesk Revit 2025 through 2028" Level="2">
+        <Condition Level="1">HAS_MODERN_REVIT = 1</Condition>
+        <ComponentRef Id="C_ModernAddin" />
+        <ComponentRef Id="C_ModernDlls" />
+      </Feature>
+
+      <!-- Rebar Engineering Feature -->
+      <Feature Id="RebarEngineering" Title="Rebar Engineering Engine" Description="Standard rebar shapes and rebar calculation engine data" Level="1">
+        <ComponentRef Id="C_RebarShapesLegacy" />
+        <ComponentRef Id="C_RebarShapesModern" />
+      </Feature>
+
+      <!-- Standard Family Library Feature -->
+      <Feature Id="FamilyLibrary" Title="Standard Family Library" Description="Standard parametric template families for engineering details" Level="1">
+        <ComponentRef Id="C_StandardFamilies" />
+      </Feature>
+
+    </Feature>
+  </Fragment>
+</Wix>

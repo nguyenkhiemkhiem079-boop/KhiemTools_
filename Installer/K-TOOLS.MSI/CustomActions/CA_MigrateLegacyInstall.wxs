@@ -1,0 +1,23 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- Detect legacy non-MSI uninstall entry -->
+    <Property Id="LEGACY_EXE_UNINSTALL_DETECTED">
+      <RegistrySearch Id="SearchLegacyUninstall"
+                      Root="HKLM"
+                      Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\KhimTools"
+                      Name="UninstallString"
+                      Type="raw"
+                      Bitness="always64" />
+    </Property>
+
+    <!-- Check for developer git repository in target bundle folder -->
+    <Property Id="DEV_GIT_FOLDER_EXISTS">
+      <DirectorySearch Id="SearchDevGitInBundle" Path="[CommonAppDataFolder]Autodesk\ApplicationPlugins\KhimTools.bundle\.git" Depth="0" />
+    </Property>
+
+    <!-- Custom launch condition: Prevent overwriting a developer-managed git workspace -->
+    <Launch Condition="Installed OR NOT DEV_GIT_FOLDER_EXISTS"
+            Message="A developer-managed Git repository was detected at [CommonAppDataFolder]Autodesk\ApplicationPlugins\KhimTools.bundle. Installation is blocked to prevent overwriting uncommitted source code." />
+
+  </Fragment>
+</Wix>

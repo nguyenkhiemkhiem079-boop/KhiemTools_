@@ -1,0 +1,14 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="CG_Registry" Directory="BUNDLEFOLDER">
+      <Component Id="C_RegistryOwnership" Guid="{8F7E6D5C-4B3A-2910-FEDC-BA9876543210}">
+        <RegistryKey Root="HKLM" Key="SOFTWARE\K-TOOLS">
+          <RegistryValue Type="string" Name="InstalledVia" Value="MSI" KeyPath="yes" />
+          <RegistryValue Type="string" Name="Version" Value="[ProductVersion]" />
+          <RegistryValue Type="string" Name="InstallPath" Value="[BUNDLEFOLDER]" />
+          <RegistryValue Type="string" Name="InstallDate" Value="[Date]" />
+        </RegistryKey>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

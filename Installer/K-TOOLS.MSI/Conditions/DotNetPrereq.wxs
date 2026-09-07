@@ -1,0 +1,19 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:netfx="http://wixtoolset.org/schemas/v4/wxs/netfx">
+  <Fragment>
+    <!-- .NET Framework 4.8 Release DWORD is 528040 (or higher) -->
+    <Property Id="NETFRAMEWORK48_RELEASE">
+      <RegistrySearch Id="SearchNetFx48" Root="HKLM" Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" Name="Release" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- .NET 8.0 Desktop Runtime detection -->
+    <Property Id="DOTNET8_DESKTOP_INSTALLED">
+      <RegistrySearch Id="SearchDotNet8Desktop" Root="HKLM" Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App" Name="8.0.0" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- Block installation only if running on unsupported OS or missing base .NET Framework 4.8 -->
+    <Launch Condition="Installed OR (NETFRAMEWORK48_RELEASE &gt;= 528040)"
+            Message="[ProductName] requires Microsoft .NET Framework 4.8 or newer. Please install .NET Framework 4.8 and run setup again." />
+
+  </Fragment>
+</Wix>

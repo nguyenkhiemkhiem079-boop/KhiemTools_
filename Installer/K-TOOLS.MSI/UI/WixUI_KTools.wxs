@@ -1,0 +1,22 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Fragment>
+    <UI Id="WixUI_KTools">
+      <TextStyle Id="WixUI_Font_Normal" FaceName="Segoe UI" Size="9" />
+      <TextStyle Id="WixUI_Font_Bigger" FaceName="Segoe UI" Size="12" Bold="yes" />
+      <TextStyle Id="WixUI_Font_Title" FaceName="Segoe UI" Size="9" Bold="yes" />
+
+      <Property Id="DefaultUIFont" Value="WixUI_Font_Normal" />
+      <Property Id="WixUI_Mode" Value="FeatureTree" />
+
+      <!-- Branding Bitmaps & License -->
+      <WixVariable Id="WixUIBannerBmp" Value="UI\Resources\Banner.bmp" />
+      <WixVariable Id="WixUIDialogBmp" Value="UI\Resources\Dialog.bmp" />
+      <WixVariable Id="WixUILicenseRtf" Value="UI\Resources\EULA.rtf" />
+
+      <!-- Use Standard FeatureTree UI from WixToolset.UI.wixext -->
+      <ui:WixUI Id="WixUI_FeatureTree" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+    </UI>
+  </Fragment>
+</Wix>

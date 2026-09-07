@@ -1,0 +1,34 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Bundle Name="K-TOOLS Setup"
+          Manufacturer="SJTL"
+          Version="2.7.0"
+          UpgradeCode="{D1898E5E-59B1-4A59-AC10-53D2A72E8E42}"
+          IconSourceFile="..\K-TOOLS.MSI\UI\Resources\Icon.ico">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+        LicenseUrl="https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/blob/master/LICENSE"
+        Theme="hyperlinkLicense"
+        LogoFile="..\K-TOOLS.MSI\UI\Resources\Icon.ico" />
+    </BootstrapperApplication>
+
+    <!-- Detect .NET 8 Desktop Runtime (x64) -->
+    <util:RegistrySearch Id="SearchDotNet8"
+                         Root="HKLM"
+                         Key="SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App"
+                         Value="8.0.0"
+                         Variable="DotNet8DesktopInstalled"
+                         Result="exists" />
+
+    <Chain>
+      <!-- Chained Authoritative MSI Package -->
+      <MsiPackage Id="KToolsMsiPackage"
+                  SourceFile="..\K-TOOLS.MSI\bin\x64\Release\en-US\K-TOOLS.msi"
+                  Compressed="yes"
+                  Vital="yes"
+                  DisplayInternalUI="yes" />
+    </Chain>
+  </Bundle>
+</Wix>

@@ -1,0 +1,12 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Fragment>
+    <!-- Native WiX Process detection & graceful close prompt for revit.exe -->
+    <util:CloseApplication Id="DetectRunningRevit"
+                           Target="revit.exe"
+                           Description="Autodesk Revit is currently running. Please save your work and close Revit to continue installation."
+                           PromptToClose="yes"
+                           CloseMessage="yes"
+                           RebootPrompt="no" />
+  </Fragment>
+</Wix>

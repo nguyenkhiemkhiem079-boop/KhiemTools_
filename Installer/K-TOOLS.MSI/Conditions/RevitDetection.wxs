@@ -1,0 +1,45 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <!-- Public Property to force-install all Revit components -->
+    <Property Id="ALL_REVIT" Value="0" />
+
+    <!-- Revit 2020-2024 (Legacy .NET Framework 4.8) -->
+    <Property Id="REVIT_2020_DETECTED">
+      <RegistrySearch Id="SearchRevit2020" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2020" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2021_DETECTED">
+      <RegistrySearch Id="SearchRevit2021" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2021" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2022_DETECTED">
+      <RegistrySearch Id="SearchRevit2022" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2022" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2023_DETECTED">
+      <RegistrySearch Id="SearchRevit2023" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2023" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2024_DETECTED">
+      <RegistrySearch Id="SearchRevit2024" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2024" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- Revit 2025-2028 (Modern .NET 8.0) -->
+    <Property Id="REVIT_2025_DETECTED">
+      <RegistrySearch Id="SearchRevit2025" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2025" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2026_DETECTED">
+      <RegistrySearch Id="SearchRevit2026" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2026" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2027_DETECTED">
+      <RegistrySearch Id="SearchRevit2027" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2027" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="REVIT_2028_DETECTED">
+      <RegistrySearch Id="SearchRevit2028" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2028" Name="InstallationPath" Type="raw" Bitness="always64" />
+    </Property>
+
+    <!-- Custom Action / SetProperty to determine composite detection -->
+    <SetProperty Id="HAS_LEGACY_REVIT" Value="1" After="AppSearch"
+                 Condition="REVIT_2020_DETECTED OR REVIT_2021_DETECTED OR REVIT_2022_DETECTED OR REVIT_2023_DETECTED OR REVIT_2024_DETECTED OR ALL_REVIT = 1" />
+
+    <SetProperty Id="HAS_MODERN_REVIT" Value="1" After="AppSearch"
+                 Condition="REVIT_2025_DETECTED OR REVIT_2026_DETECTED OR REVIT_2027_DETECTED OR REVIT_2028_DETECTED OR ALL_REVIT = 1" />
+
+  </Fragment>
+</Wix>

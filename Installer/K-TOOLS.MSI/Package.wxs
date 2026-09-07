@@ -1,0 +1,34 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="K-TOOLS (KhimTools)"
+           Manufacturer="SJTL"
+           Version="2.7.0"
+           UpgradeCode="{B73A7490-6831-4F58-9D26-C18244B27DF1}"
+           Scope="perMachine"
+           Language="1033"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="K-TOOLS Autodesk Revit Multi-Year Add-in Suite"
+                        Keywords="Revit,Addin,K-TOOLS,KhimTools,BIM,Automation"
+                        Manufacturer="SJTL" />
+
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit." />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <!-- Add/Remove Programs Properties -->
+    <Property Id="ARPPRODUCTICON" Value="KToolsIcon.ico" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_" />
+    <Property Id="ARPNOREPAIR" Value="0" />
+    <Property Id="ARPNOMODIFY" Value="0" />
+
+    <!-- Default UI Entry Point -->
+    <UIRef Id="WixUI_KTools" />
+
+    <!-- Icon -->
+    <Icon Id="KToolsIcon.ico" SourceFile="UI\Resources\Icon.ico" />
+
+  </Package>
+</Wix>

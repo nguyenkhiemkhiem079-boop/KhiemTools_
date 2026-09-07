@@ -1,0 +1,16 @@
+<Project Sdk="WixToolset.Sdk/4.0.5">
+  <PropertyGroup>
+    <OutputName>K-TOOLS</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <Platforms>x64</Platforms>
+    <Cultures>en-US</Cultures>
+    <InstallerVersion>500</InstallerVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="4.0.5" />
+    <PackageReference Include="WixToolset.Netfx.wixext" Version="4.0.5" />
+  </ItemGroup>
+</Project>
