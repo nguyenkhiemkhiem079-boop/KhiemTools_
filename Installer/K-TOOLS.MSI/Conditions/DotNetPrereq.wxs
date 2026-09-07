@@ -12,7 +12,7 @@
     </Property>
 
     <!-- Block installation only if running on unsupported OS or missing base .NET Framework 4.8 -->
-    <Launch Condition="Installed OR (NETFRAMEWORK48_RELEASE &gt;= 528040)"
+    <Launch Condition="Installed OR (NETFRAMEWORK48_RELEASE &gt;= &quot;#528040&quot;)"
             Message="[ProductName] requires Microsoft .NET Framework 4.8 or newer. Please install .NET Framework 4.8 and run setup again." />
 
   </Fragment>

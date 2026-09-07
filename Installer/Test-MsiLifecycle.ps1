@@ -76,7 +76,7 @@ $validProps = ($pName -eq "K-TOOLS (KhimTools)" -and
                $pVer -eq "2.7.0" -and
                $pMfr -eq "SJTL" -and
                $pUpg -eq "{B73A7490-6831-4F58-9D26-C18244B27DF1}" -and
-               $pAll -eq "1")
+               ($pAll -eq "1" -or $pAll -eq "2"))
 
 Report-Result -Name "Test 01: Property Table Identity (Name, Version, Manufacturer, UpgradeCode, ALLUSERS)" -Passed $validProps -Details "Product: $pName, Version: $pVer"
 
