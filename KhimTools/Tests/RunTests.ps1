@@ -13,6 +13,7 @@ $sourceFiles = @(
     (Join-Path $projectRoot "App\Deployment\InstallationClassification.cs"),
     (Join-Path $projectRoot "App\Deployment\DeploymentExceptions.cs"),
     (Join-Path $projectRoot "App\Deployment\UrlSecurityValidator.cs"),
+    (Join-Path $projectRoot "App\Deployment\SemanticVersion.cs"),
     (Join-Path $projectRoot "App\Deployment\DeploymentValidator.cs"),
     (Join-Path $projectRoot "App\Deployment\InstallationClassifier.cs"),
     (Join-Path $projectRoot "App\Deployment\SafeDeploymentEngine.cs"),

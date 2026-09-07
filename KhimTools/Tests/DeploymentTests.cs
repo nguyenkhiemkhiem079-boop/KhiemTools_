@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -17,9 +18,10 @@ namespace KhimTools.Tests
         {
             Console.WriteLine("=========================================================");
             Console.WriteLine(" K-TOOLS UPDATER & DEPLOYMENT SECURITY TEST SUITE");
-            Console.WriteLine(" Verifying P0 Deployment Safety, Rollback & Classification");
+            Console.WriteLine(" Evidence-Based Audit: Zip Slip, Rollback, SemVer, Backup");
             Console.WriteLine("=========================================================\n");
 
+            // Original 12 P0 Tests
             RunTest("Test 01: Interrupted Copy Protection", Test_01_InterruptedCopy);
             RunTest("Test 02: Locked Target Detection", Test_02_LockedTarget);
             RunTest("Test 03: Backup Failure Abort", Test_03_BackupFailure);
@@ -32,6 +34,15 @@ namespace KhimTools.Tests
             RunTest("Test 10: Legacy AppData Classification & Preservation", Test_10_LegacyAppDataInstall);
             RunTest("Test 11: Duplicate ProgramData / UserManaged AppData Classification", Test_11_DuplicateProgramDataAppData);
             RunTest("Test 12: Multi-Year Revit Versions Detection", Test_12_MultipleRevitVersions);
+
+            // Additional Mandatory Security Verification Tests
+            RunTest("Test 13: Zip Slip Path Traversal (../evil.dll)", Test_13_ZipSlip_RelativeForward);
+            RunTest("Test 14: Zip Slip Path Traversal (..\\evil.dll)", Test_14_ZipSlip_RelativeBackward);
+            RunTest("Test 15: Zip Slip Rooted / Absolute Windows Path Rejection", Test_15_ZipSlip_AbsoluteWindows);
+            RunTest("Test 16: Zip Slip Prohibited UNC Path Rejection", Test_16_ZipSlip_ProhibitedUnc);
+            RunTest("Test 17: SemVer 2.0 Prerelease Ordering (beta < rc1 < 2.7.1 < 2.7.2)", Test_17_SemVerOrdering);
+            RunTest("Test 18: UserManaged & Unknown Installations Preservation", Test_18_UserManagedAndUnknownPreservation);
+            RunTest("Test 19: Backup Retention Pruning (No Uncontrolled Accumulation)", Test_19_BackupRetentionPruning);
 
             Console.WriteLine("\n=========================================================");
             Console.WriteLine(string.Format(" RESULTS: {0} Passed, {1} Failed", _passed, _failed));
@@ -113,6 +124,22 @@ namespace KhimTools.Tests
             if (File.Exists(zipPath)) File.Delete(zipPath);
             ZipFile.CreateFromDirectory(payloadDir, zipPath);
             Directory.Delete(payloadDir, true);
+            return zipPath;
+        }
+
+        private static string CreateZipWithCustomEntry(string sandboxPath, string zipName, string maliciousEntryName, string fileContent)
+        {
+            string zipPath = Path.Combine(sandboxPath, zipName);
+            if (File.Exists(zipPath)) File.Delete(zipPath);
+
+            using (var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry(maliciousEntryName);
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(fileContent);
+                }
+            }
             return zipPath;
         }
 
@@ -518,6 +545,235 @@ namespace KhimTools.Tests
                     {
                         throw new Exception(string.Format("Failed detection for Revit year {0}, got {1}", y, classification));
                     }
+                }
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 13. Zip Slip Path Traversal (../evil.dll)
+        private static void Test_13_ZipSlip_RelativeForward()
+        {
+            string sandbox = CreateSandbox("Test13");
+            try
+            {
+                string zipPath = CreateZipWithCustomEntry(sandbox, "slip_forward.zip", "../evil.dll", "MALICIOUS");
+                string targetDir = Path.Combine(sandbox, "target_extraction");
+
+                bool caught = false;
+                try
+                {
+                    SafeDeploymentEngine.ExtractZipSafely(zipPath, targetDir);
+                }
+                catch (DeploymentSecurityException ex)
+                {
+                    caught = true;
+                    if (!ex.Message.Contains("traversal") && !ex.Message.Contains("prohibited"))
+                        throw new Exception("Unexpected exception message: " + ex.Message);
+                }
+
+                if (!caught) throw new Exception("Zip Slip with '../evil.dll' was NOT rejected!");
+                if (File.Exists(Path.Combine(sandbox, "evil.dll")))
+                    throw new Exception("Malicious file was extracted outside target directory!");
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 14. Zip Slip Path Traversal (..\evil.dll)
+        private static void Test_14_ZipSlip_RelativeBackward()
+        {
+            string sandbox = CreateSandbox("Test14");
+            try
+            {
+                string zipPath = CreateZipWithCustomEntry(sandbox, "slip_back.zip", @"..\evil.dll", "MALICIOUS");
+                string targetDir = Path.Combine(sandbox, "target_extraction");
+
+                bool caught = false;
+                try
+                {
+                    SafeDeploymentEngine.ExtractZipSafely(zipPath, targetDir);
+                }
+                catch (DeploymentSecurityException)
+                {
+                    caught = true;
+                }
+
+                if (!caught) throw new Exception(@"Zip Slip with '..\evil.dll' was NOT rejected!");
+                if (File.Exists(Path.Combine(sandbox, "evil.dll")))
+                    throw new Exception("Malicious file was extracted outside target directory!");
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 15. Zip Slip Rooted / Absolute Windows Path Rejection
+        private static void Test_15_ZipSlip_AbsoluteWindows()
+        {
+            string sandbox = CreateSandbox("Test15");
+            try
+            {
+                string zipPath = CreateZipWithCustomEntry(sandbox, "slip_abs.zip", @"C:\Windows\evil.dll", "MALICIOUS");
+                string targetDir = Path.Combine(sandbox, "target_extraction");
+
+                bool caught = false;
+                try
+                {
+                    SafeDeploymentEngine.ExtractZipSafely(zipPath, targetDir);
+                }
+                catch (DeploymentSecurityException)
+                {
+                    caught = true;
+                }
+
+                if (!caught) throw new Exception(@"Absolute Windows path in zip was NOT rejected!");
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 16. Zip Slip Prohibited UNC Path Rejection
+        private static void Test_16_ZipSlip_ProhibitedUnc()
+        {
+            string sandbox = CreateSandbox("Test16");
+            try
+            {
+                string zipPath = CreateZipWithCustomEntry(sandbox, "slip_unc.zip", @"\\server\share\evil.dll", "MALICIOUS");
+                string targetDir = Path.Combine(sandbox, "target_extraction");
+
+                bool caught = false;
+                try
+                {
+                    SafeDeploymentEngine.ExtractZipSafely(zipPath, targetDir);
+                }
+                catch (DeploymentSecurityException)
+                {
+                    caught = true;
+                }
+
+                if (!caught) throw new Exception("UNC path in zip was NOT rejected!");
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 17. SemVer 2.0 Prerelease Ordering: 2.7.1-beta < 2.7.1-rc1 < 2.7.1 < 2.7.2
+        private static void Test_17_SemVerOrdering()
+        {
+            var vBeta = SemanticVersion.Parse("2.7.1-beta");
+            var vRc1 = SemanticVersion.Parse("2.7.1-rc1");
+            var vRelease = SemanticVersion.Parse("2.7.1");
+            var vNext = SemanticVersion.Parse("2.7.2");
+
+            if (vBeta.CompareTo(vRc1) >= 0)
+                throw new Exception(string.Format("Ordering error: expected {0} < {1}", vBeta, vRc1));
+
+            if (vRc1.CompareTo(vRelease) >= 0)
+                throw new Exception(string.Format("Ordering error: expected {0} < {1} (prerelease must be lower than release)", vRc1, vRelease));
+
+            if (vRelease.CompareTo(vNext) >= 0)
+                throw new Exception(string.Format("Ordering error: expected {0} < {1}", vRelease, vNext));
+
+            // Test sorting a full list
+            var list = new List<SemanticVersion> { vNext, vRelease, vBeta, vRc1 };
+            list.Sort();
+
+            if (list[0] != vBeta || list[1] != vRc1 || list[2] != vRelease || list[3] != vNext)
+            {
+                throw new Exception("SemVer list sorting did not yield expected order: beta, rc1, 2.7.1, 2.7.2");
+            }
+        }
+
+        // 18. UserManaged & Unknown Installations Preservation
+        private static void Test_18_UserManagedAndUnknownPreservation()
+        {
+            string sandbox = CreateSandbox("Test18");
+            try
+            {
+                string userManagedDir = Path.Combine(sandbox, "UserManagedBundle");
+                Directory.CreateDirectory(userManagedDir);
+                Directory.CreateDirectory(Path.Combine(userManagedDir, ".git"));
+                File.WriteAllText(Path.Combine(userManagedDir, "user_source.cs"), "// User custom source");
+
+                string unknownDir = Path.Combine(sandbox, "ThirdPartyBundle");
+                Directory.CreateDirectory(unknownDir);
+                File.WriteAllText(Path.Combine(unknownDir, "PackageContents.xml"), "<ApplicationPackage Name=\"ThirdParty\"></ApplicationPackage>");
+
+                var classUser = InstallationClassifier.ClassifyBundle(userManagedDir, "C:\\Authoritative");
+                var classUnknown = InstallationClassifier.ClassifyBundle(unknownDir, "C:\\Authoritative");
+
+                if (classUser != InstallationClassification.UserManaged)
+                    throw new Exception(string.Format("Expected UserManaged, got {0}", classUser));
+
+                if (classUnknown != InstallationClassification.Unknown)
+                    throw new Exception(string.Format("Expected Unknown, got {0}", classUnknown));
+
+                // Verify that neither is touched or deleted by legacy cleanup
+                string backupDir = Path.Combine(sandbox, "Backup");
+                InstallationClassifier.PreserveAndCleanLegacyArtifacts(backupDir, null);
+
+                if (!Directory.Exists(userManagedDir) || !File.Exists(Path.Combine(userManagedDir, "user_source.cs")))
+                    throw new Exception("UserManaged bundle was modified or deleted!");
+
+                if (!Directory.Exists(unknownDir))
+                    throw new Exception("Unknown bundle was deleted!");
+            }
+            finally
+            {
+                CleanupSandbox(sandbox);
+            }
+        }
+
+        // 19. Backup Retention Pruning (No Uncontrolled Accumulation)
+        private static void Test_19_BackupRetentionPruning()
+        {
+            string sandbox = CreateSandbox("Test19");
+            try
+            {
+                string backupRoot = Path.Combine(sandbox, "KhimTools_Backups");
+                Directory.CreateDirectory(backupRoot);
+
+                // Create 5 simulated backup directories with distinct timestamps
+                var createdDirs = new List<string>();
+                for (int i = 0; i < 5; i++)
+                {
+                    string dirPath = Path.Combine(backupRoot, string.Format("Backup_{0}_{1}", DateTime.UtcNow.AddMinutes(i).ToString("yyyyMMdd_HHmmss"), i));
+                    Directory.CreateDirectory(dirPath);
+                    File.WriteAllText(Path.Combine(dirPath, "info.txt"), "Backup #" + i);
+                    // Artificially set CreationTime to ensure distinct ordering
+                    Directory.SetCreationTimeUtc(dirPath, DateTime.UtcNow.AddMinutes(i));
+                    createdDirs.Add(dirPath);
+                }
+
+                // Prune with retention limit = 2
+                SafeDeploymentEngine.PruneOldBackups(backupRoot, 2, null);
+
+                string[] remainingDirs = Directory.GetDirectories(backupRoot, "Backup_*");
+                if (remainingDirs.Length != 2)
+                {
+                    throw new Exception(string.Format("Expected exactly 2 backups retained, but found {0}", remainingDirs.Length));
+                }
+
+                // Verify the 2 newest backups were preserved
+                if (!Directory.Exists(createdDirs[4]) || !Directory.Exists(createdDirs[3]))
+                {
+                    throw new Exception("The newest backups were unexpectedly pruned!");
+                }
+
+                // Verify older backups were pruned
+                if (Directory.Exists(createdDirs[0]) || Directory.Exists(createdDirs[1]) || Directory.Exists(createdDirs[2]))
+                {
+                    throw new Exception("Older expired backups were not pruned!");
                 }
             }
             finally

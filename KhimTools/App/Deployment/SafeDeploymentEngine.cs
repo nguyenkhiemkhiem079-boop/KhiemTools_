@@ -7,16 +7,20 @@ namespace KhiemToolsApp.Deployment
     /// <summary>
     /// Safe deployment coordinator implementing a two-phase staged deployment strategy with rollback.
     /// Guarantees that the live Revit bundle is never left in a partially updated or corrupted state.
-    /// Does NOT claim atomic filesystem operations; instead implements strictly verified transactional staging and rollback.
+    /// Implements canonical containment validation against Zip Slip path traversal.
+    /// Implements explicit backup retention management to prevent uncontrolled accumulation.
     /// </summary>
     public class SafeDeploymentEngine
     {
+        public const int DefaultMaxRetainedBackups = 2;
+
         // Test simulation hooks to verify edge-case failure handling
         public bool SimulateInterruptedCopy { get; set; }
         public bool SimulateBackupFailure { get; set; }
         public bool SimulateSwapFailure { get; set; }
         public bool SimulatePostInstallVerificationFailure { get; set; }
         public bool SimulateRollbackFailure { get; set; }
+        public int MaxRetainedBackups { get; set; }
 
         public SafeDeploymentEngine()
         {
@@ -25,6 +29,7 @@ namespace KhiemToolsApp.Deployment
             SimulateSwapFailure = false;
             SimulatePostInstallVerificationFailure = false;
             SimulateRollbackFailure = false;
+            MaxRetainedBackups = DefaultMaxRetainedBackups;
         }
 
         /// <summary>
@@ -51,9 +56,10 @@ namespace KhiemToolsApp.Deployment
             // 1. Check for locked target files (e.g. Revit running)
             AssertTargetNotLocked(targetBundlePath);
 
-            // 2. Stage: Extract to an isolated temporary staging directory
+            // 2. Stage: Extract to an isolated temporary staging directory with canonical path traversal validation
             string stagingDir = Path.Combine(Path.GetTempPath(), "KhimTools_Staging_" + Guid.NewGuid().ToString("N"));
             string backupDir = null;
+            string backupRoot = Path.Combine(Path.GetTempPath(), "KhimTools_Backups");
             string tempRetiredPath = null;
 
             try
@@ -74,7 +80,8 @@ namespace KhiemToolsApp.Deployment
                 // 4. Preserve current installation (Backup)
                 if (Directory.Exists(targetBundlePath))
                 {
-                    backupDir = Path.Combine(Path.GetTempPath(), "KhimTools_Backup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N"));
+                    Directory.CreateDirectory(backupRoot);
+                    backupDir = Path.Combine(backupRoot, "Backup_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N"));
                     if (logger != null) logger(string.Format("Creating full backup of current installation: {0}", backupDir));
 
                     try
@@ -180,6 +187,9 @@ namespace KhiemToolsApp.Deployment
                     try { Directory.Delete(tempRetiredPath, true); } catch { }
                 }
 
+                // 10. Explicit Backup Retention Management: Prune older backups to prevent uncontrolled accumulation
+                PruneOldBackups(backupRoot, MaxRetainedBackups, logger);
+
                 if (logger != null) logger("Deployment successfully finalized.");
             }
             finally
@@ -258,29 +268,109 @@ namespace KhiemToolsApp.Deployment
             }
         }
 
-        private static void ExtractZipSafely(string zipPath, string destinationDirectory)
+        /// <summary>
+        /// Extracts a zip archive safely with canonical path containment verification.
+        /// Rejects Zip Slip path traversal (../, ..\, rooted, absolute, and UNC paths).
+        /// </summary>
+        public static void ExtractZipSafely(string zipPath, string destinationDirectory)
         {
             Directory.CreateDirectory(destinationDirectory);
+            string canonicalDest = Path.GetFullPath(destinationDirectory);
+            if (!canonicalDest.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                canonicalDest += Path.DirectorySeparatorChar;
+            }
+
             using (var archive = ZipFile.OpenRead(zipPath))
             {
                 foreach (var entry in archive.Entries)
                 {
+                    string entryName = entry.FullName;
+
+                    // 1. Block UNC paths
+                    if (entryName.StartsWith("\\\\") || entryName.StartsWith("//"))
+                    {
+                        throw new DeploymentSecurityException("Zip entry contains prohibited UNC path: " + entryName);
+                    }
+
+                    // 2. Block rooted or absolute paths (e.g. C:\Windows or \foo)
+                    if (Path.IsPathRooted(entryName) || entryName.StartsWith("/") || entryName.StartsWith("\\"))
+                    {
+                        throw new DeploymentSecurityException("Zip entry contains prohibited rooted/absolute path: " + entryName);
+                    }
+
+                    // 3. Normalize directory separators to OS standard
+                    string normalizedRel = entryName.Replace('/', Path.DirectorySeparatorChar);
+
+                    // 4. Resolve canonical absolute path
+                    string combinedPath = Path.Combine(canonicalDest, normalizedRel);
+                    string canonicalTarget = Path.GetFullPath(combinedPath);
+
+                    // 5. Canonical containment validation: target MUST start with canonical destination directory
+                    if (!canonicalTarget.StartsWith(canonicalDest, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new DeploymentSecurityException("Zip path traversal attempt detected! Entry escapes destination: " + entryName);
+                    }
+
+                    // Handle directory entry
                     if (string.IsNullOrEmpty(entry.Name))
                     {
-                        string subDir = Path.Combine(destinationDirectory, entry.FullName);
-                        Directory.CreateDirectory(subDir);
+                        Directory.CreateDirectory(canonicalTarget);
                         continue;
                     }
 
-                    string targetFilePath = Path.Combine(destinationDirectory, entry.FullName);
-                    string parentDir = Path.GetDirectoryName(targetFilePath);
-                    if (!string.IsNullOrEmpty(parentDir))
+                    string parentDir = Path.GetDirectoryName(canonicalTarget);
+                    if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
                     {
                         Directory.CreateDirectory(parentDir);
                     }
 
-                    entry.ExtractToFile(targetFilePath, true);
+                    entry.ExtractToFile(canonicalTarget, true);
                 }
+            }
+        }
+
+        /// <summary>
+        /// Prunes older backups in the backup root directory, keeping only the most recent N backups.
+        /// Prevents uncontrolled disk accumulation.
+        /// </summary>
+        public static void PruneOldBackups(string backupRoot, int maxRetained, Action<string> logger)
+        {
+            if (string.IsNullOrWhiteSpace(backupRoot) || !Directory.Exists(backupRoot) || maxRetained <= 0)
+            {
+                return;
+            }
+
+            try
+            {
+                var dirInfo = new DirectoryInfo(backupRoot);
+                DirectoryInfo[] backupDirs = dirInfo.GetDirectories("Backup_*");
+
+                // Sort newest first
+                Array.Sort(backupDirs, delegate(DirectoryInfo a, DirectoryInfo b)
+                {
+                    return b.CreationTimeUtc.CompareTo(a.CreationTimeUtc);
+                });
+
+                if (backupDirs.Length > maxRetained)
+                {
+                    for (int i = maxRetained; i < backupDirs.Length; i++)
+                    {
+                        try
+                        {
+                            if (logger != null) logger(string.Format("Pruning expired backup: {0}", backupDirs[i].FullName));
+                            backupDirs[i].Delete(true);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (logger != null) logger(string.Format("Warning: Could not prune backup '{0}': {1}", backupDirs[i].FullName, ex.Message));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                if (logger != null) logger(string.Format("Warning: Backup pruning encountered error: {0}", ex.Message));
             }
         }
 

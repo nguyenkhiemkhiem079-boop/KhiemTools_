@@ -10,6 +10,7 @@ namespace KhiemToolsApp.Deployment
     /// <summary>
     /// Validates staging and installed bundles against structural, binary, and version requirements.
     /// Rejects incomplete packages, corrupted DLLs, and version mismatches.
+    /// Supports SemVer 2.0 semantic versioning.
     /// </summary>
     public static class DeploymentValidator
     {
@@ -18,7 +19,7 @@ namespace KhiemToolsApp.Deployment
         /// Throws DeploymentValidationException if validation fails.
         /// </summary>
         /// <param name="bundleDirectory">Root path of the KhimTools.bundle directory.</param>
-        /// <param name="expectedVersion">The expected release version string (e.g. "v2.8.0" or "2.8.0").</param>
+        /// <param name="expectedVersion">The expected release version string (e.g. "v2.8.0", "2.7.1-beta", "2.8.0").</param>
         public static void ValidateBundle(string bundleDirectory, string expectedVersion)
         {
             if (string.IsNullOrWhiteSpace(bundleDirectory) || !Directory.Exists(bundleDirectory))
@@ -68,20 +69,20 @@ namespace KhiemToolsApp.Deployment
             // 3. Strict version verification against expected version
             if (!string.IsNullOrWhiteSpace(expectedVersion))
             {
-                Version parsedExpected = ParseNormalizedVersion(expectedVersion);
-                if (parsedExpected != null)
+                SemanticVersion semVer;
+                if (SemanticVersion.TryParse(expectedVersion, out semVer))
                 {
                     bool verifiedAtLeastOne = false;
 
                     if (legacyExists)
                     {
-                        VerifyDllVersion(legacyDll, parsedExpected, expectedVersion);
+                        VerifyDllVersion(legacyDll, semVer, expectedVersion);
                         verifiedAtLeastOne = true;
                     }
 
                     if (modernExists)
                     {
-                        VerifyDllVersion(modernDll, parsedExpected, expectedVersion);
+                        VerifyDllVersion(modernDll, semVer, expectedVersion);
                         verifiedAtLeastOne = true;
                     }
 
@@ -94,34 +95,42 @@ namespace KhiemToolsApp.Deployment
         }
 
         /// <summary>
-        /// Reads FileVersion and AssemblyVersion from the DLL and strictly asserts equality with expected version.
+        /// Reads FileVersion and AssemblyVersion from the DLL and strictly asserts equality with expected semantic version.
         /// Throws DeploymentValidationException on mismatch.
         /// </summary>
-        public static void VerifyDllVersion(string dllPath, Version expected, string expectedRaw)
+        public static void VerifyDllVersion(string dllPath, SemanticVersion expected, string expectedRaw)
         {
-            Version actual = GetDllVersion(dllPath);
-            if (actual == null)
+            Version actualVer = GetDllVersion(dllPath);
+            if (actualVer == null)
             {
                 throw new DeploymentValidationException(
                     string.Format("Unable to read version information from DLL: {0}", dllPath));
             }
 
-            // Compare Major, Minor, and Build
+            var actual = new SemanticVersion(actualVer.Major, actualVer.Minor, Math.Max(0, actualVer.Build));
+
+            // Compare Major, Minor, and Patch
             bool matches = (actual.Major == expected.Major &&
                             actual.Minor == expected.Minor &&
-                            (expected.Build == -1 || actual.Build == expected.Build));
+                            (expected.Patch == -1 || actual.Patch == expected.Patch));
 
             if (!matches)
             {
-                string actualFormatted = string.Format("{0}.{1}.{2}", actual.Major, actual.Minor, Math.Max(0, actual.Build));
-                string expectedFormatted = string.Format("{0}.{1}.{2}", expected.Major, expected.Minor, Math.Max(0, expected.Build));
-
                 throw new DeploymentValidationException(
                     string.Format("Post-install version mismatch in '{0}'! Expected version '{1}' ({2}) but found '{3}'. Deployment verification failed.",
-                        Path.GetFileName(dllPath), expectedRaw, expectedFormatted, actualFormatted),
+                        Path.GetFileName(dllPath), expectedRaw, expected, actual),
                     expectedRaw,
-                    actualFormatted);
+                    actual.ToString());
             }
+        }
+
+        /// <summary>
+        /// Backward-compatible overload for System.Version.
+        /// </summary>
+        public static void VerifyDllVersion(string dllPath, Version expected, string expectedRaw)
+        {
+            var semVer = new SemanticVersion(expected.Major, expected.Minor, Math.Max(0, expected.Build));
+            VerifyDllVersion(dllPath, semVer, expectedRaw);
         }
 
         /// <summary>
@@ -178,17 +187,11 @@ namespace KhiemToolsApp.Deployment
         /// </summary>
         public static Version ParseNormalizedVersion(string versionStr)
         {
-            if (string.IsNullOrWhiteSpace(versionStr)) return null;
-
-            Match m = Regex.Match(versionStr, @"(\d+)\.(\d+)(?:\.(\d+))?");
-            if (m.Success)
+            SemanticVersion semVer;
+            if (SemanticVersion.TryParse(versionStr, out semVer))
             {
-                int major = int.Parse(m.Groups[1].Value);
-                int minor = int.Parse(m.Groups[2].Value);
-                int build = m.Groups[3].Success ? int.Parse(m.Groups[3].Value) : 0;
-                return new Version(major, minor, build);
+                return new Version(semVer.Major, semVer.Minor, semVer.Patch);
             }
-
             return null;
         }
     }
