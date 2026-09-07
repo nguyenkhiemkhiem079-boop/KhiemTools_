@@ -12,7 +12,7 @@ namespace KhimTools.Tests
     {
         private static int _passed = 0;
         private static int _failed = 0;
-        private static readonly string RealDllSource = Path.GetFullPath(@"KhimTools\bin\Release\net48\KhimTools.dll");
+        private static readonly Dictionary<string, string> FixtureCache = new Dictionary<string, string>();
 
         public static int Main(string[] args)
         {
@@ -21,28 +21,39 @@ namespace KhimTools.Tests
             Console.WriteLine(" Evidence-Based Audit: Zip Slip, Rollback, SemVer, Backup");
             Console.WriteLine("=========================================================\n");
 
-            // Original 12 P0 Tests
-            RunTest("Test 01: Interrupted Copy Protection", Test_01_InterruptedCopy);
-            RunTest("Test 02: Locked Target Detection", Test_02_LockedTarget);
-            RunTest("Test 03: Backup Failure Abort", Test_03_BackupFailure);
-            RunTest("Test 04: Staging Corruption Rejection", Test_04_StagingCorruption);
-            RunTest("Test 05: Missing PackageContents.xml Rejection", Test_05_PackageContentsMissing);
-            RunTest("Test 06: Missing KhimTools.dll Rejection", Test_06_DllMissing);
-            RunTest("Test 07: Wrong DLL Version Verification Failure & Rollback", Test_07_DllWrongVersion);
-            RunTest("Test 08: Rollback Success After Swap Failure", Test_08_RollbackSuccess);
-            RunTest("Test 09: Explicit Rollback Failure Notification", Test_09_RollbackFailure);
-            RunTest("Test 10: Legacy AppData Classification & Preservation", Test_10_LegacyAppDataInstall);
-            RunTest("Test 11: Duplicate ProgramData / UserManaged AppData Classification", Test_11_DuplicateProgramDataAppData);
-            RunTest("Test 12: Multi-Year Revit Versions Detection", Test_12_MultipleRevitVersions);
+            try
+            {
+                // Original 12 P0 Tests
+                RunTest("Test 01: Interrupted Copy Protection", Test_01_InterruptedCopy);
+                RunTest("Test 02: Locked Target Detection", Test_02_LockedTarget);
+                RunTest("Test 03: Backup Failure Abort", Test_03_BackupFailure);
+                RunTest("Test 04: Staging Corruption Rejection", Test_04_StagingCorruption);
+                RunTest("Test 05: Missing PackageContents.xml Rejection", Test_05_PackageContentsMissing);
+                RunTest("Test 06: Missing KhimTools.dll Rejection", Test_06_DllMissing);
+                RunTest("Test 07: Deterministic Wrong DLL Version Mismatch & Rollback", Test_07_DllWrongVersion);
+                RunTest("Test 08: Rollback Success After Swap Failure", Test_08_RollbackSuccess);
+                RunTest("Test 09: Explicit Rollback Failure Notification", Test_09_RollbackFailure);
+                RunTest("Test 10: Legacy AppData Classification & Preservation", Test_10_LegacyAppDataInstall);
+                RunTest("Test 11: Duplicate ProgramData / UserManaged AppData Classification", Test_11_DuplicateProgramDataAppData);
+                RunTest("Test 12: Multi-Year Revit Versions Detection", Test_12_MultipleRevitVersions);
 
-            // Additional Mandatory Security Verification Tests
-            RunTest("Test 13: Zip Slip Path Traversal (../evil.dll)", Test_13_ZipSlip_RelativeForward);
-            RunTest("Test 14: Zip Slip Path Traversal (..\\evil.dll)", Test_14_ZipSlip_RelativeBackward);
-            RunTest("Test 15: Zip Slip Rooted / Absolute Windows Path Rejection", Test_15_ZipSlip_AbsoluteWindows);
-            RunTest("Test 16: Zip Slip Prohibited UNC Path Rejection", Test_16_ZipSlip_ProhibitedUnc);
-            RunTest("Test 17: SemVer 2.0 Prerelease Ordering (beta < rc1 < 2.7.1 < 2.7.2)", Test_17_SemVerOrdering);
-            RunTest("Test 18: UserManaged & Unknown Installations Preservation", Test_18_UserManagedAndUnknownPreservation);
-            RunTest("Test 19: Backup Retention Pruning (No Uncontrolled Accumulation)", Test_19_BackupRetentionPruning);
+                // Additional Mandatory Security Verification Tests
+                RunTest("Test 13: Zip Slip Path Traversal (../evil.dll)", Test_13_ZipSlip_RelativeForward);
+                RunTest("Test 14: Zip Slip Path Traversal (..\\evil.dll)", Test_14_ZipSlip_RelativeBackward);
+                RunTest("Test 15: Zip Slip Rooted / Absolute Windows Path Rejection", Test_15_ZipSlip_AbsoluteWindows);
+                RunTest("Test 16: Zip Slip Prohibited UNC Path Rejection", Test_16_ZipSlip_ProhibitedUnc);
+                RunTest("Test 17: SemVer 2.0 Prerelease Ordering (beta < rc1 < 2.7.1 < 2.7.2)", Test_17_SemVerOrdering);
+                RunTest("Test 18: UserManaged & Unknown Installations Preservation", Test_18_UserManagedAndUnknownPreservation);
+                RunTest("Test 19: Backup Retention Pruning (No Uncontrolled Accumulation)", Test_19_BackupRetentionPruning);
+            }
+            finally
+            {
+                // Clean up cached fixture DLLs
+                foreach (string fixturePath in FixtureCache.Values)
+                {
+                    try { if (File.Exists(fixturePath)) File.Delete(fixturePath); } catch { }
+                }
+            }
 
             Console.WriteLine("\n=========================================================");
             Console.WriteLine(string.Format(" RESULTS: {0} Passed, {1} Failed", _passed, _failed));
@@ -88,6 +99,55 @@ namespace KhimTools.Tests
             catch { }
         }
 
+        /// <summary>
+        /// Compiles a deterministic mock PE DLL with exact requested assembly & file version.
+        /// Does NOT depend on whatever DLL happens to exist in bin\Release.
+        /// </summary>
+        private static string GetOrCreateDeterministicDllFixture(string version)
+        {
+            if (FixtureCache.ContainsKey(version) && File.Exists(FixtureCache[version]))
+            {
+                return FixtureCache[version];
+            }
+
+            string fixtureDll = Path.Combine(Path.GetTempPath(), string.Format("KhimFixture_{0}_{1}.dll", version.Replace('.', '_'), Guid.NewGuid().ToString("N")));
+            string tempSource = Path.Combine(Path.GetTempPath(), "FixtureSource_" + Guid.NewGuid().ToString("N") + ".cs");
+
+            string csc = @"C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe";
+            if (!File.Exists(csc)) csc = @"C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe";
+
+            string src = string.Format(
+                "using System.Reflection;\n" +
+                "[assembly: AssemblyVersion(\"{0}.0\")]\n" +
+                "[assembly: AssemblyFileVersion(\"{0}.0\")]\n" +
+                "public class KhimToolsDeterministicFixture {{}}\n", version);
+
+            File.WriteAllText(tempSource, src);
+
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = csc,
+                Arguments = string.Format("/target:library /out:\"{0}\" /nologo \"{1}\"", fixtureDll, tempSource),
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (var p = System.Diagnostics.Process.Start(psi))
+            {
+                p.WaitForExit();
+            }
+
+            try { File.Delete(tempSource); } catch { }
+
+            if (!File.Exists(fixtureDll))
+            {
+                throw new InvalidOperationException("Failed to compile deterministic fixture DLL for version: " + version);
+            }
+
+            FixtureCache[version] = fixtureDll;
+            return fixtureDll;
+        }
+
         private static void CreateMockBundle(string bundlePath, string version, bool includePackageContents, bool includeDll)
         {
             Directory.CreateDirectory(bundlePath);
@@ -103,14 +163,8 @@ namespace KhimTools.Tests
                 Directory.CreateDirectory(legacyDir);
                 string dllTarget = Path.Combine(legacyDir, "KhimTools.dll");
 
-                if (File.Exists(RealDllSource))
-                {
-                    File.Copy(RealDllSource, dllTarget, true);
-                }
-                else
-                {
-                    File.WriteAllText(dllTarget, "MOCK_DLL_CONTENT_" + version);
-                }
+                string fixtureDll = GetOrCreateDeterministicDllFixture(version);
+                File.Copy(fixtureDll, dllTarget, true);
             }
         }
 
@@ -347,19 +401,24 @@ namespace KhimTools.Tests
             }
         }
 
-        // 7. DLL wrong version: Expected = 2.8.0, DLL = 2.7.0 -> fails verification and triggers rollback.
+        // 7. Deterministic Wrong DLL Version Mismatch & Rollback
+        // Fixture guarantees: actual compiled DLL version = 2.7.0, expected version = 2.8.0, result = DeploymentValidationException
         private static void Test_07_DllWrongVersion()
         {
             string sandbox = CreateSandbox("Test07");
             try
             {
                 string target = Path.Combine(sandbox, "KhimTools.bundle");
+                // Target bundle is currently installed at version 2.7.0 using deterministic fixture
                 CreateMockBundle(target, "2.7.0", true, true);
-                File.WriteAllText(Path.Combine(target, "live_sentinel.txt"), "PRE_UPDATE_SENTINEL");
+                File.WriteAllText(Path.Combine(target, "live_sentinel.txt"), "PRE_UPDATE_SENTINEL_VERSION_270");
 
-                // Zip contains real DLL (2.7.0), but caller asserts deployment of 2.8.0
-                string zip = CreateMockZip(sandbox, "update_270.zip", delegate(string dir) { CreateMockBundle(dir, "2.8.0", true, true); });
+                // Staged package has a DLL whose actual compiled binary PE version is strictly 2.7.0
+                string zip = CreateMockZip(sandbox, "payload_270.zip", delegate(string dir) {
+                    CreateMockBundle(dir, "2.7.0", true, true);
+                });
 
+                // Deployer attempts to deploy expecting version 2.8.0
                 var engine = new SafeDeploymentEngine();
                 bool caughtMismatch = false;
                 try
@@ -369,9 +428,9 @@ namespace KhimTools.Tests
                 catch (DeploymentValidationException ex)
                 {
                     caughtMismatch = true;
-                    if (!ex.Message.Contains("version mismatch") && !ex.Message.Contains("Expected version '2.8.0'"))
+                    if (!ex.Message.Contains("version mismatch") || !ex.Message.Contains("2.8.0") || !ex.Message.Contains("2.7.0"))
                     {
-                        throw new Exception("Exception message did not contain version mismatch details: " + ex.Message);
+                        throw new Exception("Exception message did not contain exact version mismatch details: " + ex.Message);
                     }
                 }
 
@@ -385,9 +444,17 @@ namespace KhimTools.Tests
                 {
                     throw new Exception("Live bundle was not preserved after version mismatch failure.");
                 }
-                if (File.ReadAllText(Path.Combine(target, "live_sentinel.txt")) != "PRE_UPDATE_SENTINEL")
+                if (File.ReadAllText(Path.Combine(target, "live_sentinel.txt")) != "PRE_UPDATE_SENTINEL_VERSION_270")
                 {
-                    throw new Exception("Live bundle content was altered after version mismatch failure.");
+                    throw new Exception("Live bundle sentinel content was altered after version mismatch failure.");
+                }
+
+                // Verify target DLL version remains 2.7.0
+                string targetDll = Path.Combine(target, "Contents", "Legacy", "KhimTools.dll");
+                var actualVer = DeploymentValidator.GetDllVersion(targetDll);
+                if (actualVer == null || actualVer.Major != 2 || actualVer.Minor != 7)
+                {
+                    throw new Exception("Target DLL after rollback is not version 2.7.0!");
                 }
             }
             finally
