@@ -3,7 +3,7 @@
     <ComponentGroup Id="CG_Core" Directory="BUNDLEFOLDER">
       <Component Id="C_PackageContentsXml" Guid="{3E2A1B0C-9D8E-7F6A-5B4C-3D2E1F0A9B8C}">
         <File Id="File_PackageContentsXml"
-              Source="..\..\..\KhimTools\Deploy\PackageContents.xml"
+              Source="..\..\KhimTools\Deploy\PackageContents.xml"
               KeyPath="yes" />
       </Component>
     </ComponentGroup>

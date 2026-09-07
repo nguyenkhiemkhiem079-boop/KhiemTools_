@@ -56,10 +56,13 @@ if (-not (Test-Path $modernDll)) {
 
 # 2. Check WiX Toolset availability
 Write-Host "`n[Step 2/5] Verifying WiX CLI..." -ForegroundColor Cyan
+$wixBin = "C:\Program Files\WiX Toolset v7.0\bin"
+if ((Test-Path $wixBin) -and ($env:Path -notlike "*$wixBin*")) {
+    $env:Path = "$wixBin;" + $env:Path
+}
 $wixCmd = Get-Command wix -ErrorAction SilentlyContinue
 if ($null -eq $wixCmd) {
     Write-Host "WiX CLI not found in PATH." -ForegroundColor Yellow
-    Write-Host "To install WiX CLI globally, run: dotnet tool install --global wix" -ForegroundColor Yellow
 } else {
     Write-Host "  WiX CLI found: $($wixCmd.Source)" -ForegroundColor Green
 }
@@ -67,17 +70,34 @@ if ($null -eq $wixCmd) {
 # 3. Build K-TOOLS.msi
 Write-Host "`n[Step 3/5] Building K-TOOLS.msi..." -ForegroundColor Cyan
 $targetMsi = Join-Path $outputDir "K-TOOLS.msi"
+$targetBootstrapper = Join-Path $outputDir "K-TOOLS-Setup.exe"
 if ($null -ne $wixCmd) {
     Push-Location $msiProjDir
     try {
-        & wix build -arch x64 -configuration $Configuration -o $targetMsi
+        $sources = (Get-ChildItem -Recurse -Filter "*.wxs" | Select-Object -ExpandProperty FullName)
+        & wix build -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -ext WixToolset.Netfx.wixext $sources -o $targetMsi
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  MSI built successfully: $targetMsi" -ForegroundColor Green
         } else {
-            throw "WiX build failed with exit code $LASTEXITCODE"
+            throw "WiX build for MSI failed with exit code $LASTEXITCODE"
         }
     } finally {
         Pop-Location
+    }
+
+    if (-not $SkipBootstrapper) {
+        Write-Host "  Building K-TOOLS-Setup.exe (Burn Bootstrapper)..." -ForegroundColor Cyan
+        Push-Location $bootstrapperProjDir
+        try {
+            & wix build -arch x64 -ext WixToolset.BootstrapperApplications.wixext -ext WixToolset.Util.wixext "Bundle.wxs" -o $targetBootstrapper
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "  Bootstrapper built successfully: $targetBootstrapper" -ForegroundColor Green
+            } else {
+                throw "WiX build for Bootstrapper failed with exit code $LASTEXITCODE"
+            }
+        } finally {
+            Pop-Location
+        }
     }
 } else {
     Write-Host "  [SKIPPED] WiX CLI not available in current environment." -ForegroundColor Yellow
@@ -90,6 +110,10 @@ $msiHash = ""
 if (Test-Path $targetMsi) {
     $msiHash = (Get-FileHash -Path $targetMsi -Algorithm SHA256).Hash
     Write-Host "  K-TOOLS.msi SHA-256: $msiHash" -ForegroundColor Green
+}
+if (Test-Path $targetBootstrapper) {
+    $bootHash = (Get-FileHash -Path $targetBootstrapper -Algorithm SHA256).Hash
+    Write-Host "  K-TOOLS-Setup.exe SHA-256: $bootHash" -ForegroundColor Green
 }
 
 # 5. Manifest Update (if requested)

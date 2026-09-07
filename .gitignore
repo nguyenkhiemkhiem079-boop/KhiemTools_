@@ -373,3 +373,6 @@ KhimTools/Deploy/Release/
 *.confuserex.log
 Confused/
 .vscode/
+
+# ── K-TOOLS Installer Build Artifacts ────────────────────────────────────────
+Installer/Output/

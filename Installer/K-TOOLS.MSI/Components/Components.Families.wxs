@@ -3,7 +3,7 @@
     <ComponentGroup Id="CG_Families" Directory="STANDARDFAMILIESFOLDER">
       <Component Id="C_StandardFamilies" Guid="{0A1B2C3D-4E5F-6A7B-8C9D-0E1F2A3B4C5D}">
         <File Id="File_Fam_RINCO_AN_Step"
-              Source="..\..\..\KhimTools\Family\RINCO_AN_Step.rfa"
+              Source="..\..\KhimTools\Family\RINCO_AN_Step.rfa"
               KeyPath="yes" />
       </Component>
     </ComponentGroup>

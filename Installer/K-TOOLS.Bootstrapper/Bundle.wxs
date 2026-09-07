@@ -25,10 +25,9 @@
     <Chain>
       <!-- Chained Authoritative MSI Package -->
       <MsiPackage Id="KToolsMsiPackage"
-                  SourceFile="..\K-TOOLS.MSI\bin\x64\Release\en-US\K-TOOLS.msi"
+                  SourceFile="..\Output\K-TOOLS.msi"
                   Compressed="yes"
-                  Vital="yes"
-                  DisplayInternalUI="yes" />
+                  Vital="yes" />
     </Chain>
   </Bundle>
 </Wix>

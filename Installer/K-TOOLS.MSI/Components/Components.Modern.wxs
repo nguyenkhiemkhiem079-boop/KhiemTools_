@@ -5,28 +5,28 @@
       <!-- Modern Manifest -->
       <Component Id="C_ModernAddin" Guid="{C3D4E5F6-A7B8-4C5D-9E0F-1A2B3C4D5E6F}">
         <File Id="File_ModernAddin"
-              Source="..\..\..\KhimTools\Deploy\Modern\KhimTools.addin"
+              Source="..\..\KhimTools\Deploy\Modern\KhimTools.addin"
               KeyPath="yes" />
       </Component>
 
       <!-- Modern Core Assembly & Dependencies -->
       <Component Id="C_ModernDlls" Guid="{D4E5F6A7-B8C9-4D5E-0F1A-2B3C4D5E6F7A}">
-        <File Id="File_Modern_KhimTools" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.dll" KeyPath="yes" />
-        <File Id="File_Modern_CommunityToolkit" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\CommunityToolkit.Mvvm.dll" />
-        <File Id="File_Modern_Newtonsoft" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Newtonsoft.Json.dll" />
-        <File Id="File_Modern_ExtDIAbst" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
-        <File Id="File_Modern_ExtDI" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.dll" />
-        <File Id="File_Modern_ExtLogAbst" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.Abstractions.dll" />
-        <File Id="File_Modern_ExtLog" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.dll" />
-        <File Id="File_Modern_ExtOptions" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Options.dll" />
-        <File Id="File_Modern_ExtPrimitives" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Primitives.dll" />
-        <File Id="File_Modern_PdfSharp" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.dll" />
-        <File Id="File_Modern_PdfSharpChart" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Charting.dll" />
-        <File Id="File_Modern_PdfSharpQual" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Quality.dll" />
-        <File Id="File_Modern_PdfSharpSnip" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Snippets.dll" />
-        <File Id="File_Modern_PdfSharpSys" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.System.dll" />
-        <File Id="File_Modern_PdfSharpWP" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.WPFonts.dll" />
-        <File Id="File_Modern_DepsJson" Source="..\..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.deps.json" />
+        <File Id="File_Modern_KhimTools" Source="..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.dll" KeyPath="yes" />
+        <File Id="File_Modern_CommunityToolkit" Source="..\..\KhimTools\bin\Release\net8.0-windows\CommunityToolkit.Mvvm.dll" />
+        <File Id="File_Modern_Newtonsoft" Source="..\..\KhimTools\bin\Release\net8.0-windows\Newtonsoft.Json.dll" />
+        <File Id="File_Modern_ExtDIAbst" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+        <File Id="File_Modern_ExtDI" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.dll" />
+        <File Id="File_Modern_ExtLogAbst" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.Abstractions.dll" />
+        <File Id="File_Modern_ExtLog" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.dll" />
+        <File Id="File_Modern_ExtOptions" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Options.dll" />
+        <File Id="File_Modern_ExtPrimitives" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.Primitives.dll" />
+        <File Id="File_Modern_PdfSharp" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.dll" />
+        <File Id="File_Modern_PdfSharpChart" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Charting.dll" />
+        <File Id="File_Modern_PdfSharpQual" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Quality.dll" />
+        <File Id="File_Modern_PdfSharpSnip" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.Snippets.dll" />
+        <File Id="File_Modern_PdfSharpSys" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.System.dll" />
+        <File Id="File_Modern_PdfSharpWP" Source="..\..\KhimTools\bin\Release\net8.0-windows\PdfSharp.WPFonts.dll" />
+        <File Id="File_Modern_DepsJson" Source="..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.deps.json" />
       </Component>
 
     </ComponentGroup>

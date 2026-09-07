@@ -55,8 +55,8 @@ foreach ($file in $wxsFiles) {
     $matches = [regex]::Matches($content, 'Source="([^"]+)"')
     foreach ($m in $matches) {
         $relPath = $m.Groups[1].Value
-        # Resolve path relative to the directory containing the WXS file
-        $resolved = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($file.DirectoryName, $relPath))
+        # Resolve path relative to K-TOOLS.MSI project directory
+        $resolved = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($msiDir, $relPath))
         if (Test-Path $resolved) {
             $foundSources++
         } else {

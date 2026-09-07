@@ -24,6 +24,15 @@
     <Property Id="ARPNOREPAIR" Value="0" />
     <Property Id="ARPNOMODIFY" Value="0" />
 
+    <!-- Feature Hierarchy Root -->
+    <FeatureRef Id="Complete" />
+
+    <!-- Prerequisite & Multi-Year Revit Detection References -->
+    <PropertyRef Id="ALL_REVIT" />
+    <PropertyRef Id="NETFRAMEWORK48_RELEASE" />
+    <PropertyRef Id="DOTNET8_DESKTOP_INSTALLED" />
+    <PropertyRef Id="DEV_GIT_FOLDER_EXISTS" />
+
     <!-- Default UI Entry Point -->
     <UIRef Id="WixUI_KTools" />
 

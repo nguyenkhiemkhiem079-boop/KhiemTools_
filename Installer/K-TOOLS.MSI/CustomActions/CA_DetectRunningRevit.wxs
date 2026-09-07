@@ -5,7 +5,6 @@
     <util:CloseApplication Id="DetectRunningRevit"
                            Target="revit.exe"
                            Description="Autodesk Revit is currently running. Please save your work and close Revit to continue installation."
-                           PromptToClose="yes"
                            CloseMessage="yes"
                            RebootPrompt="no" />
   </Fragment>

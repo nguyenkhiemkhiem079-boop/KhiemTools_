@@ -5,36 +5,36 @@
       <!-- Legacy Manifest -->
       <Component Id="C_LegacyAddin" Guid="{A1B2C3D4-E5F6-4A5B-8C7D-9E0F1A2B3C4D}">
         <File Id="File_LegacyAddin"
-              Source="..\..\..\KhimTools\Deploy\Legacy\KhimTools.addin"
+              Source="..\..\KhimTools\Deploy\Legacy\KhimTools.addin"
               KeyPath="yes" />
       </Component>
 
       <!-- Legacy Core Assembly & Dependencies -->
       <Component Id="C_LegacyDlls" Guid="{B2C3D4E5-F6A7-4B5C-9D8E-0F1A2B3C4D5E}">
-        <File Id="File_Legacy_KhimTools" Source="..\..\..\KhimTools\bin\Release\net48\KhimTools.dll" KeyPath="yes" />
-        <File Id="File_Legacy_CommunityToolkit" Source="..\..\..\KhimTools\bin\Release\net48\CommunityToolkit.Mvvm.dll" />
-        <File Id="File_Legacy_Newtonsoft" Source="..\..\..\KhimTools\bin\Release\net48\Newtonsoft.Json.dll" />
-        <File Id="File_Legacy_BclAsync" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Bcl.AsyncInterfaces.dll" />
-        <File Id="File_Legacy_ExtDIAbst" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
-        <File Id="File_Legacy_ExtDI" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.DependencyInjection.dll" />
-        <File Id="File_Legacy_ExtLogAbst" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Logging.Abstractions.dll" />
-        <File Id="File_Legacy_ExtLog" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Logging.dll" />
-        <File Id="File_Legacy_ExtOptions" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Options.dll" />
-        <File Id="File_Legacy_ExtPrimitives" Source="..\..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Primitives.dll" />
-        <File Id="File_Legacy_PdfSharp" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.dll" />
-        <File Id="File_Legacy_PdfSharpChart" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.Charting.dll" />
-        <File Id="File_Legacy_PdfSharpQual" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.Quality.dll" />
-        <File Id="File_Legacy_PdfSharpSnip" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.Snippets.dll" />
-        <File Id="File_Legacy_PdfSharpSys" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.System.dll" />
-        <File Id="File_Legacy_PdfSharpWP" Source="..\..\..\KhimTools\bin\Release\net48\PdfSharp.WPFonts.dll" />
-        <File Id="File_Legacy_SysBuffers" Source="..\..\..\KhimTools\bin\Release\net48\System.Buffers.dll" />
-        <File Id="File_Legacy_SysAnnotations" Source="..\..\..\KhimTools\bin\Release\net48\System.ComponentModel.Annotations.dll" />
-        <File Id="File_Legacy_SysDiagSource" Source="..\..\..\KhimTools\bin\Release\net48\System.Diagnostics.DiagnosticSource.dll" />
-        <File Id="File_Legacy_SysMemory" Source="..\..\..\KhimTools\bin\Release\net48\System.Memory.dll" />
-        <File Id="File_Legacy_SysVectors" Source="..\..\..\KhimTools\bin\Release\net48\System.Numerics.Vectors.dll" />
-        <File Id="File_Legacy_SysCompilerUnsafe" Source="..\..\..\KhimTools\bin\Release\net48\System.Runtime.CompilerServices.Unsafe.dll" />
-        <File Id="File_Legacy_SysTasksExt" Source="..\..\..\KhimTools\bin\Release\net48\System.Threading.Tasks.Extensions.dll" />
-        <File Id="File_Legacy_SysValueTuple" Source="..\..\..\KhimTools\bin\Release\net48\System.ValueTuple.dll" />
+        <File Id="File_Legacy_KhimTools" Source="..\..\KhimTools\bin\Release\net48\KhimTools.dll" KeyPath="yes" />
+        <File Id="File_Legacy_CommunityToolkit" Source="..\..\KhimTools\bin\Release\net48\CommunityToolkit.Mvvm.dll" />
+        <File Id="File_Legacy_Newtonsoft" Source="..\..\KhimTools\bin\Release\net48\Newtonsoft.Json.dll" />
+        <File Id="File_Legacy_BclAsync" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Bcl.AsyncInterfaces.dll" />
+        <File Id="File_Legacy_ExtDIAbst" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+        <File Id="File_Legacy_ExtDI" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.DependencyInjection.dll" />
+        <File Id="File_Legacy_ExtLogAbst" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Logging.Abstractions.dll" />
+        <File Id="File_Legacy_ExtLog" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Logging.dll" />
+        <File Id="File_Legacy_ExtOptions" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Options.dll" />
+        <File Id="File_Legacy_ExtPrimitives" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Extensions.Primitives.dll" />
+        <File Id="File_Legacy_PdfSharp" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.dll" />
+        <File Id="File_Legacy_PdfSharpChart" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.Charting.dll" />
+        <File Id="File_Legacy_PdfSharpQual" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.Quality.dll" />
+        <File Id="File_Legacy_PdfSharpSnip" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.Snippets.dll" />
+        <File Id="File_Legacy_PdfSharpSys" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.System.dll" />
+        <File Id="File_Legacy_PdfSharpWP" Source="..\..\KhimTools\bin\Release\net48\PdfSharp.WPFonts.dll" />
+        <File Id="File_Legacy_SysBuffers" Source="..\..\KhimTools\bin\Release\net48\System.Buffers.dll" />
+        <File Id="File_Legacy_SysAnnotations" Source="..\..\KhimTools\bin\Release\net48\System.ComponentModel.Annotations.dll" />
+        <File Id="File_Legacy_SysDiagSource" Source="..\..\KhimTools\bin\Release\net48\System.Diagnostics.DiagnosticSource.dll" />
+        <File Id="File_Legacy_SysMemory" Source="..\..\KhimTools\bin\Release\net48\System.Memory.dll" />
+        <File Id="File_Legacy_SysVectors" Source="..\..\KhimTools\bin\Release\net48\System.Numerics.Vectors.dll" />
+        <File Id="File_Legacy_SysCompilerUnsafe" Source="..\..\KhimTools\bin\Release\net48\System.Runtime.CompilerServices.Unsafe.dll" />
+        <File Id="File_Legacy_SysTasksExt" Source="..\..\KhimTools\bin\Release\net48\System.Threading.Tasks.Extensions.dll" />
+        <File Id="File_Legacy_SysValueTuple" Source="..\..\KhimTools\bin\Release\net48\System.ValueTuple.dll" />
       </Component>
 
     </ComponentGroup>
