@@ -59,21 +59,47 @@ namespace KhimTools.Tools.Updater.Services
             };
         }
 
-        public async Task<bool> DownloadAndStageUpdateAsync(string downloadUrl, IProgress<double> progress = null)
+        /// <summary>
+        /// Launches the external installer/updater process outside of Autodesk Revit.
+        /// Live Revit DLLs must never be modified or replaced from inside the Revit process.
+        /// </summary>
+        public bool LaunchExternalUpdater()
         {
             try
             {
-                string tempZip = Path.Combine(Path.GetTempPath(), "KhimTools_Update.zip");
-                using (var wc = new WebClient())
+                string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                string[] candidatePaths = new string[]
                 {
-                    wc.DownloadProgressChanged += (s, e) => progress?.Report((double)e.ProgressPercentage);
-                    await wc.DownloadFileTaskAsync(new Uri(downloadUrl), tempZip);
+                    Path.Combine(programData, @"Autodesk\ApplicationPlugins\KhimTools.bundle\KhimTools_Installer.exe"),
+                    Path.Combine(programData, @"Autodesk\ApplicationPlugins\KhimTools.bundle\K-TOOLS_Installer.exe"),
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\KhimTools\KhimTools_Installer.exe"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KhimTools_Installer.exe")
+                };
+
+                foreach (var path in candidatePaths)
+                {
+                    if (File.Exists(path))
+                    {
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = path,
+                            UseShellExecute = true
+                        });
+                        return true;
+                    }
                 }
 
+                // If local installer executable is not yet placed, open the official GitHub release page
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
+                    UseShellExecute = true
+                });
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine($"[KhimTools.UpdateService] Failed to launch external updater: {ex.Message}");
                 return false;
             }
         }

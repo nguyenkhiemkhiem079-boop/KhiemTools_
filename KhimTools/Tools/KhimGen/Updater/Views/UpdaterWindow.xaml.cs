@@ -45,42 +45,19 @@ namespace KhimTools.Tools.Updater.Views
             Close();
         }
 
-        private async void BtnAction_Click(object sender, RoutedEventArgs e)
+        private void BtnAction_Click(object sender, RoutedEventArgs e)
         {
-            if (_isCompleted)
+            var msgResult = MessageBox.Show(
+                "Để cập nhật an toàn và tránh xung đột khóa tập tin DLL, Autodesk Revit cần được đóng.\n\n" +
+                "Bạn có muốn khởi chạy Trình cài đặt / Cập nhật K-TOOLS bên ngoài không?",
+                "Cập nhật K-TOOLS",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Information);
+
+            if (msgResult == MessageBoxResult.Yes)
             {
+                _updateService.LaunchExternalUpdater();
                 Close();
-                return;
-            }
-
-            BtnAction.IsEnabled = false;
-            BtnAction.Content = "Đang tải xuống...";
-            ProgressBarDownload.Visibility = Visibility.Visible;
-            ProgressBarDownload.IsIndeterminate = true;
-
-            var progress = new Progress<double>(val =>
-            {
-                ProgressBarDownload.IsIndeterminate = false;
-                ProgressBarDownload.Value = val;
-            });
-
-            bool success = await _updateService.DownloadAndStageUpdateAsync(_updateInfo.DownloadUrl, progress);
-
-            ProgressBarDownload.Visibility = Visibility.Collapsed;
-
-            if (success)
-            {
-                _isCompleted = true;
-                PanelStatus.Visibility = Visibility.Visible;
-                BtnAction.IsEnabled = true;
-                BtnAction.Content = "Đóng";
-                BtnAction.Style = (Style)FindResource("ModernButton");
-            }
-            else
-            {
-                BtnAction.IsEnabled = true;
-                BtnAction.Content = "Thử lại";
-                MessageBox.Show("Không thể tải bản cập nhật. Vui lòng kiểm tra kết nối mạng.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
     }
