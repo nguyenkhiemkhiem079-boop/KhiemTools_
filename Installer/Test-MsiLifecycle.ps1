@@ -17,6 +17,14 @@ Write-Host "=================================================================" -
 Write-Host "Target MSI: $resolvedMsi" -ForegroundColor Yellow
 
 if (-not (Test-Path $resolvedMsi)) {
+    Write-Host "Target MSI not found. Attempting to build via Build-Installer.ps1..." -ForegroundColor Yellow
+    $buildScript = Join-Path $scriptDir "Build-Installer.ps1"
+    if (Test-Path $buildScript) {
+        & powershell -ExecutionPolicy Bypass -File $buildScript -SkipBootstrapper
+    }
+}
+
+if (-not (Test-Path $resolvedMsi)) {
     Write-Error "MSI file not found at: $resolvedMsi"
     exit 1
 }
