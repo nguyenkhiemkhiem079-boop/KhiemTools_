@@ -76,6 +76,13 @@ namespace KhimTools.Tests
                 RunTest("Test 31: GridIntersectionHelper Parallel & Coincident Lines Handling", Test_31_GridIntersection_ParallelLines);
                 RunTest("Test 32: GridIntersectionHelper Coordinate Deduplication Within Tolerance", Test_32_GridIntersection_Deduplication);
                 RunTest("Test 33: QuickStructure & QuickArchi Settings Contract Validation", Test_33_QuickSettings_ContractValidation);
+
+                // Phase 7: Rebar Family Loading Tests
+                RunTest("Test 34: FamilyPathResolver Resolves Standard Rebar Shapes (JP_T00, JP_T51, JP_T80)", Test_34_RebarShape_Resolution);
+                RunTest("Test 35: Rebar Shape Name Normalization & Case-Insensitivity", Test_35_RebarShape_Normalization);
+                RunTest("Test 36: Standard 43-Shape Inventory Completeness Audit", Test_36_RebarShape_43InventoryCompleteness);
+                RunTest("Test 37: Missing Rebar Shape Graceful Handling & Probe Fallback", Test_37_RebarShape_MissingGraceful);
+                RunTest("Test 38: Rebar Shape Category Tagging in Family Scanner", Test_38_RebarShape_CategoryScanning);
             }
             finally
             {
@@ -1337,6 +1344,155 @@ namespace KhimTools.Tests
             if (!qa.Validate(out qaErr))
             {
                 throw new Exception("QuickArchiSettings with 3200mm height failed validation: " + qaErr);
+            }
+        }
+
+        // 34. FamilyPathResolver Resolves Standard Rebar Shapes
+        private static void Test_34_RebarShape_Resolution()
+        {
+            string[] testShapes = new string[] { "JP_T00", "JP_T51", "JP_T80" };
+            foreach (string shape in testShapes)
+            {
+                string resolved = FamilyPathResolver.ResolveRebarShapePath(shape);
+                if (string.IsNullOrEmpty(resolved))
+                {
+                    throw new Exception(string.Format("Failed to resolve standard rebar shape '{0}'!", shape));
+                }
+
+                if (!File.Exists(resolved))
+                {
+                    throw new Exception(string.Format("Resolved path for '{0}' does not exist: {1}", shape, resolved));
+                }
+
+                if (!resolved.EndsWith(FamilyConstants.RfaExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new Exception(string.Format("Resolved path for '{0}' does not end with .rfa: {1}", shape, resolved));
+                }
+            }
+        }
+
+        // 35. Rebar Shape Name Normalization & Case-Insensitivity
+        private static void Test_35_RebarShape_Normalization()
+        {
+            // Lowercase
+            string lower = FamilyPathResolver.ResolveRebarShapePath("jp_t00");
+            // Standard
+            string std = FamilyPathResolver.ResolveRebarShapePath("JP_T00");
+            // With extension
+            string withExt = FamilyPathResolver.ResolveRebarShapePath("JP_T00.rfa");
+            // With whitespace and uppercase extension
+            string dirty = FamilyPathResolver.ResolveRebarShapePath("   JP_T00.RFA   ");
+
+            if (string.IsNullOrEmpty(lower) || string.IsNullOrEmpty(std) || string.IsNullOrEmpty(withExt) || string.IsNullOrEmpty(dirty))
+            {
+                throw new Exception("Normalization failed to resolve one or more variants of JP_T00!");
+            }
+
+            if (!string.Equals(Path.GetFullPath(lower), Path.GetFullPath(std), StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(Path.GetFullPath(withExt), Path.GetFullPath(std), StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(Path.GetFullPath(dirty), Path.GetFullPath(std), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new Exception("Normalized paths did not point to the identical file!");
+            }
+        }
+
+        // 36. Standard 43-Shape Inventory Completeness Audit
+        private static void Test_36_RebarShape_43InventoryCompleteness()
+        {
+            string[] all43Shapes = new string[]
+            {
+                "JP_T00", "JP_T02", "JP_T03", "JP_T04", "JP_T05", "JP_T06", "JP_T07",
+                "JP_T11", "JP_T11a", "JP_T12", "JP_T13", "JP_T14", "JP_T15", "JP_T16", "JP_T17",
+                "JP_T20", "JP_T21", "JP_T22", "JP_T23", "JP_T24", "JP_T25", "JP_T26", "JP_T27", "JP_T28", "JP_T29",
+                "JP_T31", "JP_T32", "JP_T34", "JP_T35", "JP_T36", "JP_T38",
+                "JP_T41", "JP_T44", "JP_T46", "JP_T47", "JP_T48", "JP_T49",
+                "JP_T51",
+                "JP_T63", "JP_T67", "JP_T68",
+                "JP_T75",
+                "JP_T80"
+            };
+
+            if (all43Shapes.Length != 43)
+            {
+                throw new Exception(string.Format("Expected 43 shapes in test list, got {0}", all43Shapes.Length));
+            }
+
+            var missing = new List<string>();
+            foreach (string shape in all43Shapes)
+            {
+                string path = FamilyPathResolver.ResolveRebarShapePath(shape);
+                if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                {
+                    missing.Add(shape);
+                }
+            }
+
+            if (missing.Count > 0)
+            {
+                throw new Exception(string.Format("Audit failed: {0} / 43 standard rebar shapes missing: {1}",
+                    missing.Count, string.Join(", ", missing.ToArray())));
+            }
+        }
+
+        // 37. Missing Rebar Shape Graceful Handling & Probe Fallback
+        private static void Test_37_RebarShape_MissingGraceful()
+        {
+            // Null or empty
+            string resNull = FamilyPathResolver.ResolveRebarShapePath(null);
+            if (resNull != null) throw new Exception("ResolveRebarShapePath(null) should return null!");
+
+            string resEmpty = FamilyPathResolver.ResolveRebarShapePath("");
+            if (resEmpty != null) throw new Exception("ResolveRebarShapePath('') should return null!");
+
+            // Nonexistent shape
+            string resNonExistent = FamilyPathResolver.ResolveRebarShapePath("JP_NON_EXISTENT_SHAPE_9999");
+            if (resNonExistent != null) throw new Exception("Nonexistent shape returned non-null path!");
+
+            // FamilyExists
+            if (FamilyPathResolver.FamilyExists("JP_NON_EXISTENT_SHAPE_9999", FamilyConstants.RebarShapesFolder))
+            {
+                throw new Exception("FamilyExists erroneously returned true for nonexistent shape!");
+            }
+        }
+
+        // 38. Rebar Shape Category Tagging in Family Scanner
+        private static void Test_38_RebarShape_CategoryScanning()
+        {
+            var families = FamilyPathResolver.ScanAvailableFamilies(FamilyConstants.RebarShapesFolder);
+            if (families == null || families.Count == 0)
+            {
+                throw new Exception("ScanAvailableFamilies failed to find any rebar shapes!");
+            }
+
+            var rebarItems = new List<FamilyFileInfo>();
+            bool hasT00 = false;
+            bool hasT51 = false;
+
+            foreach (var f in families)
+            {
+                if (string.Equals(f.Category, "Rebar", StringComparison.OrdinalIgnoreCase))
+                {
+                    rebarItems.Add(f);
+                }
+
+                if (string.Equals(f.Name, "JP_T00", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasT00 = true;
+                }
+                if (string.Equals(f.Name, "JP_T51", StringComparison.OrdinalIgnoreCase))
+                {
+                    hasT51 = true;
+                }
+            }
+
+            if (rebarItems.Count < 43)
+            {
+                throw new Exception(string.Format("Expected at least 43 items categorized as 'Rebar', found {0}", rebarItems.Count));
+            }
+
+            if (!hasT00 || !hasT51)
+            {
+                throw new Exception("JP_T00 or JP_T51 missing from rebar category scanner!");
             }
         }
     }

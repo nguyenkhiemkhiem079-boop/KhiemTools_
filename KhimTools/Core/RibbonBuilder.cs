@@ -423,6 +423,13 @@ namespace KhimTools.Core
                     "KhimTools.RebarTool.Commands.CmdUpdateColumnDrawing", assemblyPath,
                     "Đồng bộ cập nhật lại bản vẽ 2D đã xuất theo mô hình thép mới nhất.",
                     "rebar_col_32.png", "rebar_draw_16.png");
+
+                splitButton.AddSeparator();
+
+                AddPushButton(splitButton, "CmdLoadRebarShapes", "Thư Viện Rebar Shapes (43)",
+                    "KhimTools.RebarTool.Commands.CmdLoadRebarShapes", assemblyPath,
+                    "Quản lý & nạp toàn bộ 43 Rebar Shape tiêu chuẩn BS 8666 / JIS vào dự án.",
+                    "column_rebar_32.png", "column_rebar_16.png");
             }
 
             // 2. Beam Rebar
@@ -491,6 +498,19 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_cover_setup_16.png")
             };
             panel.AddItem(coverData);
+
+            // 7. Rebar Shapes (Large Button)
+            var shapesData = new PushButtonData(
+                "CmdLoadRebarShapesMain",
+                "Rebar" + Environment.NewLine + "Shapes",
+                assemblyPath,
+                "KhimTools.RebarTool.Commands.CmdLoadRebarShapes")
+            {
+                ToolTip = "Quản lý & nạp toàn bộ 43 Rebar Shape tiêu chuẩn BS 8666 / JIS vào dự án.",
+                LargeImage = LoadImage("column_rebar_32.png"),
+                Image = LoadImage("column_rebar_16.png")
+            };
+            panel.AddItem(shapesData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════

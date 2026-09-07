@@ -98,9 +98,23 @@ namespace KhimTools.Core.Family
                 {
                     return Path.GetFullPath(candFamilies);
                 }
+
+                string candRebar = Path.Combine(dir, FamilyConstants.RebarShapesFolder, rfaFileName);
+                if (File.Exists(candRebar))
+                {
+                    return Path.GetFullPath(candRebar);
+                }
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Dò tìm và trả về đường dẫn tuyệt đối đến file Rebar Shape (.rfa).
+        /// </summary>
+        public static string ResolveRebarShapePath(string shapeName)
+        {
+            return ResolveFamilyPath(shapeName, FamilyConstants.RebarShapesFolder);
         }
 
         /// <summary>
@@ -161,6 +175,8 @@ namespace KhimTools.Core.Family
             AddDirectoryCandidates(list, Path.Combine(bundleBase, FamilyConstants.FamiliesFolder, FamilyConstants.StandardSubfolder));
             AddDirectoryCandidates(list, Path.Combine(bundleBase, "Legacy"));
             AddDirectoryCandidates(list, Path.Combine(bundleBase, "Modern"));
+            AddDirectoryCandidates(list, Path.Combine(bundleBase, "Legacy", FamilyConstants.RebarShapesFolder));
+            AddDirectoryCandidates(list, Path.Combine(bundleBase, "Modern", FamilyConstants.RebarShapesFolder));
 
             // 2. Tier 2: Thư mục Assembly đang chạy & AppDomain Base
             string asmDir = null;
@@ -180,6 +196,7 @@ namespace KhimTools.Core.Family
                 AddDirectoryCandidates(list, Path.Combine(asmDir, FamilyConstants.FamiliesFolder));
                 AddDirectoryCandidates(list, Path.Combine(asmDir, FamilyConstants.FamiliesFolder, FamilyConstants.StandardSubfolder));
                 AddDirectoryCandidates(list, Path.Combine(asmDir, "Family"));
+                AddDirectoryCandidates(list, Path.Combine(asmDir, FamilyConstants.RebarShapesFolder));
             }
 
             string appDomainDir = AppDomain.CurrentDomain.BaseDirectory;
@@ -188,6 +205,7 @@ namespace KhimTools.Core.Family
                 AddDirectoryCandidates(list, appDomainDir);
                 AddDirectoryCandidates(list, Path.Combine(appDomainDir, FamilyConstants.FamiliesFolder));
                 AddDirectoryCandidates(list, Path.Combine(appDomainDir, "Family"));
+                AddDirectoryCandidates(list, Path.Combine(appDomainDir, FamilyConstants.RebarShapesFolder));
             }
 
             // 3. Tier 3: User AppData fallback
@@ -195,6 +213,8 @@ namespace KhimTools.Core.Family
             string appDataBundle = Path.Combine(appData, "Autodesk", "ApplicationPlugins", "KhimTools.bundle", "Contents");
             AddDirectoryCandidates(list, Path.Combine(appDataBundle, FamilyConstants.FamiliesFolder));
             AddDirectoryCandidates(list, Path.Combine(appDataBundle, FamilyConstants.FamiliesFolder, FamilyConstants.StandardSubfolder));
+            AddDirectoryCandidates(list, Path.Combine(appDataBundle, "Legacy", FamilyConstants.RebarShapesFolder));
+            AddDirectoryCandidates(list, Path.Combine(appDataBundle, "Modern", FamilyConstants.RebarShapesFolder));
 
             // 4. Tier 4: Developer Solution tree discovery (tự động lần ngược tìm thư mục repo)
             var scanRoots = new List<string>();
@@ -226,6 +246,18 @@ namespace KhimTools.Core.Family
                         if (Directory.Exists(directDevFamily) && File.Exists(Path.Combine(dirInfo.FullName, "KhimTools.csproj")))
                         {
                             AddDirectoryCandidates(list, directDevFamily);
+                        }
+
+                        string candidateDevRebar = Path.Combine(dirInfo.FullName, "KhimTools", "Tools", "KhimStructural", "RebarTool", "RebarShapes");
+                        if (Directory.Exists(candidateDevRebar))
+                        {
+                            AddDirectoryCandidates(list, candidateDevRebar);
+                        }
+
+                        string candidateDirectDevRebar = Path.Combine(dirInfo.FullName, "Tools", "KhimStructural", "RebarTool", "RebarShapes");
+                        if (Directory.Exists(candidateDirectDevRebar))
+                        {
+                            AddDirectoryCandidates(list, candidateDirectDevRebar);
                         }
 
                         dirInfo = dirInfo.Parent;
