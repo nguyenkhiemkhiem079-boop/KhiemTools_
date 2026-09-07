@@ -1,0 +1,1 @@
+Phase 1: shared visual language and compact navigation. No engineering behavior changes.
