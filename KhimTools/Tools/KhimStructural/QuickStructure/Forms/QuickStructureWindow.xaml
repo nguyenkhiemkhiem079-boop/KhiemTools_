@@ -1,0 +1,209 @@
+<Window x:Class="KhimTools.Structural.QuickStructure.Forms.QuickStructureWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="K-TOOLS — Quick Structure Generator" 
+        Height="620" Width="680"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <LinearGradientBrush x:Key="HeaderGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#0F172A" Offset="0"/>
+            <GradientStop Color="#1E3A8A" Offset="1"/>
+        </LinearGradientBrush>
+
+        <Style x:Key="SectionCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#1D4ED8"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CBD5E1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. HEADER -->
+        <Border Grid.Row="0" Background="{StaticResource HeaderGradient}" Padding="18,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="🏗 QUICK STRUCTURE GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="Tự động sinh hệ Cột, Dầm và Móng hàng loạt theo lưới trục (Grids)" Foreground="#93C5FD" FontSize="12" Margin="0,3,0,0"/>
+                </StackPanel>
+                <Border Grid.Column="1" Background="#1E40AF" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtGridStats" Text="0 Grids / 0 Giao điểm" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 2. CONTENT SECTIONS -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,12">
+            <StackPanel>
+                <!-- SECTION A: CỘT KẾT CẤU -->
+                <GroupBox Header="🏛 Thiết Lập Cột Kết Cấu (Structural Columns)" Style="{StaticResource SectionCard}">
+                    <Grid Margin="0,6,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+
+                        <CheckBox x:Name="ChkCreateColumns" Grid.Row="0" Grid.Column="0" Content="Tạo Cột tại giao trục" IsChecked="True" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CboColumnType" Grid.Row="0" Grid.Column="1" Height="25" VerticalContentAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Base Level (Tầng đáy):" VerticalAlignment="Center" FontWeight="Normal"/>
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CboColumnBaseLevel" Grid.Column="0" Height="25" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Offset (mm):" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtColumnBaseOffset" Grid.Column="2" Text="0" Height="25" VerticalContentAlignment="Center"/>
+                        </Grid>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Top Level (Tầng đỉnh):" VerticalAlignment="Center" FontWeight="Normal"/>
+                        <Grid Grid.Row="2" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CboColumnTopLevel" Grid.Column="0" Height="25" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Offset (mm):" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtColumnTopOffset" Grid.Column="2" Text="0" Height="25" VerticalContentAlignment="Center"/>
+                        </Grid>
+                    </Grid>
+                </GroupBox>
+
+                <!-- SECTION B: DẦM KẾT CẤU -->
+                <GroupBox Header="🏗 Thiết Lập Dầm Kết Cấu (Structural Framing / Beams)" Style="{StaticResource SectionCard}">
+                    <Grid Margin="0,6,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+
+                        <CheckBox x:Name="ChkCreateBeams" Grid.Row="0" Grid.Column="0" Content="Tạo Dầm nối nhịp" IsChecked="True" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CboBeamType" Grid.Row="0" Grid.Column="1" Height="25" VerticalContentAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Cao độ tầng đặt dầm:" VerticalAlignment="Center" FontWeight="Normal"/>
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CboBeamLevel" Grid.Column="0" Height="25" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Z-Offset:" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtBeamZOffset" Grid.Column="2" Text="0" Height="25" VerticalContentAlignment="Center"/>
+                        </Grid>
+                    </Grid>
+                </GroupBox>
+
+                <!-- SECTION C: MÓNG ĐƠN KẾT CẤU -->
+                <GroupBox Header="🧱 Thiết Lập Móng Kết Cấu (Isolated Footings)" Style="{StaticResource SectionCard}">
+                    <Grid Margin="0,6,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="150"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="30"/>
+                            <RowDefinition Height="30"/>
+                        </Grid.RowDefinitions>
+
+                        <CheckBox x:Name="ChkCreateFootings" Grid.Row="0" Grid.Column="0" Content="Tạo Móng dưới chân cột" IsChecked="False" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="CboFootingType" Grid.Row="0" Grid.Column="1" Height="25" VerticalContentAlignment="Center"/>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Cao độ tầng đặt móng:" VerticalAlignment="Center" FontWeight="Normal"/>
+                        <Grid Grid.Row="1" Grid.Column="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="70"/>
+                                <ColumnDefinition Width="70"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="CboFootingLevel" Grid.Column="0" Height="25" VerticalContentAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="Offset (mm):" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" FontWeight="Normal"/>
+                            <TextBox x:Name="TxtFootingOffset" Grid.Column="2" Text="0" Height="25" VerticalContentAlignment="Center"/>
+                        </Grid>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- 3. FOOTER -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatus" Grid.Column="0" Text="Sẵn sàng tạo mô hình kết cấu..." Foreground="#64748B" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnGenerate" Content="🚀 Tạo Kết Cấu Nhanh" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
+                    <Button x:Name="BtnClose" Content="Đóng" Style="{StaticResource SecondaryButton}" Click="BtnClose_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

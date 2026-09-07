@@ -373,6 +373,19 @@ namespace KhimTools.Core
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, StructuralPanelName);
 
+            // 0. Quick Structure (Large Button)
+            var quickStructData = new PushButtonData(
+                "CmdQuickStructure",
+                "Quick" + Environment.NewLine + "Structure",
+                assemblyPath,
+                "KhimTools.Structural.QuickStructure.Commands.CmdQuickStructure")
+            {
+                ToolTip = "Tự động sinh hệ Cột, Dầm và Móng hàng loạt theo lưới trục (Grids).",
+                LargeImage = LoadImage("icon_grid_plan_32.png"),
+                Image = LoadImage("icon_grid_plan_16.png")
+            };
+            panel.AddItem(quickStructData);
+
             // 1. SplitButton: Column Rebar
             var splitButtonData = new SplitButtonData(
                 "ColumnRebarSplitButton",
@@ -486,6 +499,19 @@ namespace KhimTools.Core
         private static void BuildArchPanel(UIControlledApplication application, string assemblyPath)
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, ArchPanelName);
+
+            // 0. Quick Archi (Large Button)
+            var quickArchiData = new PushButtonData(
+                "CmdQuickArchi",
+                "Quick" + Environment.NewLine + "Archi",
+                assemblyPath,
+                "KhimTools.Architectural.QuickArchi.Commands.CmdQuickArchi")
+            {
+                ToolTip = "Tự động sinh Tường Kiến Trúc & Khởi tạo Phòng (Rooms) từ đường nét Model/CAD.",
+                LargeImage = LoadImage("icon_finishes_32.png"),
+                Image = LoadImage("icon_finishes_16.png")
+            };
+            panel.AddItem(quickArchiData);
 
             // 1. Room 3D View
             var room3dData = new PushButtonData(

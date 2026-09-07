@@ -1,0 +1,149 @@
+<Window x:Class="KhimTools.Architectural.QuickArchi.Forms.QuickArchiWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="K-TOOLS — Quick Archi Generator" 
+        Height="480" Width="600"
+        WindowStartupLocation="CenterScreen"
+        Background="#F8FAFC"
+        FontFamily="Segoe UI"
+        ResizeMode="NoResize">
+
+    <Window.Resources>
+        <LinearGradientBrush x:Key="HeaderGradient" StartPoint="0,0" EndPoint="1,1">
+            <GradientStop Color="#0F172A" Offset="0"/>
+            <GradientStop Color="#047857" Offset="1"/>
+        </LinearGradientBrush>
+
+        <Style x:Key="SectionCard" TargetType="GroupBox">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E2E8F0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+        </Style>
+
+        <Style x:Key="ModernButton" TargetType="Button">
+            <Setter Property="Background" Value="#059669"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#047857"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
+            <Setter Property="Background" Value="#E2E8F0"/>
+            <Setter Property="Foreground" Value="#1E293B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#CBD5E1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- 1. HEADER -->
+        <Border Grid.Row="0" Background="{StaticResource HeaderGradient}" Padding="18,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="🏛 QUICK ARCHI GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="Tự động sinh Tường Kiến Trúc &amp; Khởi tạo Phòng (Rooms) từ đường nét Model/CAD" Foreground="#A7F3D0" FontSize="12" Margin="0,3,0,0"/>
+                </StackPanel>
+                <Border Grid.Column="1" Background="#065F46" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
+                    <TextBlock x:Name="TxtCurveStats" Text="0 Curves Đang Chọn" Foreground="White" FontWeight="Bold" FontSize="11"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 2. CONTENT -->
+        <StackPanel Grid.Row="1" Margin="16,12">
+            <!-- SECTION A: THIẾT LẬP TƯỜNG -->
+            <GroupBox Header="🧱 Thiết Lập Tường (Walls)" Style="{StaticResource SectionCard}">
+                <Grid Margin="0,6,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="30"/>
+                        <RowDefinition Height="30"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Loại Tường (Wall Type):" VerticalAlignment="Center" FontWeight="Normal"/>
+                    <ComboBox x:Name="CboWallType" Grid.Row="0" Grid.Column="1" Height="25" VerticalContentAlignment="Center"/>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Tầng đặt Tường (Level):" VerticalAlignment="Center" FontWeight="Normal"/>
+                    <ComboBox x:Name="CboLevel" Grid.Row="1" Grid.Column="1" Height="25" VerticalContentAlignment="Center"/>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Chiều cao Tường (mm):" VerticalAlignment="Center" FontWeight="Normal"/>
+                    <Grid Grid.Row="2" Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtHeight" Grid.Column="0" Text="3000" Height="25" VerticalContentAlignment="Center"/>
+                        <TextBlock Grid.Column="1" Text="Offset đáy (mm):" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,6,0" FontWeight="Normal"/>
+                        <TextBox x:Name="TxtOffset" Grid.Column="2" Text="0" Height="25" VerticalContentAlignment="Center"/>
+                    </Grid>
+
+                    <CheckBox x:Name="ChkStructural" Grid.Row="3" Grid.Column="1" Content="Tường chịu lực (Structural Wall)" IsChecked="False" VerticalAlignment="Center"/>
+                </Grid>
+            </GroupBox>
+
+            <!-- SECTION B: PHÒNG (ROOMS) -->
+            <GroupBox Header="🚪 Khởi Tạo Phòng &amp; Tag (Rooms)" Style="{StaticResource SectionCard}">
+                <StackPanel Margin="0,4">
+                    <CheckBox x:Name="ChkAutoRooms" Content="Tự động đặt Phòng (Room) vào các vùng bao khép kín sau khi dựng tường" IsChecked="True" Margin="0,2"/>
+                </StackPanel>
+            </GroupBox>
+        </StackPanel>
+
+        <!-- 3. FOOTER -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatus" Grid.Column="0" Text="Sẵn sàng tạo tường..." Foreground="#64748B" VerticalAlignment="Center"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="BtnGenerate" Content="🚀 Tạo Tường Ngay" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
+                    <Button x:Name="BtnClose" Content="Đóng" Style="{StaticResource SecondaryButton}" Click="BtnClose_Click"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

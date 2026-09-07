@@ -6,6 +6,9 @@ using System.Text;
 using System.Xml;
 using KhiemToolsApp.Deployment;
 using KhimTools.Core.Family;
+using KhimTools.Structural.QuickStructure.Services;
+using KhimTools.Structural.QuickStructure.Models;
+using KhimTools.Architectural.QuickArchi.Models;
 
 namespace KhimTools.Tests
 {
@@ -66,6 +69,13 @@ namespace KhimTools.Tests
                 RunTest("Test 26: FamilyPathResolver Case-Insensitive & Extension Normalization", Test_26_FamilyPathResolver_Normalization);
                 RunTest("Test 27: FamilyPathResolver Library Scanning & Metadata", Test_27_FamilyPathResolver_ScanLibraryMetadata);
                 RunTest("Test 28: FamilyPathResolver Missing Family Graceful Handling", Test_28_FamilyPathResolver_MissingFamilyGraceful);
+
+                // Phase 6: Quick Structure / Quick Archi Tests
+                RunTest("Test 29: GridIntersectionHelper Orthogonal Intersection Math", Test_29_GridIntersection_Orthogonal);
+                RunTest("Test 30: GridIntersectionHelper Angled & Segment Bounds Math", Test_30_GridIntersection_AngledAndBounds);
+                RunTest("Test 31: GridIntersectionHelper Parallel & Coincident Lines Handling", Test_31_GridIntersection_ParallelLines);
+                RunTest("Test 32: GridIntersectionHelper Coordinate Deduplication Within Tolerance", Test_32_GridIntersection_Deduplication);
+                RunTest("Test 33: QuickStructure & QuickArchi Settings Contract Validation", Test_33_QuickSettings_ContractValidation);
             }
             finally
             {
@@ -1192,6 +1202,141 @@ namespace KhimTools.Tests
             finally
             {
                 ResetResolverWithProjectRoot();
+            }
+        }
+
+        // 29. GridIntersectionHelper: Orthogonal Intersection Math
+        private static void Test_29_GridIntersection_Orthogonal()
+        {
+            var p1 = new Point2D(0.0, 5000.0);
+            var p2 = new Point2D(10000.0, 5000.0);
+            var p3 = new Point2D(4000.0, 0.0);
+            var p4 = new Point2D(4000.0, 10000.0);
+
+            var inter = GridIntersectionHelper.FindIntersection(p1, p2, p3, p4, false);
+            if (inter == null)
+            {
+                throw new Exception("FindIntersection returned null for intersecting orthogonal lines!");
+            }
+
+            if (Math.Abs(inter.X - 4000.0) > 1e-5 || Math.Abs(inter.Y - 5000.0) > 1e-5)
+            {
+                throw new Exception(string.Format("Expected intersection (4000, 5000), got ({0}, {1})", inter.X, inter.Y));
+            }
+        }
+
+        // 30. GridIntersectionHelper: Angled & Segment Bounds Math
+        private static void Test_30_GridIntersection_AngledAndBounds()
+        {
+            // Two segments that intersect only when extended:
+            // Line 1: (0, 0) to (10, 10)
+            // Line 2: (0, 20) to (5, 15) -> extends to intersect Line 1 at (10, 10)
+            var p1 = new Point2D(0.0, 0.0);
+            var p2 = new Point2D(5.0, 5.0);
+            var p3 = new Point2D(0.0, 20.0);
+            var p4 = new Point2D(5.0, 15.0);
+
+            // Without extension (bounded segments) - should NOT intersect within 0..5
+            var bounded = GridIntersectionHelper.FindIntersection(p1, p2, p3, p4, false);
+            if (bounded != null)
+            {
+                throw new Exception("Bounded intersection should have returned null for non-overlapping segments!");
+            }
+
+            // With extension - lines intersect at (10, 10)
+            var infinite = GridIntersectionHelper.FindIntersection(p1, p2, p3, p4, true);
+            if (infinite == null)
+            {
+                throw new Exception("Extended infinite intersection returned null!");
+            }
+
+            if (Math.Abs(infinite.X - 10.0) > 1e-5 || Math.Abs(infinite.Y - 10.0) > 1e-5)
+            {
+                throw new Exception(string.Format("Expected intersection (10, 10), got ({0}, {1})", infinite.X, infinite.Y));
+            }
+        }
+
+        // 31. GridIntersectionHelper: Parallel & Coincident Lines Handling
+        private static void Test_31_GridIntersection_ParallelLines()
+        {
+            // Parallel horizontal lines
+            var p1 = new Point2D(0.0, 100.0);
+            var p2 = new Point2D(500.0, 100.0);
+            var p3 = new Point2D(0.0, 200.0);
+            var p4 = new Point2D(500.0, 200.0);
+
+            var inter = GridIntersectionHelper.FindIntersection(p1, p2, p3, p4, true);
+            if (inter != null)
+            {
+                throw new Exception("Parallel lines erroneously returned an intersection point!");
+            }
+
+            // Coincident lines
+            var interCoincident = GridIntersectionHelper.FindIntersection(p1, p2, p1, p2, true);
+            if (interCoincident != null)
+            {
+                throw new Exception("Coincident lines erroneously returned an intersection point!");
+            }
+        }
+
+        // 32. GridIntersectionHelper: Coordinate Deduplication Within Tolerance
+        private static void Test_32_GridIntersection_Deduplication()
+        {
+            var points = new List<Point2D>();
+            points.Add(new Point2D(100.0, 200.0));
+            points.Add(new Point2D(100.00001, 200.00001)); // Duplicate within tolerance 1e-3
+            points.Add(new Point2D(300.0, 400.0));
+            points.Add(new Point2D(100.0, 200.00002)); // Duplicate
+            points.Add(new Point2D(500.0, 600.0));
+
+            var dedup = GridIntersectionHelper.DeduplicatePoints(points, 1e-3);
+            if (dedup.Count != 3)
+            {
+                throw new Exception(string.Format("Expected 3 unique points after deduplication, got {0}", dedup.Count));
+            }
+
+            if (Math.Abs(dedup[0].X - 100.0) > 1e-5 || Math.Abs(dedup[1].X - 300.0) > 1e-5 || Math.Abs(dedup[2].X - 500.0) > 1e-5)
+            {
+                throw new Exception("Deduplication altered point coordinate order or values!");
+            }
+        }
+
+        // 33. QuickStructure & QuickArchi Settings Contract Validation
+        private static void Test_33_QuickSettings_ContractValidation()
+        {
+            // QuickStructureSettings validation
+            var qs = new QuickStructureSettings();
+            qs.CreateColumns = false;
+            qs.CreateBeams = false;
+            qs.CreateFootings = false;
+            qs.CreateFloor = false;
+
+            string qsErr;
+            if (qs.Validate(out qsErr))
+            {
+                throw new Exception("QuickStructureSettings with 0 tasks selected should fail validation!");
+            }
+
+            qs.CreateColumns = true;
+            if (!qs.Validate(out qsErr))
+            {
+                throw new Exception("QuickStructureSettings with CreateColumns=true failed validation: " + qsErr);
+            }
+
+            // QuickArchiSettings validation
+            var qa = new QuickArchiSettings();
+            qa.WallHeightMm = -50.0;
+
+            string qaErr;
+            if (qa.Validate(out qaErr))
+            {
+                throw new Exception("QuickArchiSettings with negative height should fail validation!");
+            }
+
+            qa.WallHeightMm = 3200.0;
+            if (!qa.Validate(out qaErr))
+            {
+                throw new Exception("QuickArchiSettings with 3200mm height failed validation: " + qaErr);
             }
         }
     }

@@ -20,6 +20,9 @@ $sourceFiles = @(
     (Join-Path $projectRoot "Core\Family\FamilyConstants.cs"),
     (Join-Path $projectRoot "Core\Family\FamilyFileInfo.cs"),
     (Join-Path $projectRoot "Core\Family\FamilyPathResolver.cs"),
+    (Join-Path $projectRoot "Tools\KhimStructural\QuickStructure\Services\GridIntersectionHelper.cs"),
+    (Join-Path $projectRoot "Tools\KhimStructural\QuickStructure\Models\QuickStructureSettings.cs"),
+    (Join-Path $projectRoot "Tools\KhimArchitectural\QuickArchi\Models\QuickArchiSettings.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 
