@@ -21,7 +21,7 @@ namespace KhimTools.Core
     ///   6. MEP        (MEP Openings, Elevation Tags)
     ///
     /// NGUYÊN TẮC BẢO TOÀN & BẢO VỆ CÁCH LY LỖI:
-    ///   - 100% bảo toàn 90 Command ID, Command Class, và hành vi gốc.
+    ///   - 100% bảo toàn 88 Command ID, Command Class, và hành vi gốc.
     ///   - Mỗi Panel khởi tạo trong sandbox độc lập (RegisterPanelModule).
     ///   - Giảm mật độ ngang (density reduction) bằng SplitButton, Pulldown, và Stacked Items.
     /// </summary>
@@ -103,7 +103,7 @@ namespace KhimTools.Core
                     moduleName,
                     "PanelModule",
                     string.Empty,
-                    $"Ngoại lệ nghiêm trọng khi khởi tạo Panel [{moduleName}]: {ex.Message}",
+                    string.Format("Ngoại lệ nghiêm trọng khi khởi tạo Panel [{0}]: {1}", moduleName, ex.Message),
                     ex);
             }
         }
@@ -652,7 +652,7 @@ namespace KhimTools.Core
                 // Self-healing fallback: Nếu chuỗi đặc biệt bị từ chối, thử lại bằng tên công cụ rõ ràng
                 string fallback = !string.IsNullOrWhiteSpace(toolName) ? toolName : safeName;
                 RegistrationDiagnostics.RecordWarning(moduleName, 
-                    $"PushButtonData '{safeName}' lỗi khi dùng text '{safeText}' ({ex.Message}). Tự động phục hồi với fallback '{fallback}'.");
+                    string.Format("PushButtonData '{0}' lỗi khi dùng text '{1}' ({2}). Tự động phục hồi với fallback '{3}'.", safeName, safeText, ex.Message, fallback));
 
                 try
                 {
@@ -661,7 +661,7 @@ namespace KhimTools.Core
                 catch (Exception exFallback)
                 {
                     RegistrationDiagnostics.RecordError(moduleName, moduleName, toolName, className,
-                        $"Khởi tạo PushButtonData hoàn toàn thất bại: {exFallback.Message}", exFallback);
+                        string.Format("Khởi tạo PushButtonData hoàn toàn thất bại: {0}", exFallback.Message), exFallback);
                     return null;
                 }
             }
@@ -720,7 +720,7 @@ namespace KhimTools.Core
             catch (Exception ex)
             {
                 RegistrationDiagnostics.RecordError(moduleName, panel.Name, toolName, commandClass,
-                    $"Không thể thêm nút [{itemData.Name}] vào panel [{panel.Name}]: {ex.Message}", ex);
+                    string.Format("Không thể thêm nút [{0}] vào panel [{1}]: {2}", itemData.Name, panel.Name, ex.Message), ex);
                 return null;
             }
         }
@@ -734,7 +734,7 @@ namespace KhimTools.Core
         {
             if (panel == null || item1 == null || item2 == null)
             {
-                RegistrationDiagnostics.RecordError(moduleName, panel?.Name ?? moduleName, groupName, string.Empty,
+                RegistrationDiagnostics.RecordError(moduleName, panel != null ? panel.Name : moduleName, groupName, string.Empty,
                     "Tham số null khi gọi SafeAddStackedItems (2 items).");
                 return null;
             }
@@ -752,7 +752,7 @@ namespace KhimTools.Core
             catch (Exception ex)
             {
                 RegistrationDiagnostics.RecordError(moduleName, panel.Name, groupName, string.Empty,
-                    $"Không thể thêm 2 stacked items [{item1.Name}, {item2.Name}]: {ex.Message}", ex);
+                    string.Format("Không thể thêm 2 stacked items [{0}, {1}]: {2}", item1.Name, item2.Name, ex.Message), ex);
                 return null;
             }
         }
@@ -767,7 +767,7 @@ namespace KhimTools.Core
         {
             if (panel == null || item1 == null || item2 == null || item3 == null)
             {
-                RegistrationDiagnostics.RecordError(moduleName, panel?.Name ?? moduleName, groupName, string.Empty,
+                RegistrationDiagnostics.RecordError(moduleName, panel != null ? panel.Name : moduleName, groupName, string.Empty,
                     "Tham số null khi gọi SafeAddStackedItems (3 items).");
                 return null;
             }
@@ -785,7 +785,7 @@ namespace KhimTools.Core
             catch (Exception ex)
             {
                 RegistrationDiagnostics.RecordError(moduleName, panel.Name, groupName, string.Empty,
-                    $"Không thể thêm 3 stacked items [{item1.Name}, {item2.Name}, {item3.Name}]: {ex.Message}", ex);
+                    string.Format("Không thể thêm 3 stacked items [{0}, {1}, {2}]: {3}", item1.Name, item2.Name, item3.Name, ex.Message), ex);
                 return null;
             }
         }
@@ -823,7 +823,7 @@ namespace KhimTools.Core
             catch (Exception ex)
             {
                 RegistrationDiagnostics.RecordError(moduleName, moduleName, text, className,
-                    $"Không thể thêm pulldown item [{name}]: {ex.Message}", ex);
+                    string.Format("Không thể thêm pulldown item [{0}]: {1}", name, ex.Message), ex);
                 return null;
             }
         }
@@ -863,7 +863,7 @@ namespace KhimTools.Core
             catch (Exception ex)
             {
                 RegistrationDiagnostics.RecordError(moduleName, moduleName, text, className,
-                    $"Không thể thêm split button item [{name}]: {ex.Message}", ex);
+                    string.Format("Không thể thêm split button item [{0}]: {1}", name, ex.Message), ex);
                 return null;
             }
         }
@@ -872,11 +872,11 @@ namespace KhimTools.Core
         {
             try
             {
-                pulldown?.AddSeparator();
+                if (pulldown != null) pulldown.AddSeparator();
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning(moduleName, $"Không thể thêm Separator vào Pulldown: {ex.Message}");
+                RegistrationDiagnostics.RecordWarning(moduleName, string.Format("Không thể thêm Separator vào Pulldown: {0}", ex.Message));
             }
         }
 
@@ -884,11 +884,11 @@ namespace KhimTools.Core
         {
             try
             {
-                splitButton?.AddSeparator();
+                if (splitButton != null) splitButton.AddSeparator();
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning(moduleName, $"Không thể thêm Separator vào SplitButton: {ex.Message}");
+                RegistrationDiagnostics.RecordWarning(moduleName, string.Format("Không thể thêm Separator vào SplitButton: {0}", ex.Message));
             }
         }
 
@@ -900,7 +900,7 @@ namespace KhimTools.Core
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning("RibbonRoot", $"CreateRibbonTab('{tabName}') notice: {ex.GetType().Name} - {ex.Message}");
+                RegistrationDiagnostics.RecordWarning("RibbonRoot", string.Format("CreateRibbonTab('{0}') notice: {1} - {2}", tabName, ex.GetType().Name, ex.Message));
             }
         }
 
@@ -909,12 +909,12 @@ namespace KhimTools.Core
             try
             {
                 var panels = app.GetRibbonPanels(tabName);
-                var existing = panels?.FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase));
+                var existing = panels != null ? panels.FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase)) : null;
                 if (existing != null) return existing;
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning(panelName, $"GetRibbonPanels('{tabName}') thông báo: {ex.Message}");
+                RegistrationDiagnostics.RecordWarning(panelName, string.Format("GetRibbonPanels('{0}') thông báo: {1}", tabName, ex.Message));
             }
 
             try
@@ -924,15 +924,16 @@ namespace KhimTools.Core
             catch (Exception exCreate)
             {
                 RegistrationDiagnostics.RecordWarning(panelName, 
-                    $"CreateRibbonPanel('{tabName}', '{panelName}') throw: {exCreate.Message}. Đang thử lấy lại panel đã tạo...");
+                    string.Format("CreateRibbonPanel('{0}', '{1}') throw: {2}. Đang thử lấy lại panel đã tạo...", tabName, panelName, exCreate.Message));
                 try
                 {
-                    return app.GetRibbonPanels(tabName)?.FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase));
+                    var panels = app.GetRibbonPanels(tabName);
+                    return panels != null ? panels.FirstOrDefault(p => p.Name.Equals(panelName, StringComparison.OrdinalIgnoreCase)) : null;
                 }
                 catch (Exception exRetry)
                 {
                     RegistrationDiagnostics.RecordError(panelName, panelName, "GetOrCreatePanel", string.Empty,
-                        $"Hoàn toàn không thể lấy hoặc tạo RibbonPanel [{panelName}]: {exRetry.Message}", exRetry);
+                        string.Format("Hoàn toàn không thể lấy hoặc tạo RibbonPanel [{0}]: {1}", panelName, exRetry.Message), exRetry);
                     return null;
                 }
             }
@@ -942,12 +943,12 @@ namespace KhimTools.Core
         {
             try
             {
-                string loc = typeof(App).Assembly.Location;
+                string loc = typeof(RibbonBuilder).Assembly.Location;
                 if (!string.IsNullOrEmpty(loc) && File.Exists(loc)) return loc;
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning("AssemblyResolver", $"Lỗi đọc typeof(App).Assembly.Location: {ex.Message}");
+                RegistrationDiagnostics.RecordWarning("AssemblyResolver", string.Format("Lỗi đọc typeof(RibbonBuilder).Assembly.Location: {0}", ex.Message));
             }
 
             try
@@ -957,7 +958,7 @@ namespace KhimTools.Core
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning("AssemblyResolver", $"Lỗi đọc Assembly.GetExecutingAssembly().Location: {ex.Message}");
+                RegistrationDiagnostics.RecordWarning("AssemblyResolver", string.Format("Lỗi đọc Assembly.GetExecutingAssembly().Location: {0}", ex.Message));
             }
 
             return Assembly.GetExecutingAssembly().Location ?? string.Empty;
@@ -972,8 +973,10 @@ namespace KhimTools.Core
                 var assembly = typeof(RibbonBuilder).Assembly;
 
                 // 1. Thử load từ Embedded Resource
-                string resourceName = assembly.GetManifestResourceNames()
-                    ?.FirstOrDefault(r => r.EndsWith(resourceOrFileName, StringComparison.OrdinalIgnoreCase));
+                var resourceNames = assembly.GetManifestResourceNames();
+                string resourceName = resourceNames != null
+                    ? resourceNames.FirstOrDefault(r => r.EndsWith(resourceOrFileName, StringComparison.OrdinalIgnoreCase))
+                    : null;
 
                 if (resourceName != null)
                 {
@@ -1012,11 +1015,11 @@ namespace KhimTools.Core
                     }
                 }
 
-                RegistrationDiagnostics.RecordWarning("ResourceLoader", $"Không tìm thấy icon '{resourceOrFileName}' trong Embedded Resource hoặc Resources folder.");
+                RegistrationDiagnostics.RecordWarning("ResourceLoader", string.Format("Không tìm thấy icon '{0}' trong Embedded Resource hoặc Resources folder.", resourceOrFileName));
             }
             catch (Exception ex)
             {
-                RegistrationDiagnostics.RecordWarning("ResourceLoader", $"Ngoại lệ khi nạp ảnh '{resourceOrFileName}': {ex.GetType().Name} - {ex.Message}");
+                RegistrationDiagnostics.RecordWarning("ResourceLoader", string.Format("Ngoại lệ khi nạp ảnh '{0}': {1} - {2}", resourceOrFileName, ex.GetType().Name, ex.Message));
             }
 
             return null;

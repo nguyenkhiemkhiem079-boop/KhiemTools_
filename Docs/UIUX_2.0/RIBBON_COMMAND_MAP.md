@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary & Verification Guarantees
 
-This document audits and maps **100% of all 90 Revit commands** exposed by K-TOOLS.
+This document audits and maps **100% of all 88 Revit commands** exposed by K-TOOLS.
 Every single command ID, target class, display name, and runtime behavior is strictly preserved.
 
 ### Verification Principles:
@@ -37,7 +37,7 @@ Tab: "K-TOOLS"
 │   └── Large Button: Element Tags (CmdElementTags)
 │
 ├── 3. STRUCTURE
-│   ├── SplitButton: Quick Structure (Quick Column, Quick Beam, Quick Foundation, Quick Wall, Quick Slab)
+│   ├── Large Button: Quick Structure (CmdQuickStructure)
 │   ├── Large Button: Section Cut (CmdSectionCut)
 │   └── Large Button: Cover Setup (CmdProjectCoverSetup)
 │
@@ -46,9 +46,11 @@ Tab: "K-TOOLS"
 │   ├── [CREATE] Large Button: Beam Rebar (CmdBeamRebar)
 │   ├── [CREATE] Large Button: Slab Rebar (CmdSlabRebar)
 │   ├── [CREATE] Large Button: Foundation Rebar (CmdFoundationRebar)
-│   └── [DETAIL] Stacked Pulldown: Rebar Detailing & Drawing (Column Drawing, Update Drawing)
+│   ├── [DETAIL] Stacked Pulldown: Rebar Detailing & Drawing (Column Drawing, Update Drawing)
+│   └── Large Button: Rebar Shapes (CmdLoadRebarShapesMain)
 │
 ├── 5. ARCHI
+│   ├── Large Button: Quick Archi (CmdQuickArchi)
 │   ├── Large Button: Room 3D View (CmdRoom3DView)
 │   └── Large Button: Room Finishes (CmdWallFloorFinishes)
 │
@@ -59,7 +61,7 @@ Tab: "K-TOOLS"
 
 ---
 
-## 3. Comprehensive Command Mapping Table (All 90 Commands)
+## 3. Comprehensive Command Mapping Table (All 88 Commands)
 
 | # | Command ID | Display Name | Target Command Class | Legacy Panel | New Panel 2.0 | Group / Control Type | Status |
 |:---|:---|:---|:---|:---|:---|:---|:---:|
