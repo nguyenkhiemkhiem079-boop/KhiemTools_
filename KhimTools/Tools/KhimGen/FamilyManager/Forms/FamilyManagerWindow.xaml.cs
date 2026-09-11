@@ -84,60 +84,26 @@ namespace KhimTools.FamilyManager.Forms
 
         private void BtnLoad_Click(object sender, RoutedEventArgs e)
         {
-            var selected = GridFamilies.SelectedItem as FamilyFileInfo;
-            if (selected == null)
+            var selected = GridFamilies.SelectedItems.Cast<FamilyFileInfo>().ToList();
+            if (selected.Count == 0)
             {
-                Autodesk.Revit.UI.TaskDialog.Show("Thông báo", "Vui lòng chọn một Family từ bảng để nạp vào dự án.");
+                TaskDialog.Show("K-TOOLS", "Vui lòng chọn ít nhất một Family từ bảng.");
                 return;
             }
 
-            try
-            {
-                var options = new KhimFamilyLoadOptions(false, false);
-                var fam = Core.Family.FamilyManager.LoadFamilySafely(_doc, selected.FullPath, options);
-                if (fam != null)
-                {
-                    Autodesk.Revit.UI.TaskDialog.Show("Thành công", $"Đã nạp thành công Family '{fam.Name}' vào dự án!");
-                    LoadData();
-                }
-                else
-                {
-                    Autodesk.Revit.UI.TaskDialog.Show("Cảnh báo", $"Không thể nạp Family '{selected.Name}'. Vui lòng kiểm tra lại file .rfa.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Autodesk.Revit.UI.TaskDialog.Show("Lỗi", "Không thể nạp family: " + ex.Message);
-            }
+            LoadFamilies(selected.Select(item => item.FullPath), false);
         }
 
         private void BtnReload_Click(object sender, RoutedEventArgs e)
         {
-            var selected = GridFamilies.SelectedItem as FamilyFileInfo;
-            if (selected == null)
+            var selected = GridFamilies.SelectedItems.Cast<FamilyFileInfo>().ToList();
+            if (selected.Count == 0)
             {
-                Autodesk.Revit.UI.TaskDialog.Show("Thông báo", "Vui lòng chọn một Family để tải lại và ghi đè.");
+                TaskDialog.Show("K-TOOLS", "Vui lòng chọn ít nhất một Family để nạp lại.");
                 return;
             }
 
-            try
-            {
-                var options = new KhimFamilyLoadOptions(true, true);
-                var fam = Core.Family.FamilyManager.LoadFamilySafely(_doc, selected.FullPath, options);
-                if (fam != null)
-                {
-                    Autodesk.Revit.UI.TaskDialog.Show("Thành công", $"Đã tải lại và ghi đè Family '{fam.Name}' thành công!");
-                    LoadData();
-                }
-                else
-                {
-                    Autodesk.Revit.UI.TaskDialog.Show("Cảnh báo", $"Ghi đè thất bại đối với Family '{selected.Name}'.");
-                }
-            }
-            catch (Exception ex)
-            {
-                Autodesk.Revit.UI.TaskDialog.Show("Lỗi", "Không thể ghi đè family: " + ex.Message);
-            }
+            LoadFamilies(selected.Select(item => item.FullPath), true);
         }
 
         private void BtnOpenFolder_Click(object sender, RoutedEventArgs e)
@@ -165,6 +131,74 @@ namespace KhimTools.FamilyManager.Forms
                     Autodesk.Revit.UI.TaskDialog.Show("Lỗi", "Không thể mở Explorer: " + ex.Message);
                 }
             }
+        }
+
+        private void BtnBrowse_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Chọn Family để nạp vào dự án",
+                Filter = "Revit Family (*.rfa)|*.rfa",
+                Multiselect = true,
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog(this) == true)
+            {
+                LoadFamilies(dialog.FileNames, false);
+            }
+        }
+
+        private void GridFamilies_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (GridFamilies.SelectedItem is FamilyFileInfo selected)
+            {
+                LoadFamilies(new[] { selected.FullPath }, false);
+            }
+        }
+
+        private void LoadFamilies(IEnumerable<string> paths, bool overwrite)
+        {
+            var uniquePaths = paths
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (uniquePaths.Count == 0) return;
+
+            int loaded = 0;
+            int skipped = 0;
+            var failures = new List<string>();
+            var options = new KhimFamilyLoadOptions(overwrite, overwrite);
+
+            foreach (string path in uniquePaths)
+            {
+                string fileName = Path.GetFileNameWithoutExtension(path);
+                try
+                {
+                    if (!overwrite && Core.Family.FamilyManager.IsFamilyLoaded(_doc, fileName))
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    var family = Core.Family.FamilyManager.LoadFamilySafely(_doc, path, options);
+                    if (family != null) loaded++;
+                    else failures.Add(fileName);
+                }
+                catch (Exception ex)
+                {
+                    failures.Add(fileName + ": " + ex.Message);
+                }
+            }
+
+            LoadData();
+            string summary = $"Đã nạp: {loaded}\nĐã có trong dự án: {skipped}\nLỗi: {failures.Count}";
+            if (failures.Count > 0)
+            {
+                summary += "\n\n" + string.Join("\n", failures.Take(8));
+                if (failures.Count > 8) summary += $"\n... và {failures.Count - 8} file khác";
+            }
+            TaskDialog.Show("K-TOOLS - Load Family", summary);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

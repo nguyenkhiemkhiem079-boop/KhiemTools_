@@ -19,6 +19,12 @@ namespace KhimTools.FamilyManager.Commands
                 return Result.Failed;
             }
 
+            if (uidoc.Document.IsFamilyDocument)
+            {
+                TaskDialog.Show("K-TOOLS", "Load Family nhanh chỉ hoạt động trong Project Document.");
+                return Result.Cancelled;
+            }
+
             try
             {
                 var window = new FamilyManagerWindow(uidoc.Document);

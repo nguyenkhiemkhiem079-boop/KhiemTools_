@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 
 namespace KhimTools.Core.Family
@@ -124,6 +125,7 @@ namespace KhimTools.Core.Family
         {
             var result = new Dictionary<string, FamilyFileInfo>(StringComparer.OrdinalIgnoreCase);
             var probeDirs = GetProbeDirectories(subfolder);
+            var scannedRoots = new List<string>();
 
             foreach (var dir in probeDirs)
             {
@@ -131,7 +133,10 @@ namespace KhimTools.Core.Family
 
                 try
                 {
-                    var rfaFiles = Directory.GetFiles(dir, "*" + FamilyConstants.RfaExtension, SearchOption.AllDirectories);
+                    string fullRoot = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    if (scannedRoots.Any(root => IsSameOrChildPath(root, fullRoot))) continue;
+
+                    var rfaFiles = Directory.GetFiles(fullRoot, "*" + FamilyConstants.RfaExtension, SearchOption.AllDirectories);
                     foreach (var file in rfaFiles)
                     {
                         string name = Path.GetFileNameWithoutExtension(file);
@@ -141,6 +146,7 @@ namespace KhimTools.Core.Family
                             result[name] = new FamilyFileInfo(file, relCategory);
                         }
                     }
+                    scannedRoots.Add(fullRoot);
                 }
                 catch
                 {
@@ -149,6 +155,14 @@ namespace KhimTools.Core.Family
             }
 
             return new List<FamilyFileInfo>(result.Values);
+        }
+
+        private static bool IsSameOrChildPath(string parent, string candidate)
+        {
+            if (string.Equals(parent, candidate, StringComparison.OrdinalIgnoreCase)) return true;
+            string prefix = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            return candidate.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

@@ -105,7 +105,8 @@
         <!-- 3. DATA GRID -->
         <DataGrid x:Name="GridFamilies" Grid.Row="2" AutoGenerateColumns="False" 
                   CanUserAddRows="False" CanUserDeleteRows="False" IsReadOnly="True"
-                  SelectionMode="Single" GridLinesVisibility="Horizontal" 
+                  SelectionMode="Extended" GridLinesVisibility="Horizontal"
+                  MouseDoubleClick="GridFamilies_MouseDoubleClick"
                   HorizontalGridLinesBrush="#F1F5F9"
                   Background="White" BorderThickness="0" Margin="16,12,16,12"
                   RowHeight="36">
@@ -160,6 +161,8 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button x:Name="BtnBrowse" Content="Chọn file .rfa" Style="{StaticResource SecondaryButton}"
+                            Margin="0,0,8,0" Click="BtnBrowse_Click"/>
                     <Button x:Name="BtnOpenFolder" Content="Mở thư mục" Style="{StaticResource SecondaryButton}"
                             Margin="0,0,8,0" Click="BtnOpenFolder_Click"/>
                 </StackPanel>
@@ -167,7 +170,7 @@
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button x:Name="BtnReload" Content="Nạp lại &amp; ghi đè" Style="{StaticResource SecondaryButton}"
                             Margin="0,0,8,0" Click="BtnReload_Click"/>
-                    <Button x:Name="BtnLoad" Content="📥 Nạp Vào Dự Án" Style="{StaticResource ModernButton}" 
+                    <Button x:Name="BtnLoad" Content="Nạp Family" Style="{StaticResource ModernButton}"
                             Margin="0,0,8,0" Click="BtnLoad_Click"/>
                     <Button x:Name="BtnClose" Content="Đóng" Style="{StaticResource SecondaryButton}" 
                             Click="BtnClose_Click"/>
