@@ -8,8 +8,8 @@
         <ComponentRef Id="C_RegistryOwnership" />
       </Feature>
 
-      <!-- Revit 2020-2024 (.NET Framework 4.8) -->
-      <Feature Id="RevitLegacy" Title="K-TOOLS for Revit 2020-2024 (.NET 4.8)" Description="Binaries and components optimized for Autodesk Revit 2020 through 2024" Level="2">
+      <!-- Revit 2022-2024 (.NET Framework 4.8) -->
+      <Feature Id="RevitLegacy" Title="K-TOOLS for Revit 2022-2024 (.NET 4.8)" Description="Binaries and components optimized for Autodesk Revit 2022 through 2024" Level="2">
         <Level Value="1" Condition="HAS_LEGACY_REVIT = 1" />
         <ComponentRef Id="C_LegacyAddin" />
         <ComponentRef Id="C_LegacyDlls" />

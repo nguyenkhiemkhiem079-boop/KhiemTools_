@@ -456,7 +456,11 @@ namespace KhimTools.ElementTags.Forms
                     {
                         cellCombo.DataSource = item.AvailableTagSymbols;
                         cellCombo.DisplayMember = "Name";
-                        cellCombo.ValueMember = "Self";
+                        cellCombo.ValueMember = string.Empty;
+                        if (item.SelectedTagSymbol == null || !item.AvailableTagSymbols.Contains(item.SelectedTagSymbol))
+                        {
+                            item.SelectedTagSymbol = item.AvailableTagSymbols.FirstOrDefault();
+                        }
                         cellCombo.Value = item.SelectedTagSymbol;
                     }
                     _grid.Rows[r].Tag = item;

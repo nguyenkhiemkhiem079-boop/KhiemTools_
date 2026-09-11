@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using Autodesk.Revit.UI;
 
 namespace KhimTools.Core
@@ -17,7 +18,8 @@ namespace KhimTools.Core
     public class ActionEventHandler : IExternalEventHandler
     {
         private readonly ExternalEvent _externalEvent;
-        private Action<UIApplication> _pendingAction;
+        private readonly ConcurrentQueue<Action<UIApplication>> _pendingActions =
+            new ConcurrentQueue<Action<UIApplication>>();
 
         public ActionEventHandler()
         {
@@ -27,19 +29,17 @@ namespace KhimTools.Core
         /// <summary>Đăng ký 1 action sẽ chạy trên Revit main thread ở lượt idle gần nhất.</summary>
         public void Raise(Action<UIApplication> action)
         {
-            _pendingAction = action;
+            if (action == null) throw new ArgumentNullException(nameof(action));
+            _pendingActions.Enqueue(action);
             _externalEvent.Raise();
         }
 
         public void Execute(UIApplication app)
         {
-            try
+            Action<UIApplication> action;
+            while (_pendingActions.TryDequeue(out action))
             {
-                _pendingAction?.Invoke(app);
-            }
-            finally
-            {
-                _pendingAction = null;
+                action(app);
             }
         }
 

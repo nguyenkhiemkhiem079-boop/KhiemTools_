@@ -64,29 +64,10 @@ namespace KhimTools.RebarTool.Core
 
         public bool MergeSelectedPanels(List<string> selectedPanelIds)
         {
-            if (selectedPanelIds == null || selectedPanelIds.Count < 2) return false;
-
-            var targetPanels = Panels.Where(p => selectedPanelIds.Contains(p.PanelId)).ToList();
-            if (targetPanels.Count < 2) return false;
-
-            // Gộp vào panel đầu tiên
-            var primary = targetPanels[0];
-            primary.IsMerged = true;
-            primary.MergedChildrenIds = targetPanels.Select(p => p.PanelId).ToList();
-
-            // Tính tổng kích thước
-            double totalWidth = targetPanels.Max(p => p.WidthMm);
-            double totalLength = targetPanels.Sum(p => p.LengthMm);
-            primary.WidthMm = totalWidth;
-            primary.LengthMm = totalLength;
-
-            // Xóa các panel con khỏi danh sách chính, giữ lại panel đã gộp
-            for (int i = 1; i < targetPanels.Count; i++)
-            {
-                Panels.Remove(targetPanels[i]);
-            }
-
-            return true;
+            // A merged panel needs a real polygon union and a host mapping for every
+            // source floor. Until that exists, mutating this list can silently skip
+            // reinforcement on all but the first floor.
+            return false;
         }
 
         public void DeletePanels(List<string> panelIdsToDelete)
@@ -97,16 +78,7 @@ namespace KhimTools.RebarTool.Core
 
         public void AutoMergeAdjacent()
         {
-            // Auto merge các panel cùng Level và có kích thước tương đồng
-            var groups = Panels.GroupBy(p => p.LevelName).ToList();
-            foreach (var group in groups)
-            {
-                var list = group.ToList();
-                if (list.Count >= 2)
-                {
-                    MergeSelectedPanels(list.Take(2).Select(p => p.PanelId).ToList());
-                }
-            }
+            // Disabled until adjacency and polygon-union support are implemented.
         }
     }
 }

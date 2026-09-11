@@ -210,13 +210,13 @@ $scheduleSafe = ($majorUpgrade.Count -gt 0 -and $majorUpgrade[0].GetAttribute("S
 Report-Result "Audit 09: MajorUpgrade Safety (Schedule='afterInstallInitialize')" $scheduleSafe
 
 # -----------------------------------------------------------------------------
-# AUDIT 10: Revit Version Detection Multi-Year Matrix (2020-2028)
+# AUDIT 10: Revit Version Detection Multi-Year Matrix (2022-2028)
 # -----------------------------------------------------------------------------
 $revitDetDoc = New-Object System.Xml.XmlDocument
 $revitDetDoc.Load("$msiDir\Conditions\RevitDetection.wxs")
 $searches = $revitDetDoc.GetElementsByTagName("RegistrySearch")
 $missingYears = @()
-foreach ($year in 2020..2028) {
+foreach ($year in 2022..2028) {
     $prop = "REVIT_${year}_DETECTED"
     $found = $false
     foreach ($s in $searches) {
@@ -227,7 +227,7 @@ foreach ($year in 2020..2028) {
     }
     if (!$found) { $missingYears += $year }
 }
-Report-Result "Audit 10: Revit Version Detection Matrix (2020-2028: $($searches.Count) rules)" ($missingYears.Count -eq 0) ($missingYears -join ", ")
+Report-Result "Audit 10: Revit Version Detection Matrix (2022-2028: $($searches.Count) rules)" ($missingYears.Count -eq 0) ($missingYears -join ", ")
 
 # -----------------------------------------------------------------------------
 # AUDIT 11: .NET Framework 4.8 and .NET 8.0 Prerequisite Rules

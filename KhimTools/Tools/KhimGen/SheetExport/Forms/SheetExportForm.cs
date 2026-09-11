@@ -183,7 +183,7 @@ namespace KhimTools.SheetExport.Forms
 
             _btnNavSelect = CreateSidebarButton("☑\nSelect", 0);
             _btnNavSettings = CreateSidebarButton("⚙\nSettings", 1);
-            _btnNavFilter = CreateSidebarButton("🔍\nFilter", 2);
+            _btnNavFilter = CreateSidebarButton("Filter", 2);
 
             _btnNavSelect.Top = 15;
             _btnNavSettings.Top = 90;
@@ -272,7 +272,7 @@ namespace KhimTools.SheetExport.Forms
 
             _btnSaveSelection = new Button
             {
-                Text = "💾 Lưu lựa chọn...",
+                Text = "Lưu lựa chọn...",
                 AutoSize = true,
                 Height = 27,
                 FlatStyle = FlatStyle.Flat,
@@ -285,7 +285,7 @@ namespace KhimTools.SheetExport.Forms
 
             _btnLoadSelection = new Button
             {
-                Text = "📂 Mở lựa chọn...",
+                Text = "Mở lựa chọn...",
                 AutoSize = true,
                 Height = 27,
                 FlatStyle = FlatStyle.Flat,
@@ -402,7 +402,7 @@ namespace KhimTools.SheetExport.Forms
             _btnClearAll.Click += (s, e) => SetAllGridItems(false);
             _btnInvert.Click += (s, e) => InvertGridItems();
 
-            _btnRefreshList = new Button { Text = "🔄 Nạp lại", Left = 728, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
+            _btnRefreshList = new Button { Text = "Nạp lại", Left = 728, Top = 6, Width = 80, Height = 27, FlatStyle = FlatStyle.Flat, BackColor = KhimUiStyle.SecondaryButtonBg };
             _btnRefreshList.Click += (s, e) => LoadDataFromRevit();
 
             pnlToolbar.Controls.AddRange(new System.Windows.Forms.Control[] {
@@ -685,7 +685,7 @@ namespace KhimTools.SheetExport.Forms
             // Folder row
             _btnOpenFolderSelection = new Button
             {
-                Text = "📂 Mở Thư Mục",
+                Text = "Mở thư mục",
                 Left = 15,
                 Top = 14,
                 Width = 115,
@@ -805,7 +805,7 @@ namespace KhimTools.SheetExport.Forms
                 {
                     foreach (var sGroup in seriesGroups)
                     {
-                        _cmbDisciplineFilter.Items.Add($"📂 {sGroup}");
+                        _cmbDisciplineFilter.Items.Add($"Series: {sGroup}");
                     }
                 }
                 _cmbDisciplineFilter.SelectedIndex = 0;
@@ -885,9 +885,9 @@ namespace KhimTools.SheetExport.Forms
             {
                 list = list.Where(s => s.SheetNumber != null && (s.SheetNumber.StartsWith("MEP", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("M-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("E-", StringComparison.OrdinalIgnoreCase) || s.SheetNumber.StartsWith("P-", StringComparison.OrdinalIgnoreCase)));
             }
-            else if (filterChoice.StartsWith("📂"))
+            else if (filterChoice.StartsWith("Series:", StringComparison.OrdinalIgnoreCase))
             {
-                string seriesName = filterChoice.Substring(2).Trim();
+                string seriesName = filterChoice.Substring("Series:".Length).Trim();
                 list = list.Where(s => GetSheetSeries(s.SheetNumber).Equals(seriesName, StringComparison.OrdinalIgnoreCase));
             }
 

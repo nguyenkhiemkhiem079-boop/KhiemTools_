@@ -55,6 +55,13 @@ namespace KhimTools.RebarTool.Core
             foreach (var r in rebars)
             {
                 if (r == null || !r.IsValidObject) continue;
+
+                if (r.GetHostId() != host.Id)
+                {
+                    outCount++;
+                    continue;
+                }
+
                 BoundingBoxXYZ rBox = r.get_BoundingBox(null);
                 if (rBox == null) continue;
 

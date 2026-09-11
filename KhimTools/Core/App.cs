@@ -1,5 +1,6 @@
 using System;
 using Autodesk.Revit.UI;
+using KhimTools.Tools.Workspace.Views;
 
 namespace KhimTools.Core
 {
@@ -18,6 +19,7 @@ namespace KhimTools.Core
             try
             {
                 EventHandler = new ActionEventHandler();
+                TryRegisterWorkspacePane(application);
                 RibbonBuilder.BuildRibbon(application);
                 return Result.Succeeded;
             }
@@ -31,6 +33,21 @@ namespace KhimTools.Core
         public Result OnShutdown(UIControlledApplication application)
         {
             return Result.Succeeded;
+        }
+
+        private static void TryRegisterWorkspacePane(UIControlledApplication application)
+        {
+            try
+            {
+                application.RegisterDockablePane(
+                    KhimWorkspacePane.PaneId,
+                    "Khim Workspace",
+                    new KhimWorkspacePane());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS] Workspace pane registration skipped: " + ex.Message);
+            }
         }
     }
 }

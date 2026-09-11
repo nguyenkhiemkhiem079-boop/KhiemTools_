@@ -17,6 +17,7 @@ namespace KhimTools.CalloutPro.Forms
         public CalloutProWindow(UIDocument uidoc)
         {
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             _uidoc = uidoc;
             _doc = uidoc.Document;
 

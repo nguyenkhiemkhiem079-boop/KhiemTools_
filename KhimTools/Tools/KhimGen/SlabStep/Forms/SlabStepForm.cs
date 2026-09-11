@@ -11,6 +11,7 @@ using KhimTools.Core.Family;
 using KhimTools.Core.UI;
 using KhimTools.SlabStep.Models;
 using KhimTools.SlabStep.Services;
+using CoreFamilyManager = KhimTools.Core.Family.FamilyManager;
 using Color = System.Drawing.Color;
 using Form = System.Windows.Forms.Form;
 using ComboBox = System.Windows.Forms.ComboBox;
@@ -148,7 +149,7 @@ namespace KhimTools.SlabStep.Forms
             // ─────────────────────────────────────────────────────────────
             var grpFamily = new GroupBox
             {
-                Text = "📦 Cấu Hình Family & Tham Số (Family Config)",
+                Text = "Cấu Hình Family & Tham Số (Family Config)",
                 Location = new Point(15, currentY),
                 Size = new Size(570, 220),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold)
@@ -294,7 +295,7 @@ namespace KhimTools.SlabStep.Forms
             
             var btnPickEdges = new Button
             {
-                Text = "👆 Click Chọn Các Cạnh Ranh Giới (Pick Edges)",
+                Text = "Chọn Các Cạnh Ranh Giới (Pick Edges)",
                 Location = new Point(15, 25),
                 Size = new Size(250, 32),
                 BackColor = KhimUiStyle.PrimaryButtonBg,
@@ -374,7 +375,7 @@ namespace KhimTools.SlabStep.Forms
         
         private void AutoLoadDefaultFamily()
         {
-            var fam = FamilyManager.GetOrLoadFamily(_doc, FamilyConstants.RincoAnStep);
+            var fam = CoreFamilyManager.GetOrLoadFamily(_doc, FamilyConstants.RincoAnStep);
             if (fam != null)
             {
                 LoadData();
@@ -400,7 +401,7 @@ namespace KhimTools.SlabStep.Forms
                 ofd.Title = "Chọn file Family nách sàn giật cấp";
                 if (ofd.ShowDialog() == DialogResult.OK)
                 {
-                    var fam = FamilyManager.LoadFamilySafely(_doc, ofd.FileName);
+                    var fam = CoreFamilyManager.LoadFamilySafely(_doc, ofd.FileName);
                     if (fam != null)
                     {
                         LoadData();

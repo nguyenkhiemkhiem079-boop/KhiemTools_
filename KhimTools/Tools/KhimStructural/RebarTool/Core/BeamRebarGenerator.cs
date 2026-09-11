@@ -106,7 +106,7 @@ namespace KhimTools.RebarTool.Core
             double halfH = profile.H / 2.0 - cover - stirrupDia / 2.0;
 
             if (halfB <= 0 || halfH <= 0)
-                throw new InvalidOperationException("Tiáº¿t diá»‡n dáº§m quÃ¡ nhá» so vá»›i lá»›p báº£o vá»‡ Ä‘Ã£ chá»n.");
+                throw new InvalidOperationException("Tiết diện dầm quá nhỏ so với lớp bảo vệ đã chọn.");
 
             // ÄÃ£ loáº¡i bá» kiá»ƒm tra cáº£nh bÃ¡o hÃ m lÆ°á»£ng thÃ©p an toÃ n káº¿t cáº¥u theo yÃªu cáº§u
             // 1. ThÃ©p chá»§ trÃªn cháº¡y suá»‘t

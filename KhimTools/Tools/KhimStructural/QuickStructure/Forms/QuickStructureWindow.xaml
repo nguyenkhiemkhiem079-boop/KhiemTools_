@@ -76,7 +76,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="🏗 QUICK STRUCTURE GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="QUICK STRUCTURE GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
                     <TextBlock Text="Tự động sinh hệ Cột, Dầm và Móng hàng loạt theo lưới trục (Grids)" Foreground="#93C5FD" FontSize="12" Margin="0,3,0,0"/>
                 </StackPanel>
                 <Border Grid.Column="1" Background="#1E40AF" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
@@ -89,7 +89,7 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="16,12">
             <StackPanel>
                 <!-- SECTION A: CỘT KẾT CẤU -->
-                <GroupBox Header="🏛 Thiết Lập Cột Kết Cấu (Structural Columns)" Style="{StaticResource SectionCard}">
+                <GroupBox Header="Thiết Lập Cột Kết Cấu (Structural Columns)" Style="{StaticResource SectionCard}">
                     <Grid Margin="0,6,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>
@@ -132,7 +132,7 @@
                 </GroupBox>
 
                 <!-- SECTION B: DẦM KẾT CẤU -->
-                <GroupBox Header="🏗 Thiết Lập Dầm Kết Cấu (Structural Framing / Beams)" Style="{StaticResource SectionCard}">
+                <GroupBox Header="Thiết Lập Dầm Kết Cấu (Structural Framing / Beams)" Style="{StaticResource SectionCard}">
                     <Grid Margin="0,6,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>

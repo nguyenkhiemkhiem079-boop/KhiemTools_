@@ -37,7 +37,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayout()
         {
-            Text = $"🔍 Pick & Skip Edge — Panel {_panel.PanelId} ({_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm)";
+            Text = $"Chọn cạnh bỏ qua — Panel {_panel.PanelId} ({_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm)";
             Width = 820;
             Height = 560;
             StartPosition = FormStartPosition.CenterParent;
@@ -54,7 +54,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 1. Bottom
             var bottom = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(245, 245, 247) };
-            _btnApply = new Button { Text = "✓ Áp Dụng", Width = 110, Height = 32, Top = 9, Left = 570 };
+            _btnApply = new Button { Text = "Áp dụng", Width = 110, Height = 32, Top = 9, Left = 570 };
             KhimUiStyle.ApplyPrimaryButton(_btnApply, KhimUiStyle.CreateButtonBg);
             _btnApply.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
 

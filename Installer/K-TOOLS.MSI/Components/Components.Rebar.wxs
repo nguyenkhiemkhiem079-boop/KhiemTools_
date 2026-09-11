@@ -1,7 +1,7 @@
 ﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="CG_Rebar">
-      <!-- Legacy Rebar Shapes (.NET 4.8 / Revit 2020-2024) -->
+      <!-- Legacy Rebar Shapes (.NET 4.8 / Revit 2022-2024) -->
       <Component Id="C_RebarShapesLegacy" Directory="LEGACYREBARFOLDER" Guid="{E5F6A7B8-C9D0-4E1F-A2B3-C4D5E6F7A8B9}">
         <File Id="F_Leg_Rebar_JP_T00_rfa" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\JP_T00.rfa" />
         <File Id="F_Leg_Rebar_JP_T02_rfa" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\JP_T02.rfa" />

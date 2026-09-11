@@ -3,13 +3,7 @@
     <!-- Public Property to force-install all Revit components -->
     <Property Id="ALL_REVIT" Value="0" />
 
-    <!-- Revit 2020-2024 (Legacy .NET Framework 4.8) -->
-    <Property Id="REVIT_2020_DETECTED">
-      <RegistrySearch Id="SearchRevit2020" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2020" Name="InstallationPath" Type="raw" Bitness="always64" />
-    </Property>
-    <Property Id="REVIT_2021_DETECTED">
-      <RegistrySearch Id="SearchRevit2021" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2021" Name="InstallationPath" Type="raw" Bitness="always64" />
-    </Property>
+    <!-- Revit 2022-2024 (Legacy .NET Framework 4.8) -->
     <Property Id="REVIT_2022_DETECTED">
       <RegistrySearch Id="SearchRevit2022" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2022" Name="InstallationPath" Type="raw" Bitness="always64" />
     </Property>
@@ -36,7 +30,7 @@
 
     <!-- Custom Action / SetProperty to determine composite detection -->
     <SetProperty Id="HAS_LEGACY_REVIT" Value="1" After="AppSearch"
-                 Condition="REVIT_2020_DETECTED OR REVIT_2021_DETECTED OR REVIT_2022_DETECTED OR REVIT_2023_DETECTED OR REVIT_2024_DETECTED OR ALL_REVIT = 1" />
+                 Condition="REVIT_2022_DETECTED OR REVIT_2023_DETECTED OR REVIT_2024_DETECTED OR ALL_REVIT = 1" />
 
     <SetProperty Id="HAS_MODERN_REVIT" Value="1" After="AppSearch"
                  Condition="REVIT_2025_DETECTED OR REVIT_2026_DETECTED OR REVIT_2027_DETECTED OR REVIT_2028_DETECTED OR ALL_REVIT = 1" />

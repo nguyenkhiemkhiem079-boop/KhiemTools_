@@ -37,8 +37,6 @@ namespace KhimTools.RebarTool.Forms
         private Label _lblPanelCount;
         private Button _btnSelectAll;
         private Button _btnSelectNone;
-        private Button _btnAutoMerge;
-        private Button _btnMergeSelected;
         private Button _btnDeletePanel;
         private Button _btnPickEdge;
 
@@ -142,7 +140,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnAssignData = new Button { Text = "💾 Gán Thông Số", Width = 135, Height = 36, Top = 11, Left = 620 };
+            _btnAssignData = new Button { Text = "Gán thông số", Width = 135, Height = 36, Top = 11, Left = 620 };
             KhimUiStyle.ApplySecondaryButton(_btnAssignData);
             _btnAssignData.Click += BtnAssignData_Click;
 
@@ -418,10 +416,12 @@ namespace KhimTools.RebarTool.Forms
             var grpTpl = new GroupBox { Text = "Quản Lý Mẫu Thiết Lập (Template JSON)", Left = 15, Top = 160, Width = 525, Height = 100 };
             KhimUiStyle.ApplyCardStyle(grpTpl);
             _cmbTemplates = new ComboBox { Left = 15, Top = 35, Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
-            _btnSaveTemplate = new Button { Text = "💾 Lưu Mẫu", Left = 290, Top = 33, Width = 100, Height = 32 };
+            _btnSaveTemplate = new Button { Text = "Lưu mẫu", Left = 290, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
-            _btnLoadTemplate = new Button { Text = "📂 Nạp Mẫu", Left = 400, Top = 33, Width = 100, Height = 32 };
+            _btnLoadTemplate = new Button { Text = "Nạp mẫu", Left = 400, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnLoadTemplate);
+            _btnSaveTemplate.Click += (s, e) => SaveCurrentTemplate();
+            _btnLoadTemplate.Click += (s, e) => LoadSelectedTemplate();
 
             grpTpl.Controls.Add(_cmbTemplates);
             grpTpl.Controls.Add(_btnSaveTemplate);
@@ -436,24 +436,14 @@ namespace KhimTools.RebarTool.Forms
             var lblTitle = new Label { Text = "DANH SÁCH PANEL SÀN", Top = 5, Left = 5, AutoSize = true, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = Color.FromArgb(30, 41, 59) };
 
             var pnlToolBar = new Panel { Top = 30, Left = 0, Width = 465, Height = 32 };
-            _btnAutoMerge = new Button { Text = "Auto Merge", Left = 0, Top = 0, Width = 110, Height = 30 };
-            KhimUiStyle.ApplySecondaryButton(_btnAutoMerge);
-            _btnAutoMerge.Click += (s, e) => { _panelManager.AutoMergeAdjacent(); RefreshGridPanels(); };
-
-            _btnMergeSelected = new Button { Text = "Merge", Left = 115, Top = 0, Width = 90, Height = 30 };
-            KhimUiStyle.ApplySecondaryButton(_btnMergeSelected);
-            _btnMergeSelected.Click += BtnMergeSelected_Click;
-
-            _btnDeletePanel = new Button { Text = "Xóa", Left = 210, Top = 0, Width = 80, Height = 30 };
+            _btnDeletePanel = new Button { Text = "Xóa", Left = 0, Top = 0, Width = 80, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnDeletePanel);
             _btnDeletePanel.Click += BtnDeletePanel_Click;
 
-            _btnPickEdge = new Button { Text = "🔍 Pick Edge", Left = 295, Top = 0, Width = 100, Height = 30 };
+            _btnPickEdge = new Button { Text = "Pick Edge", Left = 85, Top = 0, Width = 100, Height = 30 };
             KhimUiStyle.ApplySecondaryButton(_btnPickEdge);
             _btnPickEdge.Click += (s, e) => OpenEdgePickerForSelectedPanel();
 
-            pnlToolBar.Controls.Add(_btnAutoMerge);
-            pnlToolBar.Controls.Add(_btnMergeSelected);
             pnlToolBar.Controls.Add(_btnDeletePanel);
             pnlToolBar.Controls.Add(_btnPickEdge);
 
@@ -776,6 +766,87 @@ namespace KhimTools.RebarTool.Forms
             var templates = SlabRebarSettings.GetSavedTemplateNames();
             foreach (string t in templates) _cmbTemplates.Items.Add(t);
             if (_cmbTemplates.Items.Count > 0) _cmbTemplates.SelectedIndex = 0;
+        }
+
+        private void SaveCurrentTemplate()
+        {
+            var settings = CaptureTemplateSettings();
+            string name = _cmbTemplates.Text;
+            if (string.IsNullOrWhiteSpace(name)) name = settings.TemplateName;
+
+            if (!SlabRebarSettings.SaveTemplate(settings, name))
+            {
+                KhimDialogHelper.ShowError("Không thể lưu template sàn.");
+                return;
+            }
+
+            LoadTemplateList();
+            _cmbTemplates.SelectedItem = name;
+            KhimDialogHelper.ShowInfo("Đã lưu template: " + name);
+        }
+
+        private void LoadSelectedTemplate()
+        {
+            var settings = SlabRebarSettings.LoadTemplate(_cmbTemplates.Text);
+            if (settings == null)
+            {
+                KhimDialogHelper.ShowError("Không thể nạp template đã chọn.");
+                return;
+            }
+
+            _cmbBotXDia.Text = settings.BotXDiaLabel;
+            _numBotXSpacing.Value = Clamp(_numBotXSpacing, settings.BotXSpacingMm);
+            _cmbBotYDia.Text = settings.BotYDiaLabel;
+            _numBotYSpacing.Value = Clamp(_numBotYSpacing, settings.BotYSpacingMm);
+            _cmbHatXDia.Text = settings.TopXDiaLabel;
+            _numHatXSpacing.Value = Clamp(_numHatXSpacing, settings.TopXSpacingMm);
+            _cmbHatYDia.Text = settings.TopYDiaLabel;
+            _numHatYSpacing.Value = Clamp(_numHatYSpacing, settings.TopYSpacingMm);
+            _cmbHatFactor.Text = settings.TopExtensionRatio;
+            _chkHatHookDown.Checked = settings.TopHookDown;
+            _numHatHookDownLen.Value = Clamp(_numHatHookDownLen, settings.TopHookTailMm);
+            _chkSpacerDraw.Checked = settings.EnableChairRebar;
+            _cmbSpacerDia.Text = settings.ChairDiaLabel;
+            _numSpacerStepX.Value = Clamp(_numSpacerStepX, settings.ChairSpacingXmm);
+            _numSpacerStepY.Value = Clamp(_numSpacerStepY, settings.ChairSpacingYmm);
+            _cmbDesignCode.Text = settings.DesignCode;
+            _cmbConcreteGrade.Text = settings.ConcreteGrade;
+            _cmbSteelGrade.Text = settings.SteelGrade;
+            KhimDialogHelper.ShowInfo("Đã nạp template: " + settings.TemplateName);
+        }
+
+        private SlabRebarSettings CaptureTemplateSettings()
+        {
+            return new SlabRebarSettings
+            {
+                TemplateName = string.IsNullOrWhiteSpace(_cmbTemplates.Text)
+                    ? "Mặc định Sàn 2 Lớp (150mm)"
+                    : _cmbTemplates.Text,
+                BotXDiaLabel = _cmbBotXDia.Text,
+                BotXSpacingMm = (double)_numBotXSpacing.Value,
+                BotYDiaLabel = _cmbBotYDia.Text,
+                BotYSpacingMm = (double)_numBotYSpacing.Value,
+                TopXDiaLabel = _cmbHatXDia.Text,
+                TopXSpacingMm = (double)_numHatXSpacing.Value,
+                TopYDiaLabel = _cmbHatYDia.Text,
+                TopYSpacingMm = (double)_numHatYSpacing.Value,
+                TopExtensionRatio = _cmbHatFactor.Text,
+                TopHookDown = _chkHatHookDown.Checked,
+                TopHookTailMm = (double)_numHatHookDownLen.Value,
+                EnableChairRebar = _chkSpacerDraw.Checked,
+                ChairDiaLabel = _cmbSpacerDia.Text,
+                ChairSpacingXmm = (double)_numSpacerStepX.Value,
+                ChairSpacingYmm = (double)_numSpacerStepY.Value,
+                DesignCode = _cmbDesignCode.Text,
+                ConcreteGrade = _cmbConcreteGrade.Text,
+                SteelGrade = _cmbSteelGrade.Text
+            };
+        }
+
+        private static decimal Clamp(NumericUpDown control, double value)
+        {
+            decimal result = (decimal)value;
+            return Math.Max(control.Minimum, Math.Min(control.Maximum, result));
         }
     }
 }

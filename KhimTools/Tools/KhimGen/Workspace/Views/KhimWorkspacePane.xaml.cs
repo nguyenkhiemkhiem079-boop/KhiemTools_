@@ -15,6 +15,7 @@ namespace KhimTools.Tools.Workspace.Views
         public KhimWorkspacePane()
         {
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             ViewModel = new KhimWorkspaceViewModel();
             DataContext = ViewModel;
         }

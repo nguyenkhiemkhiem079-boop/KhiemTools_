@@ -130,7 +130,7 @@ namespace KhimTools.SectionCutTool.Forms
 
         private void BuildUi()
         {
-            Text = "📐 K-TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
+            Text = "K-TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
             Width = 980;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -140,7 +140,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             // 1. Header Banner
             var header = KhimUiStyle.CreateHeaderBanner(
-                "📐 TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
+                "TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
                 "Auto Longitudinal & Cross-Section View Generator for Rebar Detailing",
                 "v2.7.0");
             Controls.Add(header);
@@ -175,7 +175,7 @@ namespace KhimTools.SectionCutTool.Forms
             };
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => RefreshGrid();
 
-            _btnPickRevit = new Button { Text = "👆 Pick Revit", Left = 248, Top = 20, Width = 88, Height = 27, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _btnPickRevit = new Button { Text = "Chọn trong Revit", Left = 238, Top = 20, Width = 98, Height = 27, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _btnSelectAll = new Button { Text = "Tất cả", Left = 340, Top = 20, Width = 38, Height = 27 };
             _btnDeselectAll = new Button { Text = "Bỏ", Left = 382, Top = 20, Width = 36, Height = 27 };
 
@@ -583,7 +583,7 @@ namespace KhimTools.SectionCutTool.Forms
             var lblVft = new Label { Text = "View Template chung (khi không đặt riêng):", Left = 20, Top = 65, AutoSize = true };
             _cmbViewTemplateGeneral = new ComboBox { Left = 20, Top = 88, Width = 310, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            _btnRefreshTemplates = new Button { Text = "🔄 Làm mới", Left = 340, Top = 86, Width = 100, Height = 26 };
+            _btnRefreshTemplates = new Button { Text = "Làm mới", Left = 340, Top = 86, Width = 100, Height = 26 };
             KhimUiStyle.ApplySecondaryButton(_btnRefreshTemplates);
             _btnRefreshTemplates.Click += (s, e) =>
             {
@@ -672,9 +672,9 @@ namespace KhimTools.SectionCutTool.Forms
             var lblTplList = new Label { Text = "Danh sách mẫu đã lưu:", Left = 20, Top = 30, AutoSize = true };
             _cmbTemplate = new ComboBox { Left = 20, Top = 52, Width = 425, DropDownStyle = ComboBoxStyle.DropDownList };
 
-            _btnSaveTemplate = new Button { Text = "💾 Lưu Mẫu Hiện Tại", Left = 20, Top = 95, Width = 150, Height = 32 };
-            _btnApplyTemplate = new Button { Text = "📂 Áp Dụng Mẫu", Left = 180, Top = 95, Width = 140, Height = 32 };
-            _btnDeleteTemplate = new Button { Text = "🗑️ Xóa", Left = 330, Top = 95, Width = 95, Height = 32 };
+            _btnSaveTemplate = new Button { Text = "Lưu mẫu hiện tại", Left = 20, Top = 95, Width = 150, Height = 32 };
+            _btnApplyTemplate = new Button { Text = "Áp dụng mẫu", Left = 180, Top = 95, Width = 140, Height = 32 };
+            _btnDeleteTemplate = new Button { Text = "Xóa", Left = 330, Top = 95, Width = 95, Height = 32 };
 
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
             KhimUiStyle.ApplySecondaryButton(_btnApplyTemplate);

@@ -15,6 +15,11 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public static class RebarShapeCreationHelper
     {
+        [ThreadStatic]
+        private static string _lastFailureReason;
+
+        public static string LastFailureReason => _lastFailureReason;
+
         /// <summary>
         /// Tạo Rebar an toàn từ danh sách Curve với cơ chế fallback 4 cấp độ:
         /// 1) Thử useExistingShape: false (tránh xung đột tham số/hook với RebarShape có sẵn trong project).
@@ -34,8 +39,14 @@ namespace KhimTools.RebarTool.Core
             RebarHookOrientation hookOrient0 = RebarHookOrientation.Right,
             RebarHookOrientation hookOrient1 = RebarHookOrientation.Right)
         {
+            _lastFailureReason = null;
             if (curves == null || curves.Count == 0 || barType == null || host == null)
+            {
+                _lastFailureReason = "Dữ liệu tạo thép không hợp lệ: thiếu curve, loại thép hoặc host.";
                 return null;
+            }
+
+            var failures = new List<string>();
 
             // Đảm bảo normal hợp lệ
             if (norm == null || norm.GetLength() < 0.001)
@@ -63,7 +74,7 @@ namespace KhimTools.RebarTool.Core
                     norm, curves, hookOrient0, hookOrient1, true, false);
                 if (rebar != null) return rebar;
             }
-            catch { }
+            catch (Exception ex) { failures.Add(ex.Message); }
 
             // Cấp 2: Cho phép khớp có sẵn hoặc tạo mới shape nếu dự án chưa có:
             try
@@ -73,7 +84,7 @@ namespace KhimTools.RebarTool.Core
                     norm, curves, hookOrient0, hookOrient1, true, true);
                 if (rebar != null) return rebar;
             }
-            catch { }
+            catch (Exception ex) { failures.Add(ex.Message); }
 
             // Cấp 3: Nếu có hook mà bị lỗi tham số hook, thử bỏ hook với useExistingShape: true
             if (hook0 != null || hook1 != null)
@@ -85,7 +96,7 @@ namespace KhimTools.RebarTool.Core
                         norm, curves, hookOrient0, hookOrient1, true, false);
                     if (rebar != null) return rebar;
                 }
-                catch { }
+                catch (Exception ex) { failures.Add(ex.Message); }
 
                 try
                 {
@@ -94,7 +105,7 @@ namespace KhimTools.RebarTool.Core
                         norm, curves, hookOrient0, hookOrient1, true, true);
                     if (rebar != null) return rebar;
                 }
-                catch { }
+                catch (Exception ex) { failures.Add(ex.Message); }
             }
 
             // Cấp 4: Nếu style là StirrupTie bị lỗi, chuyển sang Standard
@@ -107,7 +118,7 @@ namespace KhimTools.RebarTool.Core
                         norm, curves, hookOrient0, hookOrient1, true, false);
                     if (rebar != null) return rebar;
                 }
-                catch { }
+                catch (Exception ex) { failures.Add(ex.Message); }
 
                 try
                 {
@@ -116,9 +127,12 @@ namespace KhimTools.RebarTool.Core
                         norm, curves, hookOrient0, hookOrient1, true, true);
                     if (rebar != null) return rebar;
                 }
-                catch { }
+                catch (Exception ex) { failures.Add(ex.Message); }
             }
 
+            _lastFailureReason = failures.Count > 0
+                ? failures[failures.Count - 1]
+                : "Revit không tạo được Rebar từ các curve đã cung cấp.";
             return rebar;
         }
 

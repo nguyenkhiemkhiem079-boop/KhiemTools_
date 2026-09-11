@@ -76,7 +76,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="🏛 QUICK ARCHI GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="QUICK ARCHI GENERATOR" Foreground="White" FontSize="15" FontWeight="Bold"/>
                     <TextBlock Text="Tự động sinh Tường Kiến Trúc &amp; Khởi tạo Phòng (Rooms) từ đường nét Model/CAD" Foreground="#A7F3D0" FontSize="12" Margin="0,3,0,0"/>
                 </StackPanel>
                 <Border Grid.Column="1" Background="#065F46" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">

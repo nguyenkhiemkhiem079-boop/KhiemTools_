@@ -31,16 +31,38 @@ namespace KhimTools.Core.UI
         protected Label LblHeaderSubtitle;
         protected Button BtnCloseHeader;
         protected Color BorderColor = ColorTranslator.FromHtml("#CBD5E1");
-        protected Color HeaderColor = ColorTranslator.FromHtml("#0F172A");
+        protected Color HeaderColor = ColorTranslator.FromHtml("#202124");
 
         public KTBaseForm()
         {
             FormBorderStyle = FormBorderStyle.None;
-            StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.CenterParent;
+            AutoScaleMode = AutoScaleMode.Dpi;
+            Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            BackColor = KhimUiStyle.FormBg;
+            KeyPreview = true;
             DoubleBuffered = true;
             SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
 
             InitializeBaseHeader();
+            Shown += (s, e) => KhimUiStyle.StyleControlTree(this);
+            KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Escape && !ContainsFocusInDropDown())
+                {
+                    DialogResult = DialogResult.Cancel;
+                    Close();
+                }
+            };
+        }
+
+        private bool ContainsFocusInDropDown()
+        {
+            foreach (Control control in Controls)
+            {
+                if (control is ComboBox combo && combo.DroppedDown) return true;
+            }
+            return false;
         }
 
         private void InitializeBaseHeader()
@@ -48,7 +70,7 @@ namespace KhimTools.Core.UI
             HeaderPanel = new Panel
             {
                 Dock = DockStyle.Top,
-                Height = 44,
+                Height = 52,
                 BackColor = HeaderColor,
                 Padding = new Padding(12, 0, 8, 0)
             };
@@ -57,9 +79,10 @@ namespace KhimTools.Core.UI
             // Nút Đóng (X)
             BtnCloseHeader = new Button
             {
-                Text = "✕",
-                Size = new Size(32, 32),
-                Location = new Point(Width - 40, 6),
+                Text = "×",
+                AccessibleName = "Đóng cửa sổ",
+                Size = new Size(40, 40),
+                Location = new Point(Width - 48, 6),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = ColorTranslator.FromHtml("#94A3B8"),
@@ -80,7 +103,7 @@ namespace KhimTools.Core.UI
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 AutoSize = true,
-                Location = new Point(14, 6),
+                Location = new Point(16, 8),
                 Cursor = Cursors.Default
             };
             LblHeaderTitle.MouseDown += Header_MouseDown;
@@ -92,7 +115,7 @@ namespace KhimTools.Core.UI
                 ForeColor = ColorTranslator.FromHtml("#94A3B8"),
                 Font = new Font("Segoe UI", 8.25f, FontStyle.Regular),
                 AutoSize = true,
-                Location = new Point(14, 25),
+                Location = new Point(16, 29),
                 Cursor = Cursors.Default
             };
             LblHeaderSubtitle.MouseDown += Header_MouseDown;
@@ -102,6 +125,14 @@ namespace KhimTools.Core.UI
             HeaderPanel.Controls.Add(LblHeaderSubtitle);
 
             Controls.Add(HeaderPanel);
+        }
+
+        protected override void OnShown(EventArgs e)
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            HeaderPanel.BringToFront();
+            KhimUiStyle.StyleControlTree(this);
+            base.OnShown(e);
         }
 
         public void SetFormTitle(string title, string subtitle = "")
@@ -116,12 +147,12 @@ namespace KhimTools.Core.UI
                 {
                     LblHeaderSubtitle.Text = subtitle;
                     LblHeaderSubtitle.Visible = true;
-                    LblHeaderTitle.Location = new Point(14, 6);
+                    LblHeaderTitle.Location = new Point(16, 8);
                 }
                 else
                 {
                     LblHeaderSubtitle.Visible = false;
-                    LblHeaderTitle.Location = new Point(14, 12);
+                    LblHeaderTitle.Location = new Point(16, 16);
                 }
             }
             this.Text = title;
@@ -151,7 +182,7 @@ namespace KhimTools.Core.UI
             base.OnResize(e);
             if (BtnCloseHeader != null)
             {
-                BtnCloseHeader.Location = new Point(Width - 38, 6);
+                BtnCloseHeader.Location = new Point(Width - 48, 6);
             }
         }
     }

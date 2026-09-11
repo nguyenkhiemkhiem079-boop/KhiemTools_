@@ -165,7 +165,7 @@ namespace KhimTools.Tools.Workspace.ViewModels
         {
             App.EventHandler.Raise(app =>
             {
-                RunCommandByName(app, "KhimTools.Tools.Updater.Commands.CmdCheckUpdate");
+                RunCommandByName(app, "KhimTools.Updater.Commands.CmdCheckUpdate");
             });
         }
 
@@ -173,24 +173,51 @@ namespace KhimTools.Tools.Workspace.ViewModels
         {
             try
             {
-                Type cmdType = Type.GetType(fullTypeName) ?? 
-                    typeof(App).Assembly.GetType(fullTypeName);
-
-                if (cmdType != null)
+                if (uiapp == null)
                 {
-                    var cmdInstance = Activator.CreateInstance(cmdType) as IExternalCommand;
-                    if (cmdInstance != null)
-                    {
-                        string msg = string.Empty;
-                        var elements = new Autodesk.Revit.DB.ElementSet();
-                        // Tạo giả lập CommandData nếu cần hoặc thực thi
-                        // Lưu ý: Trong context ExternalEventHandler, thực thi qua PostCommand hoặc reflection
-                    }
+                    StatusMessage = "Không thể kết nối với Revit.";
+                    return;
                 }
+
+                Type cmdType = typeof(App).Assembly.GetType(fullTypeName, false);
+                if (cmdType == null || !typeof(IExternalCommand).IsAssignableFrom(cmdType))
+                    throw new InvalidOperationException("Không tìm thấy command: " + fullTypeName);
+
+                var commandData = (ExternalCommandData)Activator.CreateInstance(
+                    typeof(ExternalCommandData),
+                    true);
+                var applicationProperty = typeof(ExternalCommandData).GetProperty(
+                    "Application",
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic);
+                if (applicationProperty == null)
+                    throw new InvalidOperationException("Revit API không cung cấp command context.");
+
+                applicationProperty.SetValue(commandData, uiapp, null);
+
+                var command = (IExternalCommand)Activator.CreateInstance(cmdType);
+                string message = string.Empty;
+                var elements = new Autodesk.Revit.DB.ElementSet();
+                Result result = command.Execute(commandData, ref message, elements);
+
+                string commandName = cmdType.Name.StartsWith("Cmd", StringComparison.Ordinal)
+                    ? cmdType.Name.Substring(3)
+                    : cmdType.Name;
+
+                if (result == Result.Succeeded)
+                    StatusMessage = commandName + " đã hoàn tất.";
+                else if (result == Result.Cancelled)
+                    StatusMessage = commandName + " đã được hủy.";
+                else
+                    StatusMessage = string.IsNullOrWhiteSpace(message)
+                        ? commandName + " thực thi không thành công."
+                        : message;
             }
             catch (Exception ex)
             {
                 StatusMessage = "Lỗi thực thi: " + ex.Message;
+                TaskDialog.Show("K-TOOLS Workspace", StatusMessage);
             }
         }
     }

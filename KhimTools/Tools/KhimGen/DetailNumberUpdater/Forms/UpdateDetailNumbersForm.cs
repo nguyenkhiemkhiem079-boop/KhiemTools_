@@ -92,7 +92,7 @@ namespace KhimTools.DetailNumberUpdater.Forms
 
             _btnRefresh = new Button
             {
-                Text = "🔄 Xem trước lại",
+                Text = "Xem trước lại",
                 Left = 505,
                 Top = 30,
                 Width = 115,

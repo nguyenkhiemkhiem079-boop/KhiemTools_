@@ -315,10 +315,12 @@ namespace KhimTools.RebarTool.Forms
             var grpTpl = new GroupBox { Text = "Quản Lý Template JSON", Left = 15, Top = 170, Width = 520, Height = 90 };
             KhimUiStyle.ApplyCardStyle(grpTpl);
             _cmbTemplates = new ComboBox { Left = 15, Top = 35, Width = 260, DropDownStyle = ComboBoxStyle.DropDownList };
-            _btnSaveTemplate = new Button { Text = "💾 Save Tpl", Left = 290, Top = 33, Width = 100, Height = 32 };
+            _btnSaveTemplate = new Button { Text = "Lưu mẫu", Left = 290, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
-            _btnLoadTemplate = new Button { Text = "📂 Load Tpl", Left = 400, Top = 33, Width = 100, Height = 32 };
+            _btnLoadTemplate = new Button { Text = "Nạp mẫu", Left = 400, Top = 33, Width = 100, Height = 32 };
             KhimUiStyle.ApplySecondaryButton(_btnLoadTemplate);
+            _btnSaveTemplate.Click += (s, e) => SaveCurrentTemplate();
+            _btnLoadTemplate.Click += (s, e) => LoadSelectedTemplate();
 
             grpTpl.Controls.Add(_cmbTemplates);
             grpTpl.Controls.Add(_btnSaveTemplate);
@@ -377,6 +379,112 @@ namespace KhimTools.RebarTool.Forms
                 _cmbTemplates.SelectedIndex = 0;
         }
 
+        private void SaveCurrentTemplate()
+        {
+            CaptureSettingsFromControls();
+            string name = _cmbTemplates.Text;
+            if (string.IsNullOrWhiteSpace(name)) name = _settings.TemplateName;
+
+            if (!FoundationRebarSettings.SaveTemplate(_settings, name))
+            {
+                KhimDialogHelper.ShowError("Không thể lưu template móng.");
+                return;
+            }
+
+            LoadTemplateList();
+            _cmbTemplates.SelectedItem = name;
+            KhimDialogHelper.ShowInfo("Đã lưu template: " + name);
+        }
+
+        private void LoadSelectedTemplate()
+        {
+            var loaded = FoundationRebarSettings.LoadTemplate(_cmbTemplates.Text);
+            if (loaded == null)
+            {
+                KhimDialogHelper.ShowError("Không thể nạp template đã chọn.");
+                return;
+            }
+
+            CopySettings(loaded, _settings);
+            ApplySettingsToControls(_settings);
+            _previewPanel.Invalidate();
+            KhimDialogHelper.ShowInfo("Đã nạp template: " + loaded.TemplateName);
+        }
+
+        private void CaptureSettingsFromControls()
+        {
+            _settings.BotXDiaLabel = _cmbBotXDia.Text;
+            _settings.BotXSpacingMm = (double)_numBotXSpacing.Value;
+            _settings.BotXHookUp = _chkBotXHook.Checked;
+            _settings.BotYDiaLabel = _cmbBotYDia.Text;
+            _settings.BotYSpacingMm = (double)_numBotYSpacing.Value;
+            _settings.BotYHookUp = _chkBotYHook.Checked;
+            _settings.EnableTopMesh = _chkEnableTopMesh.Checked;
+            _settings.TopXDiaLabel = _cmbTopXDia.Text;
+            _settings.TopXSpacingMm = (double)_numTopXSpacing.Value;
+            _settings.TopXHookDown = _chkTopXHook.Checked;
+            _settings.TopYDiaLabel = _cmbTopYDia.Text;
+            _settings.TopYSpacingMm = (double)_numTopYSpacing.Value;
+            _settings.TopYHookDown = _chkTopYHook.Checked;
+            _settings.EnableColumnDowels = _chkEnableDowels.Checked;
+            _settings.DowelDiaLabel = _cmbDowelDia.Text;
+            _settings.DowelQtyX = (int)_numDowelQtyX.Value;
+            _settings.DowelQtyY = (int)_numDowelQtyY.Value;
+            _settings.DowelFootLegMm = (double)_numDowelFootLeg.Value;
+            _settings.DowelExtensionMm = (double)_numDowelExtension.Value;
+            _settings.DowelLegInward = _chkDowelInward.Checked;
+            _settings.StaggeredDowels = _chkStaggeredDowels.Checked;
+            _settings.EnableDowelStirrups = _chkEnableDowelStirrups.Checked;
+            _settings.DowelStirrupQty = (int)_numDowelStirrupQty.Value;
+            _settings.DesignCode = _cmbDesignCode.Text;
+            _settings.ConcreteGrade = _cmbConcreteGrade.Text;
+            _settings.SteelGrade = _cmbSteelGrade.Text;
+            _settings.CustomCoverMm = (double)_numCoverMm.Value;
+        }
+
+        private void ApplySettingsToControls(FoundationRebarSettings value)
+        {
+            _cmbBotXDia.Text = value.BotXDiaLabel;
+            _numBotXSpacing.Value = Clamp(_numBotXSpacing, value.BotXSpacingMm);
+            _chkBotXHook.Checked = value.BotXHookUp;
+            _cmbBotYDia.Text = value.BotYDiaLabel;
+            _numBotYSpacing.Value = Clamp(_numBotYSpacing, value.BotYSpacingMm);
+            _chkBotYHook.Checked = value.BotYHookUp;
+            _chkEnableTopMesh.Checked = value.EnableTopMesh;
+            _cmbTopXDia.Text = value.TopXDiaLabel;
+            _numTopXSpacing.Value = Clamp(_numTopXSpacing, value.TopXSpacingMm);
+            _chkTopXHook.Checked = value.TopXHookDown;
+            _cmbTopYDia.Text = value.TopYDiaLabel;
+            _numTopYSpacing.Value = Clamp(_numTopYSpacing, value.TopYSpacingMm);
+            _chkTopYHook.Checked = value.TopYHookDown;
+            _chkEnableDowels.Checked = value.EnableColumnDowels;
+            _cmbDowelDia.Text = value.DowelDiaLabel;
+            _numDowelQtyX.Value = Clamp(_numDowelQtyX, value.DowelQtyX);
+            _numDowelQtyY.Value = Clamp(_numDowelQtyY, value.DowelQtyY);
+            _numDowelFootLeg.Value = Clamp(_numDowelFootLeg, value.DowelFootLegMm);
+            _numDowelExtension.Value = Clamp(_numDowelExtension, value.DowelExtensionMm);
+            _chkDowelInward.Checked = value.DowelLegInward;
+            _chkStaggeredDowels.Checked = value.StaggeredDowels;
+            _chkEnableDowelStirrups.Checked = value.EnableDowelStirrups;
+            _numDowelStirrupQty.Value = Clamp(_numDowelStirrupQty, value.DowelStirrupQty);
+            _cmbDesignCode.Text = value.DesignCode;
+            _cmbConcreteGrade.Text = value.ConcreteGrade;
+            _cmbSteelGrade.Text = value.SteelGrade;
+            _numCoverMm.Value = Clamp(_numCoverMm, value.CustomCoverMm);
+        }
+
+        private static decimal Clamp(NumericUpDown control, double value)
+        {
+            decimal result = (decimal)value;
+            return Math.Max(control.Minimum, Math.Min(control.Maximum, result));
+        }
+
+        private static void CopySettings(FoundationRebarSettings source, FoundationRebarSettings target)
+        {
+            string json = Newtonsoft.Json.JsonConvert.SerializeObject(source);
+            Newtonsoft.Json.JsonConvert.PopulateObject(json, target);
+        }
+
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
@@ -418,34 +526,7 @@ namespace KhimTools.RebarTool.Forms
                 return;
             }
 
-            _settings.BotXDiaLabel = _cmbBotXDia.Text;
-            _settings.BotXSpacingMm = (double)_numBotXSpacing.Value;
-            _settings.BotXHookUp = _chkBotXHook.Checked;
-
-            _settings.BotYDiaLabel = _cmbBotYDia.Text;
-            _settings.BotYSpacingMm = (double)_numBotYSpacing.Value;
-            _settings.BotYHookUp = _chkBotYHook.Checked;
-
-            _settings.EnableTopMesh = _chkEnableTopMesh.Checked;
-            _settings.TopXDiaLabel = _cmbTopXDia.Text;
-            _settings.TopXSpacingMm = (double)_numTopXSpacing.Value;
-
-            _settings.EnableColumnDowels = _chkEnableDowels.Checked;
-            _settings.DowelDiaLabel = _cmbDowelDia.Text;
-            _settings.DowelQtyX = (int)_numDowelQtyX.Value;
-            _settings.DowelQtyY = (int)_numDowelQtyY.Value;
-            _settings.DowelFootLegMm = (double)_numDowelFootLeg.Value;
-            _settings.DowelExtensionMm = (double)_numDowelExtension.Value;
-            _settings.DowelLegInward = _chkDowelInward.Checked;
-            _settings.StaggeredDowels = _chkStaggeredDowels.Checked;
-
-            _settings.EnableDowelStirrups = _chkEnableDowelStirrups.Checked;
-            _settings.DowelStirrupQty = (int)_numDowelStirrupQty.Value;
-
-            _settings.DesignCode = _cmbDesignCode.Text;
-            _settings.ConcreteGrade = _cmbConcreteGrade.Text;
-            _settings.SteelGrade = _cmbSteelGrade.Text;
-            _settings.CustomCoverMm = (double)_numCoverMm.Value;
+            CaptureSettingsFromControls();
 
             var generator = new FoundationRebarGenerator(_doc);
             var report = new RebarGenerationReport();
@@ -453,13 +534,29 @@ namespace KhimTools.RebarTool.Forms
             using (var tx = new Transaction(_doc, "Bố trí Thép Móng — KhimTools"))
             {
                 tx.Start();
-                foreach (int idx in selectedIndices)
+                try
                 {
-                    FamilyInstance fdn = _availableFoundations[idx];
-                    FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, fdn);
-                    generator.Generate(profile, _settings, report);
+                    foreach (int idx in selectedIndices)
+                    {
+                        FamilyInstance fdn = _availableFoundations[idx];
+                        FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, fdn);
+                        if (profile == null)
+                        {
+                            report.AddError(fdn, "Phân tích hình học móng",
+                                new InvalidOperationException("Không lấy được bounding box của móng."));
+                            continue;
+                        }
+
+                        generator.Generate(profile, _settings, report);
+                    }
+                    tx.Commit();
                 }
-                tx.Commit();
+                catch (Exception ex)
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                    KhimDialogHelper.ShowError("Không thể tạo thép móng: " + ex.Message);
+                    return;
+                }
             }
 
             KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Count);

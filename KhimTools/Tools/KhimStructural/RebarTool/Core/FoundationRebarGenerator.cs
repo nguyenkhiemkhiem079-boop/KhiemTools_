@@ -145,10 +145,14 @@ namespace KhimTools.RebarTool.Core
                 if (rebar != null)
                 {
                     double arrayLen = Math.Abs(endPerp - startPerp);
-                    int count = Math.Max(2, (int)Math.Floor(arrayLen / spacingFeet));
+                    int count = Math.Max(2, (int)Math.Floor(arrayLen / spacingFeet) + 1);
                     rebar.GetShapeDrivenAccessor().SetLayoutAsNumberWithSpacing(count, spacingFeet, true, true, true);
                     list.Add(rebar);
                     report?.AddSuccess(1);
+                }
+                else
+                {
+                    ReportCreationFailure(report, foundation, barGroupName);
                 }
             }
             catch (Exception ex)
@@ -218,6 +222,10 @@ namespace KhimTools.RebarTool.Core
                             list.Add(dowel);
                             report?.AddSuccess(1);
                         }
+                        else
+                        {
+                            ReportCreationFailure(report, profile.FoundationElement, "Thép chờ cổ cột");
+                        }
                     }
                 }
             }
@@ -270,6 +278,10 @@ namespace KhimTools.RebarTool.Core
                         list.Add(stirrup);
                         report?.AddSuccess(1);
                     }
+                    else
+                    {
+                        ReportCreationFailure(report, profile.FoundationElement, "Đai thép chờ cổ cột");
+                    }
                 }
             }
             catch (Exception ex)
@@ -308,6 +320,49 @@ namespace KhimTools.RebarTool.Core
                         list.Add(uBarYMin);
                         report?.AddSuccess(1);
                     }
+                    else ReportCreationFailure(report, profile.FoundationElement, "U-bar mép Y-Min");
+
+                    XYZ q1 = new XYZ(x, bb.Max.Y - coverFeet - uLegLen, zTop);
+                    XYZ q2 = new XYZ(x, bb.Max.Y - coverFeet, zTop);
+                    XYZ q3 = new XYZ(x, bb.Max.Y - coverFeet, zBot);
+                    XYZ q4 = new XYZ(x, bb.Max.Y - coverFeet - uLegLen, zBot);
+                    var curvesYMax = new List<Curve> { Line.CreateBound(q1, q2), Line.CreateBound(q2, q3), Line.CreateBound(q3, q4) };
+                    Rebar uBarYMax = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisX, curvesYMax, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                    if (uBarYMax != null)
+                    {
+                        list.Add(uBarYMax);
+                        report?.AddSuccess(1);
+                    }
+                    else ReportCreationFailure(report, profile.FoundationElement, "U-bar mép Y-Max");
+                }
+
+                for (double y = bb.Min.Y + coverFeet + spacingFeet; y < bb.Max.Y - coverFeet - spacingFeet / 2.0; y += spacingFeet)
+                {
+                    XYZ p1 = new XYZ(bb.Min.X + coverFeet + uLegLen, y, zTop);
+                    XYZ p2 = new XYZ(bb.Min.X + coverFeet, y, zTop);
+                    XYZ p3 = new XYZ(bb.Min.X + coverFeet, y, zBot);
+                    XYZ p4 = new XYZ(bb.Min.X + coverFeet + uLegLen, y, zBot);
+                    var curvesXMin = new List<Curve> { Line.CreateBound(p1, p2), Line.CreateBound(p2, p3), Line.CreateBound(p3, p4) };
+                    Rebar uBarXMin = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisY, curvesXMin, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                    if (uBarXMin != null)
+                    {
+                        list.Add(uBarXMin);
+                        report?.AddSuccess(1);
+                    }
+                    else ReportCreationFailure(report, profile.FoundationElement, "U-bar mép X-Min");
+
+                    XYZ q1 = new XYZ(bb.Max.X - coverFeet - uLegLen, y, zTop);
+                    XYZ q2 = new XYZ(bb.Max.X - coverFeet, y, zTop);
+                    XYZ q3 = new XYZ(bb.Max.X - coverFeet, y, zBot);
+                    XYZ q4 = new XYZ(bb.Max.X - coverFeet - uLegLen, y, zBot);
+                    var curvesXMax = new List<Curve> { Line.CreateBound(q1, q2), Line.CreateBound(q2, q3), Line.CreateBound(q3, q4) };
+                    Rebar uBarXMax = RebarShapeCreationHelper.CreateFromCurvesSafe(_doc, RebarStyle.Standard, barType, null, null, profile.FoundationElement, XYZ.BasisY, curvesXMax, RebarHookOrientation.Left, RebarHookOrientation.Right);
+                    if (uBarXMax != null)
+                    {
+                        list.Add(uBarXMax);
+                        report?.AddSuccess(1);
+                    }
+                    else ReportCreationFailure(report, profile.FoundationElement, "U-bar mép X-Max");
                 }
             }
             catch (Exception ex)
@@ -323,13 +378,28 @@ namespace KhimTools.RebarTool.Core
             if (string.IsNullOrWhiteSpace(diaLabel)) return list.FirstOrDefault();
             string search = diaLabel.Replace("d", "").Replace("Φ", "").Replace("ϕ", "").Trim();
 
+            RebarBarType exactName = list.FirstOrDefault(bt =>
+                string.Equals(bt.Name, diaLabel.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (exactName != null) return exactName;
+
+            double target;
+            bool hasTarget = double.TryParse(search, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out target)
+                || double.TryParse(search, out target);
+
             foreach (var bt in list)
             {
-                if (bt.Name.Contains(search)) return bt;
                 double diaMm = UnitUtils.ConvertFromInternalUnits(bt.BarModelDiameter, UnitTypeId.Millimeters);
-                if (Math.Abs(diaMm - double.Parse(search)) < 1.0) return bt;
+                if (hasTarget && Math.Abs(diaMm - target) < 0.5) return bt;
             }
             return list.FirstOrDefault();
+        }
+
+        private static void ReportCreationFailure(RebarGenerationReport report, Element host, string groupName)
+        {
+            if (report == null) return;
+            report.AddError(host, groupName, new InvalidOperationException(
+                RebarShapeCreationHelper.LastFailureReason ?? "Revit không tạo được thanh thép."));
         }
     }
 }

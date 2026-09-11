@@ -109,7 +109,6 @@ namespace KhimTools.SlabJoin.Forms
             {
                 Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
-                SplitterDistance = 490,
                 Panel1MinSize = 350,
                 Panel2MinSize = 250,
                 BackColor = Color.FromArgb(230, 230, 235)
@@ -148,7 +147,7 @@ namespace KhimTools.SlabJoin.Forms
             templateLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
 
             _txtTemplateName = new TextBox { Text = "My Template", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F) };
-            _btnSaveTemplate = new Button { Text = "💾 Save Template", Dock = DockStyle.Fill, Height = 28, BackColor = Color.FromArgb(30, 40, 60), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _btnSaveTemplate = new Button { Text = "Save template", Dock = DockStyle.Fill, Height = 28, BackColor = Color.FromArgb(30, 40, 60), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _btnSaveTemplate.FlatAppearance.BorderSize = 0;
             _btnSaveTemplate.Click += BtnSaveTemplate_Click;
 
@@ -198,6 +197,28 @@ namespace KhimTools.SlabJoin.Forms
 
             Controls.Add(splitContainer);
             splitContainer.BringToFront();
+            splitContainer.HandleCreated += (s, e) => SetSplitterDistanceSafely(splitContainer, 490);
+            splitContainer.SizeChanged += (s, e) => SetSplitterDistanceSafely(splitContainer, splitContainer.SplitterDistance);
+        }
+
+        private static void SetSplitterDistanceSafely(SplitContainer splitContainer, int preferredDistance)
+        {
+            if (splitContainer == null || splitContainer.Width <= 0)
+            {
+                return;
+            }
+
+            int maxDistance = splitContainer.Width - splitContainer.SplitterWidth - splitContainer.Panel2MinSize;
+            if (maxDistance < splitContainer.Panel1MinSize)
+            {
+                return;
+            }
+
+            int safeDistance = Math.Max(splitContainer.Panel1MinSize, Math.Min(preferredDistance, maxDistance));
+            if (splitContainer.SplitterDistance != safeDistance)
+            {
+                splitContainer.SplitterDistance = safeDistance;
+            }
         }
 
         // ─── ACTION BUTTON FACTORY ──────────────────────────────────────

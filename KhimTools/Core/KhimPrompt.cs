@@ -1,5 +1,7 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
+using KhimTools.Core.UI;
 
 namespace KhimTools.Core
 {
@@ -7,26 +9,57 @@ namespace KhimTools.Core
     {
         public static string ShowDialog(string text, string caption, string defaultValue = "")
         {
-            using (var prompt = new Form())
+            using (var prompt = new KTBaseForm())
             {
-                prompt.Width = 380;
-                prompt.Height = 150;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.Text = caption;
+                prompt.Width = 430;
+                prompt.Height = 210;
+                prompt.MinimumSize = new Size(360, 200);
                 prompt.StartPosition = FormStartPosition.CenterParent;
                 prompt.MaximizeBox = false;
                 prompt.MinimizeBox = false;
+                prompt.SetFormTitle(caption, text);
 
-                var textLabel = new Label { Left = 16, Top = 16, Text = text, Width = 330 };
-                var textBox = new TextBox { Left = 16, Top = 40, Width = 330, Text = defaultValue };
-                
-                var confirmation = new Button { Text = "OK", Left = 160, Width = 85, Height = 28, Top = 72, DialogResult = DialogResult.OK, FlatStyle = FlatStyle.System };
-                var cancel = new Button { Text = "Cancel", Left = 255, Width = 85, Height = 28, Top = 72, DialogResult = DialogResult.Cancel, FlatStyle = FlatStyle.System };
+                var body = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    Padding = new Padding(16, 14, 16, 14),
+                    ColumnCount = 1,
+                    RowCount = 3,
+                    BackColor = KhimUiStyle.FormBg
+                };
+                body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+                body.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
-                prompt.Controls.Add(textLabel);
-                prompt.Controls.Add(textBox);
-                prompt.Controls.Add(confirmation);
-                prompt.Controls.Add(cancel);
+                var textLabel = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Text = text,
+                    AutoSize = true,
+                    ForeColor = KhimUiStyle.TextSecondary,
+                    Margin = new Padding(0, 0, 0, 8)
+                };
+                var textBox = new TextBox { Dock = DockStyle.Top, Text = defaultValue, Margin = new Padding(0) };
+
+                var actions = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    FlowDirection = FlowDirection.RightToLeft,
+                    WrapContents = false,
+                    Padding = new Padding(0, 6, 0, 0)
+                };
+                var confirmation = new Button { Text = "OK", Width = 96, DialogResult = DialogResult.OK };
+                var cancel = new Button { Text = "Hủy", Width = 96, DialogResult = DialogResult.Cancel };
+                KhimUiStyle.ApplyPrimaryButton(confirmation);
+                KhimUiStyle.ApplySecondaryButton(cancel);
+                actions.Controls.Add(confirmation);
+                actions.Controls.Add(cancel);
+
+                body.Controls.Add(textLabel, 0, 0);
+                body.Controls.Add(textBox, 0, 1);
+                body.Controls.Add(actions, 0, 2);
+                prompt.Controls.Add(body);
+                body.BringToFront();
 
                 prompt.AcceptButton = confirmation;
                 prompt.CancelButton = cancel;

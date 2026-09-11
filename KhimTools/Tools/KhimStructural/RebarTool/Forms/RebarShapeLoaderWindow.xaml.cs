@@ -195,6 +195,7 @@ namespace KhimTools.RebarTool.Forms
         {
             _doc = doc;
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             LoadData();
         }
 
@@ -317,7 +318,7 @@ namespace KhimTools.RebarTool.Forms
             int alreadyLoaded = 0;
             int failed = 0;
 
-            PrgProgress.Visibility = Visibility.Visible;
+            PrgProgress.Visibility = System.Windows.Visibility.Visible;
             TxtStatus.Text = "Đang nạp " + itemsToLoad.Count + " Rebar Shapes vào dự án...";
 
             try
@@ -363,7 +364,7 @@ namespace KhimTools.RebarTool.Forms
             }
             finally
             {
-                PrgProgress.Visibility = Visibility.Collapsed;
+                PrgProgress.Visibility = System.Windows.Visibility.Collapsed;
             }
         }
     }

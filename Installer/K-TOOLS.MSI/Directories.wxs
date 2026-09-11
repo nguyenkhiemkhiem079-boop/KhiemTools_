@@ -6,7 +6,7 @@
           <Directory Id="BUNDLEFOLDER" Name="KhimTools.bundle">
             <Directory Id="CONTENTSFOLDER" Name="Contents">
               
-              <!-- Legacy Revit 2020-2024 (.NET Framework 4.8) -->
+              <!-- Legacy Revit 2022-2024 (.NET Framework 4.8) -->
               <Directory Id="LEGACYFOLDER" Name="Legacy">
                 <Directory Id="LEGACYREBARFOLDER" Name="RebarShapes" />
               </Directory>

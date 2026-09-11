@@ -155,8 +155,8 @@ if ($pUpgrade270.ExitCode -eq 0 -and $prod270.Count -eq 1 -and $verAfter270 -eq 
     Write-Host "  REAL UPGRADE Result: FAIL" -ForegroundColor Red
 }
 
-# --- STEP 6: VERIFY INSTALLED BUNDLE, PACKAGE CONTENTS & REVIT 2020-2028 MANIFEST ---
-Write-Host "`n[Runtime 06/10] Verifying Installed Bundle Structure & Revit 2020-2028 Manifest..." -ForegroundColor Cyan
+# --- STEP 6: VERIFY INSTALLED BUNDLE, PACKAGE CONTENTS & REVIT 2022-2028 MANIFEST ---
+Write-Host "`n[Runtime 06/10] Verifying Installed Bundle Structure & Revit 2022-2028 Manifest..." -ForegroundColor Cyan
 $bundleExists = Test-Path $bundleDir
 $pkgXmlExists = Test-Path $pkgXmlPath
 $manifestValid = $false
@@ -164,19 +164,19 @@ $manifestValid = $false
 if ($pkgXmlExists) {
     [xml]$doc = Get-Content $pkgXmlPath
     $entries = $doc.ApplicationPackage.Components.ComponentEntry
-    $years2020_2028 = @()
+    $years2022_2028 = @()
     foreach ($entry in $entries) {
         $parent = $entry.ParentNode
         # Check child RuntimeRequirements
         $req = $entry.PreviousSibling
         if ($req -and $req.LocalName -eq "RuntimeRequirements") {
-            $years2020_2028 += $req.SeriesMin
+            $years2022_2028 += $req.SeriesMin
         }
     }
     $manifestValid = ($entries.Count -eq 9)
     Write-Host "  Bundle directory exists (%ProgramData%): $bundleExists" -ForegroundColor Green
     Write-Host "  PackageContents.xml installed: $pkgXmlExists" -ForegroundColor Green
-    Write-Host "  Manifest Revit component entries: $($entries.Count) (Revit 2020 through 2028)" -ForegroundColor Green
+    Write-Host "  Manifest Revit component entries: $($entries.Count) (Revit 2022 through 2028)" -ForegroundColor Green
 }
 
 # --- STEP 7: REAL REPAIR (msiexec /fa) ---

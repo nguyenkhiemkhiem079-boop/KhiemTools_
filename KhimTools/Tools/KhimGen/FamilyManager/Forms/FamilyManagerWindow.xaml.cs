@@ -20,6 +20,7 @@ namespace KhimTools.FamilyManager.Forms
         {
             _doc = doc;
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             LoadData();
         }
 

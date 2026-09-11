@@ -10,10 +10,7 @@
       FontFamily="Segoe UI">
 
     <Page.Resources>
-        <LinearGradientBrush x:Key="BrandGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#1E40AF" Offset="0"/>
-            <GradientStop Color="#3B82F6" Offset="1"/>
-        </LinearGradientBrush>
+        <SolidColorBrush x:Key="BrandGradient" Color="#172033"/>
 
         <!-- Quick Action Card Style -->
         <Style x:Key="ActionCardButton" TargetType="Button">
@@ -21,7 +18,9 @@
             <Setter Property="BorderBrush" Value="#E2E8F0"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Cursor" Value="Hand"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -29,17 +28,14 @@
                                 Background="{TemplateBinding Background}" 
                                 BorderBrush="{TemplateBinding BorderBrush}" 
                                 BorderThickness="{TemplateBinding BorderThickness}" 
-                                CornerRadius="10" 
-                                Padding="12,10">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="4" Direction="270" ShadowDepth="1" Opacity="0.05" Color="#000000"/>
-                            </Border.Effect>
+                                CornerRadius="4"
+                                Padding="10,9">
                             <ContentPresenter/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="cardBorder" Property="Background" Value="#F1F5F9"/>
-                                <Setter TargetName="cardBorder" Property="BorderBrush" Value="#93C5FD"/>
+                                <Setter TargetName="cardBorder" Property="Background" Value="#F8FAFC"/>
+                                <Setter TargetName="cardBorder" Property="BorderBrush" Value="#2563EB"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="cardBorder" Property="Background" Value="#E2E8F0"/>
@@ -53,10 +49,10 @@
 
     <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="12,14,12,20">
+            <StackPanel Margin="10,10,10,16">
 
                 <!-- 1. HEADER & BRANDING -->
-                <Border Background="{StaticResource BrandGradient}" CornerRadius="12" Padding="14,12" Margin="0,0,0,14">
+                <Border Background="{StaticResource BrandGradient}" CornerRadius="4" Padding="12,10" Margin="0,0,0,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
@@ -64,14 +60,14 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <Border Grid.Column="0" Width="36" Height="36" CornerRadius="8" Background="White">
-                            <TextBlock Text="K" FontSize="20" FontWeight="Bold" Foreground="#1E40AF" 
+                        <Border Grid.Column="0" Width="34" Height="34" CornerRadius="3" Background="#2563EB">
+                            <TextBlock Text="K" FontSize="18" FontWeight="Bold" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
 
                         <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
-                            <TextBlock Text="KHIM WORKSPACE" FontSize="13" FontWeight="Bold" Foreground="White"/>
-                            <TextBlock Text="BIM Engineering Suite" FontSize="11" Foreground="#BFDBFE"/>
+                            <TextBlock Text="K-TOOLS" FontSize="14" FontWeight="SemiBold" Foreground="White"/>
+                            <TextBlock Text="Workspace" FontSize="11" Foreground="#CBD5E1"/>
                         </StackPanel>
 
                         <Button Grid.Column="2" Command="{Binding CheckUpdateCommand}" 
@@ -79,8 +75,8 @@
                                 Cursor="Hand" Padding="6,4">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border Background="#1D4ED8" CornerRadius="6" Padding="6,3">
-                                        <TextBlock Text="v2.0" Foreground="White" FontSize="11" FontWeight="Bold"/>
+                                    <Border Background="#263247" CornerRadius="3" Padding="7,4">
+                                        <TextBlock Text="UPDATE" Foreground="#BFDBFE" FontSize="9" FontWeight="SemiBold"/>
                                     </Border>
                                 </ControlTemplate>
                             </Button.Template>
@@ -89,7 +85,7 @@
                 </Border>
 
                 <!-- 2. REBAR WORKFLOW SECTION -->
-                <TextBlock Text="THIẾT KẾ CỐT THÉP (REBAR)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,0,0,6"/>
+                <TextBlock Text="KẾT CẤU / CỐT THÉP" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="2,0,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunColumnRebarCommand}">
                     <Grid>
@@ -98,7 +94,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🏛" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="C" FontSize="12" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Column Rebar 2.0" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Bố trí thép Cột Vuông, Tròn &amp; Xuất bản vẽ" FontSize="11" Foreground="#64748B"/>
@@ -114,7 +110,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🏗" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="B" FontSize="12" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Beam Rebar 2.0" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Thép dầm liên tục TCVN / Eurocode" FontSize="11" Foreground="#64748B"/>
@@ -130,7 +126,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🔲" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="S" FontSize="12" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Slab Rebar" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Thép sàn 2 lớp, thép mũ &amp; gia cường" FontSize="11" Foreground="#64748B"/>
@@ -146,7 +142,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🧱" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="F" FontSize="12" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Foundation Rebar" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Thép đài móng, móng đơn &amp; râu chờ" FontSize="11" Foreground="#64748B"/>
@@ -156,7 +152,7 @@
                 </Button>
 
                 <!-- 3. GEOMETRY SECTION -->
-                <TextBlock Text="HÌNH HỌC &amp; JOIN (GEOMETRY)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+                <TextBlock Text="HÌNH HỌC" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="2,10,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunJoinElementsCommand}">
                     <Grid>
@@ -165,7 +161,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🔗" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="J" FontSize="12" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Join Elements Manager" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Join / Unjoin / Switch đa năng đa Category" FontSize="11" Foreground="#64748B"/>
@@ -175,7 +171,7 @@
                 </Button>
 
                 <!-- 4. ARCHITECTURAL SECTION -->
-                <TextBlock Text="KIẾN TRÚC (ARCHITECTURAL)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+                <TextBlock Text="KIẾN TRÚC" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="2,10,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunRoom3DViewCommand}">
                     <Grid>
@@ -184,7 +180,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🏢" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="3D" FontSize="11" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Room 3D View Generator" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Tự động tạo 3D Section Box cô lập theo phòng" FontSize="11" Foreground="#64748B"/>
@@ -200,7 +196,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🏠" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="RF" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Room Finishes" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Lát sàn &amp; ốp chân tường theo biên dạng phòng" FontSize="11" Foreground="#64748B"/>
@@ -210,7 +206,7 @@
                 </Button>
 
                 <!-- 5. MEP ENGINEERING SECTION -->
-                <TextBlock Text="CƠ ĐIỆN (MEP ENGINEERING)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+                <TextBlock Text="CƠ ĐIỆN" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="2,10,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunMepOpeningsCommand}">
                     <Grid>
@@ -219,7 +215,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🕳" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="OP" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="MEP Openings" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Quét va chạm và tự động đục lỗ mở dầm/sàn/vách" FontSize="11" Foreground="#64748B"/>
@@ -235,7 +231,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🏷" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="EL" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="MEP Elevation Tags" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Gán Tag cao độ đáy BOP / Invert cho ống gió &amp; ống nước" FontSize="11" Foreground="#64748B"/>
@@ -245,7 +241,7 @@
                 </Button>
 
                 <!-- 6. DOCUMENTATION SECTION -->
-                <TextBlock Text="TRIỂN KHAI BẢN VẼ (DOCUMENTATION)" FontSize="11" FontWeight="Bold" Foreground="#64748B" Margin="2,10,0,6"/>
+                <TextBlock Text="TRIỂN KHAI BẢN VẼ" FontSize="10" FontWeight="SemiBold" Foreground="#64748B" Margin="2,10,0,6"/>
 
                 <Button Style="{StaticResource ActionCardButton}" Command="{Binding RunSectionCutCommand}">
                     <Grid>
@@ -254,7 +250,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="✂" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="SC" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Smart Section Cut" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Tự động cắt Section dọc/ngang cấu kiện" FontSize="11" Foreground="#64748B"/>
@@ -270,7 +266,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="📐" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="AV" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Align Viewports" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Căn chỉnh vị trí khung nhìn chuẩn xác" FontSize="11" Foreground="#64748B"/>
@@ -286,7 +282,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🔢" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="DN" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Update Detail Numbers" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="Đồng bộ số hiệu chi tiết từ tên View" FontSize="11" Foreground="#64748B"/>
@@ -302,7 +298,7 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="🖨" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Grid.Column="0" Text="EX" FontSize="10" FontWeight="Bold" Foreground="#2563EB" VerticalAlignment="Center" Margin="0,0,10,0"/>
                         <StackPanel Grid.Column="1">
                             <TextBlock Text="Sheet Exporter Pro" FontSize="13" FontWeight="SemiBold" Foreground="#1E293B"/>
                             <TextBlock Text="In PDF/DWG hàng loạt &amp; Quản lý Issue" FontSize="11" Foreground="#64748B"/>
@@ -312,7 +308,7 @@
                 </Button>
 
                 <!-- 5. FOOTER STATUS BAR -->
-                <Border Background="#E2E8F0" CornerRadius="8" Padding="10,6" Margin="0,10,0,0">
+                <Border Background="#EEF2F7" CornerRadius="3" Padding="10,7" Margin="0,10,0,0">
                     <TextBlock Text="{Binding StatusMessage}" FontSize="11" Foreground="#475569" TextTrimming="CharacterEllipsis"/>
                 </Border>
 

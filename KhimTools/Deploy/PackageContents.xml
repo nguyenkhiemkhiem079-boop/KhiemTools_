@@ -9,15 +9,7 @@
   <CompanyDetails Name="K-TOOLS" />
   <RuntimeRequirements OS="Win64" Platform="Revit" />
 
-  <!-- Revit 2020 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
-  <Components Description="K-TOOLS for Revit 2020">
-    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2020" SeriesMax="R2020" />
-    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2020" />
-  </Components>
-  <Components Description="K-TOOLS for Revit 2021">
-    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2021" SeriesMax="R2021" />
-    <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2021" />
-  </Components>
+  <!-- Revit 2022 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
   <Components Description="K-TOOLS for Revit 2022">
     <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2022" SeriesMax="R2022" />
     <ComponentEntry AppName="K-TOOLS" ModuleName="./Contents/Legacy/KhimTools.addin" AppDescription="K-TOOLS for Revit 2022" />

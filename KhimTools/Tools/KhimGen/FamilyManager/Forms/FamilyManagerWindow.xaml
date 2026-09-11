@@ -67,7 +67,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="📦 K-TOOLS FAMILY MANAGER" Foreground="White" FontSize="15" FontWeight="Bold"/>
+                    <TextBlock Text="K-TOOLS FAMILY MANAGER" Foreground="White" FontSize="15" FontWeight="Bold"/>
                     <TextBlock Text="Quản lý, nạp và đồng bộ thư viện Family chuẩn vào dự án Revit" Foreground="#94A3B8" FontSize="12" Margin="0,3,0,0"/>
                 </StackPanel>
                 <Border Grid.Column="1" Background="#334155" CornerRadius="6" Padding="10,5" VerticalAlignment="Center">
@@ -97,7 +97,7 @@
                           SelectionChanged="CboCategory_SelectionChanged" />
 
                 <!-- Refresh Button -->
-                <Button x:Name="BtnRefresh" Grid.Column="2" Content="🔄 Làm mới" Style="{StaticResource SecondaryButton}" 
+                <Button x:Name="BtnRefresh" Grid.Column="2" Content="Làm mới" Style="{StaticResource SecondaryButton}"
                         Click="BtnRefresh_Click" />
             </Grid>
         </Border>
@@ -160,12 +160,12 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button x:Name="BtnOpenFolder" Content="📁 Mở Thư Mục" Style="{StaticResource SecondaryButton}" 
+                    <Button x:Name="BtnOpenFolder" Content="Mở thư mục" Style="{StaticResource SecondaryButton}"
                             Margin="0,0,8,0" Click="BtnOpenFolder_Click"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
-                    <Button x:Name="BtnReload" Content="🔄 Nạp Lại &amp; Ghi Đè" Style="{StaticResource SecondaryButton}" 
+                    <Button x:Name="BtnReload" Content="Nạp lại &amp; ghi đè" Style="{StaticResource SecondaryButton}"
                             Margin="0,0,8,0" Click="BtnReload_Click"/>
                     <Button x:Name="BtnLoad" Content="📥 Nạp Vào Dự Án" Style="{StaticResource ModernButton}" 
                             Margin="0,0,8,0" Click="BtnLoad_Click"/>

@@ -17,6 +17,7 @@ namespace KhimTools.Tools.Updater.Views
         public UpdaterWindow(UpdateInfo updateInfo, UpdateService updateService)
         {
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             _updateInfo = updateInfo ?? new UpdateInfo();
             _updateService = updateService ?? new UpdateService();
 

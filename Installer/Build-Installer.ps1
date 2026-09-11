@@ -43,13 +43,13 @@ $legacyDll = Join-Path $projectRoot "KhimTools\bin\$Configuration\net48\KhimTool
 $modernDll = Join-Path $projectRoot "KhimTools\bin\$Configuration\net8.0-windows\KhimTools.dll"
 
 if (-not (Test-Path $legacyDll)) {
-    Write-Warning "Legacy assembly not found at: $legacyDll"
+    throw "Legacy assembly not found at: $legacyDll"
 } else {
     Write-Host "  Found Legacy assembly: $legacyDll" -ForegroundColor Green
 }
 
 if (-not (Test-Path $modernDll)) {
-    Write-Warning "Modern assembly not found at: $modernDll"
+    throw "Modern assembly not found at: $modernDll"
 } else {
     Write-Host "  Found Modern assembly: $modernDll" -ForegroundColor Green
 }

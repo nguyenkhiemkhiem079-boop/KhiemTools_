@@ -17,6 +17,7 @@
     <FileVersion>2.7.0.0</FileVersion>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
@@ -50,8 +51,8 @@
 
   <!-- Fallback sang NuGet package Nice3point cho net8.0-windows -->
   <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows' and !Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
-    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
-    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
 
   <!-- Loai tru App va IconGen khoi KhimTools Revit plugin dll -->
@@ -63,6 +64,7 @@
     <Compile Remove="Tools\IconGen\**" />
     <Page Remove="Tools\IconGen\**" />
     <None Remove="Tools\IconGen\**" />
+    <Compile Remove="Tests\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">

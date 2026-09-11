@@ -58,6 +58,8 @@ namespace KhimTools.RebarTool.Core
 
             double diaBotX = botXType?.BarModelDiameter ?? ToFeet(10);
             double diaBotY = botYType?.BarModelDiameter ?? ToFeet(10);
+            double diaTopX = topMeshXType?.BarModelDiameter ?? ToFeet(10);
+            double diaTopY = topMeshYType?.BarModelDiameter ?? ToFeet(10);
             double diaHatX = hatXType?.BarModelDiameter ?? ToFeet(10);
             double diaHatY = hatYType?.BarModelDiameter ?? ToFeet(10);
 
@@ -67,10 +69,10 @@ namespace KhimTools.RebarTool.Core
             double zBotX = cfg.BottomLayer.InvertLayer ? zBot2 : zBot1;
             double zBotY = cfg.BottomLayer.InvertLayer ? zBot1 : zBot2;
 
-            double zTop1 = bb.Max.Z - coverTop - diaHatX / 2.0;
-            double zTop2 = zTop1 - diaHatX / 2.0 - diaHatY / 2.0;
-            double zHatX = zTop1;
-            double zHatY = zTop2;
+            double zTopX = bb.Max.Z - coverTop - diaTopX / 2.0;
+            double zTopY = zTopX - diaTopX / 2.0 - diaTopY / 2.0;
+            double zHatX = bb.Max.Z - coverTop - diaHatX / 2.0;
+            double zHatY = zHatX - diaHatX / 2.0 - diaHatY / 2.0;
 
             // Tính BoundingBox thực tế từ ranh giới ô sàn (Boundary Polygon)
             double bMinX = double.MaxValue, bMaxX = double.MinValue;
@@ -95,7 +97,7 @@ namespace KhimTools.RebarTool.Core
 
             double beamAnchorFeet = ToFeet(cfg.Anchors.BeamAnchorAMm);
             double slabAnchorFeet = ToFeet(cfg.Anchors.SlabAnchorBMm);
-            double coverOffset = ToFeet(25);
+            double coverOffset = Math.Max(coverTop, coverBot);
 
             // ── 1. BOTTOM LAYER (LƯỚI ĐÁY) ──────────────────────────────────
             if (cfg.BottomLayer.Enabled)
@@ -121,14 +123,14 @@ namespace KhimTools.RebarTool.Core
             if (cfg.TopLayer.Enabled)
             {
                 var topX = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshXType,
-                    bMinY + coverOffset, bMaxY - coverOffset, zTop1,
+                    bMinY + coverOffset, bMaxY - coverOffset, zTopX,
                     isXDirection: true, cfg.TopLayer.SpacingXMm,
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Lưới trên full X");
                 createdRebars.AddRange(topX);
 
                 var topY = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshYType,
-                    bMinX + coverOffset, bMaxX - coverOffset, zTop2,
+                    bMinX + coverOffset, bMaxX - coverOffset, zTopY,
                     isXDirection: false, cfg.TopLayer.SpacingYMm,
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Lưới trên full Y");
@@ -228,7 +230,8 @@ namespace KhimTools.RebarTool.Core
             if (panel.Openings != null && panel.Openings.Any())
             {
                 RebarBarType trimType = botXType ?? topMeshXType ?? barTypes.FirstOrDefault();
-                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, zBot1, zTop1, report);
+                double zOpeningTop = cfg.TopLayer.Enabled ? zTopX : zHatX;
+                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, zBot1, zOpeningTop, report);
                 createdRebars.AddRange(trimmers);
             }
 
@@ -286,7 +289,7 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 double spacingFeet = UnitUtils.ConvertToInternalUnits(spacingMm, UnitTypeId.Millimeters);
-                double coverFeet = ToFeet(25);
+                double coverFeet = RebarCoverHelper.GetFloorCover(floor, RebarFace.Exterior);
                 XYZ normal = isXDirection ? XYZ.BasisY : XYZ.BasisX;
 
                 for (double perp = startPerp; perp <= endPerp; perp += spacingFeet)
@@ -309,6 +312,10 @@ namespace KhimTools.RebarTool.Core
                         {
                             list.Add(rebar);
                             report?.AddSuccess(1);
+                        }
+                        else
+                        {
+                            ReportCreationFailure(report, floor, groupName);
                         }
                     }
                 }
@@ -394,6 +401,10 @@ namespace KhimTools.RebarTool.Core
                     list.Add(rebar);
                     report?.AddSuccess(1);
                 }
+                else
+                {
+                    ReportCreationFailure(report, floor, desc);
+                }
             }
             catch (Exception ex)
             {
@@ -478,6 +489,10 @@ namespace KhimTools.RebarTool.Core
                             list.Add(chair);
                             report?.AddSuccess(1);
                         }
+                        else
+                        {
+                            ReportCreationFailure(report, floor, $"{panelId} - Con kê");
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -502,15 +517,30 @@ namespace KhimTools.RebarTool.Core
             if (string.IsNullOrWhiteSpace(diaLabel)) return list.FirstOrDefault();
             string search = diaLabel.Replace("d", "").Replace("Φ", "").Replace("ϕ", "").Trim();
 
+            RebarBarType exactName = list.FirstOrDefault(bt =>
+                string.Equals(bt.Name, diaLabel.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (exactName != null) return exactName;
+
+            double target;
+            bool hasTarget = double.TryParse(search, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out target)
+                || double.TryParse(search, out target);
+
             foreach (var bt in list)
             {
-                if (bt.Name.Contains(search)) return bt;
                 double diaMm = UnitUtils.ConvertFromInternalUnits(bt.BarModelDiameter, UnitTypeId.Millimeters);
-                if (double.TryParse(search, out double target) && Math.Abs(diaMm - target) < 1.0) return bt;
+                if (hasTarget && Math.Abs(diaMm - target) < 0.5) return bt;
             }
             return list.FirstOrDefault();
         }
 
         private static double ToFeet(double mm) => UnitUtils.ConvertToInternalUnits(mm, UnitTypeId.Millimeters);
+
+        private static void ReportCreationFailure(RebarGenerationReport report, Element host, string groupName)
+        {
+            if (report == null) return;
+            report.AddError(host, groupName, new InvalidOperationException(
+                RebarShapeCreationHelper.LastFailureReason ?? "Revit không tạo được thanh thép."));
+        }
     }
 }

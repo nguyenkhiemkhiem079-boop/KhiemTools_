@@ -18,6 +18,7 @@ namespace KhimTools.SectionBox.Forms
         public SectionBoxWindow(UIDocument uidoc)
         {
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             _uidoc = uidoc;
             _doc = uidoc.Document;
 

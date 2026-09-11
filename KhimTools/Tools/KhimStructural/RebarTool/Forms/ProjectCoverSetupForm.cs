@@ -19,7 +19,6 @@ using Label = System.Windows.Forms.Label;
 using CheckBox = System.Windows.Forms.CheckBox;
 
 using KhimTools.Core;
-using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Forms
 {

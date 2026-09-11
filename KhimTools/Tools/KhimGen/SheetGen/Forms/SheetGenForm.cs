@@ -217,7 +217,7 @@ namespace KhimTools.SheetGen.Forms
 
             var btnPresetArch = new Button
             {
-                Text = "🏛️ Kiến Trúc (Arch)",
+                Text = "Kiến Trúc (Arch)",
                 Location = new Point(328, 8),
                 Size = new Size(140, 28),
                 BackColor = System.Drawing.Color.FromArgb(13, 148, 136),
@@ -241,7 +241,7 @@ namespace KhimTools.SheetGen.Forms
 
             var btnAddSeriesRow = new Button
             {
-                Text = "➕ Thêm Series",
+                Text = "Thêm series",
                 Location = new Point(620, 8),
                 Size = new Size(110, 28),
                 BackColor = System.Drawing.Color.FromArgb(100, 116, 139),
@@ -316,7 +316,7 @@ namespace KhimTools.SheetGen.Forms
 
             var btnAddRow = new Button
             {
-                Text = "➕ Thêm 1 Sheet Rời",
+                Text = "Thêm 1 sheet rời",
                 Location = new Point(10, 6),
                 Size = new Size(130, 28),
                 BackColor = System.Drawing.Color.FromArgb(100, 116, 139),
@@ -328,7 +328,7 @@ namespace KhimTools.SheetGen.Forms
 
             var btnDeleteRow = new Button
             {
-                Text = "🗑️ Xóa Sheet Đang Chọn",
+                Text = "Xóa sheet đang chọn",
                 Location = new Point(150, 6),
                 Size = new Size(160, 28),
                 BackColor = System.Drawing.Color.FromArgb(239, 68, 68),

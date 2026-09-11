@@ -77,11 +77,11 @@ try {
     [xml]$pkgXml = Get-Content $pkgXmlPath -Raw
     $components = $pkgXml.ApplicationPackage.Components
 
-    if ($components.Count -lt 8) {
-        throw "Expected at least 8 component entries for Revit 2020-2027+, found $($components.Count)"
+    if ($components.Count -lt 7) {
+        throw "Expected at least 7 component entries for Revit 2022-2028, found $($components.Count)"
     }
 
-    $legacySeries = @("R2020", "R2021", "R2022", "R2023", "R2024")
+    $legacySeries = @("R2022", "R2023", "R2024")
     $modernSeries = @("R2025", "R2026", "R2027", "R2028")
 
     foreach ($s in $legacySeries) {
@@ -100,7 +100,7 @@ try {
         }
     }
 
-    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) components spanning Revit 2020-2028+"
+    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) components spanning Revit 2022-2028"
 } catch {
     Report-Fail "Audit 02: PackageContents.xml Matrix" $_.Exception.Message
 }

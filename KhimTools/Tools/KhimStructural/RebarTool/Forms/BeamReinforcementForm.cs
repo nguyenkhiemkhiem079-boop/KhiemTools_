@@ -147,8 +147,6 @@ namespace KhimTools.RebarTool.Forms
         private Panel _pnlElevationCanvas;
 
         // ── Footer Buttons ──
-        private Button _btnToggleSection;
-        private Button _btnBack;
         private Button _btnOk;
         private Button _btnClose;
 
@@ -444,9 +442,8 @@ namespace KhimTools.RebarTool.Forms
 
             // Buttons: Add, Next, Delete, Delete All
             var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 205, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
 
             btnAdd.Click += (s, e) =>
             {
@@ -469,7 +466,7 @@ namespace KhimTools.RebarTool.Forms
             grpInfo.Controls.Add(lblAncXLeft); grpInfo.Controls.Add(_txtMainTopAnchorXLeft);
             grpInfo.Controls.Add(lblAncXRight); grpInfo.Controls.Add(_txtMainTopAnchorXRight);
             grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtMainTopPos);
-            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
 
             // Right: Diagram Image
             var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
@@ -531,9 +528,8 @@ namespace KhimTools.RebarTool.Forms
             _txtMainBotPos = new TextBox { Text = "0, 3", Left = 140, Top = 187, Width = 90, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
 
             var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 205, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
 
             btnAdd.Click += (s, e) =>
             {
@@ -556,7 +552,7 @@ namespace KhimTools.RebarTool.Forms
             grpInfo.Controls.Add(lblAncXLeft); grpInfo.Controls.Add(_txtMainBotAnchorXLeft);
             grpInfo.Controls.Add(lblAncXRight); grpInfo.Controls.Add(_txtMainBotAnchorXRight);
             grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtMainBotPos);
-            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
 
             // Right: Diagram Image
             var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
@@ -635,9 +631,8 @@ namespace KhimTools.RebarTool.Forms
             _txtAddTopPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
 
             var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 205, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
 
             btnAdd.Click += (s, e) =>
             {
@@ -665,7 +660,7 @@ namespace KhimTools.RebarTool.Forms
             grpInfo.Controls.Add(lblDRight); grpInfo.Controls.Add(_txtAddTopDRight);
             grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAddTopQty);
             grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtAddTopPos);
-            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
 
             // Right: Diagram Image
             var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
@@ -740,9 +735,8 @@ namespace KhimTools.RebarTool.Forms
             _txtAddBotPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
 
             var btnAdd = new Button { Text = "Add", Left = 15, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnNext = new Button { Text = "Next", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDelete = new Button { Text = "Delete", Left = 205, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
-            var btnDeleteAll = new Button { Text = "Delete All", Left = 300, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDelete = new Button { Text = "Delete", Left = 110, Top = 330, Width = 85, Height = 30, FlatStyle = FlatStyle.System };
+            var btnDeleteAll = new Button { Text = "Delete All", Left = 205, Top = 330, Width = 95, Height = 30, FlatStyle = FlatStyle.System };
 
             btnAdd.Click += (s, e) =>
             {
@@ -769,7 +763,7 @@ namespace KhimTools.RebarTool.Forms
             grpInfo.Controls.Add(lblTotal); grpInfo.Controls.Add(_txtAddBotTotal);
             grpInfo.Controls.Add(lblNum); grpInfo.Controls.Add(_numAddBotQty);
             grpInfo.Controls.Add(lblPos); grpInfo.Controls.Add(_txtAddBotPos);
-            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnNext); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
+            grpInfo.Controls.Add(btnAdd); grpInfo.Controls.Add(btnDelete); grpInfo.Controls.Add(btnDeleteAll);
 
             // Right: Diagram Image
             var grpImage = new GroupBox { Text = "Image", Left = 606, Top = 5, Width = 480, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
@@ -868,11 +862,6 @@ namespace KhimTools.RebarTool.Forms
             var pnlDistIcon = new Panel { Left = 180, Top = 210, Width = 150, Height = 45, BackColor = Color.FromArgb(235, 235, 235) };
             pnlDistIcon.Paint += DrawFirstStirrupDistanceIcon;
 
-            // Buttons: All Span, Renaming Span, Delete
-            var btnAllSpan = new Button { Text = "All Span", Left = 310, Top = 295, Width = 80, Height = 28, FlatStyle = FlatStyle.System };
-            var btnRename = new Button { Text = "Renaming Span", Left = 395, Top = 295, Width = 105, Height = 28, FlatStyle = FlatStyle.System };
-            var btnDelete = new Button { Text = "Delete", Left = 505, Top = 295, Width = 65, Height = 28, FlatStyle = FlatStyle.System };
-
             _txtStirrupA1Ends.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
             _txtStirrupA2Ends.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
             _txtStirrupEnd1Len.TextChanged += (s, e) => _pnlElevationCanvas?.Invalidate();
@@ -883,7 +872,6 @@ namespace KhimTools.RebarTool.Forms
             tab.Controls.Add(lbl3); tab.Controls.Add(_rbStirrup2Ends); tab.Controls.Add(pnlIconEnds); tab.Controls.Add(lblA1Ends); tab.Controls.Add(_txtStirrupA1Ends); tab.Controls.Add(lblA2Ends); tab.Controls.Add(_txtStirrupA2Ends);
             tab.Controls.Add(lbl31); tab.Controls.Add(lblEnd1); tab.Controls.Add(_txtStirrupEnd1Len); tab.Controls.Add(lblMm1); tab.Controls.Add(lblEnd2); tab.Controls.Add(_txtStirrupEnd2Len); tab.Controls.Add(lblMm2);
             tab.Controls.Add(lbl4); tab.Controls.Add(lblDist); tab.Controls.Add(_txtStirrupFirstDistance); tab.Controls.Add(lblMmDist); tab.Controls.Add(pnlDistIcon);
-            tab.Controls.Add(btnAllSpan); tab.Controls.Add(btnRename); tab.Controls.Add(btnDelete);
         }
         #endregion
 
@@ -1076,9 +1064,6 @@ namespace KhimTools.RebarTool.Forms
         {
             var pnl = new Panel { Dock = DockStyle.Bottom, Height = 48, BackColor = Color.FromArgb(245, 246, 250), Padding = new Padding(10, 8, 15, 8) };
 
-            _btnToggleSection = new Button { Text = "Toggle Section Image", Left = 680, Top = 8, Width = 150, Height = 32, FlatStyle = FlatStyle.System };
-            _btnBack = new Button { Text = "Back", Left = 840, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
-
             _btnOk = new Button
             {
                 Text = "Ok",
@@ -1097,8 +1082,6 @@ namespace KhimTools.RebarTool.Forms
             _btnClose = new Button { Text = "Close", Left = 1020, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
             _btnClose.Click += (s, e) => Close();
 
-            pnl.Controls.Add(_btnToggleSection);
-            pnl.Controls.Add(_btnBack);
             pnl.Controls.Add(_btnOk);
             pnl.Controls.Add(_btnClose);
 
@@ -1106,8 +1089,6 @@ namespace KhimTools.RebarTool.Forms
             {
                 _btnClose.Left = pnl.Width - _btnClose.Width - 15;
                 _btnOk.Left = _btnClose.Left - _btnOk.Width - 10;
-                _btnBack.Left = _btnOk.Left - _btnBack.Width - 10;
-                _btnToggleSection.Left = _btnBack.Left - _btnToggleSection.Width - 10;
             };
 
             return pnl;

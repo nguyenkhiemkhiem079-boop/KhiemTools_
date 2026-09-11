@@ -240,8 +240,12 @@ namespace KhimTools.RebarTool.Core
 
             for (int i = 0; i < inputs.Count; i++)
             {
-                if (i > 0) inputs[i].AdjacentColumnBelow = inputs[i - 1].Column;
-                if (i < inputs.Count - 1) inputs[i].AdjacentColumnAbove = inputs[i + 1].Column;
+                inputs[i].AdjacentColumnBelow = i > 0 &&
+                    RebarLapSpliceHelper.AreConsecutiveColumns(inputs[i - 1].Column, inputs[i].Column)
+                    ? inputs[i - 1].Column : null;
+                inputs[i].AdjacentColumnAbove = i < inputs.Count - 1 &&
+                    RebarLapSpliceHelper.AreConsecutiveColumns(inputs[i].Column, inputs[i + 1].Column)
+                    ? inputs[i + 1].Column : null;
 
                 created.AddRange(Generate(inputs[i], report));
             }

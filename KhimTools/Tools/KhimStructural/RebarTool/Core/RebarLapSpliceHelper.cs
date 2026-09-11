@@ -83,10 +83,10 @@ namespace KhimTools.RebarTool.Core
         /// <summary>
         /// Nhóm các cột theo trục XY (cùng vị trí mặt bằng nhưng khác tầng/Level).
         /// Các cột cùng 1 nhóm = chuỗi cột liên tầng cần xử lý nối thép.
-        /// Tolerance mặc định: 500mm (~1.64 feet) để chấp nhận lệch nhẹ giữa các tầng.
+        /// Tolerance mặc định: 50mm. Lệch lớn hơn phải được kỹ sư xác nhận thay vì tự nối nhầm trục.
         /// </summary>
         public static List<List<FamilyInstance>> GroupColumnsByAxis(
-            List<FamilyInstance> columns, Document doc, double toleranceFeet = 1.64)
+            List<FamilyInstance> columns, Document doc, double toleranceFeet = 0.164)
         {
             var groups = new List<List<FamilyInstance>>();
             var used = new HashSet<int>();
@@ -140,7 +140,8 @@ namespace KhimTools.RebarTool.Core
         /// Kiểm tra 2 cột có phải liên tầng (kế tiếp nhau theo Z).
         /// Điều kiện: đỉnh cột dưới gần chân cột trên (gap &lt; tolerance).
         /// </summary>
-        public static bool AreConsecutiveColumns(FamilyInstance lower, FamilyInstance upper, double gapToleranceFeet = 2.0)
+        public static bool AreConsecutiveColumns(FamilyInstance lower, FamilyInstance upper,
+            double gapToleranceFeet = 0.328, double axisToleranceFeet = 0.164)
         {
             var bbLower = lower.get_BoundingBox(null);
             var bbUpper = upper.get_BoundingBox(null);
@@ -149,8 +150,14 @@ namespace KhimTools.RebarTool.Core
             double topOfLower = bbLower.Max.Z;
             double bottomOfUpper = bbUpper.Min.Z;
             double gap = Math.Abs(bottomOfUpper - topOfLower);
+            double lowerX = (bbLower.Min.X + bbLower.Max.X) / 2.0;
+            double lowerY = (bbLower.Min.Y + bbLower.Max.Y) / 2.0;
+            double upperX = (bbUpper.Min.X + bbUpper.Max.X) / 2.0;
+            double upperY = (bbUpper.Min.Y + bbUpper.Max.Y) / 2.0;
+            double axisOffset = Math.Sqrt(
+                Math.Pow(upperX - lowerX, 2) + Math.Pow(upperY - lowerY, 2));
 
-            return gap <= gapToleranceFeet;
+            return gap <= gapToleranceFeet && axisOffset <= axisToleranceFeet;
         }
     }
 }

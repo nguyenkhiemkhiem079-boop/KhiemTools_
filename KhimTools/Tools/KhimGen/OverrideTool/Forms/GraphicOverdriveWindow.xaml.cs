@@ -18,6 +18,7 @@ namespace KhimTools.OverrideTool.Forms
         public GraphicOverdriveWindow(UIApplication uiApp)
         {
             InitializeComponent();
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
 
             _vm = new GraphicOverdriveViewModel(uiApp);
             DataContext = _vm;
