@@ -149,6 +149,7 @@ namespace KhimTools.RebarTool.Forms
         // ── Footer Buttons ──
         private Button _btnOk;
         private Button _btnClose;
+        private RebarFormGuard _formGuard;
 
         // Dimensions (mm)
         private double _colWidthLeft = 600;
@@ -169,6 +170,12 @@ namespace KhimTools.RebarTool.Forms
             ExtractBeamDimensions();
             InitializeLayoutCustom();
             SwitchSettingTab(0);
+            _formGuard = RebarFormGuard.Attach(this, _btnOk,
+                new RebarValidationRule(this, () => _currentBeam != null, "Chọn một dầm hợp lệ."),
+                RebarFormGuard.RequireCombo(_cmbMainTopDia, "Chọn loại thép chủ phía trên."),
+                RebarFormGuard.RequireCombo(_cmbMainBotDia, "Chọn loại thép chủ phía dưới."),
+                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
+                RebarFormGuard.RequireNumericTextBoxes(this, "Các thông số chiều dài và khoảng cách phải là số không âm."));
         }
 
         private void LoadRebarTypes()
@@ -199,7 +206,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayoutCustom()
         {
-            Text = "Beam Rebar";
+            SetFormTitle("Rebar - Dầm", "Thép chủ, thép tăng cường, đai và neo đầu dầm");
             Width = 1260;
             Height = 840;
             StartPosition = FormStartPosition.CenterScreen;

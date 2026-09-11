@@ -16,7 +16,7 @@ using Rectangle = System.Drawing.Rectangle;
 
 namespace KhimTools.RebarTool.Forms
 {
-    public class SlabEdgePickerForm : System.Windows.Forms.Form
+    public class SlabEdgePickerForm : KTBaseForm
     {
         private readonly SlabPanel _panel;
         private System.Windows.Forms.Panel _canvas;
@@ -37,20 +37,13 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayout()
         {
-            Text = $"Chọn cạnh bỏ qua — Panel {_panel.PanelId} ({_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm)";
+            SetFormTitle($"Cạnh sàn - Panel {_panel.PanelId}", $"{_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm | Thiết lập thép mũ và thép đáy");
             Width = 820;
             Height = 560;
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-
-            // 0. Header
-            var header = KhimUiStyle.CreateHeaderBanner(
-                $"Cấu Hình Từng Cạnh — Panel {_panel.PanelId}",
-                "Click chọn cạnh để Bật/Tắt Thép Mũ Gối (Skip Top Hat) hoặc Thép Đáy (Skip Bottom)",
-                "2D Interactive");
-            Controls.Add(header);
 
             // 1. Bottom
             var bottom = new System.Windows.Forms.Panel { Dock = DockStyle.Bottom, Height = 50, BackColor = Color.FromArgb(245, 245, 247) };

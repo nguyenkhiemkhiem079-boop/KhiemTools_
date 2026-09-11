@@ -134,6 +134,7 @@ namespace KhimTools.RebarTool.Forms
         private GroupBox _grpSlabBeam;
         private Label _lblDefaultHd;
         private GroupBox _grpViews;
+        private RebarFormGuard _formGuard;
 
         public RectangularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
         {
@@ -147,11 +148,18 @@ namespace KhimTools.RebarTool.Forms
             PopulateBarTypeCombos();
             LoadTemplateList();
             ApplyLanguage();
+            _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
+                RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột."),
+                RebarFormGuard.RequireCombo(_cmbMainDia, "Chọn loại thép chủ."),
+                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
+                new RebarValidationRule(_numStirrupSpacingA1,
+                    () => _numStirrupSpacingA1.Value <= _numStirrupSpacingA2.Value,
+                    "Khoảng cách đai vùng A1 phải nhỏ hơn hoặc bằng A2."));
         }
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS — Bố trí Thép Cột Vuông / Chữ Nhật";
+            SetFormTitle("Rebar - Cột chữ nhật", "Thép chủ, đai, neo và liên kết giữa các tầng");
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -161,7 +169,7 @@ namespace KhimTools.RebarTool.Forms
 
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14, Font = new Font("Segoe UI", 8.5F) };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
@@ -174,7 +182,7 @@ namespace KhimTools.RebarTool.Forms
 
             _btnCreateRebar = new Button
             {
-                Text = "Create Rebar",
+                Text = "Tạo thép",
                 Width = 130,
                 Height = 36,
                 Top = 10,
@@ -187,7 +195,7 @@ namespace KhimTools.RebarTool.Forms
 
             _btnClose = new Button
             {
-                Text = "Close",
+                Text = "Đóng",
                 Width = 90,
                 Height = 36,
                 Top = 10,

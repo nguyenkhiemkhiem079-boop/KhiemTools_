@@ -75,6 +75,7 @@ namespace KhimTools.RebarTool.Forms
         private ComboBox _cmbTemplates;
         private Button _btnSaveTemplate;
         private Button _btnLoadTemplate;
+        private RebarFormGuard _formGuard;
 
         public FoundationReinforcementForm(Document doc, List<FamilyInstance> availableFoundations)
         {
@@ -87,11 +88,21 @@ namespace KhimTools.RebarTool.Forms
             PopulateBarCombos();
             PopulateFoundationList();
             LoadTemplateList();
+            _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
+                RebarFormGuard.RequireSelection(_foundationListBox, "Chọn ít nhất một móng."),
+                RebarFormGuard.RequireCombo(_cmbBotXDia, "Chọn thép lớp dưới phương X."),
+                RebarFormGuard.RequireCombo(_cmbBotYDia, "Chọn thép lớp dưới phương Y."),
+                new RebarValidationRule(_cmbTopXDia,
+                    () => !_chkEnableTopMesh.Checked || (_cmbTopXDia.SelectedIndex >= 0 && _cmbTopYDia.SelectedIndex >= 0),
+                    "Chọn đủ loại thép lớp trên X/Y."),
+                new RebarValidationRule(_cmbDowelDia,
+                    () => !_chkEnableDowels.Checked || _cmbDowelDia.SelectedIndex >= 0,
+                    "Chọn loại thép chờ cột."));
         }
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS — Bố trí Thép Móng (Foundation Rebar v2.7.0)";
+            SetFormTitle("Rebar - Móng", "Lưới thép, thép chờ cột và cấu tạo biên");
             Width = 920;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -99,25 +110,18 @@ namespace KhimTools.RebarTool.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // Header Banner
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Foundation Reinforcement Engine",
-                "Automated Bottom/Top Meshes, Column Starter Bars & Edge Ties (TCVN 5574 & Eurocode 2/7)",
-                "v2.7.0 Pro");
-            Controls.Add(header);
-
             // Bottom Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14 };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnCreateRebar = new Button { Text = "Create Rebar", Width = 135, Height = 36, Top = 10 };
+            _btnCreateRebar = new Button { Text = "Tạo thép", Width = 135, Height = 36, Top = 10 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
 
-            _btnClose = new Button { Text = "Close", Width = 90, Height = 36, Top = 10 };
+            _btnClose = new Button { Text = "Đóng", Width = 90, Height = 36, Top = 10 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
 
             _btnCreateRebar.Click += BtnCreateRebar_Click;

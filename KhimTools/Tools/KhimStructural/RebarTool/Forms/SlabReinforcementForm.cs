@@ -96,6 +96,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnAssignData;
         private Button _btnCreateRebar;
         private Button _btnClose;
+        private RebarFormGuard _formGuard;
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
         {
@@ -113,11 +114,27 @@ namespace KhimTools.RebarTool.Forms
             _panelManager.InitializeFromFloors(_doc, initialFloors);
             RefreshGridPanels();
             LoadTemplateList();
+            _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
+                new RebarValidationRule(_gridPanels,
+                    () => _gridPanels.Rows.Count > 0,
+                    "Chọn ít nhất một panel sàn."),
+                new RebarValidationRule(_chkBotDraw,
+                    () => _chkBotDraw.Checked || _chkTopDraw.Checked || _chkHatDraw.Checked || _chkSpacerDraw.Checked,
+                    "Bật ít nhất một lớp hoặc nhóm thép cần tạo."),
+                new RebarValidationRule(_cmbBotXDia,
+                    () => !_chkBotDraw.Checked || (_cmbBotXDia.SelectedIndex >= 0 && _cmbBotYDia.SelectedIndex >= 0),
+                    "Chọn đủ thép đáy phương X/Y."),
+                new RebarValidationRule(_cmbTopXDia,
+                    () => !_chkTopDraw.Checked || (_cmbTopXDia.SelectedIndex >= 0 && _cmbTopYDia.SelectedIndex >= 0),
+                    "Chọn đủ thép trên phương X/Y."),
+                new RebarValidationRule(_cmbHatXDia,
+                    () => !_chkHatDraw.Checked || (_cmbHatXDia.SelectedIndex >= 0 && _cmbHatYDia.SelectedIndex >= 0),
+                    "Chọn đủ thép mũ phương X/Y."));
         }
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS — Bố trí Thép Sàn theo Panel (Slab Rebar v3.0)";
+            SetFormTitle("Rebar - Sàn", "Lưới đáy, lưới trên, mũ gối và thép kê");
             Width = 1080;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
@@ -125,16 +142,9 @@ namespace KhimTools.RebarTool.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // 0. Header Banner
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Multi-Panel Slab Detailing Engine",
-                "Panel System, Bottom/Top Mesh, Support Hats, Distribution Bars & Spacers",
-                "v2.7.0 Pro");
-            Controls.Add(header);
-
             // 1. Bottom Control Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 58, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Language:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
             _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 16 };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");

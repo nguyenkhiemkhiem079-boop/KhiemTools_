@@ -95,6 +95,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnSaveTemplate;
         private Button _btnApplyTemplate;
         private Button _btnDeleteTemplate;
+        private RebarFormGuard _formGuard;
 
         public CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
         {
@@ -107,11 +108,15 @@ namespace KhimTools.RebarTool.Forms
             PopulateColumnList();
             PopulateBarTypeCombos();
             LoadTemplateList();
+            _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
+                RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột tròn."),
+                RebarFormGuard.RequireCombo(_cmbMainDia, "Chọn loại thép chủ."),
+                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."));
         }
 
         private void BuildUi()
         {
-            Text = "⭕ KHIM TOOLS — Bố trí Thép Cột Tròn";
+            SetFormTitle("Rebar - Cột tròn", "Thép chủ, đai tròn, neo và nối tầng");
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
@@ -119,18 +124,11 @@ namespace KhimTools.RebarTool.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Circular Column Detailing",
-                "Automated Round Column Reinforcement Engine",
-                "v2.7.0 Pro");
-            Controls.Add(header);
-
             // 1. Bottom Action Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
             _btnCreateRebar = new Button
             {
-                Text = "Create Rebar",
+                Text = "Tạo thép",
                 Width = 130,
                 Height = 36,
                 Top = 10,
@@ -143,7 +141,7 @@ namespace KhimTools.RebarTool.Forms
 
             _btnClose = new Button
             {
-                Text = "Close",
+                Text = "Đóng",
                 Width = 90,
                 Height = 36,
                 Top = 10,

@@ -51,42 +51,14 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            Text = "KHIM TOOLS — Project Concrete Cover Setup";
+            SetFormTitle("Rebar - Cover dự án", "Thiết lập lớp bê tông bảo vệ theo loại cấu kiện");
             Width = 600;
             Height = 490;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "KHIM TOOLS — Project Cover Setup",
-                "Synchronize Concrete Cover Settings across All Project Structural Categories",
-                "v2.7.0 Pro");
-            Controls.Add(header);
             MinimizeBox = false;
-
-            // Header Banner
-            var headerPanel = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.FromArgb(240, 244, 250), Padding = new Padding(12) };
-            var lblTitle = new Label
-            {
-                Text = "Cấu Hình Lớp Bê Tông Bảo Vệ (Concrete Cover) Toàn Dự Án",
-                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(20, 40, 80),
-                Dock = DockStyle.Top,
-                Height = 22
-            };
-            var lblSub = new Label
-            {
-                Text = "Chọn tham số Cover cần gán đồng bộ cho từng loại cấu kiện trong mô hình Revit:",
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
-                ForeColor = Color.DimGray,
-                Dock = DockStyle.Top,
-                Height = 20
-            };
-            headerPanel.Controls.Add(lblSub);
-            headerPanel.Controls.Add(lblTitle);
-            Controls.Add(headerPanel);
 
             // Bottom Action Panel
             var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };

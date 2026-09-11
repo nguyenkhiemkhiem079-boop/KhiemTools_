@@ -241,6 +241,48 @@ try {
     Report-Fail "Audit 08: MSI Package & Bundle Alignment" $_.Exception.Message
 }
 
+# ---------------------------------------------------------------------
+# Audit 09: Rebar input UX and validation contract
+# ---------------------------------------------------------------------
+try {
+    $formsDir = Join-Path $khimToolsDir "Tools\KhimStructural\RebarTool\Forms"
+    $guardPath = Join-Path $formsDir "RebarFormGuard.cs"
+    if (-not (Test-Path $guardPath)) {
+        throw "Missing shared RebarFormGuard.cs"
+    }
+
+    $guardSource = Get-Content $guardPath -Raw
+    foreach ($token in @("ErrorProvider", "StatusStrip", "VALIDATION | mm", "Kiểm tra dữ liệu", "ValidateNow")) {
+        if ($guardSource -notmatch [regex]::Escape($token)) {
+            throw "RebarFormGuard is missing UX contract token: $token"
+        }
+    }
+
+    $guardedForms = @(
+        "RectangularColumnReinforcementForm.cs",
+        "CircularColumnReinforcementForm.cs",
+        "BeamReinforcementForm.cs",
+        "FoundationReinforcementForm.cs",
+        "SlabReinforcementForm.cs"
+    )
+    foreach ($formName in $guardedForms) {
+        $source = Get-Content (Join-Path $formsDir $formName) -Raw
+        if ($source -notmatch "RebarFormGuard\.Attach") {
+            throw "$formName is not connected to the shared validation guard"
+        }
+    }
+
+    $duplicateHeaders = Get-ChildItem $formsDir -Filter "*.cs" |
+        Where-Object { (Get-Content $_.FullName -Raw) -match "CreateHeaderBanner" }
+    if ($duplicateHeaders.Count -gt 0) {
+        throw "Legacy duplicate header banners remain: $($duplicateHeaders.Name -join ', ')"
+    }
+
+    Report-Pass "Audit 09: Rebar Input UX Contract" "5 guarded forms, live input validation, single-header layout"
+} catch {
+    Report-Fail "Audit 09: Rebar Input UX Contract" $_.Exception.Message
+}
+
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host " PHASE 9 AUDIT RESULTS: $passed / $($passed + $failed) PASSED" -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
 Write-Host "=================================================================" -ForegroundColor Cyan
