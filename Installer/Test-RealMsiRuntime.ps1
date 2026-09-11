@@ -16,7 +16,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Resolve-Path "$scriptDir\.."
 $outputDir = Join-Path $scriptDir "Output"
 $msiPath = Join-Path $outputDir "K-TOOLS.msi"
-$msiPrevPath = Join-Path $outputDir "K-TOOLS-2.6.9.msi"
+$msiPrevPath = Join-Path $outputDir "K-TOOLS-2.7.0.msi"
 $bootstrapperPath = Join-Path $outputDir "K-TOOLS-Setup.exe"
 $bundleDir = "C:\ProgramData\Autodesk\ApplicationPlugins\KhimTools.bundle"
 $pkgXmlPath = Join-Path $bundleDir "PackageContents.xml"
@@ -76,30 +76,30 @@ foreach ($pCode in $existing) {
 $baselineClean = (@($wi.RelatedProducts($upgradeCode)).Count -eq 0)
 Write-Host "  Baseline Cleaned: $baselineClean" -ForegroundColor $(if ($baselineClean) {'Green'} else {'Red'})
 
-# --- STEP 2: BUILD FRESH v2.7.0 & v2.6.9 MSIs ---
+# --- STEP 2: BUILD FRESH v2.7.1 & v2.7.0 MSIs ---
 Write-Host "`n[Runtime 02/10] Building Target MSIs from Current Source..." -ForegroundColor Cyan
 $pkgWxsPath = Join-Path $scriptDir "K-TOOLS.MSI\Package.wxs"
 $origWxs = Get-Content $pkgWxsPath -Raw
 
-# Build v2.6.9
-$v269Wxs = $origWxs -replace 'Version="2.7.0"', 'Version="2.6.9"'
-Set-Content -Path $pkgWxsPath -Value $v269Wxs
-& powershell -ExecutionPolicy Bypass -File (Join-Path $scriptDir "Build-Installer.ps1") -Version "2.6.9" -SkipBootstrapper | Out-Null
+# Build v2.7.0
+$v270Wxs = $origWxs -replace 'Version="2.7.1"', 'Version="2.7.0"'
+Set-Content -Path $pkgWxsPath -Value $v270Wxs
+& powershell -ExecutionPolicy Bypass -File (Join-Path $scriptDir "Build-Installer.ps1") -Version "2.7.0" -SkipBootstrapper | Out-Null
 Move-Item -Path $msiPath -Destination $msiPrevPath -Force
 
-# Build v2.7.0
+# Build v2.7.1
 Set-Content -Path $pkgWxsPath -Value $origWxs
-& powershell -ExecutionPolicy Bypass -File (Join-Path $scriptDir "Build-Installer.ps1") -Version "2.7.0" | Out-Null
+& powershell -ExecutionPolicy Bypass -File (Join-Path $scriptDir "Build-Installer.ps1") -Version "2.7.1" | Out-Null
 
 $msi270Exists = Test-Path $msiPath
 $msi269Exists = Test-Path $msiPrevPath
 $bootExists = Test-Path $bootstrapperPath
-Write-Host "  K-TOOLS-2.6.9.msi Built: $msi269Exists" -ForegroundColor Green
-Write-Host "  K-TOOLS.msi (2.7.0) Built: $msi270Exists" -ForegroundColor Green
+Write-Host "  K-TOOLS-2.7.0.msi Built: $msi269Exists" -ForegroundColor Green
+Write-Host "  K-TOOLS.msi (2.7.1) Built: $msi270Exists" -ForegroundColor Green
 Write-Host "  K-TOOLS-Setup.exe Built: $bootExists" -ForegroundColor Green
 
-# --- STEP 3: REAL INSTALL OF PREVIOUS VERSION (v2.6.9) ---
-Write-Host "`n[Runtime 03/10] Executing REAL INSTALL of Previous Version (v2.6.9)..." -ForegroundColor Cyan
+# --- STEP 3: REAL INSTALL OF PREVIOUS VERSION (v2.7.0) ---
+Write-Host "`n[Runtime 03/10] Executing REAL INSTALL of Previous Version (v2.7.0)..." -ForegroundColor Cyan
 $logInstall269 = Join-Path $env:TEMP "ktools_real_install_269.log"
 $pInstall269 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPrevPath`"",
@@ -111,12 +111,12 @@ $pInstall269 = Start-Process msiexec.exe -ArgumentList @(
 
 $verAfter269 = (Get-ItemProperty $regKey -ErrorAction SilentlyContinue).Version
 $prod269 = @($wi.RelatedProducts($upgradeCode))
-Write-Host "  msiexec /i v2.6.9 ExitCode: $($pInstall269.ExitCode)"
+Write-Host "  msiexec /i v2.7.0 ExitCode: $($pInstall269.ExitCode)"
 Write-Host "  Active Product Registration: $($prod269.Count)"
 Write-Host "  Registry Version: $verAfter269"
 
-$initialInstallSuccess = ($pInstall269.ExitCode -eq 0 -and $prod269.Count -eq 1 -and $verAfter269 -eq "2.6.9")
-Write-Host "  v2.6.9 Live Installation: $(if ($initialInstallSuccess) {'PASS'} else {'FAIL'})" -ForegroundColor $(if ($initialInstallSuccess) {'Green'} else {'Red'})
+$initialInstallSuccess = ($pInstall269.ExitCode -eq 0 -and $prod269.Count -eq 1 -and $verAfter269 -eq "2.7.0")
+Write-Host "  v2.7.0 Live Installation: $(if ($initialInstallSuccess) {'PASS'} else {'FAIL'})" -ForegroundColor $(if ($initialInstallSuccess) {'Green'} else {'Red'})
 
 # --- STEP 4: SEED USER DATA & CUSTOM FAMILY SOURCE DIRECTORY ---
 Write-Host "`n[Runtime 04/10] Seeding User-Managed Data & Custom Family Source Folders..." -ForegroundColor Cyan
@@ -130,8 +130,8 @@ Set-Content -Path $customFamilyFile -Value 'CUSTOM_FAMILY_RFA_CONTENT'
 Write-Host "  Seeded: $userSettingsFile"
 Write-Host "  Seeded: $customFamilyFile"
 
-# --- STEP 5: REAL UPGRADE TO v2.7.0 ---
-Write-Host "`n[Runtime 05/10] Executing REAL UPGRADE from v2.6.9 to v2.7.0..." -ForegroundColor Cyan
+# --- STEP 5: REAL UPGRADE TO v2.7.1 ---
+Write-Host "`n[Runtime 05/10] Executing REAL UPGRADE from v2.7.0 to v2.7.1..." -ForegroundColor Cyan
 $logUpgrade270 = Join-Path $env:TEMP "ktools_real_upgrade_270.log"
 $pUpgrade270 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPath`"",
@@ -143,11 +143,11 @@ $pUpgrade270 = Start-Process msiexec.exe -ArgumentList @(
 
 $verAfter270 = (Get-ItemProperty $regKey -ErrorAction SilentlyContinue).Version
 $prod270 = @($wi.RelatedProducts($upgradeCode))
-Write-Host "  msiexec /i v2.7.0 ExitCode: $($pUpgrade270.ExitCode)"
+Write-Host "  msiexec /i v2.7.1 ExitCode: $($pUpgrade270.ExitCode)"
 Write-Host "  Active Product Registration (single upgraded product): $($prod270.Count)"
 Write-Host "  Registry Version: $verAfter270"
 
-if ($pUpgrade270.ExitCode -eq 0 -and $prod270.Count -eq 1 -and $verAfter270 -eq "2.7.0") {
+if ($pUpgrade270.ExitCode -eq 0 -and $prod270.Count -eq 1 -and $verAfter270 -eq "2.7.1") {
     $realUpgradePass = $true
     $realInstallPass = $true
     Write-Host "  REAL UPGRADE Result: PASS" -ForegroundColor Green

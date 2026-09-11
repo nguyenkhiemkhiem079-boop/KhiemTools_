@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Net;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -46,7 +45,7 @@ namespace KhimTools.Tools.Updater.Services
             return new UpdateInfo
             {
                 CurrentVersion = currentVer,
-                LatestVersion = "v2.7.0",
+                LatestVersion = "v2.7.1",
                 ReleaseDate = DateTime.Now.ToString("yyyy-MM-dd"),
                 DownloadUrl = "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
                 Changelog = new List<string>
@@ -60,39 +59,19 @@ namespace KhimTools.Tools.Updater.Services
         }
 
         /// <summary>
-        /// Launches the external installer/updater process outside of Autodesk Revit.
-        /// Live Revit DLLs must never be modified or replaced from inside the Revit process.
+        /// Opens an allow-listed official GitHub release URL. This in-process updater
+        /// never executes a local updater or writes into the MSI-owned bundle.
         /// </summary>
-        public bool LaunchExternalUpdater()
+        public bool LaunchExternalUpdater(string releaseUrl = null)
         {
             try
             {
-                string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
-                string[] candidatePaths = new string[]
-                {
-                    Path.Combine(programData, @"Autodesk\ApplicationPlugins\KhimTools.bundle\KhimTools_Installer.exe"),
-                    Path.Combine(programData, @"Autodesk\ApplicationPlugins\KhimTools.bundle\K-TOOLS_Installer.exe"),
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), @"Programs\KhimTools\KhimTools_Installer.exe"),
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "KhimTools_Installer.exe")
-                };
-
-                foreach (var path in candidatePaths)
-                {
-                    if (File.Exists(path))
-                    {
-                        Process.Start(new ProcessStartInfo
-                        {
-                            FileName = path,
-                            UseShellExecute = true
-                        });
-                        return true;
-                    }
-                }
-
-                // If local installer executable is not yet placed, open the official GitHub release page
+                string target = IsOfficialReleaseUrl(releaseUrl)
+                    ? releaseUrl
+                    : "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest";
                 Process.Start(new ProcessStartInfo
                 {
-                    FileName = "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
+                    FileName = target,
                     UseShellExecute = true
                 });
                 return true;
@@ -102,6 +81,17 @@ namespace KhimTools.Tools.Updater.Services
                 Debug.WriteLine($"[KhimTools.UpdateService] Failed to launch external updater: {ex.Message}");
                 return false;
             }
+        }
+
+        internal static bool IsOfficialReleaseUrl(string value)
+        {
+            Uri uri;
+            if (!Uri.TryCreate(value, UriKind.Absolute, out uri)) return false;
+            if (!string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) return false;
+            if (!string.Equals(uri.Host, "github.com", StringComparison.OrdinalIgnoreCase)) return false;
+
+            const string prefix = "/nguyenkhiemkhiem079-boop/KhiemTools_/releases/";
+            return uri.AbsolutePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

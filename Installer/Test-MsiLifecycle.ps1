@@ -73,7 +73,7 @@ $pUpg = $props["UpgradeCode"]
 $pAll = $props["ALLUSERS"]
 
 $validProps = ($pName -eq "K-TOOLS (KhimTools)" -and
-               $pVer -eq "2.7.0" -and
+               $pVer -eq "2.7.1" -and
                $pMfr -eq "SJTL" -and
                $pUpg -eq "{B73A7490-6831-4F58-9D26-C18244B27DF1}" -and
                ($pAll -eq "1" -or $pAll -eq "2"))

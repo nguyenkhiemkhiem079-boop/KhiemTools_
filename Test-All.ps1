@@ -1,6 +1,6 @@
 # =====================================================================
 # K-TOOLS (KhimTools) Master Verification & Quality Assurance Suite
-# Runs all 76 Automated Tests across Security, MSI, Engineering & QA
+# Runs all 78 Automated Tests across Security, MSI, Engineering & QA
 # =====================================================================
 
 $ErrorActionPreference = "Stop"
@@ -9,7 +9,7 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
 Write-Host "`n=================================================================" -ForegroundColor Cyan
 Write-Host "           K-TOOLS MASTER QUALITY ASSURANCE DASHBOARD            " -ForegroundColor Cyan
-Write-Host "                 Running All 76 Verification Audits              " -ForegroundColor Cyan
+Write-Host "                 Running All 78 Verification Audits              " -ForegroundColor Cyan
 Write-Host "=================================================================`n" -ForegroundColor Cyan
 
 $suites = @(
@@ -21,7 +21,7 @@ $suites = @(
     @{
         Name = "MSI Implementation Structural Audit (Phase 2)"
         Script = Join-Path $scriptDir "Installer\Verify-MsiImplementation.ps1"
-        ExpectedCount = 12
+        ExpectedCount = 14
     },
     @{
         Name = "MSI Lifecycle Install/Upgrade/Repair/Uninstall Audit (Phase 3)"

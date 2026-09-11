@@ -230,7 +230,13 @@ try {
         throw "Verify-MsiImplementation.ps1 failed!"
     }
 
-    Report-Pass "Audit 08: MSI Package & Bundle Alignment" "12/12 audits passed"
+    $auditMatch = [regex]::Match(($output | Out-String), "PHASE 2 AUDIT RESULTS:\s+(\d+)\s+/\s+(\d+)\s+PASSED")
+    $auditDetails = if ($auditMatch.Success) {
+        "$($auditMatch.Groups[1].Value)/$($auditMatch.Groups[2].Value) audits passed"
+    } else {
+        "All MSI implementation audits passed"
+    }
+    Report-Pass "Audit 08: MSI Package & Bundle Alignment" $auditDetails
 } catch {
     Report-Fail "Audit 08: MSI Package & Bundle Alignment" $_.Exception.Message
 }

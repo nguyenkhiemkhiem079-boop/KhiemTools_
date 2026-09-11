@@ -13,7 +13,7 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = "Release",
-    [string]$Version = "2.7.0",
+    [string]$Version = "2.7.1",
     [string]$CertThumbprint = "",
     [switch]$SkipBootstrapper,
     [switch]$UpdateManifest

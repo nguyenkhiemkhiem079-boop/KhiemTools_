@@ -258,6 +258,49 @@ try {
 Report-Result "Audit 12: Deployment Security Test Suite Regression" $testRunSuccess $testDetails
 
 # -----------------------------------------------------------------------------
+# AUDIT 13: MSI/updater ownership boundaries
+# -----------------------------------------------------------------------------
+$classifierSource = [System.IO.File]::ReadAllText(
+    (Join-Path $repoRoot "KhimTools\App\Deployment\InstallationClassifier.cs"))
+$updaterSource = [System.IO.File]::ReadAllText(
+    (Join-Path $repoRoot "KhimTools\Tools\KhimGen\Updater\Services\UpdateService.cs"))
+$projectSource = [System.IO.File]::ReadAllText(
+    (Join-Path $repoRoot "KhimTools\KhimTools.csproj"))
+
+$dualHiveDetection = $classifierSource.Contains("Registry.LocalMachine") -and
+                     $classifierSource.Contains("Registry.CurrentUser")
+$noLegacyExeLaunch = -not $updaterSource.Contains("LocalApplicationData") -and
+                     -not $updaterSource.Contains("KhimTools_Installer.exe") -and
+                     -not $updaterSource.Contains("K-TOOLS_Installer.exe")
+$deployIsOptIn = $projectSource.Contains("'`$(DeployKhimToolsBundle)' == 'true'")
+
+Report-Result "Audit 13: MSI/updater single-owner boundary" `
+    ($dualHiveDetection -and $noLegacyExeLaunch -and $deployIsOptIn) `
+    "DualHive=$dualHiveDetection, NoLegacyExe=$noLegacyExeLaunch, DeployOptIn=$deployIsOptIn"
+
+# -----------------------------------------------------------------------------
+# AUDIT 14: Release version and update metadata alignment
+# -----------------------------------------------------------------------------
+$manifest = Get-Content (Join-Path $repoRoot "update_info.json") -Raw | ConvertFrom-Json
+$projectDoc = New-Object System.Xml.XmlDocument
+$projectDoc.Load((Join-Path $repoRoot "KhimTools\KhimTools.csproj"))
+$bundleDoc = New-Object System.Xml.XmlDocument
+$bundleDoc.Load((Join-Path $repoRoot "KhimTools\Deploy\PackageContents.xml"))
+
+$packageVersion = $pkgDoc.GetElementsByTagName("Package")[0].GetAttribute("Version")
+$projectVersion = $projectDoc.Project.PropertyGroup.Version | Select-Object -First 1
+$bundleVersion = $bundleDoc.ApplicationPackage.GetAttribute("AppVersion")
+$manifestVersion = ([string]$manifest.latest_version).TrimStart("v")
+$officialUpdateUrl = [string]$manifest.download_url_msi -match "^https://github\.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/"
+$versionsAligned = $packageVersion -eq $projectVersion -and
+                   $packageVersion -eq $bundleVersion -and
+                   $packageVersion -eq $manifestVersion
+
+Report-Result "Audit 14: Release metadata alignment" `
+    ($versionsAligned -and $officialUpdateUrl) `
+    "MSI=$packageVersion, Project=$projectVersion, Bundle=$bundleVersion, Manifest=$manifestVersion, OfficialUrl=$officialUpdateUrl"
+
+# -----------------------------------------------------------------------------
 # SUMMARY
 # -----------------------------------------------------------------------------
 Write-Host "=================================================================" -ForegroundColor Cyan

@@ -24,7 +24,7 @@ namespace KhiemToolsApp.Deployment
 
         /// <summary>
         /// Checks if K-TOOLS is currently deployed and managed via Windows Installer (MSI).
-        /// Checks HKLM\SOFTWARE\K-TOOLS for InstalledVia == "MSI".
+        /// Checks both per-machine and per-user installer ownership markers.
         /// </summary>
         public static bool IsMsiManaged()
         {
@@ -33,21 +33,29 @@ namespace KhiemToolsApp.Deployment
                 return MsiDetectionOverride();
             }
 
-            try
+            Microsoft.Win32.RegistryKey[] roots = new Microsoft.Win32.RegistryKey[]
             {
-                using (var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\K-TOOLS"))
+                Microsoft.Win32.Registry.LocalMachine,
+                Microsoft.Win32.Registry.CurrentUser
+            };
+
+            foreach (var root in roots)
+            {
+                try
                 {
-                    if (key != null)
+                    using (var key = root.OpenSubKey(@"SOFTWARE\K-TOOLS"))
                     {
-                        var val = key.GetValue("InstalledVia") as string;
-                        if (string.Equals(val, "MSI", StringComparison.OrdinalIgnoreCase))
+                        if (key != null && string.Equals(
+                            key.GetValue("InstalledVia") as string,
+                            "MSI",
+                            StringComparison.OrdinalIgnoreCase))
                         {
                             return true;
                         }
                     }
                 }
+                catch { }
             }
-            catch { }
             return false;
         }
 

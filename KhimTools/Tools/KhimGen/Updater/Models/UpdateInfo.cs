@@ -7,7 +7,7 @@ namespace KhimTools.Tools.Updater.Models
     public class UpdateInfo
     {
         [JsonProperty("latest_version")]
-        public string LatestVersion { get; set; } = "v2.7.0";
+        public string LatestVersion { get; set; } = "v2.7.1";
 
         [JsonProperty("current_version")]
         public string CurrentVersion { get; set; } = "v2.0.0";
@@ -17,6 +17,12 @@ namespace KhimTools.Tools.Updater.Models
 
         [JsonProperty("download_url")]
         public string DownloadUrl { get; set; } = "";
+
+        [JsonProperty("download_url_msi")]
+        public string DownloadUrlMsi { get; set; } = "";
+
+        [JsonProperty("sha256_msi")]
+        public string Sha256Msi { get; set; } = "";
 
         [JsonProperty("description")]
         public string Description { get; set; } = "";

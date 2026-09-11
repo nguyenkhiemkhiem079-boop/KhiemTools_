@@ -3,7 +3,7 @@
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Bundle Name="K-TOOLS Setup"
           Manufacturer="SJTL"
-          Version="2.7.0"
+          Version="2.7.1"
           UpgradeCode="{D1898E5E-59B1-4A59-AC10-53D2A72E8E42}"
           IconSourceFile="..\K-TOOLS.MSI\UI\Resources\Icon.ico">
 

@@ -12,7 +12,6 @@ namespace KhimTools.Tools.Updater.Views
     {
         private readonly UpdateInfo _updateInfo;
         private readonly UpdateService _updateService;
-        private bool _isCompleted = false;
 
         public UpdaterWindow(UpdateInfo updateInfo, UpdateService updateService)
         {
@@ -50,14 +49,18 @@ namespace KhimTools.Tools.Updater.Views
         {
             var msgResult = MessageBox.Show(
                 "Để cập nhật an toàn và tránh xung đột khóa tập tin DLL, Autodesk Revit cần được đóng.\n\n" +
-                "Bạn có muốn khởi chạy Trình cài đặt / Cập nhật K-TOOLS bên ngoài không?",
+                "Trang tải MSI chính thức sẽ được mở trong trình duyệt. Hãy đóng Revit trước khi chạy MSI.\n\n" +
+                "Bạn có muốn mở trang tải xuống không?",
                 "Cập nhật K-TOOLS",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information);
 
             if (msgResult == MessageBoxResult.Yes)
             {
-                _updateService.LaunchExternalUpdater();
+                string releaseUrl = !string.IsNullOrWhiteSpace(_updateInfo.DownloadUrlMsi)
+                    ? _updateInfo.DownloadUrlMsi
+                    : _updateInfo.DownloadUrl;
+                _updateService.LaunchExternalUpdater(releaseUrl);
                 Close();
             }
         }

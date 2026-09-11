@@ -12,9 +12,9 @@
     <Nullable>disable</Nullable>
     <RootNamespace>KhimTools</RootNamespace>
     <AssemblyName>KhimTools</AssemblyName>
-    <Version>2.7.0</Version>
-    <AssemblyVersion>2.7.0.0</AssemblyVersion>
-    <FileVersion>2.7.0.0</FileVersion>
+    <Version>2.7.1</Version>
+    <AssemblyVersion>2.7.1.0</AssemblyVersion>
+    <FileVersion>2.7.1.0</FileVersion>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
     <OutputPath>bin\$(Configuration)\</OutputPath>
@@ -96,7 +96,7 @@
   </ItemGroup>
 
   <!-- Post-build: dong goi .bundle va copy vao ApplicationPlugins -->
-  <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(DeployKhimToolsBundle)' != 'false'">
+  <Target Name="DeployKhimToolsBundle" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(DeployKhimToolsBundle)' == 'true'">
     <PropertyGroup>
       <BundleRoot>$(ProgramData)\Autodesk\ApplicationPlugins\KhimTools.bundle</BundleRoot>
       <VersionFolder Condition="'$(TargetFramework)'=='net48'">Legacy</VersionFolder>
