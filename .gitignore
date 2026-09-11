@@ -376,3 +376,6 @@ Confused/
 
 # ── K-TOOLS Installer Build Artifacts ────────────────────────────────────────
 Installer/Output/
+
+# Local QA render output
+/tmp/
