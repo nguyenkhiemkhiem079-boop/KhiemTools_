@@ -103,30 +103,33 @@ namespace KhimTools.RebarTool.Forms
         private void BuildUi()
         {
             SetFormTitle("Rebar - Móng", "Lưới thép, thép chờ cột và cấu tạo biên");
-            Width = 920;
-            Height = 700;
+            Width = 1040;
+            Height = 740;
+            MinimumSize = new Size(940, 680);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
 
             // Bottom Panel
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14 };
+            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 64, BackColor = Color.White };
+            var workflow = new Label { Text = "1  Chọn móng     2  Cấu hình lưới     3  Kiểm tra thép chờ     4  Tạo thép", AutoSize = true, Left = 16, Top = 24, ForeColor = KhimUiStyle.TextSecondary, Font = new Font("Segoe UI Semibold", 9F) };
+            var lblLang = new Label { Text = "Ngôn ngữ", AutoSize = true, Left = 470, Top = 24, ForeColor = KhimUiStyle.TextSecondary };
+            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 108, Left = 540, Top = 18 };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnCreateRebar = new Button { Text = "Tạo thép", Width = 135, Height = 36, Top = 10 };
+            _btnCreateRebar = new Button { Text = "Tạo thép móng", Width = 148, Height = 38, Top = 13 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
 
-            _btnClose = new Button { Text = "Đóng", Width = 90, Height = 36, Top = 10 };
+            _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
 
             _btnCreateRebar.Click += BtnCreateRebar_Click;
             _btnClose.Click += (s, e) => Close();
 
+            bottomPanel.Controls.Add(workflow);
             bottomPanel.Controls.Add(lblLang);
             bottomPanel.Controls.Add(_cmbLanguage);
             bottomPanel.Controls.Add(_btnCreateRebar);
@@ -140,12 +143,12 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(bottomPanel);
 
             // Right Panel (Selection List & Live Preview)
-            var rightPanel = new Panel { Dock = DockStyle.Right, Width = 260, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            var lblFdnTitle = new Label { Text = "Danh Sách Móng", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            var rightPanel = new Panel { Dock = DockStyle.Right, Width = 290, Padding = new Padding(14), BackColor = Color.White };
+            var lblFdnTitle = new Label { Text = "CẤU KIỆN ÁP DỤNG", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI Semibold", 9F), ForeColor = KhimUiStyle.TextSecondary };
 
             _foundationListBox = new ListBox { Dock = DockStyle.Top, Height = 200, SelectionMode = SelectionMode.MultiExtended };
 
-            var lblPreviewTitle = new Label { Text = "Live 2D Footing Preview", Dock = DockStyle.Top, Height = 25, Font = new Font("Segoe UI", 9F, FontStyle.Bold), ForeColor = Color.DarkBlue };
+            var lblPreviewTitle = new Label { Text = "XEM TRƯỚC CẤU TẠO", Dock = DockStyle.Top, Height = 32, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
 
             _previewPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
             _previewPanel.Paint += PreviewPanel_Paint;

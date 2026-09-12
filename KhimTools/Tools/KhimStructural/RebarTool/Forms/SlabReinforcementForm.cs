@@ -136,32 +136,35 @@ namespace KhimTools.RebarTool.Forms
         {
             SetFormTitle("Rebar - Sàn", "Lưới đáy, lưới trên, mũ gối và thép kê");
             Width = 1080;
-            Height = 720;
+            Height = 760;
+            MinimumSize = new Size(1020, 700);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
 
             // 1. Bottom Control Panel
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 58, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 20, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 16 };
+            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 64, BackColor = Color.White };
+            var workflow = new Label { Text = "1  Chọn panel     2  Cấu hình lớp thép     3  Gán thông số     4  Tạo thép", AutoSize = true, Left = 16, Top = 24, ForeColor = KhimUiStyle.TextSecondary, Font = new Font("Segoe UI Semibold", 9F) };
+            var lblLang = new Label { Text = "Ngôn ngữ", AutoSize = true, Left = 480, Top = 24, ForeColor = KhimUiStyle.TextSecondary };
+            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 108, Left = 550, Top = 18 };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
 
-            _btnAssignData = new Button { Text = "Gán thông số", Width = 135, Height = 36, Top = 11, Left = 620 };
+            _btnAssignData = new Button { Text = "Gán thông số", Width = 130, Height = 38, Top = 13, Left = 620 };
             KhimUiStyle.ApplySecondaryButton(_btnAssignData);
             _btnAssignData.Click += BtnAssignData_Click;
 
-            _btnCreateRebar = new Button { Text = "Tạo Thép Sàn", Width = 140, Height = 36, Top = 11, Left = 765 };
+            _btnCreateRebar = new Button { Text = "Tạo thép sàn", Width = 142, Height = 38, Top = 13, Left = 760 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
             _btnCreateRebar.Click += BtnCreateRebar_Click;
 
-            _btnClose = new Button { Text = "Đóng", Width = 90, Height = 36, Top = 11, Left = 915 };
+            _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13, Left = 915 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
 
+            bottomPanel.Controls.Add(workflow);
             bottomPanel.Controls.Add(lblLang);
             bottomPanel.Controls.Add(_cmbLanguage);
             bottomPanel.Controls.Add(_btnAssignData);

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Net;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading.Tasks;
 using KhimTools.Tools.Updater.Models;
@@ -12,6 +12,7 @@ namespace KhimTools.Tools.Updater.Services
     public class UpdateService
     {
         private const string UpdateCheckUrl = "https://raw.githubusercontent.com/nguyenkhiemkhiem079-boop/KhiemTools_/master/update_info.json";
+        private static readonly HttpClient UpdateHttpClient = new HttpClient();
 
         public static string GetCurrentVersion()
         {
@@ -25,15 +26,12 @@ namespace KhimTools.Tools.Updater.Services
 
             try
             {
-                using (var wc = new WebClient())
+                string json = await UpdateHttpClient.GetStringAsync(new Uri(UpdateCheckUrl));
+                var updateInfo = JsonConvert.DeserializeObject<UpdateInfo>(json);
+                if (updateInfo != null)
                 {
-                    string json = await wc.DownloadStringTaskAsync(new Uri(UpdateCheckUrl));
-                    var updateInfo = JsonConvert.DeserializeObject<UpdateInfo>(json);
-                    if (updateInfo != null)
-                    {
-                        updateInfo.CurrentVersion = currentVer;
-                        return updateInfo;
-                    }
+                    updateInfo.CurrentVersion = currentVer;
+                    return updateInfo;
                 }
             }
             catch (Exception ex)

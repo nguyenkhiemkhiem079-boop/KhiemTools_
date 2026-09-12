@@ -161,7 +161,7 @@
                 </GroupBox>
 
                 <!-- SECTION C: MÓNG ĐƠN KẾT CẤU -->
-                <GroupBox Header="🧱 Thiết Lập Móng Kết Cấu (Isolated Footings)" Style="{StaticResource SectionCard}">
+                <GroupBox Header="Thiết Lập Móng Kết Cấu (Isolated Footings)" Style="{StaticResource SectionCard}">
                     <Grid Margin="0,6,0,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="150"/>
@@ -200,7 +200,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TxtStatus" Grid.Column="0" Text="Sẵn sàng tạo mô hình kết cấu..." Foreground="#64748B" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="BtnGenerate" Content="🚀 Tạo Kết Cấu Nhanh" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
+                    <Button x:Name="BtnGenerate" Content="Tạo Kết Cấu" Tag="Primary" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
                     <Button x:Name="BtnClose" Content="Đóng" Style="{StaticResource SecondaryButton}" Click="BtnClose_Click"/>
                 </StackPanel>
             </Grid>

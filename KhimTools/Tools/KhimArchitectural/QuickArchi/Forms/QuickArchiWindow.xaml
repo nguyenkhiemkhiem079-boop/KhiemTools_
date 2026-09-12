@@ -88,7 +88,7 @@
         <!-- 2. CONTENT -->
         <StackPanel Grid.Row="1" Margin="16,12">
             <!-- SECTION A: THIẾT LẬP TƯỜNG -->
-            <GroupBox Header="🧱 Thiết Lập Tường (Walls)" Style="{StaticResource SectionCard}">
+            <GroupBox Header="Thiết Lập Tường (Walls)" Style="{StaticResource SectionCard}">
                 <Grid Margin="0,6,0,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="140"/>
@@ -124,7 +124,7 @@
             </GroupBox>
 
             <!-- SECTION B: PHÒNG (ROOMS) -->
-            <GroupBox Header="🚪 Khởi Tạo Phòng &amp; Tag (Rooms)" Style="{StaticResource SectionCard}">
+            <GroupBox Header="Khởi Tạo Phòng &amp; Tag (Rooms)" Style="{StaticResource SectionCard}">
                 <StackPanel Margin="0,4">
                     <CheckBox x:Name="ChkAutoRooms" Content="Tự động đặt Phòng (Room) vào các vùng bao khép kín sau khi dựng tường" IsChecked="True" Margin="0,2"/>
                 </StackPanel>
@@ -140,7 +140,7 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TxtStatus" Grid.Column="0" Text="Sẵn sàng tạo tường..." Foreground="#64748B" VerticalAlignment="Center"/>
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button x:Name="BtnGenerate" Content="🚀 Tạo Tường Ngay" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
+                    <Button x:Name="BtnGenerate" Content="Tạo Tường" Tag="Primary" Style="{StaticResource ModernButton}" Margin="0,0,8,0" Click="BtnGenerate_Click"/>
                     <Button x:Name="BtnClose" Content="Đóng" Style="{StaticResource SecondaryButton}" Click="BtnClose_Click"/>
                 </StackPanel>
             </Grid>

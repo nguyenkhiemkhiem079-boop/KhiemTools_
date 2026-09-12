@@ -1,1 +1,0 @@
-UI/UX 2.0 rebuild started. Frozen functional scope: Rebar engineering, Family Manager safety semantics, installer/updater, and command functionality. Focus is product-level navigation, density, consistency, iconography, and reusable UI patterns.

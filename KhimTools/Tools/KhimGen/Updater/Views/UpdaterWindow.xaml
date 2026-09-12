@@ -168,7 +168,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="✔" Foreground="#059669" FontSize="12" Margin="0,2,8,0" FontWeight="Bold"/>
+                                        <Border Grid.Column="0" Width="7" Height="7" CornerRadius="4" Background="#059669" Margin="0,5,8,0" VerticalAlignment="Top"/>
                                         <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12.5" Foreground="#334155" TextWrapping="Wrap"/>
                                     </Grid>
                                 </DataTemplate>

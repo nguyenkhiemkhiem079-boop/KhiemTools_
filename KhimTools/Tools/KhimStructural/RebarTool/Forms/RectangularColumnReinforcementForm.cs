@@ -160,17 +160,27 @@ namespace KhimTools.RebarTool.Forms
         private void BuildUi()
         {
             SetFormTitle("Rebar - Cột chữ nhật", "Thép chủ, đai, neo và liên kết giữa các tầng");
-            Width = 900;
-            Height = 700;
+            Width = 1080;
+            Height = 760;
+            MinimumSize = new Size(920, 680);
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             MinimizeBox = false;
 
             // 1. Bottom Control Panel
-            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 55, BackColor = Color.FromArgb(245, 245, 247) };
-            var lblLang = new Label { Text = "Ngôn ngữ:", AutoSize = true, Left = 15, Top = 18, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 115, Left = 95, Top = 14, Font = new Font("Segoe UI", 8.5F) };
+            var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 64, BackColor = Color.White, Padding = new Padding(16, 12, 16, 12) };
+            var workflowStatus = new Label
+            {
+                Text = "1  Chọn cột     2  Nhập thông số     3  Kiểm tra     4  Tạo thép",
+                AutoSize = true,
+                Left = 16,
+                Top = 23,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI Semibold", 9F)
+            };
+            var lblLang = new Label { Text = "Ngôn ngữ", AutoSize = true, Left = 430, Top = 24, ForeColor = KhimUiStyle.TextSecondary };
+            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 108, Left = 500, Top = 18, Font = new Font("Segoe UI", 8.5F) };
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
@@ -183,30 +193,25 @@ namespace KhimTools.RebarTool.Forms
             _btnCreateRebar = new Button
             {
                 Text = "Tạo thép",
-                Width = 130,
-                Height = 36,
-                Top = 10,
-                BackColor = Color.FromArgb(0, 122, 255),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+                Width = 142,
+                Height = 38,
+                Top = 13
             };
-            _btnCreateRebar.FlatAppearance.BorderSize = 0;
+            KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
 
             _btnClose = new Button
             {
                 Text = "Đóng",
-                Width = 90,
-                Height = 36,
-                Top = 10,
-                BackColor = Color.FromArgb(225, 225, 230),
-                FlatStyle = FlatStyle.Flat
+                Width = 88,
+                Height = 38,
+                Top = 13
             };
-            _btnClose.FlatAppearance.BorderSize = 0;
+            KhimUiStyle.ApplySecondaryButton(_btnClose);
 
             _btnCreateRebar.Click += BtnCreateRebar_Click;
             _btnClose.Click += (s, e) => Close();
 
+            bottomPanel.Controls.Add(workflowStatus);
             bottomPanel.Controls.Add(lblLang);
             bottomPanel.Controls.Add(_cmbLanguage);
             bottomPanel.Controls.Add(_btnCreateRebar);
@@ -219,12 +224,12 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(bottomPanel);
 
             // 2. Right Column Selection Panel
-            var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
-            _lblColTitle = new Label { Text = "Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+            var rightPanel = new Panel { Dock = DockStyle.Right, Width = 270, Padding = new Padding(14), BackColor = Color.White };
+            _lblColTitle = new Label { Text = "CẤU KIỆN ÁP DỤNG", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI Semibold", 9F), ForeColor = KhimUiStyle.TextSecondary };
 
-            var scopePanel = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.FromArgb(240, 243, 248), Padding = new Padding(4) };
-            _rdScopeSelected = new RadioButton { Text = $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})", Checked = _preSelectedColumns.Any(), AutoSize = true, Top = 4, Left = 4, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = Color.DarkGreen };
-            _rdScopeAll = new RadioButton { Text = $"Tất cả cột ({_availableColumns.Count})", Checked = !_preSelectedColumns.Any(), AutoSize = true, Top = 26, Left = 4, Font = new Font("Segoe UI", 8.5F) };
+            var scopePanel = new Panel { Dock = DockStyle.Top, Height = 62, BackColor = KhimUiStyle.SecondaryButtonBg, Padding = new Padding(8) };
+            _rdScopeSelected = new RadioButton { Text = $"Cột đang chọn ({_preSelectedColumns.Count})", Checked = _preSelectedColumns.Any(), AutoSize = true, Top = 7, Left = 8, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.SelectionText };
+            _rdScopeAll = new RadioButton { Text = $"Tất cả cột trong model ({_availableColumns.Count})", Checked = !_preSelectedColumns.Any(), AutoSize = true, Top = 33, Left = 8, Font = new Font("Segoe UI", 8.5F) };
 
             _rdScopeSelected.CheckedChanged += (s, e) => PopulateColumnList();
             _rdScopeAll.CheckedChanged += (s, e) => PopulateColumnList();
@@ -232,11 +237,13 @@ namespace KhimTools.RebarTool.Forms
             scopePanel.Controls.Add(_rdScopeSelected);
             scopePanel.Controls.Add(_rdScopeAll);
 
-            _lblSelectedCount = new Label { Text = "Đã chọn: 0 cột", Dock = DockStyle.Bottom, Height = 25, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _lblSelectedCount = new Label { Text = "0 cột được chọn", Dock = DockStyle.Bottom, Height = 30, ForeColor = Color.FromArgb(22, 101, 52), Font = new Font("Segoe UI Semibold", 8.5F), TextAlign = ContentAlignment.MiddleLeft };
 
-            var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 32 };
-            _btnSelectAll = new Button { Text = "Select All", Width = 95, Height = 26, Top = 3, Left = 0, FlatStyle = FlatStyle.System };
-            _btnDeselectAll = new Button { Text = "Clear", Width = 70, Height = 26, Top = 3, Left = 102, FlatStyle = FlatStyle.System };
+            var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 44 };
+            _btnSelectAll = new Button { Text = "Chọn tất cả", Width = 112, Height = 32, Top = 6, Left = 0 };
+            _btnDeselectAll = new Button { Text = "Bỏ chọn", Width = 102, Height = 32, Top = 6, Left = 120 };
+            KhimUiStyle.ApplySecondaryButton(_btnSelectAll);
+            KhimUiStyle.ApplySecondaryButton(_btnDeselectAll);
 
             _btnSelectAll.Click += (s, e) => SetAllColumnsSelected(true);
             _btnDeselectAll.Click += (s, e) => SetAllColumnsSelected(false);
@@ -263,13 +270,16 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(rightPanel);
 
             // 2.5 Top Template Configuration Panel
-            var templatePanel = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.FromArgb(240, 240, 243), Padding = new Padding(6) };
-            _lblTemplate = new Label { Text = "Mẫu Thiết Lập:", AutoSize = true, Left = 15, Top = 14, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Left = 140, Top = 10 };
+            var templatePanel = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.White, Padding = new Padding(14, 10, 14, 10) };
+            _lblTemplate = new Label { Text = "PRESET", AutoSize = true, Left = 15, Top = 21, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary };
+            _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220, Left = 82, Top = 16 };
             
-            _btnSaveTemplate = new Button { Text = "Save As...", Width = 90, Height = 26, Left = 350, Top = 9, FlatStyle = FlatStyle.System };
-            _btnApplyTemplate = new Button { Text = "Apply", Width = 75, Height = 26, Left = 445, Top = 9, FlatStyle = FlatStyle.System };
-            _btnDeleteTemplate = new Button { Text = "Delete", Width = 75, Height = 26, Left = 525, Top = 9, FlatStyle = FlatStyle.System };
+            _btnApplyTemplate = new Button { Text = "Áp dụng", Width = 88, Height = 32, Left = 312, Top = 15 };
+            _btnSaveTemplate = new Button { Text = "Lưu mẫu", Width = 88, Height = 32, Left = 408, Top = 15 };
+            _btnDeleteTemplate = new Button { Text = "Xóa", Width = 72, Height = 32, Left = 504, Top = 15 };
+            KhimUiStyle.ApplyPrimaryButton(_btnApplyTemplate);
+            KhimUiStyle.ApplySecondaryButton(_btnSaveTemplate);
+            KhimUiStyle.ApplySecondaryButton(_btnDeleteTemplate);
 
             _btnSaveTemplate.Click += (s, e) => SaveTemplate();
             _btnApplyTemplate.Click += (s, e) => ApplyTemplate();

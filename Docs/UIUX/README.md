@@ -1,5 +1,13 @@
 # K-TOOLS UI/UX rebuild
 
+This folder is the single source of truth for the UI/UX rebuild:
+
+- [Specification](SPEC.md)
+- [Roadmap](ROADMAP.md)
+- [Scope](SCOPE.md)
+- [Implementation constraints](CONSTRAINTS.md)
+- [UX contract](UX_CONTRACT.md)
+
 ## Product principles
 
 - Build task-oriented workspaces: selection, configuration, validation, execution, result.

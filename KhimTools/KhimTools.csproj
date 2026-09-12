@@ -70,6 +70,7 @@
   <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
   </ItemGroup>
 
   <ItemGroup>
@@ -80,7 +81,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Resources\*.png" />
+    <!-- RibbonBuilder reads individual manifest streams at Revit startup. -->
+    <EmbeddedResource Include="Resources\*.png" />
   </ItemGroup>
 
   <!-- Rebar Shape families -->

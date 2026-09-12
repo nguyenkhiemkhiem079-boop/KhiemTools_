@@ -4,7 +4,7 @@
            Manufacturer="SJTL"
            Version="2.7.1"
            UpgradeCode="{B73A7490-6831-4F58-9D26-C18244B27DF1}"
-           Scope="perMachineOrUser"
+           Scope="perMachine"
            Language="1033"
            InstallerVersion="500">
 

@@ -40,6 +40,7 @@ namespace KhimTools.Architectural.QuickArchi.Forms
             _doc = uidoc.Document;
             InitializeComponent();
             KhimTools.Core.UI.KhimWpfTheme.Apply(this);
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             LoadData();
         }
 

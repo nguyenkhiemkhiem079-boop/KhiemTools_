@@ -1,5 +1,30 @@
 # K-TOOLS v2 — Kiến trúc theo OS Tool DEV_GUIDE.md
 
+## Cấu trúc repository
+
+```text
+KhiemTools_/
+|-- KhimTools.sln              # Solution chính
+|-- KhimTools/                 # Source add-in Revit
+|   |-- App/                   # Khởi tạo ứng dụng và deployment services
+|   |-- Core/                  # Hạ tầng dùng chung, UI shell và family loading
+|   |-- Family/                # Family chuẩn được đóng gói cùng add-in
+|   |-- Resources/             # Icon và tài nguyên giao diện
+|   |-- Tools/                 # Công cụ theo nhóm Architectural/MEP/Structural
+|   |-- Tests/                 # Regression tests không phụ thuộc giao diện Revit
+|   `-- Deploy/                # Manifest và script đóng gói bundle
+|-- Installer/                 # WiX MSI, bootstrapper và kiểm thử vòng đời cài đặt
+|-- Docs/                      # Tài liệu UI/UX và tiêu chuẩn Rebar Shape
+|-- Test-All.ps1               # Điểm chạy QA tổng hợp của repository
+`-- update_info.json           # Manifest cập nhật phát hành
+```
+
+Các thư mục `bin/`, `obj/`, `tmp/`, `Installer/Output/` và
+`KhimTools/Deploy/Release/` là đầu ra cục bộ, không thuộc source control. Không di
+chuyển `KhimTools/Family`, `RebarShapes`, `Deploy` hoặc các project trong
+`Installer` nếu chưa cập nhật đồng thời các đường dẫn trong `.csproj`, WiX và bộ
+kiểm thử deployment.
+
 ## Đổi gì so với bản trước (KhimTools v1 — .csproj cũ, copy tay vào Addins)
 
 | | v1 (cũ) | v2 (bản này) |

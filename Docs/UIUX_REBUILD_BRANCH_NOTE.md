@@ -1,1 +1,0 @@
-Implementation branch created from latest master after the UI/UX 2.0 specification commits. All product functionality and engineering logic remain frozen while presentation/navigation is rebuilt.

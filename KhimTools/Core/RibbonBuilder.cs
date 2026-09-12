@@ -18,11 +18,11 @@ namespace KhimTools.Core
     public static class RibbonBuilder
     {
         public const string TabName = "K-TOOLS";
-        public const string GenPanelName = "K-GEN";
-        public const string OverridePanelName = "Override";
-        public const string StructuralPanelName = "K-STRUCTURAL";
-        public const string ArchPanelName = "K-ARCHITECTURAL";
-        public const string MepPanelName = "K-MEP";
+        public const string GenPanelName = "Workspace";
+        public const string OverridePanelName = "Graphics";
+        public const string StructuralPanelName = "Structure";
+        public const string ArchPanelName = "Architecture";
+        public const string MepPanelName = "MEP";
 
         public static void BuildRibbon(UIControlledApplication application)
         {
@@ -225,7 +225,7 @@ namespace KhimTools.Core
             {
                 ToolTip = "Công cụ Batch Print & Export Sheet/View chuyên nghiệp (PDF, DWG, Issue Manager).",
                 LongDescription = "Hỗ trợ Naming Templates với Regex validation, Issue Revision Diffing, " +
-                    "Tự động tạo file Excel Transmittal Register & QA Technical Log, " +
+                    "Tự động tạo file Excel Transmittal Register và QA Technical Log, " +
                     "PDFsharp Bookmarks, Watermark Status Stamp, Cover Sheet, và Auto-Retry.",
                 LargeImage = LoadImage("export_sheet_32.png"),
                 Image = LoadImage("export_sheet_16.png")
@@ -511,6 +511,21 @@ namespace KhimTools.Core
                 Image = LoadImage("column_rebar_16.png")
             };
             panel.AddItem(shapesData);
+
+            // 8. Non-destructive Revit fixture: creates temporary host/rebar, validates, then rolls back.
+            var qaData = new PushButtonData(
+                "CmdRebarFixtureQa",
+                "Rebar QA" + Environment.NewLine + "Fixture",
+                assemblyPath,
+                "KhimTools.RebarTool.Commands.CmdRebarFixtureQa")
+            {
+                ToolTip = "Chạy fixture Rebar trực tiếp trong Revit và rollback toàn bộ dữ liệu thử.",
+                LongDescription = "Kiểm tra tạo Rebar, host, đường kính, shape và containment bằng Revit API thực. " +
+                    "Mọi phần tử QA được rollback sau khi ghi báo cáo.",
+                LargeImage = LoadImage("rebar_qa_32.png"),
+                Image = LoadImage("rebar_qa_16.png")
+            };
+            panel.AddItem(qaData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════

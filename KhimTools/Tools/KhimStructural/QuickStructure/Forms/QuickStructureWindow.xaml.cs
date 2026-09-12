@@ -38,6 +38,7 @@ namespace KhimTools.Structural.QuickStructure.Forms
             _doc = doc;
             InitializeComponent();
             KhimTools.Core.UI.KhimWpfTheme.Apply(this);
+            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             LoadData();
         }
 

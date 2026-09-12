@@ -130,11 +130,11 @@
                                 <TextBlock FontSize="11" FontWeight="Bold">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
-                                            <Setter Property="Text" Value="✖ Chưa nạp"/>
+                                            <Setter Property="Text" Value="Chưa nạp"/>
                                             <Setter Property="Foreground" Value="#991B1B"/>
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding IsLoadedInDocument}" Value="True">
-                                                    <Setter Property="Text" Value="✔ Đã nạp"/>
+                                                <Setter Property="Text" Value="Đã nạp"/>
                                                     <Setter Property="Foreground" Value="#166534"/>
                                                 </DataTrigger>
                                             </Style.Triggers>

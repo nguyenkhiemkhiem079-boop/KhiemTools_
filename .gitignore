@@ -365,6 +365,7 @@ FodyWeavers.xsd
 # ── K-TOOLS Obfuscation ──────────────────────────────────────────────────────
 # ConfuserEx CLI tool (download tự động bởi Obfuscate.ps1, không cần commit)
 .tools/
+.wix/
 
 # Thư mục output DLL đã obfuscate (chỉ dùng để phân phối, không commit vào source)
 KhimTools/Deploy/Release/

@@ -69,7 +69,6 @@ namespace KhimTools.MEP.Penetrations
                     .ToList();
 
                 int clashCount = 0;
-                int openingsCreated = 0;
                 var clashLog = new List<string>();
 
                 using (var tx = new Transaction(doc, "K-TOOLS: MEP Penetrations Detector"))

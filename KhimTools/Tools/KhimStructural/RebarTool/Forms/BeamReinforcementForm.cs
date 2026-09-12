@@ -241,7 +241,7 @@ namespace KhimTools.RebarTool.Forms
             var topPanel = mainSplit.Panel1;
             topPanel.BackColor = Color.White;
 
-            // 1. Sidebar "Setting" (Width = 135)
+            // 1. Workflow navigation
             var grpSetting = BuildSidebarSetting();
 
             // 2. Middle Dynamic Container (Rebar List + Rebar Info + Diagram/Sections)
@@ -285,19 +285,21 @@ namespace KhimTools.RebarTool.Forms
         {
             var grp = new GroupBox
             {
-                Text = "Setting",
+                Text = "CẤU HÌNH THÉP",
                 Dock = DockStyle.Left,
-                Width = 140,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Padding = new Padding(4)
+                Width = 168,
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                ForeColor = KhimUiStyle.TextSecondary,
+                BackColor = Color.White,
+                Padding = new Padding(8)
             };
 
-            _btnSettingMainTop = CreateSettingButton("Main Top Bar", 0);
-            _btnSettingMainBot = CreateSettingButton("Main Bot Bar", 1);
-            _btnSettingAddTop = CreateSettingButton("Add. Top Bar", 2);
-            _btnSettingAddBot = CreateSettingButton("Add. Bot Bar", 3);
-            _btnSettingStirrup = CreateSettingButton("Stirrup", 4);
-            _btnSettingAntiBulge = CreateSettingButton("Anti bulge rebar", 5);
+            _btnSettingMainTop = CreateSettingButton("Thép chủ trên", 0);
+            _btnSettingMainBot = CreateSettingButton("Thép chủ dưới", 1);
+            _btnSettingAddTop = CreateSettingButton("Tăng cường trên", 2);
+            _btnSettingAddBot = CreateSettingButton("Tăng cường dưới", 3);
+            _btnSettingStirrup = CreateSettingButton("Thép đai", 4);
+            _btnSettingAntiBulge = CreateSettingButton("Thép sườn", 5);
 
             _btnSettingMainTop.Top = 22;
             _btnSettingMainBot.Top = 75;
@@ -322,15 +324,15 @@ namespace KhimTools.RebarTool.Forms
             {
                 Text = text,
                 Left = 6,
-                Width = 125,
+                Width = 148,
                 Height = 48,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                BackColor = (index == 0) ? Color.FromArgb(215, 235, 215) : Color.FromArgb(245, 245, 245),
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                BackColor = (index == 0) ? KhimUiStyle.SelectionBg : Color.White,
                 TextAlign = ContentAlignment.MiddleRight,
                 Cursor = Cursors.Hand
             };
-            btn.FlatAppearance.BorderColor = (index == 0) ? Color.FromArgb(100, 180, 100) : Color.LightGray;
+            btn.FlatAppearance.BorderColor = (index == 0) ? KhimUiStyle.PrimaryButtonBg : KhimUiStyle.CardBorder;
 
             // Mini icon on the left
             btn.Paint += (s, e) =>
@@ -391,8 +393,9 @@ namespace KhimTools.RebarTool.Forms
             for (int i = 0; i < btns.Length; i++)
             {
                 bool active = (i == index);
-                btns[i].BackColor = active ? Color.FromArgb(215, 235, 215) : Color.FromArgb(245, 245, 245);
-                btns[i].FlatAppearance.BorderColor = active ? Color.FromArgb(100, 180, 100) : Color.LightGray;
+                btns[i].BackColor = active ? KhimUiStyle.SelectionBg : Color.White;
+                btns[i].ForeColor = active ? KhimUiStyle.SelectionText : KhimUiStyle.TextPrimary;
+                btns[i].FlatAppearance.BorderColor = active ? KhimUiStyle.PrimaryButtonBg : KhimUiStyle.CardBorder;
                 views[i].Visible = active;
             }
 
@@ -1069,24 +1072,31 @@ namespace KhimTools.RebarTool.Forms
         #region Bottom Footer Bar
         private Panel BuildFooterBar()
         {
-            var pnl = new Panel { Dock = DockStyle.Bottom, Height = 48, BackColor = Color.FromArgb(245, 246, 250), Padding = new Padding(10, 8, 15, 8) };
+            var pnl = new Panel { Dock = DockStyle.Bottom, Height = 60, BackColor = Color.White, Padding = new Padding(16, 11, 15, 11) };
+
+            pnl.Controls.Add(new Label
+            {
+                Text = "1  Chọn nhịp     2  Cấu hình thép     3  Kiểm tra neo và đai     4  Tạo thép",
+                AutoSize = true,
+                Left = 16,
+                Top = 22,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI Semibold", 9F)
+            });
 
             _btnOk = new Button
             {
-                Text = "Ok",
+                Text = "Tạo thép dầm",
                 Left = 930,
                 Top = 8,
-                Width = 80,
-                Height = 32,
-                BackColor = Color.FromArgb(30, 30, 40),
-                ForeColor = Color.White,
-                FlatStyle = FlatStyle.System,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                Cursor = Cursors.Hand
+                Width = 142,
+                Height = 38
             };
+            KhimUiStyle.ApplyPrimaryButton(_btnOk, KhimUiStyle.CreateButtonBg);
             _btnOk.Click += BtnOk_Click;
 
-            _btnClose = new Button { Text = "Close", Left = 1020, Top = 8, Width = 80, Height = 32, FlatStyle = FlatStyle.System };
+            _btnClose = new Button { Text = "Đóng", Left = 1020, Top = 11, Width = 88, Height = 38 };
+            KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
 
             pnl.Controls.Add(_btnOk);

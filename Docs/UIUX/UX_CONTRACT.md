@@ -370,7 +370,7 @@ Each Phase (1 through 6) must pass 4 distinct layers of automated and visual ver
 
 ## L. Acceptance Criteria Checklist
 
-- [ ] **Gate 0**: `Docs/UIUX_2.0/UX_CONTRACT.md` approved. Phase 0 status reported.
+- [ ] **Gate 0**: `Docs/UIUX/UX_CONTRACT.md` approved. Phase 0 status reported.
 - [ ] **Gate 1**: Shared design tokens (`Theme.xaml`) and controls created. 0 compilation errors.
 - [ ] **Gate 2**: Ribbon 2.0 rebuilt with 7 domain panels. Width reduced by >20%. 85/85 command IDs preserved.
 - [ ] **Gate 3**: Khim Workspace 2.0 deployed with Search (`Ctrl+K`), Recents, Module Grouping, compact density.

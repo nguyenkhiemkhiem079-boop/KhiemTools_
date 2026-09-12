@@ -56,26 +56,72 @@ if (-not (Test-Path $modernDll)) {
 
 # 2. Check WiX Toolset availability
 Write-Host "`n[Step 2/5] Verifying WiX CLI..." -ForegroundColor Cyan
-$wixBin = "C:\Program Files\WiX Toolset v7.0\bin"
-if ((Test-Path $wixBin) -and ($env:Path -notlike "*$wixBin*")) {
-    $env:Path = "$wixBin;" + $env:Path
+$toolManifest = Join-Path $projectRoot ".config\dotnet-tools.json"
+$wixExe = $null
+$wixPrefix = @()
+
+if (Test-Path $toolManifest) {
+    & dotnet tool restore | Out-Host
+    if ($LASTEXITCODE -eq 0) {
+        $wixExe = (Get-Command dotnet).Source
+        $wixPrefix = @("tool", "run", "wix", "--")
+        Write-Host "  WiX CLI restored from repository tool manifest." -ForegroundColor Green
+    }
 }
-$wixCmd = Get-Command wix -ErrorAction SilentlyContinue
-if ($null -eq $wixCmd) {
+
+if ($null -eq $wixExe) {
+    $wixCmd = Get-Command wix -ErrorAction SilentlyContinue
+    if ($null -ne $wixCmd) {
+        $wixExe = $wixCmd.Source
+        Write-Host "  WiX CLI found: $wixExe" -ForegroundColor Green
+    }
+}
+
+if ($null -eq $wixExe) {
     Write-Host "WiX CLI not found in PATH." -ForegroundColor Yellow
-} else {
-    Write-Host "  WiX CLI found: $($wixCmd.Source)" -ForegroundColor Green
 }
+
+$wixExtensionRoot = Join-Path $projectRoot ".wix\extensions"
+$wixExtensionVersion = "4.0.5"
+$requiredWixExtensions = @(
+    "WixToolset.UI.wixext",
+    "WixToolset.Util.wixext",
+    "WixToolset.Netfx.wixext",
+    "WixToolset.Bal.wixext"
+)
+
+if ($null -ne $wixExe) {
+    Push-Location $projectRoot
+    try {
+        foreach ($extensionName in $requiredWixExtensions) {
+            $extensionDll = Join-Path $wixExtensionRoot "$extensionName\$wixExtensionVersion\wixext4\$extensionName.dll"
+            if (-not (Test-Path $extensionDll)) {
+                Write-Host "  Restoring WiX extension: $extensionName $wixExtensionVersion" -ForegroundColor Cyan
+                & $wixExe @wixPrefix extension add "$extensionName/$wixExtensionVersion"
+                if (($LASTEXITCODE -ne 0) -or (-not (Test-Path $extensionDll))) {
+                    throw "Unable to restore required WiX extension: $extensionName $wixExtensionVersion"
+                }
+            }
+        }
+    } finally {
+        Pop-Location
+    }
+}
+
+$uiExtension = Join-Path $wixExtensionRoot "WixToolset.UI.wixext\$wixExtensionVersion\wixext4\WixToolset.UI.wixext.dll"
+$utilExtension = Join-Path $wixExtensionRoot "WixToolset.Util.wixext\$wixExtensionVersion\wixext4\WixToolset.Util.wixext.dll"
+$netfxExtension = Join-Path $wixExtensionRoot "WixToolset.Netfx.wixext\$wixExtensionVersion\wixext4\WixToolset.Netfx.wixext.dll"
+$balExtension = Join-Path $wixExtensionRoot "WixToolset.Bal.wixext\$wixExtensionVersion\wixext4\WixToolset.Bal.wixext.dll"
 
 # 3. Build K-TOOLS.msi
 Write-Host "`n[Step 3/5] Building K-TOOLS.msi..." -ForegroundColor Cyan
 $targetMsi = Join-Path $outputDir "K-TOOLS.msi"
 $targetBootstrapper = Join-Path $outputDir "K-TOOLS-Setup.exe"
-if ($null -ne $wixCmd) {
+if ($null -ne $wixExe) {
     Push-Location $msiProjDir
     try {
         $sources = (Get-ChildItem -Recurse -Filter "*.wxs" | Select-Object -ExpandProperty FullName)
-        & wix build -arch x64 -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -ext WixToolset.Netfx.wixext $sources -o $targetMsi
+        & $wixExe @wixPrefix build -arch x64 -ext $uiExtension -ext $utilExtension -ext $netfxExtension $sources -o $targetMsi
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  MSI built successfully: $targetMsi" -ForegroundColor Green
         } else {
@@ -89,7 +135,7 @@ if ($null -ne $wixCmd) {
         Write-Host "  Building K-TOOLS-Setup.exe (Burn Bootstrapper)..." -ForegroundColor Cyan
         Push-Location $bootstrapperProjDir
         try {
-            & wix build -arch x64 -ext WixToolset.BootstrapperApplications.wixext -ext WixToolset.Util.wixext "Bundle.wxs" -o $targetBootstrapper
+            & $wixExe @wixPrefix build -arch x64 -ext $balExtension -ext $utilExtension "Bundle.wxs" -o $targetBootstrapper
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  Bootstrapper built successfully: $targetBootstrapper" -ForegroundColor Green
             } else {

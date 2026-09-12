@@ -328,7 +328,7 @@
                     <TextBlock Grid.Column="0" Margin="0,0,6,0">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
-                                <Setter Property="Text" Value="ℹ️"/>
+                                <Setter Property="Text" Value="i"/>
                                 <Setter Property="FontSize" Value="12"/>
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsSuccess}" Value="True">

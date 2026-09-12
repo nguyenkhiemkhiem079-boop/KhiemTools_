@@ -8,7 +8,8 @@
 
 [CmdletBinding()]
 param(
-    [switch]$SkipStaticAudit
+    [switch]$SkipStaticAudit,
+    [switch]$AllowExistingInstallationRemoval
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,9 +21,20 @@ $msiPrevPath = Join-Path $outputDir "K-TOOLS-2.7.0.msi"
 $bootstrapperPath = Join-Path $outputDir "K-TOOLS-Setup.exe"
 $bundleDir = "C:\ProgramData\Autodesk\ApplicationPlugins\KhimTools.bundle"
 $pkgXmlPath = Join-Path $bundleDir "PackageContents.xml"
-$regKey = "HKCU:\SOFTWARE\K-TOOLS"
+$regKey = "HKLM:\SOFTWARE\K-TOOLS"
 $upgradeCode = "{B73A7490-6831-4F58-9D26-C18244B27DF1}"
 $wi = New-Object -ComObject WindowsInstaller.Installer
+
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($identity)
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw "Real MSI runtime validation requires an elevated Administrator PowerShell session."
+}
+
+$existingProducts = @($wi.RelatedProducts($upgradeCode))
+if (($existingProducts.Count -gt 0 -or (Test-Path $bundleDir)) -and -not $AllowExistingInstallationRemoval) {
+    throw "An existing K-TOOLS installation or bundle was detected. Re-run with -AllowExistingInstallationRemoval only in an isolated QA environment."
+}
 
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host "         K-TOOLS REAL MSI RUNTIME VALIDATION PIPELINE            " -ForegroundColor Cyan
@@ -103,7 +115,6 @@ Write-Host "`n[Runtime 03/10] Executing REAL INSTALL of Previous Version (v2.7.0
 $logInstall269 = Join-Path $env:TEMP "ktools_real_install_269.log"
 $pInstall269 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPrevPath`"",
-    "ALLUSERS=2", "MSIINSTALLPERUSER=1",
     "MSIRESTARTMANAGERCONTROL=Disable",
     "REBOOT=ReallySuppress",
     "/qn", "/l*v", "`"$logInstall269`""
@@ -135,7 +146,6 @@ Write-Host "`n[Runtime 05/10] Executing REAL UPGRADE from v2.7.0 to v2.7.1..." -
 $logUpgrade270 = Join-Path $env:TEMP "ktools_real_upgrade_270.log"
 $pUpgrade270 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPath`"",
-    "ALLUSERS=2", "MSIINSTALLPERUSER=1",
     "MSIRESTARTMANAGERCONTROL=Disable",
     "REBOOT=ReallySuppress",
     "/qn", "/l*v", "`"$logUpgrade270`""
