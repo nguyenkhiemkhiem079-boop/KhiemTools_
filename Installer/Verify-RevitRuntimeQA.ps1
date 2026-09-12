@@ -168,7 +168,7 @@ try {
     $ribbonFile = Join-Path $khimToolsDir "Core\RibbonBuilder.cs"
     $ribbonContent = Get-Content $ribbonFile -Raw
 
-    $panels = @("BuildGenPanel", "BuildOverridePanel", "BuildStructuralPanel", "BuildArchPanel", "BuildMepPanel")
+    $panels = @("BuildWorkspacePanel", "BuildGenPanel", "BuildOverridePanel", "BuildStructuralPanel", "BuildArchPanel", "BuildMepPanel")
     foreach ($p in $panels) {
         $pattern = "try\s*\{\s*$p"
         if ($ribbonContent -notmatch $pattern) {
@@ -176,7 +176,7 @@ try {
         }
     }
 
-    Report-Pass "Audit 05: Safe Startup Boundary" "All 5 panels isolated with try-catch startup protection"
+    Report-Pass "Audit 05: Safe Startup Boundary" "All 6 panels isolated with try-catch startup protection"
 } catch {
     Report-Fail "Audit 05: Safe Startup Boundary" $_.Exception.Message
 }

@@ -18,7 +18,8 @@ namespace KhimTools.Core
     public static class RibbonBuilder
     {
         public const string TabName = "K-TOOLS";
-        public const string GenPanelName = "Workspace";
+        public const string WorkspacePanelName = "Workspace";
+        public const string GenPanelName = "K-GEN";
         public const string OverridePanelName = "Graphics";
         public const string StructuralPanelName = "Structure";
         public const string ArchPanelName = "Architecture";
@@ -29,7 +30,10 @@ namespace KhimTools.Core
             CreateTabSafely(application, TabName);
             string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
-            // 1. Panel: K-GEN (Gom gọn đẹp mắt)
+            // Workspace is navigation only: toggle the right-hand dockable pane.
+            try { BuildWorkspacePanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] Workspace error: " + ex); }
+
+            // K-GEN contains model, view and documentation operations.
             try { BuildGenPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-GEN error: " + ex); }
 
             // 2. Panel: Override (Palette màu 3x3 + Halftone + Reset + Setting Color)
@@ -46,27 +50,32 @@ namespace KhimTools.Core
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
-        // 1. PANEL: K-GEN (GOM GỌN TỐI ƯU KHÔNG GIAN)
+        // 1. PANEL: WORKSPACE (DOCKABLE PANE TOGGLE ONLY)
+        // ════════════════════════════════════════════════════════════════════════════════
+        private static void BuildWorkspacePanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, WorkspacePanelName);
+            var wsData = new PushButtonData(
+                "CmdToggleWorkspace",
+                "Workspace",
+                assemblyPath,
+                "KhimTools.Workspace.Commands.CmdToggleWorkspace")
+            {
+                ToolTip = "Bật hoặc tắt thanh công cụ Workspace bên phải màn hình.",
+                LargeImage = LoadImage("icon_workspace_32.png"),
+                Image = LoadImage("icon_workspace_16.png")
+            };
+            panel.AddItem(wsData);
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 2. PANEL: K-GEN (MODEL, VIEW AND DOCUMENT OPERATIONS)
         // ════════════════════════════════════════════════════════════════════════════════
         private static void BuildGenPanel(UIControlledApplication application, string assemblyPath)
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, GenPanelName);
 
-            // ── CỤM 1: WORKSPACE & LINK ──
-            // 1. Khim Workspace (Large Button)
-            var wsData = new PushButtonData(
-                "CmdToggleWorkspace",
-                "Khim" + Environment.NewLine + "Workspace",
-                assemblyPath,
-                "KhimTools.Workspace.Commands.CmdToggleWorkspace")
-            {
-                ToolTip = "Bật/Tắt bảng điều khiển Khim Workspace (Dockable Pane).",
-                LargeImage = LoadImage("icon_workspace_32.png"),
-                Image = LoadImage("icon_workspace_16.png")
-            };
-            panel.AddItem(wsData);
-
-            // 2. Copy Link Elements (Large Button)
+            // Copy Link Elements
             var copyLinkData = new PushButtonData(
                 "CmdCopyLinkElements",
                 "Copy Link" + Environment.NewLine + "Elements",
