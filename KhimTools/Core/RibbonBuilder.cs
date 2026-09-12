@@ -284,70 +284,29 @@ namespace KhimTools.Core
         private static void BuildOverridePanel(UIControlledApplication application, string assemblyPath)
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, OverridePanelName);
-
-            // ── STACK 1: ĐỎ, CAM, VÀNG ──
-            var redData = CreateColorSwatchData("CmdOverrideRed", "Red", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png", "Gán màu Đỏ (Red) cho đối tượng đang chọn");
-            var orangeData = CreateColorSwatchData("CmdOverrideOrange", "Orange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png", "Gán màu Cam (Orange) cho đối tượng đang chọn");
-            var yellowData = CreateColorSwatchData("CmdOverrideYellow", "Yellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png", "Gán màu Vàng (Yellow) cho đối tượng đang chọn");
-            panel.AddStackedItems(redData, orangeData, yellowData);
-
-            // ── STACK 2: XANH LÁ, CYAN, XANH DƯƠNG ──
-            var greenData = CreateColorSwatchData("CmdOverrideGreen", "Green", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png", "Gán màu Xanh lá (Green) cho đối tượng đang chọn");
-            var cyanData = CreateColorSwatchData("CmdOverrideCyan", "Cyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png", "Gán màu Xanh lơ (Cyan) cho đối tượng đang chọn");
-            var blueData = CreateColorSwatchData("CmdOverrideBlue", "Blue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png", "Gán màu Xanh dương (Blue) cho đối tượng đang chọn");
-            panel.AddStackedItems(greenData, cyanData, blueData);
-
-            // ── STACK 3: MAGENTA, XÁM, TÙY CHỌN (GRADIENT) ──
-            var magentaData = CreateColorSwatchData("CmdOverrideMagenta", "Magenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png", "Gán màu Hồng cánh sen (Magenta) cho đối tượng đang chọn");
-            var grayData = CreateColorSwatchData("CmdOverrideGray", "Gray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png", "Gán màu Xám (Gray) cho đối tượng đang chọn");
-            var customData = CreateColorSwatchData("CmdOverrideCustom", "Custom", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png", "Chọn màu tùy chỉnh từ bảng màu (Custom Color Picker)");
-            panel.AddStackedItems(magentaData, grayData, customData);
-
-            // ── LARGE BUTTON 1: ON/OFF HALFTONE ──
-            var halftoneData = new PushButtonData(
-                "CmdQuickHalftone",
-                "On/Off" + Environment.NewLine + "Halftone",
-                assemblyPath,
-                "KhimTools.OverrideTool.Commands.CmdQuickHalftone")
+            var data = new PulldownButtonData("GraphicsPulldown", "Graphic" + Environment.NewLine + "Overdrive")
             {
-                ToolTip = "Bật/Tắt nhanh chế độ mờ Halftone 50% cho đối tượng đang chọn.",
-                LargeImage = LoadImage("override_halftone_32.png"),
-                Image = LoadImage("override_halftone_16.png")
+                ToolTip = "Màu, halftone, line weight và reset override cho đối tượng đang chọn.",
+                LargeImage = LoadImage("override_palette_32.png"),
+                Image = LoadImage("override_palette_16.png")
             };
-            panel.AddItem(halftoneData);
+            var menu = panel.AddItem(data) as PulldownButton;
+            if (menu == null) return;
 
-            // ── LARGE BUTTON 2: RESET OVERRIDE ──
-            var resetData = new PushButtonData(
-                "CmdQuickResetOverride",
-                "Reset" + Environment.NewLine + "Override",
-                assemblyPath,
-                "KhimTools.OverrideTool.Commands.CmdQuickResetOverride")
-            {
-                ToolTip = "Xóa toàn bộ màu sắc, đường nét, halftone đã override của đối tượng đang chọn.",
-                LargeImage = LoadImage("override_reset_32.png"),
-                Image = LoadImage("override_reset_16.png")
-            };
-            panel.AddItem(resetData);
-
-            // ── LARGE BUTTON 3: SETTING COLOR ──
-            var settingData = new PushButtonData(
-                "CmdGraphicOverdrive",
-                "Setting" + Environment.NewLine + "Color",
-                assemblyPath,
-                "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive")
-            {
-                ToolTip = "Mở bảng điều khiển Graphic Overdrive chi tiết (Độ trong suốt Transparency, Nét vẽ Line Weight, 12 Presets màu).",
-                LargeImage = LoadImage("override_setting_32.png"),
-                Image = LoadImage("override_setting_16.png")
-            };
-            panel.AddItem(settingData);
-
-            // Ẩn text cho các ô màu swatch để giữ giao diện bảng màu 3x3 icon vuông gọn đẹp
-            TryHideSwatchButtonTexts(
-                "CmdOverrideRed", "CmdOverrideOrange", "CmdOverrideYellow",
-                "CmdOverrideGreen", "CmdOverrideCyan", "CmdOverrideBlue",
-                "CmdOverrideMagenta", "CmdOverrideGray", "CmdOverrideCustom"
-            );
+            AddPulldownItem(menu, "CmdGraphicOverdrive", "Mở Graphic Overdrive", "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive", assemblyPath, "override_setting_16.png");
+            menu.AddSeparator();
+            AddPulldownItem(menu, "CmdOverrideRed", "Red", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png");
+            AddPulldownItem(menu, "CmdOverrideOrange", "Orange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png");
+            AddPulldownItem(menu, "CmdOverrideYellow", "Yellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png");
+            AddPulldownItem(menu, "CmdOverrideGreen", "Green", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png");
+            AddPulldownItem(menu, "CmdOverrideCyan", "Cyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png");
+            AddPulldownItem(menu, "CmdOverrideBlue", "Blue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png");
+            AddPulldownItem(menu, "CmdOverrideMagenta", "Magenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png");
+            AddPulldownItem(menu, "CmdOverrideGray", "Gray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png");
+            AddPulldownItem(menu, "CmdOverrideCustom", "Custom color", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png");
+            menu.AddSeparator();
+            AddPulldownItem(menu, "CmdQuickHalftone", "On / Off Halftone", "KhimTools.OverrideTool.Commands.CmdQuickHalftone", assemblyPath, "override_halftone_16.png");
+            AddPulldownItem(menu, "CmdQuickResetOverride", "Reset Override", "KhimTools.OverrideTool.Commands.CmdQuickResetOverride", assemblyPath, "override_reset_16.png");
         }
 
         private static PushButtonData CreateColorSwatchData(string id, string text, string className, string assemblyPath, string iconName, string tooltip)
