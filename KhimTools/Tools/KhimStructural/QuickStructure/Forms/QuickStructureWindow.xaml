@@ -69,7 +69,7 @@
         </Grid.RowDefinitions>
 
         <!-- 1. HEADER -->
-        <Border Grid.Row="0" Background="{StaticResource HeaderGradient}" Padding="18,14">
+        <Border Grid.Row="0" Visibility="Collapsed" Background="{StaticResource HeaderGradient}" Padding="18,14">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

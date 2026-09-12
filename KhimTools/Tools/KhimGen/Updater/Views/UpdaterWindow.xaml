@@ -7,9 +7,9 @@
         Title="KhimTools Update" 
         Height="470" Width="390"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
+        WindowStyle="SingleBorderWindow"
+        AllowsTransparency="False"
+        Background="#F4F6F8"
         ResizeMode="NoResize"
         ShowInTaskbar="True">
 
@@ -91,7 +91,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- HEADER -->
-                <Grid Grid.Row="0" Margin="0,0,0,16" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                <Grid Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,16" MouseLeftButtonDown="Header_MouseLeftButtonDown">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>

@@ -72,7 +72,7 @@
         </Grid.RowDefinitions>
 
         <!-- HEADER -->
-        <Border Grid.Row="0" Margin="0,0,0,14" Padding="14,10" Background="#18212F" CornerRadius="4" BorderBrush="#18212F" BorderThickness="1">
+        <Border Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,14" Padding="14,10" Background="#18212F" CornerRadius="4" BorderBrush="#18212F" BorderThickness="1">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>

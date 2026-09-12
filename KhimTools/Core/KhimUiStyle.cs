@@ -174,72 +174,7 @@ namespace KhimTools.Core
         // ── Header Banner Generator ─────────────────────────────────────────
         public static Panel CreateHeaderBanner(string title, string subtitle, string versionTag = null)
         {
-            if (string.IsNullOrEmpty(versionTag))
-            {
-                versionTag = GetDefaultVersionTag();
-            }
-
-            var headerPanel = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 54,
-                BackColor = HeaderBg,
-                Padding = new Padding(15, 0, 15, 0)
-            };
-
-            // Accent Bottom Line
-            var accentLine = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 3,
-                BackColor = HeaderAccent
-            };
-            headerPanel.Controls.Add(accentLine);
-
-            // Title Label
-            var lblTitle = new Label
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 11.5F, FontStyle.Bold),
-                ForeColor = Color.White,
-                AutoSize = true,
-                Left = 15,
-                Top = 8
-            };
-
-            // Subtitle Label
-            var lblSubtitle = new Label
-            {
-                Text = subtitle,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
-                ForeColor = Color.FromArgb(148, 163, 184), // #94A3B8
-                AutoSize = true,
-                Left = 15,
-                Top = 30
-            };
-
-            // Version Pill Badge
-            var lblBadge = new Label
-            {
-                Text = versionTag,
-                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
-                ForeColor = Color.FromArgb(56, 189, 248), // #38BDF8
-                BackColor = Color.FromArgb(30, 41, 59),  // #1E293B
-                AutoSize = true,
-                Padding = new Padding(6, 3, 6, 3),
-                Top = 15
-            };
-
-            headerPanel.Controls.Add(lblTitle);
-            headerPanel.Controls.Add(lblSubtitle);
-            headerPanel.Controls.Add(lblBadge);
-
-            headerPanel.Resize += (s, e) =>
-            {
-                lblBadge.Left = headerPanel.Width - lblBadge.Width - 18;
-            };
-
-            return headerPanel;
+            return new Panel { Dock = DockStyle.Top, Height = 0, Visible = false, TabStop = false };
         }
 
         // ── Card Style for GroupBoxes ───────────────────────────────────────

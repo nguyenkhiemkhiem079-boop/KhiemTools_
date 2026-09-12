@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Callout Pro" 
         Height="420" Width="420"
-        WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent"
+        WindowStyle="SingleBorderWindow"
+        AllowsTransparency="False"
+        Background="#F4F6F8"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
     <Window.Resources>
@@ -28,7 +28,7 @@
             </Grid.RowDefinitions>
 
             <!-- Title Bar -->
-            <Border Grid.Row="0" Background="#F0F9FF" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+            <Border Grid.Row="0" Visibility="Collapsed" Background="#F0F9FF" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
                 <Grid>
                     <TextBlock Text="K-TOOLS — Callout Pro" 
                                FontWeight="Bold" FontSize="14" 
