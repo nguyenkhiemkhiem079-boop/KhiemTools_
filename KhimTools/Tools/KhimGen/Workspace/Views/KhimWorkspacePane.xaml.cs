@@ -30,27 +30,21 @@ namespace KhimTools.Tools.Workspace.Views
             };
         }
 
-        private void ToolSearch_TextChanged(object sender, TextChangedEventArgs e) => ApplySearch();
-
-        private void ModuleTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplySearch();
-
-        private void ClearSearch_Click(object sender, RoutedEventArgs e)
+        private void Filter_Changed(object sender, EventArgs e)
         {
-            ToolSearch.Clear();
-            ToolSearch.Focus();
-        }
-
-        private void ApplySearch()
-        {
-            if (ModuleTabs == null) return;
+            if (ToolList == null || ModuleFilter == null) return;
             string query = (ToolSearch?.Text ?? string.Empty).Trim();
-            if (!(ModuleTabs.SelectedContent is ScrollViewer scroll) || !(scroll.Content is StackPanel panel)) return;
-            foreach (UIElement child in panel.Children)
+            string module = (ModuleFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "All";
+            foreach (UIElement child in ToolList.Children)
             {
                 if (child is Button button)
                 {
-                    string keywords = button.Tag as string ?? string.Empty;
-                    button.Visibility = query.Length == 0 || keywords.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ? Visibility.Visible : Visibility.Collapsed;
+                    string metadata = button.Tag as string ?? string.Empty;
+                    int separator = metadata.IndexOf('|');
+                    string itemModule = separator >= 0 ? metadata.Substring(0, separator) : string.Empty;
+                    bool moduleMatch = module == "All" || string.Equals(module, itemModule, StringComparison.OrdinalIgnoreCase);
+                    bool queryMatch = query.Length == 0 || metadata.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                    button.Visibility = moduleMatch && queryMatch ? Visibility.Visible : Visibility.Collapsed;
                 }
             }
         }

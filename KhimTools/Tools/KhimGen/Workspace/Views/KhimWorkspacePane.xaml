@@ -1,37 +1,76 @@
-<Page x:Class="KhimTools.Tools.Workspace.Views.KhimWorkspacePane" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="K-TOOLS Workspace" Background="#F4F6F8" FontFamily="Segoe UI">
-  <Page.Resources>
-    <Style x:Key="ToolButton" TargetType="Button"><Setter Property="Background" Value="White"/><Setter Property="BorderBrush" Value="#D8DEE6"/><Setter Property="BorderThickness" Value="1"/><Setter Property="Margin" Value="0,0,0,8"/><Setter Property="Padding" Value="10"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Cursor" Value="Hand"/><Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}"><ContentPresenter/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="#087EA4"/><Setter TargetName="Frame" Property="Background" Value="#F4FBFC"/></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Frame" Property="Background" Value="#E7F5F8"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter></Style>
-    <Style x:Key="ToolTitle" TargetType="TextBlock"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Foreground" Value="#18212F"/></Style>
-    <Style x:Key="ToolDescription" TargetType="TextBlock"><Setter Property="FontSize" Value="10.5"/><Setter Property="Foreground" Value="#5E6B7A"/><Setter Property="Margin" Value="0,2,0,0"/><Setter Property="TextTrimming" Value="CharacterEllipsis"/></Style>
-  </Page.Resources>
-  <Grid Margin="10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-    <Border Grid.Row="0" Visibility="Collapsed" Background="#18212F" CornerRadius="4" Padding="12,10" Margin="0,0,0,10"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="K-TOOLS" Foreground="White" FontSize="15" FontWeight="SemiBold"/><TextBlock Text="Professional workspace" Foreground="#AAB6C4" FontSize="10.5"/></StackPanel><Button Grid.Column="1" Content="Update" Command="{Binding CheckUpdateCommand}" Padding="9,4" Foreground="White" Background="#087EA4" BorderThickness="0"/></Grid></Border>
-    <Grid Grid.Row="1" Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="ToolSearch" TextChanged="ToolSearch_TextChanged" ToolTip="Tìm công cụ theo tên hoặc chức năng"/><TextBlock Text="Tìm công cụ..." Foreground="#8995A3" Margin="10,0" VerticalAlignment="Center" IsHitTestVisible="False"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=ToolSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock><Button Grid.Column="1" Content="Clear" Margin="8,0,0,0" Click="ClearSearch_Click"/></Grid>
-    <TabControl x:Name="ModuleTabs" Grid.Row="2" SelectionChanged="ModuleTabs_SelectionChanged">
-      <TabItem Header="Rebar"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="8">
-        <Button Style="{StaticResource ToolButton}" Tag="column rebar cột thép" Command="{Binding RunColumnRebarCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Column Rebar"/><TextBlock Style="{StaticResource ToolDescription}" Text="Cột chữ nhật, cột tròn và thép chờ"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="beam rebar dầm thép" Command="{Binding RunBeamRebarCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Beam Rebar"/><TextBlock Style="{StaticResource ToolDescription}" Text="Thép dọc, đai và cấu tạo vùng gối"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="slab rebar sàn thép" Command="{Binding RunSlabRebarCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Slab Rebar"/><TextBlock Style="{StaticResource ToolDescription}" Text="Lưới trên, dưới và thép gia cường"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="foundation rebar móng thép chờ" Command="{Binding RunFoundationRebarCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Foundation Rebar"/><TextBlock Style="{StaticResource ToolDescription}" Text="Lưới móng và liên kết thép chờ"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="section cut mặt cắt" Command="{Binding RunSectionCutCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Smart Section Cut"/><TextBlock Style="{StaticResource ToolDescription}" Text="Tạo mặt cắt theo cấu kiện"/></StackPanel></Button>
-      </StackPanel></ScrollViewer></TabItem>
-      <TabItem Header="Model"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="8">
-        <Button Style="{StaticResource ToolButton}" Tag="join unjoin geometry hình học" Command="{Binding RunJoinElementsCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Join Elements"/><TextBlock Style="{StaticResource ToolDescription}" Text="Join, unjoin và đổi thứ tự hình học"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="grid floor plan lưới tầng" Command="{Binding RunGridPlanGeneratorCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Grid &amp; Floor Plan"/><TextBlock Style="{StaticResource ToolDescription}" Text="Tạo grid, level và floor plan"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="copy link elements liên kết" Command="{Binding RunCopyFromLinkCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Copy Link Elements"/><TextBlock Style="{StaticResource ToolDescription}" Text="Sao chép cấu kiện từ Revit Link"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="room 3d view phòng" Command="{Binding RunRoom3DViewCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Room 3D View"/><TextBlock Style="{StaticResource ToolDescription}" Text="Tạo 3D section box theo phòng"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="room finishes tường sàn kiến trúc" Command="{Binding RunWallFloorFinishesCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Room Finishes"/><TextBlock Style="{StaticResource ToolDescription}" Text="Tạo lớp hoàn thiện phòng"/></StackPanel></Button>
-      </StackPanel></ScrollViewer></TabItem>
-      <TabItem Header="Docs"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="8">
-        <Button Style="{StaticResource ToolButton}" Tag="align viewport căn chỉnh" Command="{Binding RunAlignViewportCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Align Viewports"/><TextBlock Style="{StaticResource ToolDescription}" Text="Căn vị trí viewport giữa các sheet"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="detail number số chi tiết" Command="{Binding RunUpdateDetailNoCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Update Detail Numbers"/><TextBlock Style="{StaticResource ToolDescription}" Text="Đồng bộ số hiệu chi tiết"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="sheet export pdf dwg xuất bản" Command="{Binding RunSheetExportCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="Sheet Exporter"/><TextBlock Style="{StaticResource ToolDescription}" Text="Xuất PDF, DWG và transmittal"/></StackPanel></Button>
-      </StackPanel></ScrollViewer></TabItem>
-      <TabItem Header="MEP"><ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="8">
-        <Button Style="{StaticResource ToolButton}" Tag="mep openings lỗ mở penetration" Command="{Binding RunMepOpeningsCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="MEP Openings"/><TextBlock Style="{StaticResource ToolDescription}" Text="Phát hiện va chạm và tạo lỗ mở"/></StackPanel></Button>
-        <Button Style="{StaticResource ToolButton}" Tag="mep elevation tags cao độ" Command="{Binding RunMepElevationTagsCommand}"><StackPanel><TextBlock Style="{StaticResource ToolTitle}" Text="MEP Elevation Tags"/><TextBlock Style="{StaticResource ToolDescription}" Text="Gán tag BOP và invert elevation"/></StackPanel></Button>
-      </StackPanel></ScrollViewer></TabItem>
-    </TabControl>
-    <Border Grid.Row="3" Background="#E8EDF2" CornerRadius="3" Padding="8,6" Margin="0,10,0,0"><TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="#4B5968" TextWrapping="Wrap"/></Border>
-  </Grid>
+<Page x:Class="KhimTools.Tools.Workspace.Views.KhimWorkspacePane"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Title="K-TOOLS Workspace" Background="#F4F6F8" FontFamily="Segoe UI">
+    <Page.Resources>
+        <Style x:Key="LauncherButton" TargetType="Button">
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="Margin" Value="0,0,0,3"/>
+            <Setter Property="Padding" Value="10,0"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#DDE2E8"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Surface" Property="Background" Value="#EAF6F8"/><Setter TargetName="Surface" Property="BorderBrush" Value="#087EA4"/></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="Surface" Property="Background" Value="#D7EDF1"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ToolName" TargetType="TextBlock"><Setter Property="Foreground" Value="#18212F"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="TextTrimming" Value="CharacterEllipsis"/></Style>
+        <Style x:Key="ModuleLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="#6B7785"/><Setter Property="FontSize" Value="9"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="HorizontalAlignment" Value="Right"/></Style>
+    </Page.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="104"/></Grid.ColumnDefinitions>
+            <TextBox x:Name="ToolSearch" Grid.Column="0" Margin="0,0,6,0" TextChanged="Filter_Changed" ToolTip="Tìm tất cả công cụ"/>
+            <TextBlock Grid.Column="0" Text="Tìm công cụ..." Foreground="#8995A3" Margin="10,0" VerticalAlignment="Center" IsHitTestVisible="False">
+                <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=ToolSearch}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+            </TextBlock>
+            <ComboBox x:Name="ModuleFilter" Grid.Column="1" SelectionChanged="Filter_Changed" SelectedIndex="0">
+                <ComboBoxItem Content="Tất cả" Tag="All"/><ComboBoxItem Content="Rebar" Tag="Rebar"/><ComboBoxItem Content="Model" Tag="Model"/><ComboBoxItem Content="Docs" Tag="Docs"/><ComboBoxItem Content="MEP" Tag="MEP"/>
+            </ComboBox>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="ToolList">
+                <Button Style="{StaticResource LauncherButton}" Tag="Rebar|column rebar cột thép" Command="{Binding RunColumnRebarCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Column Rebar"/><TextBlock Style="{StaticResource ModuleLabel}" Text="REBAR"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Rebar|beam rebar dầm thép" Command="{Binding RunBeamRebarCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Beam Rebar"/><TextBlock Style="{StaticResource ModuleLabel}" Text="REBAR"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Rebar|slab rebar sàn thép" Command="{Binding RunSlabRebarCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Slab Rebar"/><TextBlock Style="{StaticResource ModuleLabel}" Text="REBAR"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Rebar|foundation rebar móng thép chờ" Command="{Binding RunFoundationRebarCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Foundation Rebar"/><TextBlock Style="{StaticResource ModuleLabel}" Text="REBAR"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Rebar|section cut mặt cắt" Command="{Binding RunSectionCutCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Smart Section Cut"/><TextBlock Style="{StaticResource ModuleLabel}" Text="REBAR"/></Grid></Button>
+
+                <Button Style="{StaticResource LauncherButton}" Tag="Model|join unjoin geometry hình học" Command="{Binding RunJoinElementsCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Join Elements"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MODEL"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Model|grid floor plan lưới tầng" Command="{Binding RunGridPlanGeneratorCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Grid &amp; Floor Plan"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MODEL"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Model|copy link elements liên kết" Command="{Binding RunCopyFromLinkCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Copy Link Elements"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MODEL"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Model|room 3d view phòng" Command="{Binding RunRoom3DViewCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Room 3D View"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MODEL"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Model|room finishes hoàn thiện phòng" Command="{Binding RunWallFloorFinishesCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Room Finishes"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MODEL"/></Grid></Button>
+
+                <Button Style="{StaticResource LauncherButton}" Tag="Docs|align viewport căn chỉnh" Command="{Binding RunAlignViewportCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Align Viewports"/><TextBlock Style="{StaticResource ModuleLabel}" Text="DOCS"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Docs|detail number số chi tiết" Command="{Binding RunUpdateDetailNoCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Update Detail Numbers"/><TextBlock Style="{StaticResource ModuleLabel}" Text="DOCS"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="Docs|sheet export pdf dwg xuất bản" Command="{Binding RunSheetExportCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="Sheet Exporter"/><TextBlock Style="{StaticResource ModuleLabel}" Text="DOCS"/></Grid></Button>
+
+                <Button Style="{StaticResource LauncherButton}" Tag="MEP|openings lỗ mở penetration" Command="{Binding RunMepOpeningsCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="MEP Openings"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MEP"/></Grid></Button>
+                <Button Style="{StaticResource LauncherButton}" Tag="MEP|elevation tags cao độ" Command="{Binding RunMepElevationTagsCommand}"><Grid><TextBlock Style="{StaticResource ToolName}" Text="MEP Elevation Tags"/><TextBlock Style="{StaticResource ModuleLabel}" Text="MEP"/></Grid></Button>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="2" Margin="2,7,2,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <TextBlock Text="{Binding StatusMessage}" Foreground="#647181" FontSize="10" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Update" Command="{Binding CheckUpdateCommand}" Padding="7,3" MinHeight="26" Margin="6,0,0,0"/>
+        </Grid>
+    </Grid>
 </Page>
