@@ -6,10 +6,10 @@ const { icons } = require('lucide');
 const output = path.resolve(__dirname, '..', 'KhimTools', 'Resources');
 
 const palette = {
-  general: '#0284C7',
-  structural: '#2563EB',
-  architectural: '#0F766E',
-  mep: '#D97706',
+  general: '#087EA4',
+  structural: '#3157A4',
+  architectural: '#16766F',
+  mep: '#B76516',
   utility: '#475569',
   danger: '#DC2626'
 };
@@ -44,6 +44,7 @@ const specs = {
   override_halftone: ['Blend', 'utility'],
   override_magenta: ['Circle', '#DB2777'],
   override_orange: ['Circle', '#EA580C'],
+  override_palette: ['Palette', 'general'],
   override_red: ['Circle', '#DC2626'],
   override_reset: ['RotateCcw', 'utility'],
   override_setting: ['SlidersHorizontal', 'utility'],
@@ -71,9 +72,12 @@ function nodeToSvg([tag, attrs]) {
 function svgFor(iconName, color, size) {
   const icon = icons[iconName] || icons.Box;
   const resolved = palette[color] || color;
-  const strokeWidth = size === 16 ? 2.25 : 1.9;
+  const strokeWidth = size === 16 ? 2.1 : 1.85;
   const mark = icon.map(nodeToSvg).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${resolved}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</svg>`;
+  if (size === 32) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="6" fill="${resolved}"/><g transform="translate(4 4)" fill="none" stroke="#FFFFFF" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</g></svg>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${resolved}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</svg>`;
 }
 
 async function main() {
