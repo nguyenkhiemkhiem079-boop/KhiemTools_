@@ -6,11 +6,11 @@ const { icons } = require('lucide');
 const output = path.resolve(__dirname, '..', 'KhimTools', 'Resources');
 
 const palette = {
-  general: '#087EA4',
-  structural: '#3157A4',
-  architectural: '#16766F',
-  mep: '#B76516',
-  utility: '#475569',
+  general: '#1677D2',
+  structural: '#1677D2',
+  architectural: '#1677D2',
+  mep: '#1677D2',
+  utility: '#526170',
   danger: '#DC2626'
 };
 
@@ -36,6 +36,11 @@ const specs = {
   icon_update: ['RefreshCw', 'general'],
   icon_view_callout: ['SquareArrowOutUpRight', 'general'],
   icon_workspace: ['PanelsTopLeft', 'general'],
+  icon_family: ['LibraryBig', 'general'],
+  icon_slabstep: ['Layers2', 'general'],
+  icon_language: ['Languages', 'utility'],
+  icon_search: ['Search', 'utility'],
+  icon_star: ['Star', 'general'],
   override_blue: ['Circle', '#2563EB'],
   override_custom: ['Pipette', 'utility'],
   override_cyan: ['Circle', '#06B6D4'],
@@ -70,14 +75,15 @@ function nodeToSvg([tag, attrs]) {
 }
 
 function svgFor(iconName, color, size) {
-  const icon = icons[iconName] || icons.Box;
+  const icon = icons[iconName];
+  if (!icon) throw new Error(`Unknown Lucide icon: ${iconName}`);
   const resolved = palette[color] || color;
   const strokeWidth = size === 16 ? 2.1 : 1.85;
   const mark = icon.map(nodeToSvg).join('');
-  if (size === 32) {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="6" fill="${resolved}"/><g transform="translate(4 4)" fill="none" stroke="#FFFFFF" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</g></svg>`;
+  if (iconName === 'Circle') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" fill="${resolved}" stroke="#526170" stroke-width="0.75"/></svg>`;
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${resolved}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${resolved}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round">${mark}</svg>`;
 }
 
 async function main() {
@@ -97,10 +103,16 @@ async function main() {
   }
 
   scan(sourceRoot);
-  for (const file of fs.readdirSync(output).filter(name => name.endsWith('.png'))) {
-    fs.unlinkSync(path.join(output, file));
+  // Validate the entire catalog before writing. Never delete unrelated images.
+  for (const file of referenced) {
+    if (!specs[file.replace(/_(16|32)\.png$/, '')]) throw new Error(`Missing icon specification: ${file}`);
   }
-
+  for (const [name, [icon]] of Object.entries(specs)) {
+    if (!icons[icon]) throw new Error(`Unknown icon for ${name}: ${icon}`);
+    referenced.add(`${name}_16.png`);
+    referenced.add(`${name}_32.png`);
+  }
+  fs.mkdirSync(output, { recursive: true });
   for (const file of [...referenced].sort()) {
     const match = file.match(/^(.+)_(16|32)\.png$/);
     const name = match[1];
@@ -110,7 +122,27 @@ async function main() {
     await sharp(Buffer.from(svgFor(iconName, color, size))).resize(size, size).png({ compressionLevel: 9 }).toFile(path.join(output, file));
   }
 
-  console.log(`Clean-generated ${referenced.size} referenced icons in ${output}`);
+  console.log(`Generated ${referenced.size} icons in ${output}`);
+  if (process.argv.includes('--preview')) {
+    const names = Object.keys(specs);
+    const width = 1200;
+    const cellWidth = 150;
+    const cellHeight = 86;
+    const layers = [];
+    for (const [index, name] of names.entries()) {
+      const left = (index % 8) * cellWidth;
+      const top = Math.floor(index / 8) * cellHeight;
+      layers.push({ input: path.join(output, `${name}_32.png`), left: left + 40, top: top + 12 });
+      layers.push({ input: path.join(output, `${name}_16.png`), left: left + 85, top: top + 20 });
+      const label = name.replace(/^icon_/, '').replace(/_/g, ' ');
+      const svg = `<svg width="150" height="24"><text x="75" y="16" text-anchor="middle" font-family="Segoe UI" font-size="11" fill="#526170">${esc(label)}</text></svg>`;
+      layers.push({ input: Buffer.from(svg), left, top: top + 52 });
+    }
+    const previewDir = path.resolve(__dirname, '..', 'artifacts', 'ui-qa');
+    fs.mkdirSync(previewDir, { recursive: true });
+    await sharp({ create: { width, height: Math.ceil(names.length / 8) * cellHeight, channels: 4, background: '#F5F7FA' } })
+      .composite(layers).png().toFile(path.join(previewDir, 'ribbon-icons.png'));
+  }
 }
 
 main().catch(error => {

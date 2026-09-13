@@ -1,0 +1,11 @@
+{
+  "name": "khimtools-ui-assets",
+  "private": true,
+  "scripts": {
+    "generate:icons": "node Generate-RibbonIcons.cjs"
+  },
+  "devDependencies": {
+    "lucide": "1.8.0",
+    "sharp": "0.35.4"
+  }
+}
