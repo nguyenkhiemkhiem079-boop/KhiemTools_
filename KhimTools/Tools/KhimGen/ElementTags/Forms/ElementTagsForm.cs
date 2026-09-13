@@ -30,6 +30,12 @@ namespace KhimTools.ElementTags.Forms
 
         // Left Panel configuration controls
         private DataGridView _grid;
+        private sealed class TagChoice
+        {
+            public string Key { get; set; }
+            public string Name { get; set; }
+            public FamilySymbol Symbol { get; set; }
+        }
         private CheckBox _chkAddLeader;
         private CheckBox _chkOnlyUntagged;
         private Button _btnTagAll;
@@ -77,29 +83,39 @@ namespace KhimTools.ElementTags.Forms
             RunProximityAudit();
         }
 
+        private ElementTagsForm() { InitializeComponent(); }
+
+        internal static ElementTagsForm CreateLayoutPreview() => new ElementTagsForm();
+
         private void InitializeComponent()
         {
             // Set Form Properties
             this.Size = new Size(1100, 720);
+            this.MinimumSize = new Size(1100, 720);
             this.SetFormTitle("K-TOOLS - Check Tag Host", "Audit & Resolve Tag Host Proximity");
             KhimUiStyle.ApplyFormTheme(this);
 
             // Container Panel
-            var pnlContainer = new System.Windows.Forms.Panel
+            var pnlContainer = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(16, 60, 16, 16)
+                Padding = new Padding(16),
+                ColumnCount = 2,
+                RowCount = 1
             };
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 410));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            pnlContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             this.Controls.Add(pnlContainer);
 
             // ── LEFT PANEL (WIDTH 400): AUTO TAGGING CONFIG ──
             var pnlLeft = new System.Windows.Forms.Panel
             {
-                Dock = DockStyle.Left,
-                Width = 380,
+                Dock = DockStyle.Fill,
+                Width = 410,
                 Padding = new Padding(0, 0, 10, 0)
             };
-            pnlContainer.Controls.Add(pnlLeft);
+            pnlContainer.Controls.Add(pnlLeft, 0, 0);
 
             // 1. DataGridView Configuration (Left)
             _grid = new DataGridView
@@ -158,6 +174,11 @@ namespace KhimTools.ElementTags.Forms
 
             _grid.CellPainting += Grid_CellPainting;
             _grid.CellClick += Grid_CellClick;
+            _grid.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
             pnlLeft.Controls.Add(_grid);
 
             // Bottom controls on Left Panel
@@ -198,9 +219,10 @@ namespace KhimTools.ElementTags.Forms
 
             var pnlActions = new System.Windows.Forms.Panel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Bottom,
                 Padding = new Padding(0, 6, 0, 0)
             };
+            pnlActions.Height = 150;
             pnlLeftBottom.Controls.Add(pnlActions);
 
             _btnTagAll = new Button
@@ -216,9 +238,10 @@ namespace KhimTools.ElementTags.Forms
 
             var pnlSubActions = new System.Windows.Forms.Panel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Bottom,
                 Padding = new Padding(0, 8, 0, 0)
             };
+            pnlSubActions.Height = 100;
             pnlActions.Controls.Add(pnlSubActions);
 
             var pnlLeftButtons = new System.Windows.Forms.Panel
@@ -260,8 +283,8 @@ namespace KhimTools.ElementTags.Forms
             _btnReset = new Button
             {
                 Text = "RESET",
-                Dock = DockStyle.Right,
-                Width = 80,
+                Location = new Point(290, 8),
+                Size = new Size(80, 70),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 Margin = new Padding(8, 8, 0, 0)
             };
@@ -277,7 +300,7 @@ namespace KhimTools.ElementTags.Forms
                 Dock = DockStyle.Fill,
                 Padding = new Padding(15, 0, 0, 0)
             };
-            pnlContainer.Controls.Add(_pnlRight);
+            pnlContainer.Controls.Add(_pnlRight, 1, 0);
 
             // Header config line (Max Error Distance & Refresh button)
             var pnlRightHeader = new System.Windows.Forms.Panel
@@ -400,6 +423,8 @@ namespace KhimTools.ElementTags.Forms
             pnlFooterButtons.Controls.AddRange(new System.Windows.Forms.Control[] { _btnZoomTo, _btnPass, _btnClose, _btnHighlightRed, _btnResetColor });
 
             _tabResult.BringToFront();
+            _pnlRight.BringToFront();
+            pnlFooterButtons.BringToFront();
         }
 
         private DataGridView CreateAuditGrid()
@@ -454,14 +479,21 @@ namespace KhimTools.ElementTags.Forms
                     var cellCombo = _grid.Rows[r].Cells["colTagType"] as DataGridViewComboBoxCell;
                     if (cellCombo != null)
                     {
-                        cellCombo.DataSource = item.AvailableTagSymbols;
+                        var choices = item.AvailableTagSymbols.Select(symbol => new TagChoice
+                        {
+                            Key = symbol.UniqueId,
+                            Name = symbol.FamilyName + " : " + symbol.Name,
+                            Symbol = symbol
+                        }).ToList();
                         cellCombo.DisplayMember = "Name";
-                        cellCombo.ValueMember = string.Empty;
+                        cellCombo.ValueMember = "Key";
+                        cellCombo.DataSource = choices;
                         if (item.SelectedTagSymbol == null || !item.AvailableTagSymbols.Contains(item.SelectedTagSymbol))
                         {
                             item.SelectedTagSymbol = item.AvailableTagSymbols.FirstOrDefault();
                         }
-                        cellCombo.Value = item.SelectedTagSymbol;
+                        cellCombo.Value = item.SelectedTagSymbol?.UniqueId;
+                        cellCombo.ReadOnly = choices.Count == 0;
                     }
                     _grid.Rows[r].Tag = item;
                 }
@@ -520,13 +552,15 @@ namespace KhimTools.ElementTags.Forms
 
         private void BtnTagAll_Click(object sender, EventArgs e)
         {
+            if (!_grid.EndEdit()) return;
             for (int i = 0; i < _grid.Rows.Count; i++)
             {
                 var item = _grid.Rows[i].Tag as ElementTagsItem;
                 if (item != null)
                 {
                     item.IsChecked = Convert.ToBoolean(_grid.Rows[i].Cells["colCheck"].Value);
-                    item.SelectedTagSymbol = _grid.Rows[i].Cells["colTagType"].Value as FamilySymbol;
+                    var key = _grid.Rows[i].Cells["colTagType"].Value as string;
+                    item.SelectedTagSymbol = item.AvailableTagSymbols.FirstOrDefault(symbol => symbol.UniqueId == key);
                 }
             }
 

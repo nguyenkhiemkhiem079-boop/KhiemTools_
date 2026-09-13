@@ -150,6 +150,9 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnOk;
         private Button _btnClose;
         private RebarFormGuard _formGuard;
+        private readonly NumericUpDown _configLd = new NumericUpDown { Minimum = 1, Maximum = 200, Value = 35 };
+        private readonly NumericUpDown _configHookTail = new NumericUpDown { Minimum = 1, Maximum = 100, Value = 12 };
+        private readonly NumericUpDown _configSideThreshold = new NumericUpDown { Minimum = 100, Maximum = 3000, Value = 700 };
 
         // Dimensions (mm)
         private double _colWidthLeft = 600;
@@ -288,7 +291,20 @@ namespace KhimTools.RebarTool.Forms
 
             var footerBar = BuildFooterBar();
 
-            botPanel.Controls.Add(RebarLayout.ScrollPreview(_pnlElevationCanvas, new Size(900, 280)));
+            var previewTabs = new TabControl { Dock = DockStyle.Fill };
+            var livePreview = new TabPage("Bố trí dầm");
+            livePreview.Controls.Add(RebarLayout.ScrollPreview(_pnlElevationCanvas, new Size(900, 280)));
+            previewTabs.TabPages.Add(livePreview);
+            previewTabs.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Beam));
+            previewTabs.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Beam,
+                RebarConfigurationField.Number("Beam.LdMultiplier", "Hệ số neo (k × d)", _configLd),
+                RebarConfigurationField.Number("Beam.HookTailMultiplier", "Đuôi móc (k × d)", _configHookTail),
+                RebarConfigurationField.Number("Beam.SideThresholdMm", "Ngưỡng thép sườn (mm)", _configSideThreshold),
+                RebarConfigurationField.Length("Beam.StirrupUniform", "Đai đều (mm)", _txtStirrupA1Uniform),
+                RebarConfigurationField.Length("Beam.StirrupA1", "Đai vùng đầu (mm)", _txtStirrupA1Ends),
+                RebarConfigurationField.Length("Beam.StirrupA2", "Đai vùng giữa (mm)", _txtStirrupA2Ends)));
+            Disposed += (s, e) => { _configLd.Dispose(); _configHookTail.Dispose(); _configSideThreshold.Dispose(); };
+            botPanel.Controls.Add(previewTabs);
             botPanel.Controls.Add(footerBar);
 
             Controls.Add(mainSplit);
@@ -1775,6 +1791,38 @@ namespace KhimTools.RebarTool.Forms
             return txt.Contains(dMm.ToString()) || bt.Name.Contains(txt);
         }
 
+        internal BeamRebarInput CreateGenerationInput(FamilyInstance beam)
+        {
+            var input = new BeamRebarInput
+            {
+                Beam = beam,
+                MainTopBarType = GetSelectedBarType(_cmbMainTopDia),
+                MainBottomBarType = GetSelectedBarType(_cmbMainBotDia),
+                StirrupBarType = GetSelectedBarType(_cmbStirrupDia),
+                SideBarType = GetSelectedBarType(_cmbAntiBulgeDia),
+                TopContinuousQty = (int)_numMainTopQty.Value,
+                BottomContinuousQty = (int)_numMainBotQty.Value,
+                TopLeftExtraQty = (int)_numAddTopQty.Value,
+                TopLeftExtraBarType = GetSelectedBarType(_cmbAddTopDia),
+                TopRightExtraQty = (int)_numAddTopQty.Value,
+                TopRightExtraBarType = GetSelectedBarType(_cmbAddTopDia),
+                BottomMidExtraQty = (int)_numAddBotQty.Value,
+                BottomMidExtraBarType = GetSelectedBarType(_cmbAddBotDia),
+                SideBarQty = (int)_numAntiBulgeQty.Value,
+                AutoSideBars = true,
+                LdMultiplier = (double)_configLd.Value,
+                HookTailMultiplier = (double)_configHookTail.Value,
+                SideBarThresholdMm = (double)_configSideThreshold.Value
+            };
+            double a1 = double.Parse(_rbStirrupUniform.Checked ? _txtStirrupA1Uniform.Text : _txtStirrupA1Ends.Text);
+            double a2 = _rbStirrupUniform.Checked ? a1 : double.Parse(_txtStirrupA2Ends.Text);
+            if (a1 <= 0 || a2 <= 0) throw new InvalidOperationException("Khoảng cách đai phải lớn hơn 0.");
+            input.StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits(a1, UnitTypeId.Millimeters);
+            input.StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits(a2, UnitTypeId.Millimeters);
+            input.ZoneA1Length = UnitUtils.ConvertToInternalUnits(double.Parse(_txtStirrupEnd1Len.Text), UnitTypeId.Millimeters);
+            return input;
+        }
+
         private void BtnOk_Click(object sender, EventArgs e)
         {
             if (!_selectedBeams.Any())
@@ -1800,29 +1848,7 @@ namespace KhimTools.RebarTool.Forms
                     failOpt.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
                     tx.SetFailureHandlingOptions(failOpt);
 
-                    var input = new BeamRebarInput
-                    {
-                        Beam = beam,
-                        MainTopBarType = GetSelectedBarType(_cmbMainTopDia),
-                        MainBottomBarType = GetSelectedBarType(_cmbMainBotDia),
-                        StirrupBarType = GetSelectedBarType(_cmbStirrupDia),
-                        SideBarType = GetSelectedBarType(_cmbAntiBulgeDia),
-                        TopContinuousQty = (int)_numMainTopQty.Value,
-                        BottomContinuousQty = (int)_numMainBotQty.Value,
-                        TopLeftExtraQty = (int)_numAddTopQty.Value,
-                        TopLeftExtraBarType = GetSelectedBarType(_cmbAddTopDia),
-                        TopRightExtraQty = (int)_numAddTopQty.Value,
-                        TopRightExtraBarType = GetSelectedBarType(_cmbAddTopDia),
-                        BottomMidExtraQty = (int)_numAddBotQty.Value,
-                        BottomMidExtraBarType = GetSelectedBarType(_cmbAddBotDia),
-                        SideBarQty = (int)_numAntiBulgeQty.Value,
-                        AutoSideBars = true
-                    };
-
-                    // Stirrup Spacing
-                    if (double.TryParse(_txtStirrupA1Ends.Text, out double a1)) input.StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits(a1, UnitTypeId.Millimeters);
-                    if (double.TryParse(_txtStirrupA2Ends.Text, out double a2)) input.StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits(a2, UnitTypeId.Millimeters);
-                    if (double.TryParse(_txtStirrupEnd1Len.Text, out double zLen)) input.ZoneA1Length = UnitUtils.ConvertToInternalUnits(zLen, UnitTypeId.Millimeters);
+                    var input = CreateGenerationInput(beam);
 
                     var generator = new BeamRebarGenerator(_doc);
                     var rebars = generator.Generate(input);

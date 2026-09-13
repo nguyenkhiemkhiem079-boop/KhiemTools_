@@ -403,6 +403,16 @@ namespace KhimTools.RebarTool.Forms
             tabViews.Controls.Add(grpViews);
             tabControl.TabPages.Add(tabViews);
 
+            tabControl.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.CircularColumn));
+            tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.CircularColumn,
+                RebarConfigurationField.Number("Column.LapMultiplier", "Chiều dài nối (k × d)", _numLapMultiplier),
+                RebarConfigurationField.Number("Column.StirrupA1", "Khoảng cách đai (mm)", _numStirrupSpacing),
+                RebarConfigurationField.Flag("Column.TopHook", "Neo đỉnh", _chkTopAnchor),
+                RebarConfigurationField.Flag("Column.Cranked", "Nhấn tại nối tầng", _chkCrankedSplice),
+                RebarConfigurationField.Flag("Column.Staggered", "Nối so le", _chkStaggeredSplice),
+                RebarConfigurationField.Flag("Column.UseCustomCover", "Dùng cover tùy chỉnh", _chkCustomCover),
+                RebarConfigurationField.Number("Column.CoverMm", "Cover tùy chỉnh (mm)", _numCustomCover)));
+            tabControl.Multiline = true;
             Controls.Add(tabControl);
             tabControl.BringToFront();
             RebarLayout.FitColumnGroups(tabControl);

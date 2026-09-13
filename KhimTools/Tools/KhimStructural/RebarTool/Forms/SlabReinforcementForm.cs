@@ -220,6 +220,22 @@ namespace KhimTools.RebarTool.Forms
             BuildTabDesign(tabDesign);
             tabControl.TabPages.Add(tabDesign);
 
+            tabControl.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Slab));
+            tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Slab,
+                RebarConfigurationField.Number("Slab.BeamAnchorMm", "Neo vào dầm (mm)", _numBeamAnchorA),
+                RebarConfigurationField.Number("Slab.AdjacentAnchorMm", "Neo sàn giáp cạnh (mm)", _numSlabAnchorB),
+                RebarConfigurationField.Number("Slab.HatHookMm", "Móc thép mũ (mm)", _numHatHookDownLen),
+                RebarConfigurationField.Number("Slab.SpacerHookMm", "Chân con kê (mm)", _numSpacerHookLen),
+                RebarConfigurationField.Number("Slab.RoundingMm", "Bước làm tròn (mm)", _numRounding),
+                RebarConfigurationField.Number("Slab.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
+                RebarConfigurationField.Number("Slab.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
+                RebarConfigurationField.Number("Slab.TopSpacingX", "Lưới trên X (mm)", _numTopXSpacing),
+                RebarConfigurationField.Number("Slab.TopSpacingY", "Lưới trên Y (mm)", _numTopYSpacing),
+                RebarConfigurationField.Number("Slab.SpacerX", "Bước con kê X (mm)", _numSpacerStepX),
+                RebarConfigurationField.Number("Slab.SpacerY", "Bước con kê Y (mm)", _numSpacerStepY),
+                RebarConfigurationField.Flag("Slab.TopMesh", "Tạo lưới trên", _chkTopDraw),
+                RebarConfigurationField.Flag("Slab.InvertBottom", "Đảo lớp đáy X/Y", _chkBotInvert),
+                RebarConfigurationField.Flag("Slab.InvertTop", "Đảo lớp trên X/Y", _chkTopInvert)));
             pnlMain.Controls.Add(tabControl, 0, 0);
 
             // ── RIGHT: Panel List DataGridView (460px)

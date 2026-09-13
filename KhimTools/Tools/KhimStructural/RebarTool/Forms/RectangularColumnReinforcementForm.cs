@@ -494,6 +494,18 @@ namespace KhimTools.RebarTool.Forms
             _tabViews.Controls.Add(_grpViews);
             tabControl.TabPages.Add(_tabViews);
 
+            tabControl.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.RectangularColumn));
+            tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.RectangularColumn,
+                RebarConfigurationField.Number("Column.LapMultiplier", "Chiều dài nối (k × d)", _numLapMultiplier),
+                RebarConfigurationField.Number("Column.StirrupA1", "Đai vùng đầu (mm)", _numStirrupSpacingA1),
+                RebarConfigurationField.Number("Column.StirrupA2", "Đai vùng giữa (mm)", _numStirrupSpacingA2),
+                RebarConfigurationField.Number("Column.ZoneA1", "Chiều dài vùng đai đầu (mm)", _numZoneA1Length),
+                RebarConfigurationField.Flag("Column.TopHook", "Neo đỉnh", _chkTopAnchor),
+                RebarConfigurationField.Flag("Column.Cranked", "Nhấn tại nối tầng", _chkCrankedSplice),
+                RebarConfigurationField.Flag("Column.Staggered", "Nối so le", _chkStaggeredSplice),
+                RebarConfigurationField.Flag("Column.UseCustomCover", "Dùng cover tùy chỉnh", _chkCustomCover),
+                RebarConfigurationField.Number("Column.CoverMm", "Cover tùy chỉnh (mm)", _numCustomCover)));
+            tabControl.Multiline = true;
             Controls.Add(tabControl);
             tabControl.BringToFront();
             RebarLayout.FitColumnGroups(tabControl);

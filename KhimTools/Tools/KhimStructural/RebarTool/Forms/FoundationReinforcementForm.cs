@@ -377,6 +377,19 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Stack(tabDesign, grpCode, grpTpl);
             tabControl.TabPages.Add(tabDesign);
 
+            tabControl.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Foundation));
+            tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Foundation,
+                RebarConfigurationField.Number("Foundation.DowelFootMm", "Chân neo thép chờ (mm)", _numDowelFootLeg),
+                RebarConfigurationField.Number("Foundation.DowelExtensionMm", "Chiều dài thép chờ (mm)", _numDowelExtension),
+                RebarConfigurationField.Number("Foundation.CoverMm", "Lớp bảo vệ (mm)", _numCoverMm),
+                RebarConfigurationField.Number("Foundation.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
+                RebarConfigurationField.Number("Foundation.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
+                RebarConfigurationField.Flag("Foundation.Dowels", "Tạo thép chờ", _chkEnableDowels),
+                RebarConfigurationField.Flag("Foundation.Staggered", "Thép chờ so le", _chkStaggeredDowels),
+                RebarConfigurationField.Flag("Foundation.Inward", "Chân neo hướng vào", _chkDowelInward),
+                RebarConfigurationField.Flag("Foundation.BottomXHook", "Móc lưới dưới X", _chkBotXHook),
+                RebarConfigurationField.Flag("Foundation.BottomYHook", "Móc lưới dưới Y", _chkBotYHook),
+                RebarConfigurationField.Flag("Foundation.TopMesh", "Tạo lưới trên", _chkEnableTopMesh)));
             Controls.Add(tabControl);
             tabControl.BringToFront();
             footer.SendToBack();

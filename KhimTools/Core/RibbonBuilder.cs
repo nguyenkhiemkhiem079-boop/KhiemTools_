@@ -360,7 +360,7 @@ namespace KhimTools.Core
             var splitButton = panel.AddItem(splitButtonData) as SplitButton;
             if (splitButton != null)
             {
-                AddPushButton(splitButton, "CmdColumnRebar", "Column Rebar (Auto-detect)",
+                AddPushButton(splitButton, "CmdColumnRebar", "Column" + Environment.NewLine + "Rebar",
                     "KhimTools.RebarTool.Commands.CmdColumnRebar", assemblyPath,
                     "Tự động phát hiện loại cột (vuông/tròn) và mở giao diện phù hợp.",
                     "rebar_col_32.png", "rebar_col_16.png");
