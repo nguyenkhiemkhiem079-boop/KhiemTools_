@@ -260,7 +260,6 @@ namespace KhimTools.RebarTool.Forms
             int loadedCount = _allShapes.Count(s => s.IsLoaded);
             int total = _allShapes.Count;
             TxtCountSummary.Text = string.Format("Đã nạp: {0} / {1} Shapes", loadedCount, total);
-            TxtStatsHeader.Text = string.Format("{0} / {1} Shapes Trong Model", loadedCount, total);
         }
 
         private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)

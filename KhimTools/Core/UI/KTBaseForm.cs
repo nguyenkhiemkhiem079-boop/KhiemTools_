@@ -5,8 +5,7 @@ using System.Windows.Forms;
 namespace KhimTools.Core.UI
 {
     /// <summary>
-    /// Common WinForms shell. It deliberately does not inject branded content so each
-    /// tool owns one header only and compact dialogs retain standard Windows chrome.
+    /// Common WinForms shell without in-app brand banners; retains standard Windows chrome.
     /// </summary>
     public class KTBaseForm : Form
     {
@@ -24,7 +23,6 @@ namespace KhimTools.Core.UI
             DoubleBuffered = true;
             SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
 
-            Shown += (s, e) => KhimUiStyle.StyleControlTree(this);
             KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Escape && !ContainsFocusedDropDown())

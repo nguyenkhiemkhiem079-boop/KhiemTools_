@@ -4,20 +4,17 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="KhimTools Update" 
+        Title="KhimTools Update"
         Height="470" Width="390"
         WindowStartupLocation="CenterScreen"
         WindowStyle="SingleBorderWindow"
         AllowsTransparency="False"
-        Background="#F4F6F8"
+        Background="#F5F7FA"
         ResizeMode="NoResize"
         ShowInTaskbar="True">
 
     <Window.Resources>
-        <LinearGradientBrush x:Key="BrandGradient" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Color="#2563EB" Offset="0"/>
-            <GradientStop Color="#7C3AED" Offset="1"/>
-        </LinearGradientBrush>
+
 
         <Style x:Key="ModernButton" TargetType="Button">
             <Setter Property="Background" Value="#F1F5F9"/>
@@ -30,10 +27,10 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" 
-                                BorderBrush="{TemplateBinding BorderBrush}" 
-                                BorderThickness="{TemplateBinding BorderThickness}" 
-                                CornerRadius="8">
+                        <Border x:Name="border" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -50,18 +47,18 @@
         </Style>
 
         <Style x:Key="PrimaryButton" TargetType="Button" BasedOn="{StaticResource ModernButton}">
-            <Setter Property="Background" Value="#2563EB"/>
+            <Setter Property="Background" Value="#1677D2"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="8">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" CornerRadius="4">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,8"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="border" Property="Background" Value="#1D4ED8"/>
+                                <Setter TargetName="border" Property="Background" Value="#1262B0"/>
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#1E40AF"/>
@@ -75,10 +72,8 @@
 
     <Grid Margin="12">
         <!-- Main Card with DropShadow -->
-        <Border Background="White" CornerRadius="16" BorderBrush="#E2E8F0" BorderThickness="1">
-            <Border.Effect>
-                <DropShadowEffect BlurRadius="18" Direction="270" ShadowDepth="4" Opacity="0.18" Color="#0F172A"/>
-            </Border.Effect>
+        <Border Background="White" CornerRadius="4" BorderBrush="#E2E8F0" BorderThickness="1">
+
 
             <Grid Margin="20,18,20,18">
                 <Grid.RowDefinitions>
@@ -90,40 +85,8 @@
                     <RowDefinition Height="Auto"/> <!-- Action Button -->
                 </Grid.RowDefinitions>
 
-                <!-- HEADER -->
-                <Grid Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,16" MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <!-- Logo Badge -->
-                    <Border Grid.Column="0" Width="42" Height="42" CornerRadius="10" Background="{StaticResource BrandGradient}">
-                        <TextBlock Text="K" Foreground="White" FontSize="22" FontWeight="Bold" 
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" FontFamily="Segoe UI"/>
-                    </Border>
-
-                    <!-- Title & Notification -->
-                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="KhimTools" FontSize="17" FontWeight="Bold" Foreground="#1E293B" FontFamily="Segoe UI"/>
-                        <TextBlock Text="Có phiên bản mới! 🔔" FontSize="13" FontWeight="SemiBold" Foreground="#2563EB" Margin="0,2,0,0"/>
-                    </StackPanel>
-
-                    <!-- Close Button -->
-                    <Button Grid.Column="2" Click="BtnClose_Click" Width="28" Height="28" Background="Transparent" BorderThickness="0" Cursor="Hand">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="Transparent" CornerRadius="14">
-                                    <TextBlock Text="✕" FontSize="14" Foreground="#94A3B8" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
-                            </ControlTemplate>
-                        </Button.Template>
-                    </Button>
-                </Grid>
-
                 <!-- VERSION COMPARISON BOX -->
-                <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="12" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16,12" Margin="0,0,0,14">
+                <Border Grid.Row="1" Background="#F8FAFC" CornerRadius="4" BorderBrush="#E2E8F0" BorderThickness="1" Padding="16,12" Margin="0,0,0,14">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -139,8 +102,8 @@
                         <TextBlock Grid.Column="1" Text="➔" FontSize="18" Foreground="#94A3B8" VerticalAlignment="Center" Margin="8,8,8,0"/>
 
                         <StackPanel Grid.Column="2" HorizontalAlignment="Right">
-                            <TextBlock Text="Phiên bản mới" FontSize="12" Foreground="#2563EB" FontWeight="Medium"/>
-                            <TextBlock x:Name="TxtLatestVersion" Text="v2.1.0" FontSize="20" FontWeight="Bold" Foreground="#7C3AED" Margin="0,4,0,0"/>
+                            <TextBlock Text="Phiên bản mới" FontSize="12" Foreground="#1677D2" FontWeight="Medium"/>
+                            <TextBlock x:Name="TxtLatestVersion" Text="v2.1.0" FontSize="20" FontWeight="Bold" Foreground="#1677D2" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -178,7 +141,7 @@
                 </StackPanel>
 
                 <!-- STATUS / NOTICE -->
-                <Border Grid.Row="4" x:Name="PanelStatus" Margin="0,0,0,14" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="8" Padding="10,8" Visibility="Collapsed">
+                <Border Grid.Row="4" x:Name="PanelStatus" Margin="0,0,0,14" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="4" Padding="10,8" Visibility="Collapsed">
                     <StackPanel HorizontalAlignment="Center">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock Text="☑" Foreground="#059669" FontSize="15" FontWeight="Bold" Margin="0,0,6,0"/>
@@ -189,7 +152,7 @@
                 </Border>
 
                 <!-- PROGRESS BAR -->
-                <ProgressBar Grid.Row="4" x:Name="ProgressBarDownload" Height="6" Margin="0,0,0,14" Value="0" Maximum="100" Visibility="Collapsed" Foreground="#2563EB"/>
+                <ProgressBar Grid.Row="4" x:Name="ProgressBarDownload" Height="6" Margin="0,0,0,14" Value="0" Maximum="100" Visibility="Collapsed" Foreground="#1677D2"/>
 
                 <!-- ACTION BUTTON -->
                 <Button Grid.Row="5" x:Name="BtnAction" Content="Cập nhật ngay" Style="{StaticResource PrimaryButton}" Height="38" Click="BtnAction_Click"/>

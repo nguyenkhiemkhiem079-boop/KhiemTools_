@@ -190,7 +190,7 @@ namespace KhimTools.SheetExport.Services
                 FileName = fileName,
                 Combine = combine,
                 PaperFormat = ExportPaperFormat.Default,
-                ExportQuality = PDFExportQualityType.DPI300,
+                ExportQuality = GetExportQuality(options?.PdfExportDpi ?? 300),
                 StopOnError = false
             };
 
@@ -210,6 +210,8 @@ namespace KhimTools.SheetExport.Services
                     "Low" => RasterQualityType.Low,
                     _ => RasterQualityType.High
                 };
+                opt.AlwaysUseRaster = !options.VectorProcessing;
+                opt.PaperOrientation = PageOrientationType.Auto;
 
                 opt.HideUnreferencedViewTags = options.HideUnreferencedViewTags;
                 opt.HideScopeBoxes = options.HideScopeBoxes;
@@ -241,6 +243,17 @@ namespace KhimTools.SheetExport.Services
             }
 
             return opt;
+        }
+
+        private static PDFExportQualityType GetExportQuality(int dpi)
+        {
+            switch (dpi)
+            {
+                case 72: return PDFExportQualityType.DPI72;
+                case 144: return PDFExportQualityType.DPI144;
+                case 600: return PDFExportQualityType.DPI600;
+                default: return PDFExportQualityType.DPI300;
+            }
         }
 
         private static string Sanitize(string name)

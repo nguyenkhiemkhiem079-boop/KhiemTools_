@@ -54,12 +54,6 @@ namespace KhimTools.DetailNumberUpdater.Forms
             MinimumSize = new Size(680, 480);
             BackColor = KhimUiStyle.FormBg;
 
-            // 1. Header Banner
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Update Detail Numbers",
-                $"Tự động trích xuất & cập nhật số hiệu chi tiết (Detail Number) cho Sheet [{_sheet?.SheetNumber}] {_sheet?.Name}",
-                "v2.5 Pro");
-            Controls.Add(header);
 
             // 2. Pattern Configuration Panel
             var pnlConfig = new Panel

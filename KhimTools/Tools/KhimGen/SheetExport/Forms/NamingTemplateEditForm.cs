@@ -42,12 +42,6 @@ namespace KhimTools.SheetExport.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Naming Template Editor",
-                "Configure File Naming Token Expressions & Regex Validation Patterns",
-                "v2.5 Pro");
-            Controls.Add(header);
 
             var mainPanel = new TableLayoutPanel
             {

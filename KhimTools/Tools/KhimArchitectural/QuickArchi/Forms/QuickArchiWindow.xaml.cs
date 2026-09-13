@@ -50,7 +50,7 @@ namespace KhimTools.Architectural.QuickArchi.Forms
             {
                 // 1. Quét đường nét Curve từ selection
                 _selectedCurves = QuickArchiService.GetSelectedOrModelCurves(_uidoc);
-                TxtCurveStats.Text = _selectedCurves.Count + " Curves Đang Chọn";
+                TxtStatus.Text = _selectedCurves.Count + " curves đang chọn";
 
                 // 2. Thu thập WallTypes
                 _wallTypes = QuickArchiService.GetWallTypes(_doc);

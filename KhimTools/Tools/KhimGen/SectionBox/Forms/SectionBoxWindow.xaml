@@ -1,11 +1,11 @@
 <Window x:Class="KhimTools.SectionBox.Forms.SectionBoxWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Section Box Pro" 
+        Title="Section Box Pro"
         Height="360" Width="400"
         WindowStyle="SingleBorderWindow"
         AllowsTransparency="False"
-        Background="#F4F6F8"
+        Background="#F5F7FA"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
     <Window.Resources>
@@ -15,55 +15,15 @@
         </Style>
     </Window.Resources>
 
-    <Border CornerRadius="16" Background="#FFFFFF" BorderBrush="#E0F2FE" BorderThickness="1.5">
-        <Border.Effect>
-            <DropShadowEffect BlurRadius="15" Direction="270" RenderingBias="Quality" ShadowDepth="3" Color="#94A3B8" Opacity="0.3"/>
-        </Border.Effect>
+    <Border CornerRadius="4" Background="#FFFFFF" BorderBrush="#E0F2FE" BorderThickness="1.5">
+
 
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="50"/>
+                <RowDefinition Height="0"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="60"/>
             </Grid.RowDefinitions>
-
-            <!-- Title Bar -->
-            <Border Grid.Row="0" Visibility="Collapsed" Background="#F0F9FF" CornerRadius="14,14,0,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                <Grid>
-                    <TextBlock Text="K-TOOLS — Section Box Pro" 
-                               FontWeight="Bold" FontSize="14" 
-                               Foreground="#0284C7" 
-                               VerticalAlignment="Center" HorizontalAlignment="Left" 
-                               Margin="16,0,0,0"/>
-                    <Button Content="✕" 
-                            Click="BtnClose_Click" 
-                            HorizontalAlignment="Right" VerticalAlignment="Center" 
-                            Margin="0,0,16,0" 
-                            Width="24" Height="24" 
-                            Background="Transparent" BorderBrush="Transparent" 
-                            Foreground="#64748B" FontWeight="Bold" Cursor="Hand">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="12">
-                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Style.Triggers>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#F1F5F9"/>
-                                        <Setter Property="Foreground" Value="#0F172A"/>
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                </Grid>
-            </Border>
 
             <!-- Main Content -->
             <Grid Grid.Row="1" Margin="16,12,16,12">
@@ -75,11 +35,11 @@
 
                 <!-- Selection Mode RadioButtons -->
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12" HorizontalAlignment="Center">
-                    <RadioButton x:Name="RadioLevel" Content="Theo Level" IsChecked="True" 
-                                 Checked="Radio_ModeChanged" GroupName="Mode" 
+                    <RadioButton x:Name="RadioLevel" Content="Theo Level" IsChecked="True"
+                                 Checked="Radio_ModeChanged" GroupName="Mode"
                                  FontWeight="SemiBold" Margin="0,0,32,0"/>
-                    <RadioButton x:Name="RadioSelection" Content="Theo Cấu kiện chọn" 
-                                 Checked="Radio_ModeChanged" GroupName="Mode" 
+                    <RadioButton x:Name="RadioSelection" Content="Theo Cấu kiện chọn"
+                                 Checked="Radio_ModeChanged" GroupName="Mode"
                                  FontWeight="SemiBold"/>
                 </StackPanel>
 
@@ -89,7 +49,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    
+
                     <StackPanel Grid.Row="0" Margin="0,0,0,8">
                         <TextBlock Text="Chọn Level" FontSize="11" Foreground="#64748B" Margin="0,0,0,4" FontWeight="SemiBold"/>
                         <ComboBox x:Name="ComboLevels" Height="28" BorderBrush="#CBD5E1"/>
@@ -115,9 +75,9 @@
                 <!-- Mode 2: Selection Fields -->
                 <Grid x:Name="PanelSelection" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel VerticalAlignment="Center" Margin="0,8,0,8">
-                        <TextBlock x:Name="TxtSelectionStatus" Text="Chưa chọn đối tượng nào" 
+                        <TextBlock x:Name="TxtSelectionStatus" Text="Chưa chọn đối tượng nào"
                                    HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="13" Foreground="#475569"/>
-                        <Button x:Name="BtnPickElements" Content="Quét chọn cấu kiện trong Revit" 
+                        <Button x:Name="BtnPickElements" Content="Quét chọn cấu kiện trong Revit"
                                 Click="BtnPickElements_Click" Margin="0,12,0,0" Height="30" Width="200"
                                 Background="#F1F5F9" BorderBrush="#E2E8F0" Foreground="#0F172A" FontWeight="SemiBold"/>
                     </StackPanel>
@@ -131,7 +91,7 @@
                             <ColumnDefinition Width="12"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        
+
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="View Template 3D" FontSize="11" Foreground="#64748B" Margin="0,0,0,4" FontWeight="SemiBold"/>
                             <ComboBox x:Name="ComboTemplates" Height="28" BorderBrush="#CBD5E1"/>
@@ -169,19 +129,19 @@
             </Grid>
 
             <!-- Bottom Actions -->
-            <Border Grid.Row="2" Background="#F8FAFC" CornerRadius="0,0,14,14" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+            <Border Grid.Row="2" Background="#F8FAFC" CornerRadius="4" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
                 <Grid>
-                    <Button x:Name="BtnCreate" Content="TẠO SECTION BOX" 
+                    <Button x:Name="BtnCreate" Content="TẠO SECTION BOX"
                             Click="BtnCreate_Click"
-                            Width="200" Height="36" 
-                            Background="#0284C7" BorderBrush="#0284C7" 
+                            Width="200" Height="36"
+                            Background="#1677D2" BorderBrush="#1677D2"
                             Foreground="#FFFFFF" FontWeight="Bold" FontSize="13" Cursor="Hand">
                         <Button.Style>
                             <Style TargetType="Button">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="Button">
-                                            <Border Background="{TemplateBinding Background}" CornerRadius="18" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
+                                            <Border Background="{TemplateBinding Background}" CornerRadius="4" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1">
                                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                             </Border>
                                         </ControlTemplate>
@@ -189,8 +149,8 @@
                                 </Setter>
                                 <Style.Triggers>
                                     <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="#0369A1"/>
-                                        <Setter Property="BorderBrush" Value="#0369A1"/>
+                                        <Setter Property="Background" Value="#1262B0"/>
+                                        <Setter Property="BorderBrush" Value="#1262B0"/>
                                     </Trigger>
                                 </Style.Triggers>
                             </Style>

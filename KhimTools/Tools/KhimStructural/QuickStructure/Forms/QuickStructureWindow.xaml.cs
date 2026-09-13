@@ -50,7 +50,7 @@ namespace KhimTools.Structural.QuickStructure.Forms
                 _grids = QuickStructureService.GetAllGrids(_doc);
                 _intersections = QuickStructureService.CalculateGridIntersections(_grids);
 
-                TxtGridStats.Text = string.Format("{0} Grids / {1} Giao điểm", _grids.Count, _intersections.Count);
+                TxtStatus.Text = string.Format("{0} grids / {1} giao điểm", _grids.Count, _intersections.Count);
 
                 // 2. Thu thập danh sách Level
                 _levels = new FilteredElementCollector(_doc)

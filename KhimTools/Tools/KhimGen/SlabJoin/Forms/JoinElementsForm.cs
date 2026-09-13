@@ -70,12 +70,6 @@ namespace KhimTools.SlabJoin.Forms
             MinimumSize = new Size(800, 520);
             BackColor = KhimUiStyle.FormBg;
 
-            // 0. TOP HEADER BANNER
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Geometry Join Manager",
-                "Cross-Category Join, Unjoin & Join Order Switch Engine",
-                "v2.5 Pro");
-            Controls.Add(header);
 
             // ══════ TOP: Action Buttons ══════
             var topPanel = new Panel { Dock = DockStyle.Top, Height = 52, Padding = new Padding(12, 8, 12, 8), BackColor = KhimUiStyle.CardBg };

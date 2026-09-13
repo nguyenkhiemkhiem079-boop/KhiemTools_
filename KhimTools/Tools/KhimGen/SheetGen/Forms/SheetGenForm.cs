@@ -55,32 +55,6 @@ namespace KhimTools.SheetGen.Forms
             this.BackColor = System.Drawing.Color.FromArgb(248, 250, 252);
             this.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
-            // 1. Header Panel
-            var pnlHeader = new System.Windows.Forms.Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 65,
-                BackColor = System.Drawing.Color.FromArgb(15, 23, 42) // Slate 900
-            };
-
-            var lblTitle = new System.Windows.Forms.Label
-            {
-                Text = "⚡ TẠO SHEET THEO NHIỀU PHÂN HỆ SERIES (MULTI-SERIES SHEETGEN)",
-                ForeColor = System.Drawing.Color.White,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                Location = new Point(20, 10),
-                AutoSize = true
-            };
-            var lblSub = new System.Windows.Forms.Label
-            {
-                Text = "Cấu hình hàng loạt Series theo từng bộ môn/hạng mục, tự động tăng tiến số hiệu & gán Khung tên chuẩn DiRoots",
-                ForeColor = System.Drawing.Color.FromArgb(148, 163, 184),
-                Font = new Font("Segoe UI", 8.5F),
-                Location = new Point(20, 36),
-                AutoSize = true
-            };
-            pnlHeader.Controls.AddRange(new System.Windows.Forms.Control[] { lblTitle, lblSub });
-            this.Controls.Add(pnlHeader);
 
             // 2. Tab Control
             _tabControl = new TabControl
@@ -177,7 +151,6 @@ namespace KhimTools.SheetGen.Forms
             });
             this.Controls.Add(pnlBottom);
 
-            pnlHeader.BringToFront();
             pnlBottom.BringToFront();
             _tabControl.BringToFront();
 

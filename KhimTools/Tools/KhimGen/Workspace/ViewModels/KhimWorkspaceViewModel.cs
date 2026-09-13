@@ -26,6 +26,15 @@ namespace KhimTools.Tools.Workspace.ViewModels
         }
 
         [RelayCommand]
+        private void RunFamilyManager()
+        {
+            App.EventHandler.Raise(app =>
+            {
+                RunCommandByName(app, "KhimTools.FamilyManager.Commands.CmdFamilyManager");
+            });
+        }
+
+        [RelayCommand]
         private void RunColumnRebar()
         {
             App.EventHandler.Raise(app =>

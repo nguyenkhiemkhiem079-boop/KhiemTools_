@@ -12,15 +12,15 @@ $khimToolsDir = Join-Path $repoRoot "KhimTools"
 $installerDir = Join-Path $repoRoot "Installer"
 
 Write-Host "=================================================================" -ForegroundColor Cyan
-Write-Host " PHASE 9: REVIT RUNTIME QA AUDIT SUITE" -ForegroundColor Cyan
-Write-Host " Validating Addin Manifests, Commands, Icons & Runtime Safety" -ForegroundColor Cyan
+Write-Host " PHASE 9: REVIT SOURCE & PACKAGING AUDIT" -ForegroundColor Cyan
+Write-Host " Static checks only; does not execute commands inside Revit" -ForegroundColor Cyan
 Write-Host "=================================================================" -ForegroundColor Cyan
 
 $passed = 0
 $failed = 0
 
 function Report-Pass($name, $details = "") {
-    $global:passed++
+    $script:passed++
     if ($details) {
         Write-Host "  [PASS] $name ($details)" -ForegroundColor Green
     } else {
@@ -29,7 +29,7 @@ function Report-Pass($name, $details = "") {
 }
 
 function Report-Fail($name, $details) {
-    $global:failed++
+    $script:failed++
     Write-Host "  [FAIL] ${name}: $details" -ForegroundColor Red
 }
 
@@ -168,7 +168,7 @@ try {
     $ribbonFile = Join-Path $khimToolsDir "Core\RibbonBuilder.cs"
     $ribbonContent = Get-Content $ribbonFile -Raw
 
-    $panels = @("BuildWorkspacePanel", "BuildGenPanel", "BuildOverridePanel", "BuildStructuralPanel", "BuildArchPanel", "BuildMepPanel")
+    $panels = @("BuildWorkspacePanel", "BuildGenPanel", "BuildLayoutPanel", "BuildPublishPanel", "BuildOverridePanel", "BuildStructuralPanel", "BuildArchPanel", "BuildMepPanel")
     foreach ($p in $panels) {
         $pattern = "try\s*\{\s*$p"
         if ($ribbonContent -notmatch $pattern) {
@@ -176,28 +176,32 @@ try {
         }
     }
 
-    Report-Pass "Audit 05: Safe Startup Boundary" "All 6 panels isolated with try-catch startup protection"
+    Report-Pass "Audit 05: Safe Startup Boundary" "All $($panels.Count) panels isolated with try-catch startup protection"
 } catch {
     Report-Fail "Audit 05: Safe Startup Boundary" $_.Exception.Message
 }
 
 # ---------------------------------------------------------------------
-# Audit 06: Zero Empty/Whitespace String Swatch Button Safety
+# Audit 06: Headerless 4x4 WPF palette and one ribbon entry point
 # ---------------------------------------------------------------------
 try {
-    $ribbonFile = Join-Path $khimToolsDir "Core\RibbonBuilder.cs"
-    $ribbonContent = Get-Content $ribbonFile -Raw
-
-    if ($ribbonContent -notmatch "IsNullOrWhiteSpace\(text\)") {
-        throw "Missing IsNullOrWhiteSpace check in CreateColorSwatchData!"
+    [xml]$palette = Get-Content (Join-Path $khimToolsDir "Tools/KhimGen/OverrideTool/Forms/GraphicOverdriveWindow.xaml") -Raw
+    $ns = [Xml.XmlNamespaceManager]::new($palette.NameTable)
+    $ns.AddNamespace("w", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
+    $grid = $palette.SelectSingleNode("//w:ItemsPanelTemplate/w:UniformGrid", $ns)
+    if ($grid.Rows -ne "4" -or $grid.Columns -ne "4") { throw "Palette must use a 4x4 grid." }
+    $chip = $palette.SelectSingleNode("//w:ItemsControl.ItemTemplate/w:DataTemplate/w:Button", $ns)
+    if ($chip.Background -ne "{Binding HexColor}" -or $chip.HasAttribute("Content")) {
+        throw "Swatches must bind their exact color without visible text."
     }
-    if ($ribbonContent -notmatch '\\u200B') {
-        throw "Missing zero-width space fallback in CreateColorSwatchData!"
+    $settings = $palette.SelectSingleNode("//w:Expander", $ns)
+    if ($settings.IsExpanded -ne "False") { throw "Advanced options must start collapsed." }
+    if ($ribbonContent -match "CreateColorSwatchData|TryHideSwatchButtonTexts") {
+        throw "Legacy ribbon color-button workarounds remain."
     }
-
-    Report-Pass "Audit 06: Swatch Button Zero-Width Text Safety" "Protected against ArgumentException"
+    Report-Pass "Audit 06: Compact Color Palette" "4x4 direct color binding; options collapsed; no ribbon text hacks"
 } catch {
-    Report-Fail "Audit 06: Swatch Button Zero-Width Text Safety" $_.Exception.Message
+    Report-Fail "Audit 06: Compact Color Palette" $_.Exception.Message
 }
 
 # ---------------------------------------------------------------------
@@ -278,7 +282,7 @@ try {
         throw "Legacy duplicate header banners remain: $($duplicateHeaders.Name -join ', ')"
     }
 
-    Report-Pass "Audit 09: Rebar Input UX Contract" "5 guarded forms, live input validation, single-header layout"
+    Report-Pass "Audit 09: Rebar Input UX Contract" "5 forms wired to validation guard; no brand headers in source"
 } catch {
     Report-Fail "Audit 09: Rebar Input UX Contract" $_.Exception.Message
 }

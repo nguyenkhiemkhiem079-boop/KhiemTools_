@@ -35,6 +35,7 @@ namespace KhimTools.Tools.Workspace.Views
             if (ToolList == null || ModuleFilter == null) return;
             string query = (ToolSearch?.Text ?? string.Empty).Trim();
             string module = (ModuleFilter.SelectedItem as ComboBoxItem)?.Tag as string ?? "All";
+            int visibleCount = 0;
             foreach (UIElement child in ToolList.Children)
             {
                 if (child is Button button)
@@ -45,8 +46,11 @@ namespace KhimTools.Tools.Workspace.Views
                     bool moduleMatch = module == "All" || string.Equals(module, itemModule, StringComparison.OrdinalIgnoreCase);
                     bool queryMatch = query.Length == 0 || metadata.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
                     button.Visibility = moduleMatch && queryMatch ? Visibility.Visible : Visibility.Collapsed;
+                    if (button.Visibility == Visibility.Visible) visibleCount++;
                 }
             }
+            if (EmptyState != null)
+                EmptyState.Visibility = visibleCount == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 }

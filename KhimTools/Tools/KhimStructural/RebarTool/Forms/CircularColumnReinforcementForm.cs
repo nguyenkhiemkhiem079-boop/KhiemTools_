@@ -98,6 +98,16 @@ namespace KhimTools.RebarTool.Forms
         private RebarFormGuard _formGuard;
 
         public CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
+            : this(doc, availableColumns, preSelectedColumns, true)
+        {
+        }
+
+        internal static CircularColumnReinforcementForm CreateLayoutPreview()
+        {
+            return new CircularColumnReinforcementForm(null, null, null, false);
+        }
+
+        private CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns, bool loadDocument)
         {
             _doc = doc;
             _availableColumns = availableColumns ?? new List<FamilyInstance>();
@@ -105,9 +115,13 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
+            RebarLayout.EnableFullTypeNames(this);
             PopulateColumnList();
-            PopulateBarTypeCombos();
-            LoadTemplateList();
+            if (loadDocument)
+            {
+                PopulateBarTypeCombos();
+                LoadTemplateList();
+            }
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột tròn."),
                 RebarFormGuard.RequireCombo(_cmbMainDia, "Chọn loại thép chủ."),
@@ -120,8 +134,9 @@ namespace KhimTools.RebarTool.Forms
             Width = 900;
             Height = 700;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new Size(1040, 680);
+            MaximizeBox = true;
             MinimizeBox = false;
 
             // 1. Bottom Action Panel
@@ -160,7 +175,9 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            Controls.Add(bottomPanel);
+            var footer = RebarLayout.Footer(null, _btnCreateRebar, _btnClose);
+            bottomPanel.Dispose();
+            Controls.Add(footer);
 
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 230, Padding = new Padding(10), BackColor = Color.FromArgb(250, 250, 252) };
             var lblColTitle = new Label { Text = "Danh Sách Cột", Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
@@ -177,9 +194,9 @@ namespace KhimTools.RebarTool.Forms
 
             _lblSelectedCount = new Label { Text = "Đã chọn: 0 cột", Dock = DockStyle.Bottom, Height = 25, ForeColor = Color.DarkGreen, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
 
-            var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 32 };
-            var btnSelectAll = new Button { Text = "Select All", Width = 95, Height = 26, Top = 3, Left = 0, FlatStyle = FlatStyle.System };
-            var btnDeselectAll = new Button { Text = "Clear", Width = 70, Height = 26, Top = 3, Left = 102, FlatStyle = FlatStyle.System };
+            var selectButtonsPanel = new Panel { Dock = DockStyle.Bottom, Height = 42 };
+            var btnSelectAll = new Button { Text = "Select All", Width = 95, Height = 34, Top = 3, Left = 0, FlatStyle = FlatStyle.System };
+            var btnDeselectAll = new Button { Text = "Clear", Width = 70, Height = 34, Top = 3, Left = 102, FlatStyle = FlatStyle.System };
 
             btnSelectAll.Click += (s, e) => SetAllColumnsSelected(true);
             btnDeselectAll.Click += (s, e) => SetAllColumnsSelected(false);
@@ -228,7 +245,7 @@ namespace KhimTools.RebarTool.Forms
             var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
 
             var tabMain = new TabPage { Text = "Thép Chủ & Cover", Padding = new Padding(12), BackColor = Color.White };
-            var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
+            var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 400, AutoScroll = true };
 
             var grpMainSection = new GroupBox { Text = "Bố trí Thép Chủ Tiết Diện Cột Tròn", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
             var layoutMainSec = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
@@ -247,7 +264,7 @@ namespace KhimTools.RebarTool.Forms
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutCover.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            _chkCustomCover = new CheckBox { Text = "Nhập tay Cover (bỏ chọn = tự động từ Revit)", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 3, 4) };
+            _chkCustomCover = new CheckBox { Text = "Nhập cover tùy chỉnh", Checked = false, AutoSize = true, Margin = new Padding(3, 4, 3, 4) };
             _numCustomCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90, Enabled = false };
             _chkCustomCover.CheckedChanged += (s, e) => _numCustomCover.Enabled = _chkCustomCover.Checked;
 
@@ -293,8 +310,9 @@ namespace KhimTools.RebarTool.Forms
 
             _previewPanel = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
             _previewPanel.Paint += PreviewPanel_Paint;
-            tabMain.Controls.Add(_previewPanel);
-            _previewPanel.BringToFront();
+            var previewViewport = RebarLayout.ScrollPreview(_previewPanel, new Size(420, 480));
+            tabMain.Controls.Add(previewViewport);
+            previewViewport.BringToFront();
 
             tabControl.TabPages.Add(tabMain);
 
@@ -370,6 +388,7 @@ namespace KhimTools.RebarTool.Forms
             layoutGenSettings.Controls.Add(grpAssignInfo, 0, 2); layoutGenSettings.Controls.Add(grpSlabBeam, 1, 2);
 
             tabGenSettings.Controls.Add(layoutGenSettings);
+            RebarLayout.Stack(tabGenSettings, grpHook, grpBendCut, grpTopRoof, grpSplicePos, grpAssignInfo, grpSlabBeam);
             tabControl.TabPages.Add(tabGenSettings);
 
             var tabViews = new TabPage { Text = "Bản Vẽ & View 3D", Padding = new Padding(12), BackColor = Color.White };
@@ -386,6 +405,11 @@ namespace KhimTools.RebarTool.Forms
 
             Controls.Add(tabControl);
             tabControl.BringToFront();
+            RebarLayout.FitColumnGroups(tabControl);
+            RebarLayout.Stack(pnlMainLeft, grpMainSection, grpCover, grpMainAnchor);
+            RebarLayout.ColumnEditor(tabMain, pnlMainLeft, previewViewport);
+            footer.SendToBack();
+            RebarLayout.PresetBar(templatePanel, _lblTemplate, _cmbTemplate, _btnApplyTemplate, _btnSaveTemplate, _btnDeleteTemplate);
         }
 
         private void AddRowToLayout(TableLayoutPanel table, string labelText, Control inputControl)
@@ -409,12 +433,12 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"🟢 Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = $"Đã chọn sẵn: {count} cột từ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"🔵 Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }

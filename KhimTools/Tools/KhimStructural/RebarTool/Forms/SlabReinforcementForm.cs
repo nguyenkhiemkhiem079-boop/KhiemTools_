@@ -1,4 +1,5 @@
 using KhimTools.Core.UI;
+using Control = System.Windows.Forms.Control;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -99,6 +100,16 @@ namespace KhimTools.RebarTool.Forms
         private RebarFormGuard _formGuard;
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
+            : this(doc, availableFloors, preSelectedFloors, true)
+        {
+        }
+
+        internal static SlabReinforcementForm CreateLayoutPreview()
+        {
+            return new SlabReinforcementForm(null, null, null, false);
+        }
+
+        private SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors, bool loadDocument)
         {
             _doc = doc;
             _availableFloors = availableFloors ?? new List<Floor>();
@@ -107,13 +118,14 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
-            PopulateBarCombos();
+            RebarLayout.EnableFullTypeNames(this);
+            if (loadDocument) PopulateBarCombos();
 
             // Khởi tạo danh sách panel từ sàn được chọn hoặc toàn bộ sàn
             var initialFloors = _preSelectedFloors.Any() ? _preSelectedFloors : _availableFloors;
-            _panelManager.InitializeFromFloors(_doc, initialFloors);
+            if (loadDocument) _panelManager.InitializeFromFloors(_doc, initialFloors);
             RefreshGridPanels();
-            LoadTemplateList();
+            if (loadDocument) LoadTemplateList();
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 new RebarValidationRule(_gridPanels,
                     () => _gridPanels.Rows.Count > 0,
@@ -139,8 +151,8 @@ namespace KhimTools.RebarTool.Forms
             Height = 760;
             MinimumSize = new Size(1020, 700);
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             MinimizeBox = false;
 
             // 1. Bottom Control Panel
@@ -170,13 +182,18 @@ namespace KhimTools.RebarTool.Forms
             bottomPanel.Controls.Add(_btnAssignData);
             bottomPanel.Controls.Add(_btnCreateRebar);
             bottomPanel.Controls.Add(_btnClose);
-            Controls.Add(bottomPanel);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnAssignData, _btnCreateRebar, _btnClose);
+            bottomPanel.Dispose();
+            Controls.Add(footer);
 
             // 2. Main Content Split (Left: Tabs 580px, Right: Panel DataGridView)
-            var pnlMain = new Panel { Dock = DockStyle.Fill, Padding = new Padding(15, 65, 15, 5) };
+            var pnlMain = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), ColumnCount = 2, RowCount = 1 };
+            pnlMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
 
             // ── LEFT: TabControl (Thông số cốt thép)
-            var tabControl = new TabControl { Left = 15, Top = 70, Width = 560, Height = 525, Font = new Font("Segoe UI", 9F) };
+            var tabControl = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F) };
 
             // TAB 1: 🔽 Lớp Dưới (Bottom Layer)
             var tabBottom = new TabPage("Lưới Đáy") { BackColor = KhimUiStyle.FormBg };
@@ -203,14 +220,16 @@ namespace KhimTools.RebarTool.Forms
             BuildTabDesign(tabDesign);
             tabControl.TabPages.Add(tabDesign);
 
-            pnlMain.Controls.Add(tabControl);
+            pnlMain.Controls.Add(tabControl, 0, 0);
 
             // ── RIGHT: Panel List DataGridView (460px)
-            var pnlRight = new Panel { Left = 585, Top = 70, Width = 465, Height = 525 };
+            var pnlRight = new Panel { Dock = DockStyle.Fill };
             BuildPanelGridSection(pnlRight);
-            pnlMain.Controls.Add(pnlRight);
+            pnlMain.Controls.Add(pnlRight, 1, 0);
 
             Controls.Add(pnlMain);
+            pnlMain.BringToFront();
+            footer.SendToBack();
         }
 
         private void BuildTabBottom(TabPage page)
@@ -245,7 +264,11 @@ namespace KhimTools.RebarTool.Forms
             grp.Controls.Add(_chkBotInvert);
             grp.Controls.Add(grpX);
             grp.Controls.Add(grpY);
+            RebarLayout.Fields(grpX, RebarLayout.Field("Đường kính", _cmbBotXDia), RebarLayout.Field("Khoảng rải s (mm)", _numBotXSpacing));
+            RebarLayout.Fields(grpY, RebarLayout.Field("Đường kính", _cmbBotYDia), RebarLayout.Field("Khoảng rải s (mm)", _numBotYSpacing));
+            RebarLayout.Fields(grp, new Control[] { _chkBotDraw }, new Control[] { _chkBotInvert }, new Control[] { grpX }, new Control[] { grpY });
             page.Controls.Add(grp);
+            RebarLayout.Stack(page, grp);
         }
 
         private void BuildTabTop(TabPage page)
@@ -280,7 +303,11 @@ namespace KhimTools.RebarTool.Forms
             grp.Controls.Add(_chkTopInvert);
             grp.Controls.Add(grpX);
             grp.Controls.Add(grpY);
+            RebarLayout.Fields(grpX, RebarLayout.Field("Đường kính", _cmbTopXDia), RebarLayout.Field("Khoảng rải s (mm)", _numTopXSpacing));
+            RebarLayout.Fields(grpY, RebarLayout.Field("Đường kính", _cmbTopYDia), RebarLayout.Field("Khoảng rải s (mm)", _numTopYSpacing));
+            RebarLayout.Fields(grp, new Control[] { _chkTopDraw }, new Control[] { _chkTopInvert }, new Control[] { grpX }, new Control[] { grpY });
             page.Controls.Add(grp);
+            RebarLayout.Stack(page, grp);
         }
 
         private void BuildTabHat(TabPage page)
@@ -344,6 +371,18 @@ namespace KhimTools.RebarTool.Forms
             grpDist.Controls.Add(lblDistSp);
             grpDist.Controls.Add(_numDistSpacing);
             page.Controls.Add(grpDist);
+            RebarLayout.Fields(grpHat,
+                new Control[] { _chkHatDraw }, new Control[] { _chkHatFullSpan },
+                RebarLayout.Field("Tỷ lệ vươn", _cmbHatFactor),
+                new Control[] { _chkHatHookDown },
+                RebarLayout.Field("Chiều dài móc mép (mm)", _numHatHookDownLen),
+                RebarLayout.Field("Đường kính X", _cmbHatXDia),
+                RebarLayout.Field("Khoảng rải X (mm)", _numHatXSpacing),
+                RebarLayout.Field("Đường kính Y", _cmbHatYDia),
+                RebarLayout.Field("Khoảng rải Y (mm)", _numHatYSpacing));
+            RebarLayout.Fields(grpDist, new Control[] { _chkDistDraw },
+                RebarLayout.Field("Đường kính", _cmbDistDia), RebarLayout.Field("Khoảng rải s (mm)", _numDistSpacing));
+            RebarLayout.Stack(page, grpHat, grpDist);
         }
 
         private void BuildTabAccessories(TabPage page)
@@ -398,6 +437,17 @@ namespace KhimTools.RebarTool.Forms
             grpAnchor.Controls.Add(lblMinSpan);
             grpAnchor.Controls.Add(_numMinSpan);
             page.Controls.Add(grpAnchor);
+            RebarLayout.Fields(grpSpacer, new Control[] { _chkSpacerDraw },
+                RebarLayout.Field("Đường kính", _cmbSpacerDia),
+                RebarLayout.Field("Chiều dài móc chân (mm)", _numSpacerHookLen),
+                RebarLayout.Field("Bước X (mm)", _numSpacerStepX),
+                RebarLayout.Field("Bước Y (mm)", _numSpacerStepY));
+            RebarLayout.Fields(grpAnchor,
+                RebarLayout.Field("Neo dầm A (mm)", _numBeamAnchorA),
+                RebarLayout.Field("Neo giáp sàn B (mm)", _numSlabAnchorB),
+                RebarLayout.Field("Làm tròn chiều dài (mm)", _numRounding),
+                RebarLayout.Field("Ngưỡng nhịp chạy suốt (mm)", _numMinSpan));
+            RebarLayout.Stack(page, grpSpacer, grpAnchor);
         }
 
         private void BuildTabDesign(TabPage page)
@@ -442,6 +492,11 @@ namespace KhimTools.RebarTool.Forms
 
             page.Controls.Add(grpCode);
             page.Controls.Add(grpTpl);
+            RebarLayout.Fields(grpCode, RebarLayout.Field("Tiêu chuẩn neo", _cmbDesignCode),
+                RebarLayout.Field("Mác bê tông", _cmbConcreteGrade), RebarLayout.Field("Mác thép", _cmbSteelGrade));
+            RebarLayout.Fields(grpTpl, RebarLayout.Field("Mẫu thiết lập", _cmbTemplates),
+                new Control[] { _btnSaveTemplate, _btnLoadTemplate });
+            RebarLayout.Stack(page, grpCode, grpTpl);
         }
 
         private void BuildPanelGridSection(Panel pnl)
@@ -503,6 +558,26 @@ namespace KhimTools.RebarTool.Forms
             pnl.Controls.Add(pnlToolBar);
             pnl.Controls.Add(_gridPanels);
             pnl.Controls.Add(pnlSelection);
+            lblTitle.Dock = DockStyle.Fill;
+            lblTitle.AutoSize = false;
+            lblTitle.Height = 32;
+            pnlToolBar.Dock = DockStyle.Fill;
+            pnlToolBar.Height = 38;
+            pnlSelection.Dock = DockStyle.Fill;
+            pnlSelection.Height = 40;
+            _gridPanels.Dock = DockStyle.Fill;
+            _gridPanels.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
+            layout.Controls.Add(lblTitle, 0, 0);
+            layout.Controls.Add(pnlToolBar, 0, 1);
+            layout.Controls.Add(_gridPanels, 0, 2);
+            layout.Controls.Add(pnlSelection, 0, 3);
+            pnl.Controls.Add(layout);
         }
 
         private void RefreshGridPanels()

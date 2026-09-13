@@ -159,16 +159,30 @@ namespace KhimTools.RebarTool.Forms
         private double _beamWidth = 300;
 
         public BeamReinforcementForm(Document doc, List<FamilyInstance> availableBeams, List<FamilyInstance> preSelectedBeams = null)
+            : this(doc, availableBeams, preSelectedBeams, true)
         {
-            _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+        }
+
+        internal static BeamReinforcementForm CreateLayoutPreview()
+        {
+            return new BeamReinforcementForm(null, null, null, false);
+        }
+
+        private BeamReinforcementForm(Document doc, List<FamilyInstance> availableBeams, List<FamilyInstance> preSelectedBeams, bool loadDocument)
+        {
+            _doc = loadDocument ? doc ?? throw new ArgumentNullException(nameof(doc)) : null;
             _availableBeams = availableBeams ?? new List<FamilyInstance>();
             _selectedBeams = (preSelectedBeams != null && preSelectedBeams.Any()) ? preSelectedBeams : _availableBeams.Take(1).ToList();
             _currentBeam = _selectedBeams.FirstOrDefault() ?? _availableBeams.FirstOrDefault();
 
             KhimUiStyle.ApplyFormTheme(this);
-            LoadRebarTypes();
-            ExtractBeamDimensions();
+            if (loadDocument)
+            {
+                LoadRebarTypes();
+                ExtractBeamDimensions();
+            }
             InitializeLayoutCustom();
+            RebarLayout.EnableFullTypeNames(this);
             SwitchSettingTab(0);
             _formGuard = RebarFormGuard.Attach(this, _btnOk,
                 new RebarValidationRule(this, () => _currentBeam != null, "Chọn một dầm hợp lệ."),
@@ -274,7 +288,7 @@ namespace KhimTools.RebarTool.Forms
 
             var footerBar = BuildFooterBar();
 
-            botPanel.Controls.Add(_pnlElevationCanvas);
+            botPanel.Controls.Add(RebarLayout.ScrollPreview(_pnlElevationCanvas, new Size(900, 280)));
             botPanel.Controls.Add(footerBar);
 
             Controls.Add(mainSplit);
@@ -314,6 +328,10 @@ namespace KhimTools.RebarTool.Forms
             grp.Controls.Add(_btnSettingAddBot);
             grp.Controls.Add(_btnSettingStirrup);
             grp.Controls.Add(_btnSettingAntiBulge);
+            var navigation = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            RebarLayout.Stack(navigation, _btnSettingMainTop, _btnSettingMainBot, _btnSettingAddTop,
+                _btnSettingAddBot, _btnSettingStirrup, _btnSettingAntiBulge);
+            grp.Controls.Add(navigation);
 
             return grp;
         }
@@ -330,6 +348,7 @@ namespace KhimTools.RebarTool.Forms
                 Font = new Font("Segoe UI Semibold", 8.5F),
                 BackColor = (index == 0) ? KhimUiStyle.SelectionBg : Color.White,
                 TextAlign = ContentAlignment.MiddleRight,
+                Padding = new Padding(38, 0, 2, 0),
                 Cursor = Cursors.Hand
             };
             btn.FlatAppearance.BorderColor = (index == 0) ? KhimUiStyle.PrimaryButtonBg : KhimUiStyle.CardBorder;
@@ -404,6 +423,40 @@ namespace KhimTools.RebarTool.Forms
         #endregion
 
         #region View 1: Main Top Bar
+        private static void ArrangeBarView(Panel view, GroupBox list, GroupBox info, GroupBox diagram)
+        {
+            // These four editors add each label immediately before its input.
+            var controls = info.Controls.Cast<Control>().ToArray();
+            var rows = new List<Control[]>();
+            for (int i = 0; i < controls.Length; i++)
+            {
+                if (controls[i] is Label && i + 1 < controls.Length)
+                    rows.Add(new[] { controls[i], controls[++i] });
+                else
+                    rows.Add(new[] { controls[i] });
+            }
+            RebarLayout.Fields(info, rows.ToArray());
+            var table = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, MinimumSize = new Size(930, 400) };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            view.AutoScroll = true;
+            list.Dock = DockStyle.Fill;
+            info.Dock = DockStyle.Fill;
+            diagram.Dock = DockStyle.Fill;
+            foreach (var box in list.Controls.OfType<ListBox>())
+            {
+                box.Dock = DockStyle.Fill;
+                box.HorizontalScrollbar = true;
+                box.BringToFront();
+            }
+            foreach (var label in list.Controls.OfType<Label>()) { label.Dock = DockStyle.Top; label.Height = 24; }
+            table.Controls.Add(list, 0, 0);
+            table.Controls.Add(info, 1, 0);
+            table.Controls.Add(diagram, 2, 0);
+            view.Controls.Add(table);
+        }
+
         private void BuildViewMainTop()
         {
             _pnlViewMainTop = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
@@ -487,6 +540,7 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewMainTop.Controls.Add(grpImage);
             _pnlViewMainTop.Controls.Add(grpInfo);
             _pnlViewMainTop.Controls.Add(grpList);
+            ArrangeBarView(_pnlViewMainTop, grpList, grpInfo, grpImage);
         }
         #endregion
 
@@ -573,6 +627,7 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewMainBot.Controls.Add(grpImage);
             _pnlViewMainBot.Controls.Add(grpInfo);
             _pnlViewMainBot.Controls.Add(grpList);
+            ArrangeBarView(_pnlViewMainBot, grpList, grpInfo, grpImage);
         }
         #endregion
 
@@ -681,6 +736,7 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewAddTop.Controls.Add(grpImage);
             _pnlViewAddTop.Controls.Add(grpInfo);
             _pnlViewAddTop.Controls.Add(grpList);
+            ArrangeBarView(_pnlViewAddTop, grpList, grpInfo, grpImage);
         }
         #endregion
 
@@ -784,6 +840,7 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewAddBot.Controls.Add(grpImage);
             _pnlViewAddBot.Controls.Add(grpInfo);
             _pnlViewAddBot.Controls.Add(grpList);
+            ArrangeBarView(_pnlViewAddBot, grpList, grpInfo, grpImage);
         }
         #endregion
 
@@ -821,6 +878,9 @@ namespace KhimTools.RebarTool.Forms
 
             _pnlViewStirrup.Controls.Add(grpSection);
             _pnlViewStirrup.Controls.Add(tabStirrup);
+            _pnlViewStirrup.AutoScroll = true;
+            tabStirrup.Multiline = true;
+            tabStirrup.Height = 590;
         }
 
         private void BuildStirrupDistributionTab(TabPage tab)
@@ -882,6 +942,20 @@ namespace KhimTools.RebarTool.Forms
             tab.Controls.Add(lbl3); tab.Controls.Add(_rbStirrup2Ends); tab.Controls.Add(pnlIconEnds); tab.Controls.Add(lblA1Ends); tab.Controls.Add(_txtStirrupA1Ends); tab.Controls.Add(lblA2Ends); tab.Controls.Add(_txtStirrupA2Ends);
             tab.Controls.Add(lbl31); tab.Controls.Add(lblEnd1); tab.Controls.Add(_txtStirrupEnd1Len); tab.Controls.Add(lblMm1); tab.Controls.Add(lblEnd2); tab.Controls.Add(_txtStirrupEnd2Len); tab.Controls.Add(lblMm2);
             tab.Controls.Add(lbl4); tab.Controls.Add(lblDist); tab.Controls.Add(_txtStirrupFirstDistance); tab.Controls.Add(lblMmDist); tab.Controls.Add(pnlDistIcon);
+            var settings = new GroupBox { Text = "Phân bố thép đai" };
+            _rbStirrupUniform.Text = "Đai đều";
+            _rbStirrup2Ends.Text = "Đai dày hai đầu";
+            RebarLayout.Fields(settings,
+                RebarLayout.Field("Nhịp dầm", _cmbStirrupSpan),
+                RebarLayout.Field("Đường kính", _cmbStirrupDia),
+                new Control[] { _rbStirrupUniform, _rbStirrup2Ends },
+                RebarLayout.Field("Đai đều A1 (mm)", _txtStirrupA1Uniform),
+                RebarLayout.Field("Đai hai đầu A1 (mm)", _txtStirrupA1Ends),
+                RebarLayout.Field("Đai giữa nhịp A2 (mm)", _txtStirrupA2Ends),
+                RebarLayout.Field("Chiều dài vùng đầu 1 (mm)", _txtStirrupEnd1Len),
+                RebarLayout.Field("Chiều dài vùng đầu 2 (mm)", _txtStirrupEnd2Len),
+                RebarLayout.Field("Đai đầu tiên cách cột (mm)", _txtStirrupFirstDistance));
+            RebarLayout.Stack(tab, settings);
         }
         #endregion
 
@@ -943,6 +1017,20 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewAntiBulge.Controls.Add(_txtAntiBulgeAnchor);
             _pnlViewAntiBulge.Controls.Add(lblMmAnchor);
             _pnlViewAntiBulge.Controls.Add(pnlElevDiag);
+            var settings = new GroupBox { Text = "Thép sườn" };
+            RebarLayout.Fields(settings,
+                RebarLayout.Field("Bố trí khi H > (mm)", _txtAntiShrinkageH),
+                RebarLayout.Field("Đường kính thép sườn", _cmbAntiBulgeDia),
+                RebarLayout.Field("Độ lệch (mm)", _cmbAntiBulgeOffset),
+                RebarLayout.Field("Đường kính đai giằng", _cmbAntiBulgeTieDia),
+                RebarLayout.Field("Khoảng cách giằng (mm)", _txtAntiBulgeSpacing),
+                RebarLayout.Field("Chiều dài neo (mm)", _txtAntiBulgeAnchor));
+            pnlSectionDiag.Parent = null;
+            pnlElevDiag.Parent = null;
+            var diagrams = new FlowLayoutPanel { AutoSize = true, WrapContents = true };
+            diagrams.Controls.Add(pnlSectionDiag);
+            diagrams.Controls.Add(pnlElevDiag);
+            RebarLayout.Stack(_pnlViewAntiBulge, settings, diagrams);
         }
 
         private void DrawAntiBulgeSectionDiagram(object sender, PaintEventArgs e)
@@ -1108,7 +1196,9 @@ namespace KhimTools.RebarTool.Forms
                 _btnOk.Left = _btnClose.Left - _btnOk.Width - 10;
             };
 
-            return pnl;
+            var footer = RebarLayout.Footer(null, _btnOk, _btnClose);
+            pnl.Dispose();
+            return footer;
         }
         #endregion
 

@@ -26,6 +26,11 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnClose;
         private int _selectedEdgeIndex = -1;
 
+        internal static SlabEdgePickerForm CreateLayoutPreview()
+        {
+            return new SlabEdgePickerForm(new SlabPanel { PanelId = "QA-01", WidthMm = 4200, LengthMm = 6000 });
+        }
+
         public SlabEdgePickerForm(SlabPanel panel)
         {
             _panel = panel ?? throw new ArgumentNullException(nameof(panel));
@@ -41,8 +46,9 @@ namespace KhimTools.RebarTool.Forms
             Width = 820;
             Height = 560;
             StartPosition = FormStartPosition.CenterParent;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new Size(820, 540);
+            MaximizeBox = true;
             MinimizeBox = false;
 
             // 1. Bottom
@@ -57,7 +63,9 @@ namespace KhimTools.RebarTool.Forms
 
             bottom.Controls.Add(_btnApply);
             bottom.Controls.Add(_btnClose);
-            Controls.Add(bottom);
+            var footer = RebarLayout.Footer(null, _btnApply, _btnClose);
+            bottom.Dispose();
+            Controls.Add(footer);
 
             // 2. Center Split (Left: 2D Canvas, Right: Edge Properties Table)
             _canvas = new System.Windows.Forms.Panel
@@ -117,7 +125,22 @@ namespace KhimTools.RebarTool.Forms
 
             pnlRight.Controls.Add(_lblInfo);
             pnlRight.Controls.Add(_gridEdges);
-            Controls.Add(pnlRight);
+            _lblInfo.Dock = DockStyle.Top;
+            _lblInfo.AutoSize = false;
+            _lblInfo.Height = 32;
+            _gridEdges.Dock = DockStyle.Fill;
+            _gridEdges.BringToFront();
+            _gridEdges.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;
+            var content = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(10) };
+            content.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            content.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            _canvas.Dock = DockStyle.Fill;
+            pnlRight.Dock = DockStyle.Fill;
+            content.Controls.Add(_canvas, 0, 0);
+            content.Controls.Add(pnlRight, 1, 0);
+            Controls.Add(content);
+            content.BringToFront();
         }
 
         private void PopulateEdgeGrid()
@@ -208,7 +231,15 @@ namespace KhimTools.RebarTool.Forms
                 using (Font font = new Font("Segoe UI", 8.5F, isSelected ? FontStyle.Bold : FontStyle.Regular))
                 using (Brush brush = new SolidBrush(edgeColor))
                 {
-                    g.DrawString(label, font, brush, midX - 25, midY - 10);
+                    SizeF textSize = g.MeasureString(label, font);
+                    float labelX = midX - textSize.Width / 2;
+                    float labelY = i == 0 ? rect.Top - textSize.Height - 6 : rect.Bottom + 6;
+                    if (i == 1 || i == 3)
+                    {
+                        labelX = i == 1 ? rect.Right - textSize.Width - 8 : rect.Left + 8;
+                        labelY = rect.Top + rect.Height / 4F - textSize.Height / 2;
+                    }
+                    g.DrawString(label, font, brush, labelX, labelY);
                 }
             }
 
@@ -217,7 +248,9 @@ namespace KhimTools.RebarTool.Forms
             using (Brush br = new SolidBrush(Color.FromArgb(71, 85, 105)))
             {
                 string panelTitle = $"Panel {_panel.PanelId}\n{_panel.WidthMm:N0} x {_panel.LengthMm:N0} mm";
-                g.DrawString(panelTitle, f, br, rect.Left + (rect.Width / 2) - 45, rect.Top + (rect.Height / 2) - 20);
+                using var format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                g.DrawString(panelTitle, f, br,
+                    new RectangleF(rect.Left + 12, rect.Top + 40, rect.Width - 24, rect.Height - 80), format);
             }
         }
 

@@ -21,6 +21,7 @@ using CheckBox = System.Windows.Forms.CheckBox;
 using RadioButton = System.Windows.Forms.RadioButton;
 using GroupBox = System.Windows.Forms.GroupBox;
 using Form = System.Windows.Forms.Form;
+using Control = System.Windows.Forms.Control;
 
 namespace KhimTools.SheetExport.Forms
 {
@@ -37,8 +38,6 @@ namespace KhimTools.SheetExport.Forms
         private Button _btnNavSelect;
         private Button _btnNavSettings;
         private Button _btnNavFilter;
-        private Panel _contentContainer;
-
         // ── Main Views ───────────────────────────────────────────────────────
         private Panel _viewSelect;
         private Panel _viewSettings;
@@ -49,6 +48,8 @@ namespace KhimTools.SheetExport.Forms
         private Button _btnLoadSelection;
         private Label _lblCurrentSelectionFile;
         private ComboBox _cmbDisciplineFilter;
+        private ComboBox _cmbPaperFilter;
+        private ComboBox _cmbIssueStatusFilter;
         private TextBox _txtSearchSheet;
         private Button _btnRefreshList;
         private Button _btnSelectAll;
@@ -62,6 +63,12 @@ namespace KhimTools.SheetExport.Forms
         private TextBox _txtNaming1;
         private TextBox _txtNaming2;
         private TextBox _txtNaming3;
+        private TextBox _txtNamingPattern;
+        private Label _lblNamingPreview;
+        private TextBox _txtIssueSetName;
+        private DateTimePicker _dtpIssueDate;
+        private ComboBox _cmbPdfExportQuality;
+        private CheckBox _chkPreservePrevious;
         private TextBox _txtFileCombineName;
         private RadioButton _rbFormatPdf;
         private RadioButton _rbFormatDwg;
@@ -113,61 +120,429 @@ namespace KhimTools.SheetExport.Forms
         private Button _btnBrowseFolder;
         private Label _lblTotalSummary;
         private Button _btnPrint;
+        private Form _advancedSettingsForm;
+        private readonly ToolTip _toolTips = new ToolTip();
 
         public SheetExportForm(Document doc)
+            : this(doc ?? throw new ArgumentNullException(nameof(doc)), true)
         {
-            _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+        }
+
+        private SheetExportForm(Document doc, bool loadDocument)
+        {
+            _doc = doc;
 
             KhimUiStyle.ApplyFormTheme(this);
             InitializeComponentsCustom();
-            LoadDataFromRevit();
+            if (loadDocument) LoadDataFromRevit();
+        }
+
+        // The layout fixture uses the actual controls without a Revit document or export side effects.
+        internal static SheetExportForm CreateLayoutPreview()
+        {
+            var form = new SheetExportForm(null, false);
+            form._btnPrint.Enabled = false;
+            form._btnRefreshList.Enabled = false;
+            form._btnSaveSelection.Enabled = false;
+            form._btnLoadSelection.Enabled = false;
+            return form;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _advancedSettingsForm?.Dispose();
+                _toolTips.Dispose();
+            }
+            base.Dispose(disposing);
         }
 
         private void InitializeComponentsCustom()
         {
-            Text = "📄 K-TOOLS — Sheet Batch Export & Print Manager";
+            Text = "Print & Export Sheets";
             Width = 1360;
             Height = 820;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
-            MinimumSize = new Size(1100, 680);
+            MinimumSize = new Size(1120, 700);
             BackColor = KhimUiStyle.FormBg;
+            Font = new Font("Segoe UI", 9F);
 
-            // 0. Top Banner Header
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "K-TOOLS — Sheet Batch Export & Print Manager",
-                "Bộ công cụ xuất in PDF & AutoCAD DWG hàng loạt, tự động nhận diện khổ giấy và quản lý bộ bản vẽ",
-                "v2.5 Pro");
-            Controls.Add(header);
+            BuildUnifiedWorkspace();
+            EnsureAdvancedSettingsForm();
+        }
 
-            // 1. Sidebar Navigation (Left)
-            BuildSidebar();
-
-            // 2. Content Container (Center)
-            _contentContainer = new Panel
+        private void BuildUnifiedWorkspace()
+        {
+            var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                BackColor = Color.White
+                ColumnCount = 1,
+                RowCount = 3,
+                BackColor = KhimUiStyle.FormBg,
+                Padding = new Padding(12)
+            };
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+
+            root.Controls.Add(BuildWorkflowToolbar(), 0, 0);
+
+            var workspace = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = KhimUiStyle.FormBg,
+                Margin = new Padding(0)
+            };
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+            var sheetWorkspace = BuildSheetWorkspace();
+            sheetWorkspace.Margin = new Padding(0, 0, 6, 0);
+            var setupPanel = BuildExportSetupPanel();
+            setupPanel.Margin = new Padding(6, 0, 0, 0);
+            workspace.Controls.Add(sheetWorkspace, 0, 0);
+            workspace.Controls.Add(setupPanel, 1, 0);
+            root.Controls.Add(workspace, 0, 1);
+            root.Controls.Add(BuildUnifiedFooter(), 0, 2);
+            Controls.Add(root);
+        }
+
+        private Control BuildWorkflowToolbar()
+        {
+            var bar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = Color.White,
+                Padding = new Padding(10, 8, 10, 6),
+                Margin = new Padding(0, 0, 0, 8)
             };
 
-            // Build Views
-            BuildViewSelect();
-            BuildViewSettings();
-            BuildViewFilter();
+            bar.Controls.Add(new Label { Text = "Định dạng", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Margin = new Padding(0, 6, 8, 0) });
+            _rbFormatPdf = CreateFormatOption("PDF", true);
+            _rbFormatDwg = CreateFormatOption("DWG", false);
+            _rbFormatBoth = CreateFormatOption("PDF + DWG", false);
+            _rbFormatPdf.CheckedChanged += (s, e) => { if (_rbFormatPdf.Checked) RefreshGridRows(); };
+            _rbFormatDwg.CheckedChanged += (s, e) => { if (_rbFormatDwg.Checked) RefreshGridRows(); };
+            _rbFormatBoth.CheckedChanged += (s, e) => { if (_rbFormatBoth.Checked) RefreshGridRows(); };
+            _rbFormatPdf.CheckedChanged += (s, e) => UpdateFormatAvailability();
+            _rbFormatDwg.CheckedChanged += (s, e) => UpdateFormatAvailability();
+            _rbFormatBoth.CheckedChanged += (s, e) => UpdateFormatAvailability();
 
-            _contentContainer.Controls.Add(_viewSelect);
-            _contentContainer.Controls.Add(_viewSettings);
-            _contentContainer.Controls.Add(_viewFilter);
+            _btnSaveSelection = CreateSecondaryButton("Lưu bộ chọn", 96);
+            _btnSaveSelection.Margin = new Padding(22, 0, 4, 0);
+            _btnSaveSelection.Click += (s, e) => SaveSelectionDialog();
+            _btnLoadSelection = CreateSecondaryButton("Mở bộ chọn", 96);
+            _btnLoadSelection.Click += (s, e) => LoadSelectionDialog();
+            _lblCurrentSelectionFile = new Label
+            {
+                Text = "Chưa dùng bộ chọn đã lưu",
+                AutoSize = false,
+                AutoEllipsis = true,
+                Width = 280,
+                Height = 24,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Margin = new Padding(10, 6, 0, 0)
+            };
 
-            // 3. Bottom Print Bar (Footer)
-            var bottomBar = BuildBottomPrintBar();
+            bar.Controls.AddRange(new System.Windows.Forms.Control[]
+            {
+                _rbFormatPdf, _rbFormatDwg, _rbFormatBoth,
+                _btnSaveSelection, _btnLoadSelection, _lblCurrentSelectionFile
+            });
+            return bar;
+        }
 
-            Controls.Add(_contentContainer);
-            Controls.Add(_sidebar);
-            Controls.Add(bottomBar);
+        private Control BuildSheetWorkspace()
+        {
+            var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(10) };
+            var toolbar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true,
+                Padding = new Padding(0, 4, 0, 6)
+            };
 
-            // Switch to default Select view
-            SwitchView(0);
+            _txtSearchSheet = new TextBox { Width = 205, Font = new Font("Segoe UI", 9F), Margin = new Padding(0, 2, 8, 0) };
+            _toolTips.SetToolTip(_txtSearchSheet, "Tìm theo số hiệu hoặc tên sheet");
+            _txtSearchSheet.TextChanged += (s, e) => ApplySearchAndFilter();
+            _cmbDisciplineFilter = new ComboBox { Width = 205, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 1, 8, 0) };
+            _cmbDisciplineFilter.SelectedIndexChanged += (s, e) => { if (!_isLoading) ApplySearchAndFilter(); };
+            _cmbPaperFilter = new ComboBox { Width = 105, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 1, 8, 0) };
+            _cmbPaperFilter.SelectedIndexChanged += (s, e) => { if (!_isLoading) ApplySearchAndFilter(); };
+            _cmbIssueStatusFilter = new ComboBox { Width = 125, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 1, 8, 0) };
+            _cmbIssueStatusFilter.Items.AddRange(new object[] { "Mọi trạng thái", "Mới", "Đã sửa", "Không đổi" });
+            _cmbIssueStatusFilter.SelectedIndex = 0;
+            _cmbIssueStatusFilter.SelectedIndexChanged += (s, e) => { if (!_isLoading) ApplySearchAndFilter(); };
+            _chkFilterModifiedOnly = new CheckBox { Text = "Chỉ sheet thay đổi", AutoSize = true, Margin = new Padding(2, 5, 10, 0) };
+            _chkFilterModifiedOnly.CheckedChanged += (s, e) => ApplySearchAndFilter();
+            _btnSelectAll = CreateSecondaryButton("Chọn tất cả", 88);
+            _btnClearAll = CreateSecondaryButton("Bỏ chọn", 78);
+            _btnInvert = CreateSecondaryButton("Đảo chọn", 78);
+            _btnRefreshList = CreateSecondaryButton("Làm mới", 76);
+            _btnSelectAll.Click += (s, e) => SetAllGridItems(true);
+            _btnClearAll.Click += (s, e) => SetAllGridItems(false);
+            _btnInvert.Click += (s, e) => InvertGridItems();
+            _btnRefreshList.Click += (s, e) => LoadDataFromRevit();
+            toolbar.Controls.AddRange(new System.Windows.Forms.Control[]
+            {
+                _txtSearchSheet, _cmbDisciplineFilter, _cmbPaperFilter, _cmbIssueStatusFilter, _chkFilterModifiedOnly,
+                _btnSelectAll, _btnClearAll, _btnInvert, _btnRefreshList
+            });
+
+            _gridSheets = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoGenerateColumns = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = true,
+                RowHeadersVisible = false,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                GridColor = Color.FromArgb(226, 232, 240),
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                RowTemplate = { Height = 30 }
+            };
+            _gridSheets.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(241, 245, 249);
+            _gridSheets.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            _gridSheets.EnableHeadersVisualStyles = false;
+            BuildGridColumns();
+            _gridSheets.CellValueChanged += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.ColumnIndex == 0 && e.RowIndex < _filteredSheetItems.Count)
+                {
+                    _filteredSheetItems[e.RowIndex].IsSelected = Convert.ToBoolean(_gridSheets.Rows[e.RowIndex].Cells[0].Value);
+                    UpdateSummaryLabel();
+                    UpdateNamingPreview();
+                }
+            };
+            _gridSheets.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (_gridSheets.IsCurrentCellDirty && _gridSheets.CurrentCellAddress.X == 0)
+                    _gridSheets.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+
+            panel.Controls.Add(_gridSheets);
+            panel.Controls.Add(toolbar);
+            return panel;
+        }
+
+        private Control BuildExportSetupPanel()
+        {
+            var host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(18, 14, 18, 14) };
+            var flow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false };
+
+            flow.Controls.Add(CreateSectionLabel("Đầu ra"));
+            _txtOutputDirectory = new TextBox { Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "KhimTools_Export"), Width = 326 };
+            var folderRow = new FlowLayoutPanel { Height = 32, Width = 330, WrapContents = false, Margin = new Padding(0, 4, 0, 14) };
+            _btnBrowseFolder = CreateSecondaryButton("Chọn thư mục", 108);
+            _btnOpenFolderSelection = CreateSecondaryButton("Mở thư mục", 100);
+            _btnBrowseFolder.Click += BtnBrowseFolder_Click;
+            _btnOpenFolderSelection.Click += (s, e) => OpenOutputDirectory();
+            folderRow.Controls.AddRange(new System.Windows.Forms.Control[] { _btnBrowseFolder, _btnOpenFolderSelection });
+            flow.Controls.Add(_txtOutputDirectory);
+            flow.Controls.Add(folderRow);
+
+            flow.Controls.Add(CreateSectionLabel("Đợt phát hành"));
+            _txtIssueSetName = new TextBox { Text = "Official Release", Width = 326, Margin = new Padding(0, 0, 0, 4) };
+            _dtpIssueDate = new DateTimePicker { Width = 180, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Margin = new Padding(0, 0, 0, 4) };
+            var saveDatedSet = CreateSecondaryButton("Lưu set theo ngày", 140);
+            saveDatedSet.Margin = new Padding(0, 0, 0, 14);
+            saveDatedSet.Click += (s, e) => SaveDatedSelectionSet();
+            flow.Controls.Add(_txtIssueSetName);
+            flow.Controls.Add(_dtpIssueDate);
+            flow.Controls.Add(saveDatedSet);
+
+            flow.Controls.Add(CreateSectionLabel("Tên file"));
+            _chkUseNamingConvention = new CheckBox { Text = "Dùng mẫu tên file", Checked = true, AutoSize = true, Margin = new Padding(0, 5, 0, 4) };
+            _txtNamingPattern = new TextBox { Text = "{SheetNumber} - {SheetName}", Width = 326, Margin = new Padding(0, 0, 0, 4) };
+            _txtNamingPattern.TextChanged += (s, e) => { UpdateNamingPreview(); UpdateCombineFileName(); };
+            _chkUseNamingConvention.CheckedChanged += (s, e) => UpdateNamingPreview();
+            _lblNamingPreview = new Label { Text = "Xem trước: -", Width = 326, Height = 38, ForeColor = KhimUiStyle.TextSecondary, Margin = new Padding(0, 0, 0, 12) };
+            flow.Controls.Add(_chkUseNamingConvention);
+            flow.Controls.Add(_txtNamingPattern);
+            flow.Controls.Add(_lblNamingPreview);
+
+            flow.Controls.Add(CreateSectionLabel("Chất lượng PDF"));
+            _cmbPdfExportQuality = new ComboBox { Width = 180, DropDownStyle = ComboBoxStyle.DropDownList, Margin = new Padding(0, 2, 0, 4) };
+            _cmbPdfExportQuality.Items.AddRange(new object[] { "Standard - 300 DPI", "High - 600 DPI", "Draft - 144 DPI" });
+            _cmbPdfExportQuality.SelectedIndex = 0;
+            flow.Controls.Add(_cmbPdfExportQuality);
+
+            flow.Controls.Add(CreateSectionLabel("Tùy chọn bộ hồ sơ"));
+            _rbSeparateFiles = new RadioButton { Text = "Từng file riêng", Checked = true, AutoSize = true, Margin = new Padding(0, 5, 0, 3) };
+            _rbCombineFiles = new RadioButton { Text = "Gộp thành một file PDF", AutoSize = true, Margin = new Padding(0, 3, 0, 3) };
+            _txtFileCombineName = new TextBox { Text = "Combined_Project_Sheets.pdf", Width = 326, Enabled = false, Margin = new Padding(0, 2, 0, 5) };
+            _rbCombineFiles.CheckedChanged += (s, e) => _txtFileCombineName.Enabled = _rbCombineFiles.Checked;
+            _chkCreateTransmittal = new CheckBox { Text = "Tạo bảng kê Excel", AutoSize = true, Margin = new Padding(0, 4, 0, 12) };
+            _chkPreservePrevious = new CheckBox { Text = "Giữ lại bản xuất trước", Checked = true, AutoSize = true, Margin = new Padding(0, 4, 0, 4) };
+            flow.Controls.Add(_rbSeparateFiles);
+            flow.Controls.Add(_rbCombineFiles);
+            flow.Controls.Add(_txtFileCombineName);
+            flow.Controls.Add(_chkPreservePrevious);
+            flow.Controls.Add(_chkCreateTransmittal);
+
+            var advanced = CreateSecondaryButton("Thiết lập PDF / DWG nâng cao", 230);
+            advanced.Height = 34;
+            advanced.Click += (s, e) => ShowAdvancedSettings();
+            flow.Controls.Add(advanced);
+
+            _txtNaming1 = new TextBox { Visible = false, Text = DateTime.Now.ToString("yyMMdd") };
+            _txtNaming2 = new TextBox { Visible = false, Text = "PROJECT" };
+            _txtNaming3 = new TextBox { Visible = false, Text = "ISSUE" };
+            host.Controls.Add(flow);
+            bool resizingSetup = false;
+            host.Layout += (sender, args) =>
+            {
+                if (resizingSetup) return;
+                resizingSetup = true;
+                try
+                {
+                    int available = Math.Max(1, host.ClientSize.Width - host.Padding.Horizontal -
+                        SystemInformation.VerticalScrollBarWidth);
+                    foreach (Control child in flow.Controls)
+                    {
+                        if (child is TextBox || child is Label || child == folderRow)
+                            child.Width = Math.Max(1, available - child.Margin.Horizontal);
+                    }
+                }
+                finally { resizingSetup = false; }
+            };
+            return host;
+        }
+
+        private void UpdateFormatAvailability()
+        {
+            if (_rbCombineFiles == null || _txtFileCombineName == null) return;
+            bool supportsCombinedPdf = !_rbFormatDwg.Checked;
+            _rbCombineFiles.Enabled = supportsCombinedPdf;
+            if (!supportsCombinedPdf) _rbSeparateFiles.Checked = true;
+            _txtFileCombineName.Enabled = supportsCombinedPdf && _rbCombineFiles.Checked;
+        }
+
+        private Control BuildUnifiedFooter()
+        {
+            var footer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, BackColor = Color.White,
+                Padding = new Padding(12, 8, 12, 8), Margin = new Padding(0, 8, 0, 0)
+            };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            _lblTotalSummary = new Label
+            {
+                Text = "0 / 0 sheet được chọn", Dock = DockStyle.Fill, AutoEllipsis = true,
+                TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+            };
+            _lblProgressStatus = new Label
+            {
+                Text = "Sẵn sàng", Dock = DockStyle.Fill, AutoEllipsis = true,
+                TextAlign = ContentAlignment.MiddleLeft, ForeColor = KhimUiStyle.TextSecondary
+            };
+            _progressBar = new ProgressBar
+            {
+                Anchor = AnchorStyles.Left | AnchorStyles.Right, Height = 14,
+                Margin = new Padding(12, 0, 12, 0), Visible = false
+            };
+            _btnPrint = new Button
+            {
+                Text = "Xuất sheet đã chọn", Dock = DockStyle.Fill, FlatStyle = FlatStyle.Flat,
+                BackColor = KhimUiStyle.CreateButtonBg, ForeColor = Color.White,
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand
+            };
+            _btnPrint.FlatAppearance.BorderSize = 0;
+            _btnPrint.Click += BtnPrint_Click;
+            footer.Controls.Add(_lblTotalSummary, 0, 0);
+            footer.Controls.Add(_lblProgressStatus, 0, 1);
+            footer.Controls.Add(_progressBar, 1, 0);
+            footer.SetRowSpan(_progressBar, 2);
+            footer.Controls.Add(_btnPrint, 2, 0);
+            footer.SetRowSpan(_btnPrint, 2);
+            return footer;
+        }
+
+        private RadioButton CreateFormatOption(string text, bool isChecked)
+        {
+            return new RadioButton
+            {
+                Text = text,
+                Appearance = Appearance.Button,
+                AutoSize = true,
+                Checked = isChecked,
+                FlatStyle = FlatStyle.Flat,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Padding = new Padding(10, 3, 10, 3),
+                Margin = new Padding(0, 0, 4, 0)
+            };
+        }
+
+        private Button CreateSecondaryButton(string text, int width)
+        {
+            var button = new Button
+            {
+                Text = text,
+                Width = width,
+                Height = 28,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = KhimUiStyle.SecondaryButtonBg,
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0, 0, 6, 0)
+            };
+            button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            return button;
+        }
+
+        private Label CreateSectionLabel(string text)
+        {
+            return new Label { Text = text, Width = 326, Height = 24, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), ForeColor = KhimUiStyle.TextPrimary, Margin = new Padding(0, 0, 0, 2) };
+        }
+
+        private void EnsureAdvancedSettingsForm()
+        {
+            if (_advancedSettingsForm != null) return;
+            _advancedSettingsForm = new Form
+            {
+                Text = "Thiết lập xuất nâng cao",
+                Width = 980,
+                Height = 620,
+                MinimumSize = new Size(820, 520),
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.SizableToolWindow,
+                BackColor = Color.White
+            };
+            _advancedSettingsForm.FormClosing += (s, e) =>
+            {
+                if (e.CloseReason == CloseReason.UserClosing) { e.Cancel = true; _advancedSettingsForm.Hide(); }
+            };
+            _tabSettings = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F) };
+            var pdf = new TabPage { Text = "PDF", Padding = new Padding(12), BackColor = Color.White };
+            var dwg = new TabPage { Text = "DWG", Padding = new Padding(12), BackColor = Color.White };
+            BuildPdfSettingsTab(pdf);
+            BuildDwgSettingsTab(dwg);
+            _tabSettings.TabPages.Add(pdf);
+            _tabSettings.TabPages.Add(dwg);
+            _advancedSettingsForm.Controls.Add(_tabSettings);
+        }
+
+        private void ShowAdvancedSettings()
+        {
+            EnsureAdvancedSettingsForm();
+            _advancedSettingsForm.ShowDialog(this);
         }
 
         #region Sidebar Navigation
@@ -810,6 +1185,12 @@ namespace KhimTools.SheetExport.Forms
                 }
                 _cmbDisciplineFilter.SelectedIndex = 0;
 
+                _cmbPaperFilter.Items.Clear();
+                _cmbPaperFilter.Items.Add("Mọi khổ giấy");
+                foreach (string paperSize in _allSheetItems.Select(s => s.PaperSize).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
+                    _cmbPaperFilter.Items.Add(paperSize);
+                _cmbPaperFilter.SelectedIndex = 0;
+
                 // Populate DWG Setups
                 try
                 {
@@ -864,9 +1245,15 @@ namespace KhimTools.SheetExport.Forms
 
             if (!string.IsNullOrEmpty(query))
             {
-                list = list.Where(s => (s.SheetNumber != null && s.SheetNumber.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                                       (s.SheetName != null && s.SheetName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0) ||
-                                       GetSheetSeries(s.SheetNumber).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
+                list = list.Where(s => ContainsIgnoreCase(s.SheetNumber, query) ||
+                                       ContainsIgnoreCase(s.SheetName, query) ||
+                                       ContainsIgnoreCase(s.CurrentRevisionNumber, query) ||
+                                       ContainsIgnoreCase(s.CurrentRevisionDate, query) ||
+                                       ContainsIgnoreCase(s.PaperSize, query) ||
+                                       ContainsIgnoreCase(s.Orientation, query) ||
+                                       ContainsIgnoreCase(s.StatusBadgeText, query) ||
+                                       ContainsIgnoreCase(s.ComputedFileName, query) ||
+                                       ContainsIgnoreCase(GetSheetSeries(s.SheetNumber), query));
             }
 
             if (filterChoice.StartsWith("⭐"))
@@ -891,6 +1278,15 @@ namespace KhimTools.SheetExport.Forms
                 list = list.Where(s => GetSheetSeries(s.SheetNumber).Equals(seriesName, StringComparison.OrdinalIgnoreCase));
             }
 
+            string paperFilter = _cmbPaperFilter?.SelectedItem?.ToString() ?? "Mọi khổ giấy";
+            if (!paperFilter.StartsWith("Mọi", StringComparison.OrdinalIgnoreCase))
+                list = list.Where(s => string.Equals(s.PaperSize, paperFilter, StringComparison.OrdinalIgnoreCase));
+
+            string issueFilter = _cmbIssueStatusFilter?.SelectedItem?.ToString() ?? "Mọi trạng thái";
+            if (issueFilter == "Mới") list = list.Where(s => s.IssueStatus == SheetIssueStatus.New);
+            else if (issueFilter == "Đã sửa") list = list.Where(s => s.IssueStatus == SheetIssueStatus.Modified);
+            else if (issueFilter == "Không đổi") list = list.Where(s => s.IssueStatus == SheetIssueStatus.Unchanged);
+
             if (_chkFilterModifiedOnly.Checked)
             {
                 list = list.Where(s => s.IssueStatus == SheetIssueStatus.New || s.IssueStatus == SheetIssueStatus.Modified);
@@ -899,6 +1295,11 @@ namespace KhimTools.SheetExport.Forms
             _filteredSheetItems = list.ToList();
             RefreshGridRows();
             UpdateSummaryLabel();
+        }
+
+        private static bool ContainsIgnoreCase(string value, string query)
+        {
+            return !string.IsNullOrEmpty(value) && value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string GetSheetSeries(string sheetNumber)
@@ -915,6 +1316,44 @@ namespace KhimTools.SheetExport.Forms
         }
 
         #region Sheet Selection JSON File Management
+        private void SaveDatedSelectionSet()
+        {
+            var selected = _allSheetItems.Where(s => s.IsSelected).Select(s => s.SheetNumber).ToList();
+            if (!selected.Any())
+            {
+                KhimDialogHelper.ShowWarning("Lưu set", "Hãy chọn ít nhất một sheet trước khi lưu set phát hành.");
+                return;
+            }
+
+            try
+            {
+                string project = SanitizeFileName(_doc.ProjectInformation?.Name ?? _doc.Title ?? "Project");
+                string setName = SanitizeFileName(_txtIssueSetName?.Text ?? "Issue");
+                DateTime issueDate = _dtpIssueDate?.Value.Date ?? DateTime.Today;
+                string folder = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "KhimTools", "SheetSets", project);
+                Directory.CreateDirectory(folder);
+                string path = Path.Combine(folder, $"{issueDate:yyyy-MM-dd}_{setName}.json");
+                var data = new SheetSelectionData
+                {
+                    ProjectTitle = _doc.Title ?? "",
+                    SetName = _txtIssueSetName?.Text?.Trim() ?? "",
+                    IssueDate = issueDate,
+                    SavedAt = DateTime.Now,
+                    SelectedSheetNumbers = selected
+                };
+                File.WriteAllText(path, Newtonsoft.Json.JsonConvert.SerializeObject(data, Newtonsoft.Json.Formatting.Indented), System.Text.Encoding.UTF8);
+                SaveLastSelectionPath(path);
+                UpdateSelectionFileLabel(path);
+                KhimDialogHelper.ShowSuccess("Đã lưu set", $"Đã lưu {selected.Count} sheet vào set '{data.SetName}' ngày {issueDate:dd/MM/yyyy}.");
+            }
+            catch (Exception ex)
+            {
+                KhimDialogHelper.ShowError("Không thể lưu set", ex.Message);
+            }
+        }
+
         private void SaveSelectionDialog()
         {
             var selectedSheetNums = _allSheetItems.Where(s => s.IsSelected).Select(s => s.SheetNumber).ToList();
@@ -981,6 +1420,11 @@ namespace KhimTools.SheetExport.Forms
                 string json = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
                 var data = Newtonsoft.Json.JsonConvert.DeserializeObject<SheetSelectionData>(json);
                 if (data == null || data.SelectedSheetNumbers == null) return;
+
+                if (_txtIssueSetName != null && !string.IsNullOrWhiteSpace(data.SetName))
+                    _txtIssueSetName.Text = data.SetName;
+                if (_dtpIssueDate != null && data.IssueDate > DateTime.MinValue)
+                    _dtpIssueDate.Value = data.IssueDate;
 
                 var targetSet = new HashSet<string>(data.SelectedSheetNumbers, StringComparer.OrdinalIgnoreCase);
                 int matchedCount = 0;
@@ -1096,7 +1540,7 @@ namespace KhimTools.SheetExport.Forms
             _gridSheets.Rows.Clear();
 
             int idx = 1;
-            string fmt = (_chkExportPdf.Checked && _chkExportDwg.Checked) ? "PDF / DWG" : (_chkExportPdf.Checked ? "PDF" : "DWG");
+            string fmt = _rbFormatBoth.Checked ? "PDF / DWG" : (_rbFormatPdf.Checked ? "PDF" : "DWG");
 
             foreach (var item in _filteredSheetItems)
             {
@@ -1118,23 +1562,26 @@ namespace KhimTools.SheetExport.Forms
         {
             int selectedCount = _allSheetItems.Count(s => s.IsSelected);
             int totalCount = _allSheetItems.Count;
-            _lblTotalSummary.Text = $"✔ Đã chọn: {selectedCount} / {totalCount} bản vẽ sẵn sàng xuất.";
+            _lblTotalSummary.Text = $"{selectedCount} / {totalCount} sheet được chọn";
+            if (_btnPrint != null)
+                _btnPrint.Text = selectedCount > 0 ? $"Xuất {selectedCount} sheet" : "Xuất sheet đã chọn";
+            UpdateNamingPreview();
         }
 
         private void UpdateCombineFileName()
         {
-            string f1 = _txtNaming1.Text.Trim();
-            string f2 = _txtNaming2.Text.Trim();
-            string f3 = _txtNaming3.Text.Trim();
+            if (_txtFileCombineName == null || _txtFileCombineName.Focused) return;
+            string project = SanitizeFileName(_doc.ProjectInformation?.Name ?? _doc.Title ?? "Project");
+            _txtFileCombineName.Text = $"{project}_Sheets_{DateTime.Now:yyyyMMdd}.pdf";
+        }
 
-            var parts = new List<string>();
-            if (!string.IsNullOrEmpty(f1)) parts.Add(f1);
-            if (!string.IsNullOrEmpty(f2)) parts.Add(f2);
-            if (!string.IsNullOrEmpty(f3)) parts.Add(f3);
-
-            string combined = string.Join("_", parts);
-            if (string.IsNullOrEmpty(combined)) combined = "Combined_Project_Sheets";
-            _txtFileCombineName.Text = combined + ".pdf";
+        private void UpdateNamingPreview()
+        {
+            if (_lblNamingPreview == null || _txtNamingPattern == null) return;
+            var sample = _allSheetItems.FirstOrDefault(s => s.IsSelected) ?? _allSheetItems.FirstOrDefault();
+            _lblNamingPreview.Text = sample == null
+                ? "Xem trước: chưa có sheet"
+                : $"Xem trước: {ComputeSheetFileName(sample)}";
         }
         #endregion
 
@@ -1179,12 +1626,6 @@ namespace KhimTools.SheetExport.Forms
                 return;
             }
 
-            if (!_chkExportPdf.Checked && !_chkExportDwg.Checked)
-            {
-                KhimDialogHelper.ShowWarning("Thiếu Thông Tin", "Vui lòng tích chọn ít nhất 1 định dạng xuất (PDF hoặc DWG).");
-                return;
-            }
-
             string outDir = _txtOutputDirectory.Text.Trim();
             if (string.IsNullOrWhiteSpace(outDir))
             {
@@ -1203,13 +1644,17 @@ namespace KhimTools.SheetExport.Forms
             }
 
             // Sync options
-            _options.ExportPdf = _chkExportPdf.Checked;
-            _options.ExportDwg = _chkExportDwg.Checked;
-            _options.DwgExportSetupName = _cmbDwgSetup.Text.Trim();
+            _options.ExportPdf = _rbFormatPdf.Checked || _rbFormatBoth.Checked;
+            _options.ExportDwg = _rbFormatDwg.Checked || _rbFormatBoth.Checked;
+            _options.DwgExportSetupName = _cmbDwgSetup?.Text?.Trim() ?? "";
             _options.OutputDirectory = outDir;
             _options.SplitFoldersByFormat = false;
             _options.CombinePdf = _rbCombineFiles.Checked;
             _options.CombinedPdfFileName = _txtFileCombineName.Text.Trim();
+            _options.IssueSetName = _txtIssueSetName?.Text?.Trim() ?? "Official Release";
+            _options.IssueDate = _dtpIssueDate?.Value.Date ?? DateTime.Today;
+            _options.PreservePreviousExports = _chkPreservePrevious?.Checked ?? true;
+            _options.PdfExportDpi = GetSelectedPdfDpi();
 
             _options.PaperPlacementCenter = _rbPlacementCenter?.Checked ?? false;
             _options.PaperPlacementOffset = _rbPlacementOffset?.Checked ?? true;
@@ -1236,6 +1681,31 @@ namespace KhimTools.SheetExport.Forms
             foreach (var item in selectedItems)
             {
                 item.ComputedFileName = ComputeSheetFileName(item);
+            }
+
+            var preflightWarnings = PreflightCheckService.RunPreflightChecks(selectedItems, outDir, _options.CombinePdf);
+            var criticalWarnings = preflightWarnings.Where(w => w.IsCritical).ToList();
+            if (criticalWarnings.Any())
+            {
+                KhimDialogHelper.ShowError("Preflight không đạt", string.Join("\n\n", criticalWarnings.Select(w => w.Title + "\n" + w.Details)));
+                return;
+            }
+            if (preflightWarnings.Any())
+            {
+                string warningText = string.Join("\n\n", preflightWarnings.Select(w => w.Title + "\n" + w.Details));
+                var decision = MessageBox.Show(this, warningText + "\n\nBạn vẫn muốn tiếp tục xuất?", "Preflight có cảnh báo", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (decision != DialogResult.Yes) return;
+            }
+
+            string archivedFolder;
+            try
+            {
+                archivedFolder = ExportHistoryService.ArchiveExistingOutputs(selectedItems, _options);
+            }
+            catch (Exception ex)
+            {
+                KhimDialogHelper.ShowError("Không thể lưu bản xuất trước", ex.Message);
+                return;
             }
 
             // Tự động kiểm tra và tắt Temporary View Properties trước khi in
@@ -1282,6 +1752,9 @@ namespace KhimTools.SheetExport.Forms
 
             _btnPrint.Enabled = false;
             _btnPrint.Text = "Đang xuất...";
+            _lblProgressStatus.Text = "Đang chuẩn bị dữ liệu xuất";
+            _progressBar.Visible = true;
+            _progressBar.Style = ProgressBarStyle.Marquee;
             Cursor = Cursors.WaitCursor;
 
             try
@@ -1289,7 +1762,7 @@ namespace KhimTools.SheetExport.Forms
                 var queue = new ExportRetryQueue(_options.MaxRetryCount);
                 var qaResults = queue.ProcessBatch(_doc, selectedItems, _options, msg =>
                 {
-                    _btnPrint.Text = msg;
+                    _lblProgressStatus.Text = msg;
                     RefreshGridRows();
                     Application.DoEvents();
                 });
@@ -1300,7 +1773,11 @@ namespace KhimTools.SheetExport.Forms
                     TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
                 }
 
-                int successCount = qaResults.Count(r => r.Success);
+                int successCount = selectedItems.Count(item =>
+                {
+                    var resultsForSheet = qaResults.Where(r => string.Equals(r.SheetNumber, item.SheetNumber, StringComparison.OrdinalIgnoreCase)).ToList();
+                    return resultsForSheet.Any() && resultsForSheet.All(r => r.Success);
+                });
                 var lockedItems = selectedItems.Where(s => s.IsLocked).ToList();
                 var otherFails = selectedItems.Where(s => s.IsFailed && !s.IsLocked).ToList();
 
@@ -1308,6 +1785,8 @@ namespace KhimTools.SheetExport.Forms
                 var sbSummary = new System.Text.StringBuilder();
                 sbSummary.AppendLine($"🎉 Xuất hoàn tất: {successCount} / {selectedItems.Count} bản vẽ sang thư mục:");
                 sbSummary.AppendLine(outDir);
+                if (!string.IsNullOrWhiteSpace(archivedFolder))
+                    sbSummary.AppendLine($"Bản trước đã được lưu tại: {archivedFolder}");
 
                 if (disabledTempViews.Any())
                 {
@@ -1367,8 +1846,11 @@ namespace KhimTools.SheetExport.Forms
             {
                 Cursor = Cursors.Default;
                 _btnPrint.Enabled = true;
-                _btnPrint.Text = "⚡ XUẤT IN BẢN VẼ";
+                _progressBar.Visible = false;
+                _progressBar.Style = ProgressBarStyle.Blocks;
+                _lblProgressStatus.Text = "Sẵn sàng";
                 RefreshGridRows();
+                UpdateSummaryLabel();
             }
         }
 
@@ -1377,24 +1859,30 @@ namespace KhimTools.SheetExport.Forms
             string cleanNum = SanitizeFileName(item.SheetNumber);
             string cleanName = SanitizeFileName(item.SheetName);
 
-            if (_chkUseNamingConvention.Checked)
+            if (_chkUseNamingConvention.Checked && _txtNamingPattern != null)
             {
-                string p1 = SanitizeFileName(_txtNaming1.Text.Trim());
-                string p2 = SanitizeFileName(_txtNaming2.Text.Trim());
-                string p3 = SanitizeFileName(_txtNaming3.Text.Trim());
-
-                var parts = new List<string>();
-                if (!string.IsNullOrEmpty(p1)) parts.Add(p1);
-                if (!string.IsNullOrEmpty(p2)) parts.Add(p2);
-                if (!string.IsNullOrEmpty(cleanNum)) parts.Add(cleanNum);
-                if (!string.IsNullOrEmpty(cleanName)) parts.Add(cleanName);
-
-                return string.Join(" - ", parts);
+                string project = _doc.ProjectInformation?.Name ?? _doc.Title ?? "Project";
+                string revision = item.CurrentRevisionNumber ?? "";
+                string result = _txtNamingPattern.Text
+                    .Replace("{SheetNumber}", cleanNum)
+                    .Replace("{SheetName}", cleanName)
+                    .Replace("{Project}", SanitizeFileName(project))
+                    .Replace("{Revision}", SanitizeFileName(revision))
+                    .Replace("{Date}", DateTime.Now.ToString("yyyyMMdd"));
+                return SanitizeFileName(result);
             }
             else
             {
                 return $"{cleanNum} - {cleanName}";
             }
+        }
+
+        private int GetSelectedPdfDpi()
+        {
+            string value = _cmbPdfExportQuality?.SelectedItem?.ToString() ?? "";
+            if (value.Contains("600")) return 600;
+            if (value.Contains("144")) return 144;
+            return 300;
         }
 
         private static string SanitizeFileName(string name)
@@ -1413,6 +1901,8 @@ namespace KhimTools.SheetExport.Forms
     public class SheetSelectionData
     {
         public string ProjectTitle { get; set; } = "";
+        public string SetName { get; set; } = "";
+        public DateTime IssueDate { get; set; } = DateTime.Today;
         public DateTime SavedAt { get; set; } = DateTime.Now;
         public List<string> SelectedSheetNumbers { get; set; } = new List<string>();
     }

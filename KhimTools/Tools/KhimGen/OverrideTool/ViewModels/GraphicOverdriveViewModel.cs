@@ -31,7 +31,7 @@ namespace KhimTools.OverrideTool.ViewModels
         [ObservableProperty] private bool _halftone = false;
 
         // ── Status ──
-        [ObservableProperty] private string _statusText = "Sẵn sàng — Chọn đối tượng trong Revit và nhấn màu để override.";
+        [ObservableProperty] private string _statusText = "Sẵn sàng.";
         [ObservableProperty] private bool _isSuccess = false;
 
         // ── Line Weight ──

@@ -138,12 +138,6 @@ namespace KhimTools.SectionCutTool.Forms
             MaximizeBox = false;
             MinimizeBox = false;
 
-            // 1. Header Banner
-            var header = KhimUiStyle.CreateHeaderBanner(
-                "TỰ ĐỘNG CẮT MẶT CẮT DỌC & NGANG CHO BẢN VẼ THÉP",
-                "Auto Longitudinal & Cross-Section View Generator for Rebar Detailing",
-                "v2.7.0");
-            Controls.Add(header);
 
             // 2. Main Content Container
             var pnlMain = new Panel

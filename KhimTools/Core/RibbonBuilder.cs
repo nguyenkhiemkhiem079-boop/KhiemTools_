@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Media.Imaging;
@@ -7,19 +6,14 @@ using Autodesk.Revit.UI;
 
 namespace KhimTools.Core
 {
-    /// <summary>
-    /// Xây dựng Ribbon UI chuyên nghiệp trên Tab: "K-TOOLS"
-    /// Được phân chia thành 4 cụm Panel chuyên môn gom gọn:
-    ///   1. K-GEN           (Workspace, Join, Overdrive, Ẩn/Hiện, Căn chỉnh Text, Align Viewport, Grid, Link, Detail No, Update, Exporter, Language)
-    ///   2. K-STRUCTURAL    (Column Rebar, Beam Rebar, Slab Rebar, Foundation Rebar, Section Cut, Cover Setup)
-    ///   3. K-ARCHITECTURAL (Room 3D View, Room Finishes)
-    ///   4. K-MEP           (MEP Openings, Elevation Tags)
-    /// </summary>
+    /// <summary>Ribbon navigation grouped by modeling, drawing, graphics and publishing workflows.</summary>
     public static class RibbonBuilder
     {
         public const string TabName = "K-TOOLS";
         public const string WorkspacePanelName = "Workspace";
         public const string GenPanelName = "K-GEN";
+        public const string LayoutPanelName = "Layout";
+        public const string PublishPanelName = "Publish";
         public const string OverridePanelName = "Graphics";
         public const string StructuralPanelName = "Structure";
         public const string ArchPanelName = "Architecture";
@@ -36,7 +30,10 @@ namespace KhimTools.Core
             // K-GEN contains model, view and documentation operations.
             try { BuildGenPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-GEN error: " + ex); }
 
-            // 2. Panel: Override (Palette màu 3x3 + Halftone + Reset + Setting Color)
+            try { BuildLayoutPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] Layout error: " + ex); }
+            try { BuildPublishPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] Publish error: " + ex); }
+
+            // One palette entry point; category visibility stays in Graphics.
             try { BuildOverridePanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] Override error: " + ex); }
 
             // 3. Panel: K-STRUCTURAL
@@ -78,7 +75,7 @@ namespace KhimTools.Core
             // Copy Link Elements
             var copyLinkData = new PushButtonData(
                 "CmdCopyLinkElements",
-                "Copy Link" + Environment.NewLine + "Elements",
+                "Copy Link Elements",
                 assemblyPath,
                 "KhimTools.CopyLink.Commands.CmdCopyLinkElements")
             {
@@ -86,13 +83,27 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_copylink_32.png"),
                 Image = LoadImage("icon_copylink_16.png")
             };
-            panel.AddItem(copyLinkData);
+            // Model actions share one compact stack with Join and Slab Step.
+
+            // Family content belongs with model resources, not drawing layout.
+            var familyLibraryData = new PushButtonData(
+                "CmdFamilyManager",
+                "Family" + Environment.NewLine + "Library",
+                assemblyPath,
+                "KhimTools.FamilyManager.Commands.CmdFamilyManager")
+            {
+                ToolTip = "Tìm, xem trước và nạp Family vào project hiện tại.",
+                LongDescription = "Quản lý thư viện Family dùng cho model, bao gồm Rebar Shape và nội dung tiêu chuẩn của dự án.",
+                LargeImage = LoadImage("icon_family_32.png"),
+                Image = LoadImage("icon_family_16.png")
+            };
+            panel.AddItem(familyLibraryData);
 
             // ── CỤM 2: MODEL & GEOMETRY ──
             // 3. Join Elements (Large Button)
             var joinElementsData = new PushButtonData(
                 "CmdJoinElements",
-                "Join" + Environment.NewLine + "Elements",
+                "Join Elements",
                 assemblyPath,
                 "KhimTools.SlabJoin.Commands.CmdJoinElements")
             {
@@ -101,7 +112,13 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_join_32.png"),
                 Image = LoadImage("icon_join_16.png")
             };
-            panel.AddItem(joinElementsData);
+            var slabStepData = new PushButtonData("CmdSlabStep", "Slab Step", assemblyPath,
+                "KhimTools.SlabStep.Commands.CmdSlabStep")
+            {
+                Image = LoadImage("icon_slabstep_16.png"),
+                ToolTip = "Tạo chênh cao sàn."
+            };
+            panel.AddStackedItems(copyLinkData, joinElementsData, slabStepData);
 
             // 4. Auto Grid & Floor Plan Generator (Large Button)
             var gridPlanData = new PushButtonData(
@@ -116,6 +133,136 @@ namespace KhimTools.Core
             };
             panel.AddItem(gridPlanData);
 
+            // Stack 3: Language & Check Update
+            var splitLangData = new PulldownButtonData(
+                "LanguagePulldown",
+                "Ngôn ngữ (Lang)")
+            {
+                ToolTip = "Chuyển đổi ngôn ngữ giao diện (Song ngữ Tiếng Việt - English).",
+                Image = LoadImage("icon_language_16.png")
+            };
+
+            var updateData = new PushButtonData(
+                "CmdCheckUpdate",
+                "Check Update",
+                assemblyPath,
+                "KhimTools.Updater.Commands.CmdCheckUpdate")
+            {
+                ToolTip = "Kiểm tra phiên bản mới nhất của KhimTools từ GitHub Releases.",
+                Image = LoadImage("icon_update_16.png")
+            };
+
+            var stackedSystem = panel.AddStackedItems(splitLangData, updateData);
+            if (stackedSystem.Count == 2)
+            {
+                var pLang = stackedSystem[0] as PulldownButton;
+                if (pLang != null)
+                {
+                    AddPulldownItem(pLang, "CmdSwitchLanguage", "Đổi Ngôn Ngữ (Switch)", "KhimTools.LanguageSwitcher.Commands.CmdSwitchLanguage", assemblyPath, "icon_language_16.png");
+                    pLang.AddSeparator();
+                    AddPulldownItem(pLang, "CmdSetVietnamese", "Tiếng Việt (VN)", "KhimTools.LanguageSwitcher.Commands.CmdSetVietnamese", assemblyPath, "icon_language_16.png");
+                    AddPulldownItem(pLang, "CmdSetEnglish", "English (EN)", "KhimTools.LanguageSwitcher.Commands.CmdSetEnglish", assemblyPath, "icon_language_16.png");
+                }
+            }
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // 2. PANEL: OVERRIDE (ONE ENTRY POINT, 4x4 PALETTE IN MODELESS WINDOW)
+        // ════════════════════════════════════════════════════════════════════════════════
+        private static void BuildLayoutPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, LayoutPanelName);
+            // ── CỤM 3: LAYOUT (Large Pulldown Button) ──
+            var layoutPulldownData = new PulldownButtonData("KhimLayoutPulldown", "Layout")
+            {
+                ToolTip = "Các công cụ dàn trang, quản lý bản vẽ, căn chỉnh và tạo Sheet.",
+                LargeImage = LoadImage("icon_align_32.png"),
+                Image = LoadImage("icon_align_16.png")
+            };
+            var layoutPulldown = panel.AddItem(layoutPulldownData) as PulldownButton;
+            if (layoutPulldown != null)
+            {
+                AddPulldownItem(layoutPulldown, "CmdSheetGen", "Create Sheets (CSV)", "KhimTools.SheetGen.Commands.CmdSheetGen", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
+                
+                layoutPulldown.AddSeparator();
+                AddPulldownItem(layoutPulldown, "CmdAlignTop", "Align Text - Top", "KhimTools.TextAlign.Commands.CmdAlignTop", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignBottom", "Align Text - Bottom", "KhimTools.TextAlign.Commands.CmdAlignBottom", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignLeft", "Align Text - Left", "KhimTools.TextAlign.Commands.CmdAlignLeft", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignRight", "Align Text - Right", "KhimTools.TextAlign.Commands.CmdAlignRight", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignMiddle", "Align Text - Middle", "KhimTools.TextAlign.Commands.CmdAlignMiddle", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignHorizontalEquals", "Align Text - Horiz Equal", "KhimTools.TextAlign.Commands.CmdAlignHorizontalEquals", assemblyPath, "icon_align_16.png");
+                AddPulldownItem(layoutPulldown, "CmdAlignVerticalEquals", "Align Text - Vert Equal", "KhimTools.TextAlign.Commands.CmdAlignVerticalEquals", assemblyPath, "icon_align_16.png");
+            }
+
+            // ── CỤM 4: VIEW TOOLS (Large Pulldown Button) ──
+            var viewToolsPulldownData = new PulldownButtonData("KhimViewToolsPulldown", "View Tools")
+            {
+                ToolTip = "Các công cụ nâng cao hỗ trợ tạo Section Box, Callout Pro và sinh View liên quan.",
+                LargeImage = LoadImage("icon_sectionbox_32.png"),
+                Image = LoadImage("icon_sectionbox_16.png")
+            };
+            var viewToolsPulldown = panel.AddItem(viewToolsPulldownData) as PulldownButton;
+            if (viewToolsPulldown != null)
+            {
+                AddPulldownItem(viewToolsPulldown, "CmdSectionBox", "Section Box Pro", "KhimTools.SectionBox.Commands.CmdSectionBox", assemblyPath, "icon_sectionbox_16.png");
+                AddPulldownItem(viewToolsPulldown, "CmdCalloutPro", "Callout Pro", "KhimTools.CalloutPro.Commands.CmdCalloutPro", assemblyPath, "icon_callout_pro_16.png");
+                AddPulldownItem(viewToolsPulldown, "CmdViewFromCallout", "Create View from Callout", "KhimTools.ViewFromCallout.Commands.CmdViewFromCallout", assemblyPath, "icon_view_callout_16.png");
+            }
+
+            // Elements Tags (Large Button)
+            var elementTagsData = new PushButtonData(
+                "CmdElementTags",
+                "Elements" + Environment.NewLine + "Tags",
+                assemblyPath,
+                "KhimTools.ElementTags.Commands.CmdElementTags")
+            {
+                ToolTip = "Quản lý và gán thẻ Tag hàng loạt cho các đối tượng trong View hiện hành.",
+                LargeImage = LoadImage("icon_mep_tags_32.png"),
+                Image = LoadImage("icon_mep_tags_16.png")
+            };
+            panel.AddItem(elementTagsData);
+
+        }
+
+        private static void BuildPublishPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, PublishPanelName);
+            // ── CỤM 5: PUBLISH & SYSTEM ──
+            // Sheet Exporter (Large Button)
+            var sheetExportData = new PushButtonData(
+                "CmdSheetExport",
+                "Sheet" + Environment.NewLine + "Exporter",
+                assemblyPath,
+                "KhimTools.SheetExport.Commands.CmdSheetExport")
+            {
+                ToolTip = "Công cụ Batch Print & Export Sheet/View chuyên nghiệp (PDF, DWG, Issue Manager).",
+                LongDescription = "Hỗ trợ Naming Templates với Regex validation, Issue Revision Diffing, " +
+                    "Tự động tạo file Excel Transmittal Register và QA Technical Log, " +
+                    "PDFsharp Bookmarks, Watermark Status Stamp, Cover Sheet, và Auto-Retry.",
+                LargeImage = LoadImage("export_sheet_32.png"),
+                Image = LoadImage("export_sheet_16.png")
+            };
+            panel.AddItem(sheetExportData);
+
+        }
+
+        private static void BuildOverridePanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, OverridePanelName);
+            var data = new PushButtonData(
+                "CmdGraphicOverdrive",
+                "Graphic" + Environment.NewLine + "Overdrive",
+                assemblyPath,
+                "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive")
+            {
+                ToolTip = "Mở bảng 16 màu override nhanh cho đối tượng đang chọn.",
+                LongDescription = "Palette 4 x 4, tùy chọn Surface/Cut/Line, transparency, line weight, halftone và reset override.",
+                LargeImage = LoadImage("override_palette_32.png"),
+                Image = LoadImage("override_palette_16.png")
+            };
+            panel.AddItem(data);
             // ── CỤM 3: VIEW & DETAIL (GOM STACK/PULLDOWN) ──
             // Stack 1: BỘ ĐÔI HIỂN THỊ & ẨN CATEGORY
             var pulldownShowData = new PulldownButtonData("VisibilityShowPulldown", "Hiển thị")
@@ -183,160 +330,8 @@ namespace KhimTools.Core
                 }
             }
 
-            // ── CỤM 3: LAYOUT (Large Pulldown Button) ──
-            var layoutPulldownData = new PulldownButtonData("KhimLayoutPulldown", "Layout")
-            {
-                ToolTip = "Các công cụ dàn trang, quản lý bản vẽ, căn chỉnh và tạo Sheet.",
-                LargeImage = LoadImage("icon_align_32.png"),
-                Image = LoadImage("icon_align_16.png")
-            };
-            var layoutPulldown = panel.AddItem(layoutPulldownData) as PulldownButton;
-            if (layoutPulldown != null)
-            {
-                AddPulldownItem(layoutPulldown, "CmdSheetGen", "Create Sheets (CSV)", "KhimTools.SheetGen.Commands.CmdSheetGen", assemblyPath, "export_sheet_16.png");
-                AddPulldownItem(layoutPulldown, "CmdSlabStep", "Slab Step Generator", "KhimTools.SlabStep.Commands.CmdSlabStep", assemblyPath, "icon_join_16.png");
-                AddPulldownItem(layoutPulldown, "CmdFamilyManager", "Load Family nhanh", "KhimTools.FamilyManager.Commands.CmdFamilyManager", assemblyPath, "icon_workspace_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
-                
-                layoutPulldown.AddSeparator();
-                AddPulldownItem(layoutPulldown, "CmdAlignTop", "Align Text - Top", "KhimTools.TextAlign.Commands.CmdAlignTop", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignBottom", "Align Text - Bottom", "KhimTools.TextAlign.Commands.CmdAlignBottom", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignLeft", "Align Text - Left", "KhimTools.TextAlign.Commands.CmdAlignLeft", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignRight", "Align Text - Right", "KhimTools.TextAlign.Commands.CmdAlignRight", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignMiddle", "Align Text - Middle", "KhimTools.TextAlign.Commands.CmdAlignMiddle", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignHorizontalEquals", "Align Text - Horiz Equal", "KhimTools.TextAlign.Commands.CmdAlignHorizontalEquals", assemblyPath, "icon_align_16.png");
-                AddPulldownItem(layoutPulldown, "CmdAlignVerticalEquals", "Align Text - Vert Equal", "KhimTools.TextAlign.Commands.CmdAlignVerticalEquals", assemblyPath, "icon_align_16.png");
-            }
-
-            // ── CỤM 4: VIEW TOOLS (Large Pulldown Button) ──
-            var viewToolsPulldownData = new PulldownButtonData("KhimViewToolsPulldown", "View Tools")
-            {
-                ToolTip = "Các công cụ nâng cao hỗ trợ tạo Section Box, Callout Pro và sinh View liên quan.",
-                LargeImage = LoadImage("icon_sectionbox_32.png"),
-                Image = LoadImage("icon_sectionbox_16.png")
-            };
-            var viewToolsPulldown = panel.AddItem(viewToolsPulldownData) as PulldownButton;
-            if (viewToolsPulldown != null)
-            {
-                AddPulldownItem(viewToolsPulldown, "CmdSectionBox", "Section Box Pro", "KhimTools.SectionBox.Commands.CmdSectionBox", assemblyPath, "icon_sectionbox_16.png");
-                AddPulldownItem(viewToolsPulldown, "CmdCalloutPro", "Callout Pro", "KhimTools.CalloutPro.Commands.CmdCalloutPro", assemblyPath, "icon_callout_pro_16.png");
-                AddPulldownItem(viewToolsPulldown, "CmdViewFromCallout", "Create View from Callout", "KhimTools.ViewFromCallout.Commands.CmdViewFromCallout", assemblyPath, "icon_view_callout_16.png");
-            }
-
-            // ── CỤM 5: PUBLISH & SYSTEM ──
-            // Sheet Exporter (Large Button)
-            var sheetExportData = new PushButtonData(
-                "CmdSheetExport",
-                "Sheet" + Environment.NewLine + "Exporter",
-                assemblyPath,
-                "KhimTools.SheetExport.Commands.CmdSheetExport")
-            {
-                ToolTip = "Công cụ Batch Print & Export Sheet/View chuyên nghiệp (PDF, DWG, Issue Manager).",
-                LongDescription = "Hỗ trợ Naming Templates với Regex validation, Issue Revision Diffing, " +
-                    "Tự động tạo file Excel Transmittal Register và QA Technical Log, " +
-                    "PDFsharp Bookmarks, Watermark Status Stamp, Cover Sheet, và Auto-Retry.",
-                LargeImage = LoadImage("export_sheet_32.png"),
-                Image = LoadImage("export_sheet_16.png")
-            };
-            panel.AddItem(sheetExportData);
-
-            // Elements Tags (Large Button)
-            var elementTagsData = new PushButtonData(
-                "CmdElementTags",
-                "Elements" + Environment.NewLine + "Tags",
-                assemblyPath,
-                "KhimTools.ElementTags.Commands.CmdElementTags")
-            {
-                ToolTip = "Quản lý và gán thẻ Tag hàng loạt cho các đối tượng trong View hiện hành.",
-                LargeImage = LoadImage("icon_mep_tags_32.png"),
-                Image = LoadImage("icon_mep_tags_16.png")
-            };
-            panel.AddItem(elementTagsData);
-
-            // Stack 3: Language & Check Update
-            var splitLangData = new PulldownButtonData(
-                "LanguagePulldown",
-                "Ngôn ngữ (Lang)")
-            {
-                ToolTip = "Chuyển đổi ngôn ngữ giao diện (Song ngữ Tiếng Việt - English).",
-                Image = LoadImage("icon_workspace_16.png")
-            };
-
-            var updateData = new PushButtonData(
-                "CmdCheckUpdate",
-                "Check Update",
-                assemblyPath,
-                "KhimTools.Updater.Commands.CmdCheckUpdate")
-            {
-                ToolTip = "Kiểm tra phiên bản mới nhất của KhimTools từ GitHub Releases.",
-                Image = LoadImage("icon_update_16.png")
-            };
-
-            var stackedSystem = panel.AddStackedItems(splitLangData, updateData);
-            if (stackedSystem.Count == 2)
-            {
-                var pLang = stackedSystem[0] as PulldownButton;
-                if (pLang != null)
-                {
-                    AddPulldownItem(pLang, "CmdSwitchLanguage", "Đổi Ngôn Ngữ (Switch)", "KhimTools.LanguageSwitcher.Commands.CmdSwitchLanguage", assemblyPath, "icon_workspace_16.png");
-                    pLang.AddSeparator();
-                    AddPulldownItem(pLang, "CmdSetVietnamese", "Tiếng Việt (VN)", "KhimTools.LanguageSwitcher.Commands.CmdSetVietnamese", assemblyPath, "icon_workspace_16.png");
-                    AddPulldownItem(pLang, "CmdSetEnglish", "English (EN)", "KhimTools.LanguageSwitcher.Commands.CmdSetEnglish", assemblyPath, "icon_workspace_16.png");
-                }
-            }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════
-        // 2. PANEL: OVERRIDE (MATCH SCREENSHOT: 3x3 COLOR PALETTE + HALFTONE + RESET + SETTING)
-        // ════════════════════════════════════════════════════════════════════════════════
-        private static void BuildOverridePanel(UIControlledApplication application, string assemblyPath)
-        {
-            RibbonPanel panel = GetOrCreatePanel(application, TabName, OverridePanelName);
-            var data = new PulldownButtonData("GraphicsPulldown", "Graphic" + Environment.NewLine + "Overdrive")
-            {
-                ToolTip = "Màu, halftone, line weight và reset override cho đối tượng đang chọn.",
-                LargeImage = LoadImage("override_palette_32.png"),
-                Image = LoadImage("override_palette_16.png")
-            };
-            var menu = panel.AddItem(data) as PulldownButton;
-            if (menu == null) return;
-
-            AddPulldownItem(menu, "CmdGraphicOverdrive", "Mở Graphic Overdrive", "KhimTools.OverrideTool.Commands.CmdGraphicOverdrive", assemblyPath, "override_setting_16.png");
-            menu.AddSeparator();
-            AddPulldownItem(menu, "CmdOverrideRed", "Red", "KhimTools.OverrideTool.Commands.CmdOverrideRed", assemblyPath, "override_red_16.png");
-            AddPulldownItem(menu, "CmdOverrideOrange", "Orange", "KhimTools.OverrideTool.Commands.CmdOverrideOrange", assemblyPath, "override_orange_16.png");
-            AddPulldownItem(menu, "CmdOverrideYellow", "Yellow", "KhimTools.OverrideTool.Commands.CmdOverrideYellow", assemblyPath, "override_yellow_16.png");
-            AddPulldownItem(menu, "CmdOverrideGreen", "Green", "KhimTools.OverrideTool.Commands.CmdOverrideGreen", assemblyPath, "override_green_16.png");
-            AddPulldownItem(menu, "CmdOverrideCyan", "Cyan", "KhimTools.OverrideTool.Commands.CmdOverrideCyan", assemblyPath, "override_cyan_16.png");
-            AddPulldownItem(menu, "CmdOverrideBlue", "Blue", "KhimTools.OverrideTool.Commands.CmdOverrideBlue", assemblyPath, "override_blue_16.png");
-            AddPulldownItem(menu, "CmdOverrideMagenta", "Magenta", "KhimTools.OverrideTool.Commands.CmdOverrideMagenta", assemblyPath, "override_magenta_16.png");
-            AddPulldownItem(menu, "CmdOverrideGray", "Gray", "KhimTools.OverrideTool.Commands.CmdOverrideGray", assemblyPath, "override_gray_16.png");
-            AddPulldownItem(menu, "CmdOverrideCustom", "Custom color", "KhimTools.OverrideTool.Commands.CmdOverrideCustom", assemblyPath, "override_custom_16.png");
-            menu.AddSeparator();
-            AddPulldownItem(menu, "CmdQuickHalftone", "On / Off Halftone", "KhimTools.OverrideTool.Commands.CmdQuickHalftone", assemblyPath, "override_halftone_16.png");
-            AddPulldownItem(menu, "CmdQuickResetOverride", "Reset Override", "KhimTools.OverrideTool.Commands.CmdQuickResetOverride", assemblyPath, "override_reset_16.png");
-        }
-
-        private static PushButtonData CreateColorSwatchData(string id, string text, string className, string assemblyPath, string iconName, string tooltip)
-        {
-            // Bảo vệ tuyệt đối không bao giờ để text rỗng hoặc whitespace gây ArgumentException trong Revit API
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                text = "\u200B"; // Zero-width space không bị Revit Trim() thành chuỗi rỗng
-            }
-
-            return new PushButtonData(id, text, assemblyPath, className)
-            {
-                ToolTip = tooltip,
-                Image = LoadImage(iconName),
-                LargeImage = LoadImage(iconName)
-            };
-        }
-
-        // ════════════════════════════════════════════════════════════════════════════════
-        // 3. PANEL: K-STRUCTURAL
-        // ════════════════════════════════════════════════════════════════════════════════
         private static void BuildStructuralPanel(UIControlledApplication application, string assemblyPath)
         {
             RibbonPanel panel = GetOrCreatePanel(application, TabName, StructuralPanelName);
@@ -403,7 +398,7 @@ namespace KhimTools.Core
             // 2. Beam Rebar
             var beamData = new PushButtonData(
                 "CmdBeamRebar",
-                "Beam" + Environment.NewLine + "Rebar",
+                "Beam Rebar",
                 assemblyPath,
                 "KhimTools.RebarTool.Commands.CmdBeamRebar")
             {
@@ -413,12 +408,12 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_beam_32.png"),
                 Image = LoadImage("rebar_beam_16.png")
             };
-            panel.AddItem(beamData);
+
 
             // 3. Slab Rebar
             var slabData = new PushButtonData(
                 "CmdSlabRebar",
-                "Slab" + Environment.NewLine + "Rebar",
+                "Slab Rebar",
                 assemblyPath,
                 "KhimTools.RebarTool.Commands.CmdSlabRebar")
             {
@@ -426,12 +421,12 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_slab_32.png"),
                 Image = LoadImage("rebar_slab_16.png")
             };
-            panel.AddItem(slabData);
+
 
             // 4. Foundation Rebar
             var fdnData = new PushButtonData(
                 "CmdFoundationRebar",
-                "Foundation" + Environment.NewLine + "Rebar",
+                "Foundation Rebar",
                 assemblyPath,
                 "KhimTools.RebarTool.Commands.CmdFoundationRebar")
             {
@@ -439,7 +434,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_fdn_32.png"),
                 Image = LoadImage("rebar_fdn_16.png")
             };
-            panel.AddItem(fdnData);
+            panel.AddStackedItems(beamData, slabData, fdnData);
 
             // 5. Section Cut
             var sectionData = new PushButtonData(
@@ -452,7 +447,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_section_cut_32.png"),
                 Image = LoadImage("icon_section_cut_16.png")
             };
-            panel.AddItem(sectionData);
+
 
             // 6. Cover Setup
             var coverData = new PushButtonData(
@@ -465,7 +460,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_cover_setup_32.png"),
                 Image = LoadImage("icon_cover_setup_16.png")
             };
-            panel.AddItem(coverData);
+
 
             // 7. Rebar Shapes (Large Button)
             var shapesData = new PushButtonData(
@@ -478,7 +473,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("column_rebar_32.png"),
                 Image = LoadImage("column_rebar_16.png")
             };
-            panel.AddItem(shapesData);
+
 
             // 8. Non-destructive Revit fixture: creates temporary host/rebar, validates, then rolls back.
             var qaData = new PushButtonData(
@@ -493,7 +488,20 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("rebar_qa_32.png"),
                 Image = LoadImage("rebar_qa_16.png")
             };
-            panel.AddItem(qaData);
+            var rebarTools = panel.AddItem(new PulldownButtonData("RebarToolsPulldown", "Rebar Tools")
+            {
+                LargeImage = LoadImage("rebar_draw_32.png"),
+                Image = LoadImage("rebar_draw_16.png"),
+                ToolTip = "Mặt cắt, lớp bảo vệ, thư viện shape và kiểm tra Rebar."
+            }) as PulldownButton;
+            if (rebarTools != null)
+            {
+                rebarTools.AddPushButton(sectionData);
+                rebarTools.AddPushButton(coverData);
+                rebarTools.AddPushButton(shapesData);
+                rebarTools.AddSeparator();
+                rebarTools.AddPushButton(qaData);
+            }
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -519,7 +527,7 @@ namespace KhimTools.Core
             // 1. Room 3D View
             var room3dData = new PushButtonData(
                 "CmdRoom3DView",
-                "Room 3D" + Environment.NewLine + "View",
+                "Room 3D View",
                 assemblyPath,
                 "KhimTools.Architectural.Rooms.CmdRoom3DView")
             {
@@ -527,12 +535,12 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_room3d_32.png"),
                 Image = LoadImage("icon_room3d_16.png")
             };
-            panel.AddItem(room3dData);
+
 
             // 2. Room Finishes
             var finishData = new PushButtonData(
                 "CmdWallFloorFinishes",
-                "Room" + Environment.NewLine + "Finishes",
+                "Room Finishes",
                 assemblyPath,
                 "KhimTools.Architectural.Finishes.CmdWallFloorFinishes")
             {
@@ -540,7 +548,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_finishes_32.png"),
                 Image = LoadImage("icon_finishes_16.png")
             };
-            panel.AddItem(finishData);
+            panel.AddStackedItems(room3dData, finishData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -553,7 +561,7 @@ namespace KhimTools.Core
             // 1. MEP Openings
             var openingData = new PushButtonData(
                 "CmdMepOpenings",
-                "MEP" + Environment.NewLine + "Openings",
+                "MEP Openings",
                 assemblyPath,
                 "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
@@ -561,12 +569,12 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_mep_openings_32.png"),
                 Image = LoadImage("icon_mep_openings_16.png")
             };
-            panel.AddItem(openingData);
+
 
             // 2. MEP Elevation Tags
             var tagData = new PushButtonData(
                 "CmdMepElevationTags",
-                "Elevation" + Environment.NewLine + "Tags",
+                "Elevation Tags",
                 assemblyPath,
                 "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
@@ -574,7 +582,7 @@ namespace KhimTools.Core
                 LargeImage = LoadImage("icon_mep_tags_32.png"),
                 Image = LoadImage("icon_mep_tags_16.png")
             };
-            panel.AddItem(tagData);
+            panel.AddStackedItems(openingData, tagData);
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -644,116 +652,14 @@ namespace KhimTools.Core
             }
         }
 
-        /// <summary>
-        /// Ẩn text cho các nút RibbonButton (như color swatches) thông qua AdWindows ComponentManager bằng reflection an toàn.
-        /// </summary>
-        private static void TryHideSwatchButtonTexts(params string[] buttonIds)
-        {
-            if (buttonIds == null || buttonIds.Length == 0) return;
-
-            try
-            {
-                var compMgrType = Type.GetType("Autodesk.Windows.ComponentManager, AdWindows");
-                if (compMgrType == null) return;
-
-                var ribbonProp = compMgrType.GetProperty("Ribbon", BindingFlags.Public | BindingFlags.Static);
-                if (ribbonProp == null) return;
-                var ribbon = ribbonProp.GetValue(null, null);
-                if (ribbon == null) return;
-
-                var tabsProp = ribbon.GetType().GetProperty("Tabs");
-                if (tabsProp == null) return;
-                var tabs = tabsProp.GetValue(ribbon, null) as System.Collections.IEnumerable;
-                if (tabs == null) return;
-
-                foreach (var tab in tabs)
-                {
-                    if (tab == null) continue;
-                    var idProp = tab.GetType().GetProperty("Id");
-                    string tabId = idProp != null ? idProp.GetValue(tab, null) as string : null;
-                    if (!string.Equals(tabId, TabName, StringComparison.OrdinalIgnoreCase)) continue;
-
-                    var panelsProp = tab.GetType().GetProperty("Panels");
-                    if (panelsProp == null) continue;
-                    var panels = panelsProp.GetValue(tab, null) as System.Collections.IEnumerable;
-                    if (panels == null) continue;
-
-                    foreach (var p in panels)
-                    {
-                        if (p == null) continue;
-                        var findItemMethod = p.GetType().GetMethod("FindItem", new[] { typeof(string), typeof(bool) });
-                        if (findItemMethod == null) continue;
-
-                        foreach (var btnId in buttonIds)
-                        {
-                            try
-                            {
-                                var item = findItemMethod.Invoke(p, new object[] { btnId, true });
-                                if (item != null)
-                                {
-                                    var showTextProp = item.GetType().GetProperty("ShowText");
-                                    if (showTextProp != null)
-                                    {
-                                        showTextProp.SetValue(item, false, null);
-                                    }
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-                }
-            }
-            catch { }
-        }
-
         private static BitmapImage LoadImage(string resourceOrFileName)
         {
-            if (string.IsNullOrEmpty(resourceOrFileName)) return null;
-
-            try
+            try { return UI.UiIconExtension.Load(resourceOrFileName); }
+            catch (Exception ex)
             {
-                var assembly = Assembly.GetExecutingAssembly();
-
-                // 1. Thử load từ Embedded Resource
-                string resourceName = assembly.GetManifestResourceNames()
-                    .FirstOrDefault(r => r.EndsWith(resourceOrFileName, StringComparison.OrdinalIgnoreCase));
-
-                if (resourceName != null)
-                {
-                    using (Stream stream = assembly.GetManifestResourceStream(resourceName))
-                    {
-                        if (stream != null)
-                        {
-                            var img = new BitmapImage();
-                            img.BeginInit();
-                            img.StreamSource = stream;
-                            img.CacheOption = BitmapCacheOption.OnLoad;
-                            img.EndInit();
-                            img.Freeze();
-                            return img;
-                        }
-                    }
-                }
-
-                // 2. Thử load từ disk (cạnh DLL / Resources)
-                string dir = Path.GetDirectoryName(assembly.Location) ?? "";
-                string diskPath = Path.Combine(dir, "Resources", resourceOrFileName);
-                if (!File.Exists(diskPath)) diskPath = Path.Combine(dir, resourceOrFileName);
-
-                if (File.Exists(diskPath))
-                {
-                    var img = new BitmapImage();
-                    img.BeginInit();
-                    img.UriSource = new Uri(diskPath, UriKind.Absolute);
-                    img.CacheOption = BitmapCacheOption.OnLoad;
-                    img.EndInit();
-                    img.Freeze();
-                    return img;
-                }
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS] Icon " + resourceOrFileName + ": " + ex.Message);
+                return null;
             }
-            catch { }
-
-            return null;
         }
     }
 }

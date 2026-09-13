@@ -28,7 +28,9 @@ namespace KhimTools.SheetExport.Services
             if (options.ExportPdf && options.CombinePdf && items.Any())
             {
                 string pdfFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "PDF") : options.OutputDirectory;
-                string combinedName = !string.IsNullOrWhiteSpace(options.CombinedPdfFileName) ? options.CombinedPdfFileName : "Combined_Sheets";
+                string combinedName = !string.IsNullOrWhiteSpace(options.CombinedPdfFileName)
+                    ? Path.GetFileNameWithoutExtension(options.CombinedPdfFileName)
+                    : "Combined_Sheets";
                 logProgress?.Invoke($"Đang xuất PDF Gộp ({items.Count} sheets)...");
 
                 try
@@ -70,7 +72,7 @@ namespace KhimTools.SheetExport.Services
                 }
 
                 // If DWG is also requested along with Combined PDF, continue for DWG
-                if (!options.ExportDwg) return results;
+                if (!options.ExportDwg) return FinalizeResults(items, results);
             }
 
             int total = items.Count;
@@ -80,7 +82,7 @@ namespace KhimTools.SheetExport.Services
             foreach (var item in items)
             {
                 logProgress?.Invoke($"({current}/{total}) [{item.SheetNumber}]");
-                var entry = ExecuteSingleExport(doc, item, options, logProgress);
+                var entry = ExecuteSingleExport(doc, item, options, logProgress, includePdf: !options.CombinePdf);
                 results.Add(entry);
 
                 if (!entry.Success && !entry.IsLocked)
@@ -107,7 +109,7 @@ namespace KhimTools.SheetExport.Services
                     item.RetryCount++;
 
                     logProgress?.Invoke($"Retry [{item.SheetNumber}] (Lần {currentRetry})...");
-                    var entry = ExecuteSingleExport(doc, item, options, logProgress);
+                    var entry = ExecuteSingleExport(doc, item, options, logProgress, includePdf: !options.CombinePdf);
 
                     var existingEntry = results.FirstOrDefault(r => r.SheetNumber == item.SheetNumber);
                     if (existingEntry != null)
@@ -138,6 +140,21 @@ namespace KhimTools.SheetExport.Services
                 currentRetry++;
             }
 
+            return FinalizeResults(items, results);
+        }
+
+        private static List<QaReportEntry> FinalizeResults(List<SheetExportItem> items, List<QaReportEntry> results)
+        {
+            foreach (var item in items)
+            {
+                var sheetResults = results.Where(r => string.Equals(r.SheetNumber, item.SheetNumber, StringComparison.OrdinalIgnoreCase)).ToList();
+                if (sheetResults.Any() && sheetResults.Any(r => !r.Success))
+                {
+                    item.IsFailed = true;
+                    item.ExportStatusText = sheetResults.Any(r => r.Success) ? "Lỗi một phần" : "Không thể xuất";
+                    item.ErrorMessage = string.Join("; ", sheetResults.Where(r => !r.Success).Select(r => r.Message).Distinct());
+                }
+            }
             return results;
         }
 
@@ -145,13 +162,14 @@ namespace KhimTools.SheetExport.Services
             Document doc,
             SheetExportItem item,
             ExportOptions options,
-            Action<string> logProgress)
+            Action<string> logProgress,
+            bool includePdf)
         {
             var entry = new QaReportEntry
             {
                 SheetNumber = item.SheetNumber,
                 SheetName = item.SheetName,
-                Format = options.ExportPdf ? "PDF" : "DWG",
+                Format = includePdf && options.ExportPdf && options.ExportDwg ? "PDF / DWG" : (includePdf && options.ExportPdf ? "PDF" : "DWG"),
                 Retries = item.RetryCount
             };
 
@@ -166,7 +184,7 @@ namespace KhimTools.SheetExport.Services
                 string pdfFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "PDF") : options.OutputDirectory;
                 string dwgFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "DWG") : options.OutputDirectory;
 
-                if (options.ExportPdf)
+                if (options.ExportPdf && includePdf)
                 {
                     outPath = PdfExportEngine.ExportSingleSheet(doc, item.Sheet, pdfFolder, item.ComputedFileName, options);
 

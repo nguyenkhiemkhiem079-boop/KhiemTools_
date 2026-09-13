@@ -137,6 +137,16 @@ namespace KhimTools.RebarTool.Forms
         private RebarFormGuard _formGuard;
 
         public RectangularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
+            : this(doc, availableColumns, preSelectedColumns, true)
+        {
+        }
+
+        internal static RectangularColumnReinforcementForm CreateLayoutPreview()
+        {
+            return new RectangularColumnReinforcementForm(null, null, null, false);
+        }
+
+        private RectangularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns, bool loadDocument)
         {
             _doc = doc;
             _availableColumns = availableColumns ?? new List<FamilyInstance>();
@@ -144,9 +154,13 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
+            RebarLayout.EnableFullTypeNames(this);
             PopulateColumnList();
-            PopulateBarTypeCombos();
-            LoadTemplateList();
+            if (loadDocument)
+            {
+                PopulateBarTypeCombos();
+                LoadTemplateList();
+            }
             ApplyLanguage();
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột."),
@@ -221,7 +235,9 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            Controls.Add(bottomPanel);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnCreateRebar, _btnClose);
+            bottomPanel.Dispose();
+            Controls.Add(footer);
 
             // 2. Right Column Selection Panel
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 270, Padding = new Padding(14), BackColor = Color.White };
@@ -297,7 +313,7 @@ namespace KhimTools.RebarTool.Forms
 
             // --- TAB 1: THÉP CHỦ & REVIEW ---
             _tabMain = new TabPage { Text = "Thép Chủ & Review", Padding = new Padding(8), BackColor = Color.White };
-            var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 350 };
+            var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 400, AutoScroll = true };
 
             _grpMainSection = new GroupBox { Text = "Bố trí Thép Chủ Tiết Diện", Dock = DockStyle.Top, Height = 135, Padding = new Padding(8) };
             var layoutMainSec = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
@@ -367,8 +383,9 @@ namespace KhimTools.RebarTool.Forms
             // GDI+ Preview Panel 2D Column Elevation Review
             _previewPanel = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
             _previewPanel.Paint += PreviewPanel_Paint;
-            _tabMain.Controls.Add(_previewPanel);
-            _previewPanel.BringToFront();
+            var previewViewport = RebarLayout.ScrollPreview(_previewPanel, new Size(420, 480));
+            _tabMain.Controls.Add(previewViewport);
+            previewViewport.BringToFront();
 
             tabControl.TabPages.Add(_tabMain);
 
@@ -461,6 +478,7 @@ namespace KhimTools.RebarTool.Forms
             layoutGenSettings.Controls.Add(_grpAssignInfo, 0, 2); layoutGenSettings.Controls.Add(_grpSlabBeam, 1, 2);
 
             _tabGenSettings.Controls.Add(layoutGenSettings);
+            RebarLayout.Stack(_tabGenSettings, _grpHook, _grpBendCut, _grpTopRoof, _grpSplicePos, _grpAssignInfo, _grpSlabBeam);
             tabControl.TabPages.Add(_tabGenSettings);
 
             // --- TAB 4: BẢN VẼ & VIEW 3D ---
@@ -478,6 +496,11 @@ namespace KhimTools.RebarTool.Forms
 
             Controls.Add(tabControl);
             tabControl.BringToFront();
+            RebarLayout.FitColumnGroups(tabControl);
+            RebarLayout.Stack(pnlMainLeft, _grpMainSection, _grpCover, _grpMainAnchor);
+            RebarLayout.ColumnEditor(_tabMain, pnlMainLeft, previewViewport);
+            footer.SendToBack();
+            RebarLayout.PresetBar(templatePanel, _lblTemplate, _cmbTemplate, _btnApplyTemplate, _btnSaveTemplate, _btnDeleteTemplate);
         }
 
         private static Label AddRowToLayout(TableLayoutPanel layout, string labelText, Control control)
@@ -502,12 +525,12 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"🟢 Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = $"Đã chọn sẵn: {count} cột từ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"🔵 Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }
@@ -744,9 +767,9 @@ namespace KhimTools.RebarTool.Forms
             string stirrupDiaStr = _cmbStirrupDia?.Text ?? "8";
             double coverVal = _chkCustomCover.Checked ? (double)_numCustomCover.Value : 25;
 
-            var fontTitle = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            var fontSmall = new Font("Segoe UI", 7.5F);
-            var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var fontTitle = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            using var fontSmall = new Font("Segoe UI", 7.5F);
+            using var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
 
             // ══════════════════════════════════════════════════════════════════
             // 2. PHẦN TRÊN: MẶT ĐỨNG CỐT THÉP CỘT (ELEVATION PREVIEW)
@@ -863,7 +886,7 @@ namespace KhimTools.RebarTool.Forms
             g.DrawString(isEn ? "2. CROSS SECTION PREVIEW (B x H)" : "2. MẶT CẮT TIẾT DIỆN THÉP CỘT (B x H)", fontTitle, Brushes.DarkBlue, 10, secTitleY);
 
             // Tính kích thước vẽ tiết diện theo tỷ lệ B / H
-            int secAreaY = secTitleY + 22;
+            int secAreaY = secTitleY + 40;
             int maxBoxW = 140;
             int maxBoxH = 120;
             double ratio = (hMm > 0) ? (bMm / hMm) : 1.0;
@@ -982,7 +1005,8 @@ namespace KhimTools.RebarTool.Forms
 
             using (var sfLeg = new StringFormat { Alignment = StringAlignment.Center })
             {
-                g.DrawString(secLegend, fontSmall, Brushes.DarkBlue, _previewPanel.Width / 2, legendY, sfLeg);
+                g.DrawString(secLegend, fontSmall, Brushes.DarkBlue,
+                    new RectangleF(10, legendY, _previewPanel.Width - 20, 60), sfLeg);
             }
         }
 

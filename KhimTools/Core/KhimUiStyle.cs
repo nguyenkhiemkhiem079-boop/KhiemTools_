@@ -6,21 +6,21 @@ namespace KhimTools.Core
 {
     /// <summary>
     /// Bộ Design System & Styling Manager chuẩn thương mại cho toàn bộ giao diện KhimTools.
-    /// Mang đến giao diện sang trọng (Modern Slate/Navy Dark Banner, White Cards, Flat Accent Buttons).
+    /// Neutral work surfaces with blue actions and no injected brand banners.
     /// </summary>
     public static class KhimUiStyle
     {
         // ── Brand Palette ──────────────────────────────────────────────────
         public static readonly Color HeaderBg = Color.FromArgb(32, 33, 36);       // #202124 Neutral charcoal
-        public static readonly Color HeaderAccent = Color.FromArgb(2, 132, 199);   // #0284C7 Sky Blue
-        public static readonly Color FormBg = Color.FromArgb(246, 247, 249);      // #F6F7F9 Neutral canvas
+        public static readonly Color HeaderAccent = Color.FromArgb(22, 119, 210);
+        public static readonly Color FormBg = Color.FromArgb(245, 247, 250);
         public static readonly Color CardBg = Color.White;
         public static readonly Color CardBorder = Color.FromArgb(215, 219, 224);  // #D7DBE0
-        public static readonly Color TextPrimary = Color.FromArgb(32, 33, 36);    // #202124
+        public static readonly Color TextPrimary = Color.FromArgb(32, 38, 46);    // #20262E
         public static readonly Color TextSecondary = Color.FromArgb(95, 99, 104);// #5F6368
-        public static readonly Color PrimaryButtonBg = Color.FromArgb(0, 114, 198); // #0072C6 Revit Blue
-        public static readonly Color PrimaryButtonHover = Color.FromArgb(2, 132, 199);
-        public static readonly Color CreateButtonBg = Color.FromArgb(16, 185, 129); // #10B981 Emerald Green
+        public static readonly Color PrimaryButtonBg = Color.FromArgb(22, 119, 210);
+        public static readonly Color PrimaryButtonHover = Color.FromArgb(18, 98, 176);
+        public static readonly Color CreateButtonBg = PrimaryButtonBg;
         public static readonly Color SecondaryButtonBg = Color.FromArgb(241, 245, 249);
         public static readonly Color SecondaryButtonHover = Color.FromArgb(226, 232, 240);
         public static readonly Color InputBorder = Color.FromArgb(203, 213, 225);
@@ -39,9 +39,14 @@ namespace KhimTools.Core
             form.Padding = form.Padding == Padding.Empty ? new Padding(1) : form.Padding;
 
             StyleControlTree(form);
-            form.ControlAdded += OnControlAdded;
-            form.Shown += (s, e) => StyleControlTree(form);
+            if (!(form is UI.KTBaseForm))
+            {
+                form.Shown -= OnFormShown;
+                form.Shown += OnFormShown;
+            }
         }
+
+        private static void OnFormShown(object sender, EventArgs e) => StyleControlTree(sender as Control);
 
         private static void OnControlAdded(object sender, ControlEventArgs e)
         {
@@ -165,18 +170,6 @@ namespace KhimTools.Core
             grid.DefaultCellStyle.Padding = new Padding(5, 2, 5, 2);
         }
 
-        private static string GetDefaultVersionTag()
-        {
-            var ver = typeof(KhimUiStyle).Assembly.GetName().Version;
-            return ver != null ? $"v{ver.Major}.{ver.Minor} Commercial" : "v2.7 Commercial";
-        }
-
-        // ── Header Banner Generator ─────────────────────────────────────────
-        public static Panel CreateHeaderBanner(string title, string subtitle, string versionTag = null)
-        {
-            return new Panel { Dock = DockStyle.Top, Height = 0, Visible = false, TabStop = false };
-        }
-
         // ── Card Style for GroupBoxes ───────────────────────────────────────
         public static void ApplyCardStyle(GroupBox grp, Color? titleColor = null)
         {
@@ -199,14 +192,8 @@ namespace KhimTools.Core
             btn.Font = new Font("Segoe UI", 9.5F, FontStyle.Bold);
             btn.Cursor = Cursors.Hand;
             btn.UseVisualStyleBackColor = false;
-            btn.MinimumSize = new Size(88, 32);
-
-            btn.MouseEnter += (s, e) => btn.BackColor = Color.FromArgb(
-                Math.Min(255, bg.R + 20),
-                Math.Min(255, bg.G + 20),
-                Math.Min(255, bg.B + 20));
-
-            btn.MouseLeave += (s, e) => btn.BackColor = bg;
+            btn.FlatAppearance.MouseOverBackColor = PrimaryButtonHover;
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(15, 82, 148);
         }
 
         // ── Secondary Action Button Styling ──────────────────────────────────
@@ -221,10 +208,8 @@ namespace KhimTools.Core
             btn.Font = new Font("Segoe UI", 9F, FontStyle.Regular);
             btn.Cursor = Cursors.Hand;
             btn.UseVisualStyleBackColor = false;
-            btn.MinimumSize = new Size(80, 32);
-
-            btn.MouseEnter += (s, e) => btn.BackColor = SecondaryButtonHover;
-            btn.MouseLeave += (s, e) => btn.BackColor = SecondaryButtonBg;
+            btn.FlatAppearance.MouseOverBackColor = SecondaryButtonHover;
+            btn.FlatAppearance.MouseDownBackColor = SelectionBg;
         }
     }
 }

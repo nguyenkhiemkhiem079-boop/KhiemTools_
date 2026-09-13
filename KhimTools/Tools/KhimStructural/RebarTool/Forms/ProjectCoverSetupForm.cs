@@ -42,11 +42,23 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnClose;
 
         public ProjectCoverSetupForm(Document doc)
+            : this(doc, true)
+        {
+        }
+
+        internal static ProjectCoverSetupForm CreateLayoutPreview()
+        {
+            var form = new ProjectCoverSetupForm(null, false);
+            form._btnApply.Enabled = false;
+            return form;
+        }
+
+        private ProjectCoverSetupForm(Document doc, bool loadDocument)
         {
             _doc = doc;
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
-            LoadCurrentProjectCovers();
+            if (loadDocument) LoadCurrentProjectCovers();
         }
 
         private void BuildUi()
@@ -55,8 +67,9 @@ namespace KhimTools.RebarTool.Forms
             Width = 600;
             Height = 490;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new Size(600, 420);
+            MaximizeBox = true;
 
             MinimizeBox = false;
 
@@ -96,39 +109,42 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnApply.Left = _btnClose.Left - _btnApply.Width - 10;
             };
-            Controls.Add(bottomPanel);
+            var footer = RebarLayout.Footer(null, _btnApply, _btnClose);
+            bottomPanel.Dispose();
+            Controls.Add(footer);
 
             // Center Form Controls
             var grpCategory = new GroupBox { Text = "Bảng Cài Đặt Cover Theo Loại Cấu Kiện", Dock = DockStyle.Fill, Padding = new Padding(12) };
-            var table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, AutoScroll = true };
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
-            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+            var table = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, RowCount = 5 };
+            for (int row = 0; row < 5; row++) table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
 
             // Headers
-            table.Controls.Add(new Label { Text = "Loại Cấu Kiện", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
-            table.Controls.Add(new Label { Text = "Giá Trị Cover (mm)", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
-            table.Controls.Add(new Label { Text = "Cập Nhật", Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Loại cấu kiện", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Cover (mm)", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
+            table.Controls.Add(new Label { Text = "Cập nhật", AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) });
 
             // 1. Cột
             _chkColumns = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
             _numColumnCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90 };
-            AddRow(table, "⏹ Cột (Structural Columns)", _numColumnCover, _chkColumns);
+            AddRow(table, "Cột", _numColumnCover, _chkColumns);
 
             // 2. Dầm
             _chkBeams = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
             _numBeamCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 25, Increment = 5, Width = 90 };
-            AddRow(table, "📏 Dầm (Structural Framing)", _numBeamCover, _chkBeams);
+            AddRow(table, "Dầm", _numBeamCover, _chkBeams);
 
             // 3. Sàn
             _chkSlabs = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
             _numSlabCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 15, Increment = 5, Width = 90 };
-            AddRow(table, "🔲 Sàn (Structural Floors)", _numSlabCover, _chkSlabs);
+            AddRow(table, "Sàn", _numSlabCover, _chkSlabs);
 
             // 4. Móng
             _chkFoundations = new CheckBox { Text = "Thực hiện", Checked = true, AutoSize = true };
             _numFoundationCover = new NumericUpDown { Minimum = 10, Maximum = 100, Value = 50, Increment = 5, Width = 90 };
-            AddRow(table, "Móng (Structural Foundations)", _numFoundationCover, _chkFoundations);
+            AddRow(table, "Móng", _numFoundationCover, _chkFoundations);
 
             grpCategory.Controls.Add(table);
             Controls.Add(grpCategory);
@@ -137,6 +153,8 @@ namespace KhimTools.RebarTool.Forms
 
         private void AddRow(TableLayoutPanel table, string catLabel, Control numInput, Control chkControl)
         {
+            numInput.Anchor = AnchorStyles.Left;
+            chkControl.Anchor = AnchorStyles.Left;
             table.Controls.Add(new Label { Text = catLabel, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 8, 3, 3) });
             table.Controls.Add(numInput);
             table.Controls.Add(chkControl);

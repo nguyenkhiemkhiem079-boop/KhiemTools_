@@ -67,10 +67,11 @@ namespace KhimTools.RebarTool.Forms
             validateButton.Click += (sender, args) => ShowValidationSummary();
             strip.Items.Add(validateButton);
             form.Controls.Add(strip);
-            strip.BringToFront();
+            strip.SendToBack();
 
             WireControlTree(form);
             form.Shown += OnInputChanged;
+            form.Disposed += (sender, args) => Dispose();
             ValidateNow();
         }
 

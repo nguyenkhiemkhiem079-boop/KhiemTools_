@@ -1,4 +1,5 @@
 using KhimTools.Core.UI;
+using Control = System.Windows.Forms.Control;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -78,6 +79,16 @@ namespace KhimTools.RebarTool.Forms
         private RebarFormGuard _formGuard;
 
         public FoundationReinforcementForm(Document doc, List<FamilyInstance> availableFoundations)
+            : this(doc, availableFoundations, true)
+        {
+        }
+
+        internal static FoundationReinforcementForm CreateLayoutPreview()
+        {
+            return new FoundationReinforcementForm(null, null, false);
+        }
+
+        private FoundationReinforcementForm(Document doc, List<FamilyInstance> availableFoundations, bool loadDocument)
         {
             _doc = doc;
             _availableFoundations = availableFoundations ?? new List<FamilyInstance>();
@@ -85,9 +96,10 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
-            PopulateBarCombos();
+            RebarLayout.EnableFullTypeNames(this);
+            if (loadDocument) PopulateBarCombos();
             PopulateFoundationList();
-            LoadTemplateList();
+            if (loadDocument) LoadTemplateList();
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 RebarFormGuard.RequireSelection(_foundationListBox, "Chọn ít nhất một móng."),
                 RebarFormGuard.RequireCombo(_cmbBotXDia, "Chọn thép lớp dưới phương X."),
@@ -107,8 +119,8 @@ namespace KhimTools.RebarTool.Forms
             Height = 740;
             MinimumSize = new Size(940, 680);
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             MinimizeBox = false;
 
             // Bottom Panel
@@ -140,7 +152,9 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            Controls.Add(bottomPanel);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnCreateRebar, _btnClose);
+            bottomPanel.Dispose();
+            Controls.Add(footer);
 
             // Right Panel (Selection List & Live Preview)
             var rightPanel = new Panel { Dock = DockStyle.Right, Width = 290, Padding = new Padding(14), BackColor = Color.White };
@@ -160,7 +174,7 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(rightPanel);
 
             // Center Tab Control
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Padding = new Point(12, 6) };
+            var tabControl = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F), Padding = new Point(12, 6) };
 
             // TAB 1: Lớp Thép Dưới (Bottom Mesh)
             var tabBot = new TabPage("Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
@@ -194,6 +208,11 @@ namespace KhimTools.RebarTool.Forms
 
             tabBot.Controls.Add(grpBotX);
             tabBot.Controls.Add(grpBotY);
+            RebarLayout.Fields(grpBotX, RebarLayout.Field("Đường kính", _cmbBotXDia),
+                RebarLayout.Field("Khoảng cách a (mm)", _numBotXSpacing), new Control[] { _chkBotXHook });
+            RebarLayout.Fields(grpBotY, RebarLayout.Field("Đường kính", _cmbBotYDia),
+                RebarLayout.Field("Khoảng cách a (mm)", _numBotYSpacing), new Control[] { _chkBotYHook });
+            RebarLayout.Stack(tabBot, grpBotX, grpBotY);
             tabControl.TabPages.Add(tabBot);
 
             // TAB 2: Lớp Thép Trên (Top Mesh)
@@ -227,6 +246,11 @@ namespace KhimTools.RebarTool.Forms
             tabTop.Controls.Add(_chkEnableTopMesh);
             tabTop.Controls.Add(grpTopX);
             tabTop.Controls.Add(grpTopY);
+            RebarLayout.Fields(grpTopX, RebarLayout.Field("Đường kính", _cmbTopXDia),
+                RebarLayout.Field("Khoảng cách a (mm)", _numTopXSpacing), new Control[] { _chkTopXHook });
+            RebarLayout.Fields(grpTopY, RebarLayout.Field("Đường kính", _cmbTopYDia),
+                RebarLayout.Field("Khoảng cách a (mm)", _numTopYSpacing), new Control[] { _chkTopYHook });
+            RebarLayout.Stack(tabTop, _chkEnableTopMesh, grpTopX, grpTopY);
             tabControl.TabPages.Add(tabTop);
 
             // TAB 3: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
@@ -270,6 +294,16 @@ namespace KhimTools.RebarTool.Forms
 
             tabDowel.Controls.Add(_chkEnableDowels);
             tabDowel.Controls.Add(grpDowel);
+            RebarLayout.Fields(grpDowel,
+                RebarLayout.Field("Đường kính thép chờ", _cmbDowelDia),
+                RebarLayout.Field("Số thanh phương X", _numDowelQtyX),
+                RebarLayout.Field("Số thanh phương Y", _numDowelQtyY),
+                RebarLayout.Field("Chân quỳ 90° (mm)", _numDowelFootLeg),
+                RebarLayout.Field("Đoạn chờ L0 (mm)", _numDowelExtension),
+                new Control[] { _chkDowelInward }, new Control[] { _chkStaggeredDowels },
+                new Control[] { _chkEnableDowelStirrups },
+                RebarLayout.Field("Số đai lồng", _numDowelStirrupQty));
+            RebarLayout.Stack(tabDowel, _chkEnableDowels, grpDowel);
             tabControl.TabPages.Add(tabDowel);
 
             // TAB 4: Tiêu Chuẩn & Template
@@ -335,9 +369,17 @@ namespace KhimTools.RebarTool.Forms
 
             tabDesign.Controls.Add(grpCode);
             tabDesign.Controls.Add(grpTpl);
+            RebarLayout.Fields(grpCode, RebarLayout.Field("Tiêu chuẩn", _cmbDesignCode),
+                RebarLayout.Field("Mác bê tông", _cmbConcreteGrade), RebarLayout.Field("Mác thép", _cmbSteelGrade),
+                RebarLayout.Field("Cover (mm)", _numCoverMm));
+            RebarLayout.Fields(grpTpl, RebarLayout.Field("Mẫu thiết lập", _cmbTemplates),
+                new Control[] { _btnSaveTemplate, _btnLoadTemplate });
+            RebarLayout.Stack(tabDesign, grpCode, grpTpl);
             tabControl.TabPages.Add(tabDesign);
 
             Controls.Add(tabControl);
+            tabControl.BringToFront();
+            footer.SendToBack();
         }
 
         private void PopulateBarCombos()

@@ -15,6 +15,10 @@ namespace KhimTools.SheetExport.Models
         public string SelectedNamingTemplateName { get; set; } = "Mặc định (SheetNumber - SheetName)";
         public bool SplitFoldersByFormat { get; set; } = true;
         public int PrintTimeoutSeconds { get; set; } = 120;
+        public string IssueSetName { get; set; } = "Official Release";
+        public DateTime IssueDate { get; set; } = DateTime.Today;
+        public bool PreservePreviousExports { get; set; } = true;
+        public string PreviousExportsFolderName { get; set; } = "Previous Exports";
 
         // PDF Specific Options & Appearance
         public bool CombinePdf { get; set; } = false;
@@ -37,6 +41,7 @@ namespace KhimTools.SheetExport.Models
         public bool ZoomFitToPage { get; set; } = false;
         public int ZoomPercentage { get; set; } = 100;
         public bool VectorProcessing { get; set; } = true;
+        public int PdfExportDpi { get; set; } = 300;
         public string RasterQuality { get; set; } = "Presentation";
         public string ColorMode { get; set; } = "Color";
         public bool ViewLinksInBlue { get; set; } = true;
@@ -48,7 +53,6 @@ namespace KhimTools.SheetExport.Models
         public bool MaskCoincidentLines { get; set; } = false;
 
         // Issue & Transmittal Options
-        public string IssueSetName { get; set; } = "Official Release";
         public bool GenerateTransmittal { get; set; } = true;
         public bool GenerateQaReport { get; set; } = true;
 
