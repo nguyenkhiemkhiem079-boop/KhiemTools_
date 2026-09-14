@@ -1,9 +1,9 @@
 {
-    "latest_version":  "v2.7.1",
-    "name":  "K-TOOLS (KhimTools) v2.7.1",
-    "release_date":  "2026-09-11",
-    "description":  "K-TOOLS v2.7.1 - Rebar safety, MSI ownership hardening and unified UI/UX.",
-    "download_url":  "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
-    "download_url_msi":  "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
-    "sha256_msi":  ""
+  "latest_version": "v2.7.1",
+  "name": "K-TOOLS (KhimTools) v2.7.1",
+  "release_date": "2026-09-14",
+  "description": "K-TOOLS v2.7.1 - Rebar safety, MSI ownership hardening and unified UI/UX.",
+  "download_url": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.7.1/K-TOOLS_Bundle.zip",
+  "download_url_msi": "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v2.7.1/K-TOOLS.msi",
+  "sha256_msi": "27835EA6522457D3F279B4F921C3A13F34EBBF0766F0104C5D27ABF229BCEBD0"
 }

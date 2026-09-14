@@ -111,6 +111,9 @@ namespace KhimTools.Tests
 
         private static void RunTest(string testName, Action testAction)
         {
+            // Sandbox tests must not inherit the host machine's MSI registration.
+            var previousMsiDetection = InstallationClassifier.MsiDetectionOverride;
+            InstallationClassifier.MsiDetectionOverride = delegate() { return false; };
             Console.Write(string.Format("[TEST] {0} ... ", testName));
             try
             {
@@ -127,6 +130,10 @@ namespace KhimTools.Tests
                 Console.ResetColor();
                 Console.WriteLine(string.Format("       -> Reason: {0}", ex.Message));
                 _failed++;
+            }
+            finally
+            {
+                InstallationClassifier.MsiDetectionOverride = previousMsiDetection;
             }
         }
 
