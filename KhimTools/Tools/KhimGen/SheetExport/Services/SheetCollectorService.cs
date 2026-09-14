@@ -19,19 +19,43 @@ namespace KhimTools.SheetExport.Services
 
             var list = new List<SheetExportItem>();
 
+            // Collect once across the document. View-scoped collectors can force
+            // Revit to prepare view geometry, which is expensive on first open.
+            var titleBlocks = new FilteredElementCollector(doc)
+                .OfCategory(BuiltInCategory.OST_TitleBlocks)
+                .WhereElementIsNotElementType()
+                .ToElements()
+                .GroupBy(t => t.OwnerViewId)
+                .ToDictionary(g => g.Key, g => g.First());
+
             foreach (var sheet in sheets)
             {
+                titleBlocks.TryGetValue(sheet.Id, out var titleBlock);
+                Revision revision = null;
+                string revisionSequence = "0";
+                try
+                {
+                    var revisionIds = sheet.GetAllRevisionIds();
+                    revisionSequence = revisionIds?.Count.ToString() ?? "0";
+                    if (revisionIds != null && revisionIds.Count > 0)
+                        revision = doc.GetElement(revisionIds.Last()) as Revision;
+                }
+                catch { }
+
                 var item = new SheetExportItem
                 {
                     Sheet = sheet,
                     SheetUniqueId = sheet.UniqueId,
                     SheetNumber = sheet.SheetNumber,
                     SheetName = sheet.Name,
-                    CurrentRevisionNumber = GetCurrentRevisionNumber(sheet, doc),
-                    CurrentRevisionDate = GetCurrentRevisionDate(sheet, doc),
-                    RevisionSequence = GetCurrentRevisionSequence(sheet, doc),
-                    PaperSize = DetectPaperSize(sheet, doc),
-                    Orientation = DetectOrientation(sheet, doc)
+                    CurrentRevisionNumber = revision?.RevisionNumber
+                        ?? sheet.LookupParameter("Current Revision")?.AsString()
+                        ?? sheet.LookupParameter("Sheet Revision")?.AsString() ?? "",
+                    CurrentRevisionDate = revision?.RevisionDate
+                        ?? sheet.LookupParameter("Current Revision Date")?.AsString() ?? "",
+                    RevisionSequence = revisionSequence,
+                    PaperSize = DetectPaperSize(titleBlock),
+                    Orientation = DetectOrientation(titleBlock)
                 };
 
                 list.Add(item);
@@ -40,71 +64,10 @@ namespace KhimTools.SheetExport.Services
             return list;
         }
 
-        private static string GetCurrentRevisionNumber(ViewSheet sheet, Document doc)
+        private static string DetectPaperSize(Element titleBlock)
         {
             try
             {
-                var revIds = sheet.GetAllRevisionIds();
-                if (revIds != null && revIds.Any())
-                {
-                    var lastRevId = revIds.Last();
-                    if (doc.GetElement(lastRevId) is Revision rev)
-                    {
-                        return rev.RevisionNumber;
-                    }
-                }
-                string currentRev = sheet.LookupParameter("Current Revision")?.AsString() ?? sheet.LookupParameter("Sheet Revision")?.AsString();
-                return currentRev ?? "";
-            }
-            catch
-            {
-                return sheet.LookupParameter("Current Revision")?.AsString() ?? "";
-            }
-        }
-
-        private static string GetCurrentRevisionDate(ViewSheet sheet, Document doc)
-        {
-            try
-            {
-                var revIds = sheet.GetAllRevisionIds();
-                if (revIds != null && revIds.Any())
-                {
-                    var lastRevId = revIds.Last();
-                    if (doc.GetElement(lastRevId) is Revision rev)
-                    {
-                        return rev.RevisionDate;
-                    }
-                }
-                return sheet.LookupParameter("Current Revision Date")?.AsString() ?? "";
-            }
-            catch
-            {
-                return "";
-            }
-        }
-
-        private static string GetCurrentRevisionSequence(ViewSheet sheet, Document doc)
-        {
-            try
-            {
-                var revIds = sheet.GetAllRevisionIds();
-                return revIds?.Count.ToString() ?? "0";
-            }
-            catch
-            {
-                return "0";
-            }
-        }
-
-        private static string DetectPaperSize(ViewSheet sheet, Document doc)
-        {
-            try
-            {
-                var titleBlock = new FilteredElementCollector(doc, sheet.Id)
-                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                    .WhereElementIsNotElementType()
-                    .FirstOrDefault();
-
                 if (titleBlock != null)
                 {
                     var wParam = titleBlock.get_Parameter(BuiltInParameter.SHEET_WIDTH);
@@ -132,15 +95,10 @@ namespace KhimTools.SheetExport.Services
             return "A1";
         }
 
-        private static string DetectOrientation(ViewSheet sheet, Document doc)
+        private static string DetectOrientation(Element titleBlock)
         {
             try
             {
-                var titleBlock = new FilteredElementCollector(doc, sheet.Id)
-                    .OfCategory(BuiltInCategory.OST_TitleBlocks)
-                    .WhereElementIsNotElementType()
-                    .FirstOrDefault();
-
                 if (titleBlock != null)
                 {
                     var wParam = titleBlock.get_Parameter(BuiltInParameter.SHEET_WIDTH);
