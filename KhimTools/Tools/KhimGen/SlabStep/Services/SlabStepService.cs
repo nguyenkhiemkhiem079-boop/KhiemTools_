@@ -39,38 +39,26 @@ namespace KhimTools.SlabStep.Services
         }
 
         /// <summary>
-        /// Lấy toàn bộ tham số có kiểu là Double/Length để người dùng chọn map
+        /// Lấy toàn bộ tham số có kiểu là Double/Length để người dùng chọn map.
+        /// Chỉ đọc từ FamilySymbol.Parameters — KHÔNG gọi EditFamily() vì sẽ gây lock UI
+        /// và conflict với Revit selection mode.
         /// </summary>
         public static List<string> GetDoubleParameters(FamilySymbol symbol)
         {
             var list = new List<string>();
             if (symbol == null) return list;
 
+            // Đọc tham số trực tiếp từ FamilySymbol (bao gồm cả type params và instance params)
             foreach (Parameter p in symbol.Parameters)
             {
-                if (p.StorageType == StorageType.Double)
+                if (p.StorageType == StorageType.Double && p.Definition != null)
                 {
                     list.Add(p.Definition.Name);
                 }
             }
 
-            // Quét thêm tham số của Instance mặc định từ family
-            if (symbol.Family != null)
-            {
-                Document familyDoc = symbol.Document.EditFamily(symbol.Family);
-                if (familyDoc != null)
-                {
-                    var familyManager = familyDoc.FamilyManager;
-                    foreach (FamilyParameter fp in familyManager.Parameters)
-                    {
-                        if (fp.StorageType == StorageType.Double)
-                        {
-                            list.Add(fp.Definition.Name);
-                        }
-                    }
-                    familyDoc.Close(false);
-                }
-            }
+            // KHÔNG gọi EditFamily() — EditFamily() yêu cầu transaction và gây lock Revit UI,
+            // làm người dùng không thể thực hiện selection sau đó.
 
             return list.Distinct().OrderBy(s => s).ToList();
         }
@@ -236,12 +224,31 @@ namespace KhimTools.SlabStep.Services
             {
                 tx.Start();
 
-                // Tạo đối tượng chèn dạng Line-Based
-                instance = doc.Create.NewFamilyInstance(startPt, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                
-                if (instance.Location is LocationCurve locCurve)
+                // Tạo Line đặt family — bắt buộc dùng overload NewFamilyInstance(Line, ...)
+                // cho line-based family. Dùng point-based insert rồi đổi LocationCurve sau
+                // là anti-pattern không hoạt động với line-based families trong Revit 2022+.
+                Line placementLine = Line.CreateBound(startPt, endPt);
+
+                try
                 {
-                    locCurve.Curve = Line.CreateBound(startPt, endPt);
+                    // Thử tạo dạng line-based trước (đúng với family nách sàn giật cấp)
+                    instance = doc.Create.NewFamilyInstance(
+                        placementLine, symbol, level,
+                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                }
+                catch
+                {
+                    // Fallback: nếu symbol không phải line-based, insert bằng điểm giữa
+                    XYZ midPt = (startPt + endPt) / 2.0;
+                    instance = doc.Create.NewFamilyInstance(
+                        midPt, symbol, level,
+                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                }
+
+                if (instance == null)
+                {
+                    tx.RollBack();
+                    return null;
                 }
 
                 // Gán tham số chiều cao giật cấp h

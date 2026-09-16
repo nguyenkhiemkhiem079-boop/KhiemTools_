@@ -295,7 +295,7 @@ namespace KhimTools.SlabStep.Forms
             
             var btnPickEdges = new Button
             {
-                Text = "Chọn Các Cạnh Ranh Giới (Pick Edges)",
+                Text = "Chọn Các Sàn Ranh Giới (Pick Floors)",
                 Location = new Point(15, 25),
                 Size = new Size(250, 32),
                 BackColor = KhimUiStyle.PrimaryButtonBg,
@@ -308,7 +308,7 @@ namespace KhimTools.SlabStep.Forms
             
             _lblBoundaryInfo = new Label
             {
-                Text = "Chưa chọn đường dẫn chèn giật cấp.",
+                Text = "Chưa chọn sàn ranh giới (chọn sàn cao và/hoặc sàn thấp).",
                 Location = new Point(280, 32),
                 Size = new Size(275, 20),
                 Font = new Font("Segoe UI", 9F, FontStyle.Regular),
@@ -486,25 +486,38 @@ namespace KhimTools.SlabStep.Forms
             this.Hide();
             try
             {
-                IList<Reference> refs = _uidoc.Selection.PickObjects(ObjectType.Edge, "Chọn các cạnh ranh giới sàn WC (Nhấn Finish ở góc trên trái để hoàn thành)");
+                // Dùng floor selection thay vì ObjectType.Edge.
+                // ObjectType.Edge chỉ hoạt động trong 3D view;
+                // trong Floor Plan view (dùng phổ biến), Revit không highlight edge được.
+                // Cách đúng: chọn Floor element → auto-extract boundary curves từ sketch.
+                IList<Reference> refs = _uidoc.Selection.PickObjects(
+                    ObjectType.Element,
+                    new FloorSelectionFilter(),
+                    "Chọn các Sàn ranh giới giật cấp (Nhấn Finish để hoàn thành)");
+
                 if (refs != null && refs.Any())
                 {
                     _boundaryCurves.Clear();
+                    int floorCount = 0;
+
                     foreach (Reference r in refs)
                     {
-                        var elem = _doc.GetElement(r.ElementId);
-                        var geomObj = elem.GetGeometryObjectFromReference(r);
-                        if (geomObj is Edge edge)
+                        var floor = _doc.GetElement(r.ElementId) as Floor;
+                        if (floor == null) continue;
+
+                        floorCount++;
+                        var curves = SlabStepService.GetFloorBoundaryCurves(_doc, floor);
+                        foreach (var c in curves)
                         {
-                            _boundaryCurves.Add(edge.AsCurve());
+                            _boundaryCurves.Add(c);
                         }
                     }
-                    
-                    _lblBoundaryInfo.Text = $"Đã chọn: {_boundaryCurves.Count} cạnh.";
+
+                    _lblBoundaryInfo.Text = $"Đã chọn: {floorCount} sàn → {_boundaryCurves.Count} cạnh ranh giới.";
                     _lblBoundaryInfo.ForeColor = KhimUiStyle.HeaderAccent;
                 }
             }
-            catch {}
+            catch { }
             this.Show();
         }
         
@@ -512,7 +525,7 @@ namespace KhimTools.SlabStep.Forms
         {
             if (!_boundaryCurves.Any())
             {
-                TaskDialog.Show("Lỗi", "Vui lòng chọn các đường ranh giới giật cấp (Pick Edges) trước.");
+                TaskDialog.Show("Lỗi", "Vui lòng chọn các Sàn ranh giới giật cấp (Pick Floors) trước.");
                 return;
             }
             
