@@ -30,7 +30,9 @@ namespace KhimTools.SlabStep.Forms
         private readonly Document _doc;
         
         private Floor _floorLow;
-        private List<Curve> _boundaryCurves = new List<Curve>();
+        private Floor _floorHigh;
+        private List<Curve> _sharedBoundaryCurves = new List<Curve>();
+        private SlabScanResult _scanResult;
         private SlabStepSettings _settings = new SlabStepSettings();
         
         // UI Controls
@@ -266,8 +268,12 @@ namespace KhimTools.SlabStep.Forms
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
             };
-            btnPickLowFloor.Click += (s, e) => PickLowFloor();
+            btnPickLowFloor.Text = "Chọn hai sàn";
+            btnPickLowFloor.Click += (s, e) => PickTwoFloors();
             grpOrientation.Controls.Add(btnPickLowFloor);
+            var btnScan = new Button { Text = "QUÉT PANEL SÀN", Location = new Point(400, 25), Size = new Size(145, 32), BackColor = KhimUiStyle.PrimaryButtonBg, ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            btnScan.Click += (s, e) => ScanSlabPanels();
+            grpOrientation.Controls.Add(btnScan);
             
             _lblLowFloorInfo = new Label
             {
@@ -303,7 +309,8 @@ namespace KhimTools.SlabStep.Forms
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
             };
-            btnPickEdges.Click += (s, e) => PickBoundaryEdges();
+            btnPickEdges.Text = "Dùng cạnh chung đã phát hiện";
+            btnPickEdges.Click += (s, e) => UseDetectedBoundaries();
             grpPath.Controls.Add(btnPickEdges);
             
             _lblBoundaryInfo = new Label
@@ -464,66 +471,76 @@ namespace KhimTools.SlabStep.Forms
             _cboLowThickParam.SelectedIndex = 0;
         }
         
-        private void PickLowFloor()
+        private void PickTwoFloors()
         {
             this.Hide();
             try
             {
-                Reference r = _uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn Sàn Thấp (Low Floor) để định hướng xoay");
-                if (r != null)
+                var selected = _uidoc.Selection.GetElementIds().Select(id => _doc.GetElement(id)).OfType<Floor>().ToList();
+                Floor first = null, second = null;
+                if (selected.Count == 2 && _uidoc.Selection.GetElementIds().Count == 2) { first = selected[0]; second = selected[1]; }
+                else
                 {
-                    _floorLow = _doc.GetElement(r.ElementId) as Floor;
-                    _lblLowFloorInfo.Text = $"Sàn Thấp: ID {_floorLow.Id} ({_floorLow.Name})";
-                    _lblLowFloorInfo.ForeColor = KhimUiStyle.CreateButtonBg;
+                    System.Diagnostics.Debug.WriteLine("[SlabStep] Starting floor #1 selection");
+                    first = _doc.GetElement(_uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn sàn thứ nhất").ElementId) as Floor;
+                    System.Diagnostics.Debug.WriteLine("[SlabStep] Starting floor #2 selection");
+                    second = _doc.GetElement(_uidoc.Selection.PickObject(ObjectType.Element, new FloorSelectionFilter(), "Chọn sàn thứ hai").ElementId) as Floor;
                 }
+                if (first == null || second == null) throw new InvalidOperationException("Chỉ được chọn Floor elements.");
+                if (first.Id == second.Id) throw new InvalidOperationException("Bạn đã chọn cùng một sàn hai lần. Hãy chọn hai sàn khác nhau.");
+                AnalyzeSelectedFloorPair(first, second);
             }
-            catch {}
-            this.Show();
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            catch (Exception ex) { TaskDialog.Show("Chọn hai sàn", ex.Message); }
+            finally { this.Show(); this.Activate(); this.BringToFront(); }
         }
-        
-        private void PickBoundaryEdges()
+
+        private void AnalyzeSelectedFloorPair(Floor first, Floor second)
         {
-            this.Hide();
+            double a = SlabStepService.GetFloorTopElevation(first), b = SlabStepService.GetFloorTopElevation(second);
+            if (SlabStepService.InternalToMillimetres(Math.Abs(a - b)) <= 1) throw new InvalidOperationException("Không phát hiện chênh cao giữa hai sàn.");
+            _floorHigh = a > b ? first : second; _floorLow = a > b ? second : first;
+            _sharedBoundaryCurves = SlabStepService.FindSharedBoundaries(_floorHigh, _floorLow, new SharedBoundaryOptions { GeometryToleranceMm = 2, MinimumLengthMm = 10 }).Select(x => x.Curve).ToList();
+            if (_sharedBoundaryCurves.Count == 0) throw new InvalidOperationException("Không tìm thấy cạnh chung hợp lệ giữa hai sàn.");
+            UpdateFloorValues();
+            _lblLowFloorInfo.Text = $"Cao: ID {_floorHigh.Id} · Thấp: ID {_floorLow.Id} · h={_txtHeight.Text} mm";
+            _lblBoundaryInfo.Text = $"Đã phát hiện {_sharedBoundaryCurves.Count} đoạn cạnh chung.";
+        }
+
+        private void UseDetectedBoundaries()
+        {
+            if (_floorHigh == null || _floorLow == null) { TaskDialog.Show("Cạnh chung", "Chọn hai sàn hoặc quét panel trước."); return; }
+            _sharedBoundaryCurves = SlabStepService.FindSharedBoundaries(_floorHigh, _floorLow, new SharedBoundaryOptions { GeometryToleranceMm = 2, MinimumLengthMm = 10 }).Select(x => x.Curve).ToList();
+            _lblBoundaryInfo.Text = $"Đang dùng {_sharedBoundaryCurves.Count} cạnh chung.";
+        }
+
+        private void ScanSlabPanels()
+        {
             try
             {
-                // Dùng floor selection thay vì ObjectType.Edge.
-                // ObjectType.Edge chỉ hoạt động trong 3D view;
-                // trong Floor Plan view (dùng phổ biến), Revit không highlight edge được.
-                // Cách đúng: chọn Floor element → auto-extract boundary curves từ sketch.
-                IList<Reference> refs = _uidoc.Selection.PickObjects(
-                    ObjectType.Element,
-                    new FloorSelectionFilter(),
-                    "Chọn các Sàn ranh giới giật cấp (Nhấn Finish để hoàn thành)");
-
-                if (refs != null && refs.Any())
-                {
-                    _boundaryCurves.Clear();
-                    int floorCount = 0;
-
-                    foreach (Reference r in refs)
-                    {
-                        var floor = _doc.GetElement(r.ElementId) as Floor;
-                        if (floor == null) continue;
-
-                        floorCount++;
-                        var curves = SlabStepService.GetFloorBoundaryCurves(_doc, floor);
-                        foreach (var c in curves)
-                        {
-                            _boundaryCurves.Add(c);
-                        }
-                    }
-
-                    _lblBoundaryInfo.Text = $"Đã chọn: {floorCount} sàn → {_boundaryCurves.Count} cạnh ranh giới.";
-                    _lblBoundaryInfo.ForeColor = KhimUiStyle.HeaderAccent;
-                }
+                _scanResult = SlabStepDetector.Scan(_doc, _doc.ActiveView, new SlabScanOptions { Scope = SlabScanScope.ActiveView });
+                string text = $"Floors scanned: {_scanResult.Panels.Count}\nSupported: {_scanResult.Panels.Count(x => x.IsSupported)}\nStep candidates: {_scanResult.Candidates.Count}\n";
+                if (_scanResult.Candidates.Count == 0) { TaskDialog.Show("SLAB STEP DETECTOR", text + "Không tìm thấy chuyển tiếp sàn."); return; }
+                text += string.Join("\n", _scanResult.Candidates.Select((x, i) => $"{i + 1}. High {x.High.FloorId} → Low {x.Low.FloorId} | ΔH {SlabStepService.InternalToMillimetres(x.StepHeight):0.#} mm | Shared {SlabStepService.InternalToMillimetres(x.TotalBoundaryLength):0.#} mm"));
+                TaskDialog.Show("SLAB STEP DETECTOR", text);
+                var candidate = _scanResult.Candidates[0]; _floorHigh = candidate.High.Floor; _floorLow = candidate.Low.Floor; _sharedBoundaryCurves = candidate.Boundaries.Select(x => x.Curve).ToList(); UpdateFloorValues();
+                _lblLowFloorInfo.Text = $"Cao: ID {_floorHigh.Id} · Thấp: ID {_floorLow.Id} · h={_txtHeight.Text} mm";
+                _lblBoundaryInfo.Text = $"Scanner: {_scanResult.Candidates.Count} candidates · candidate đầu tiên.";
             }
-            catch { }
-            this.Show();
+            catch (Exception ex) { TaskDialog.Show("SLAB STEP DETECTOR", ex.Message); }
         }
         
+        private void UpdateFloorValues()
+        {
+            if (_floorHigh == null || _floorLow == null) return;
+            _txtThickHigh.Text = "";
+            _txtThickLow.Text = "";
+            _txtHeight.Text = SlabStepService.InternalToMillimetres(Math.Abs(SlabStepService.GetFloorTopElevation(_floorHigh) - SlabStepService.GetFloorTopElevation(_floorLow))).ToString("0.#");
+        }
+
         private void ExecuteGenerate()
         {
-            if (!_boundaryCurves.Any())
+            if (!_sharedBoundaryCurves.Any())
             {
                 TaskDialog.Show("Lỗi", "Vui lòng chọn các Sàn ranh giới giật cấp (Pick Floors) trước.");
                 return;
@@ -573,7 +590,7 @@ namespace KhimTools.SlabStep.Forms
             int successCount = 0;
             try
             {
-                foreach (var curve in _boundaryCurves)
+                foreach (var curve in _sharedBoundaryCurves)
                 {
                     FamilyInstance instance = SlabStepService.GenerateSlabStep(
                         _doc, curve, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm, _floorLow);
@@ -585,7 +602,7 @@ namespace KhimTools.SlabStep.Forms
                 
                 if (successCount > 0)
                 {
-                    TaskDialog.Show("Thành công", $"Đã tạo thành công {successCount} / {_boundaryCurves.Count} giật cấp sàn dọc theo các ranh giới!");
+                    TaskDialog.Show("Thành công", $"Đã tạo thành công {successCount} / {_sharedBoundaryCurves.Count} giật cấp sàn dọc theo các ranh giới!");
                     this.Close();
                 }
                 else

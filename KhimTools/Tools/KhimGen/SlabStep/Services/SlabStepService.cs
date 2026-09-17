@@ -10,6 +10,9 @@ namespace KhimTools.SlabStep.Services
 {
     public static class SlabStepService
     {
+        public static double InternalToMillimetres(double value) => value * 304.8;
+        public static double MillimetresToInternal(double value) => value / 304.8;
+
         /// <summary>
         /// Nạp Family từ file RFA bên ngoài vào dự án
         /// </summary>
@@ -117,6 +120,33 @@ namespace KhimTools.SlabStep.Services
             }
 
             return list;
+        }
+
+        public static List<SharedBoundarySegment> FindSharedBoundaries(Floor high, Floor low, SharedBoundaryOptions options)
+        {
+            var result = new List<SharedBoundarySegment>();
+            if (high == null || low == null) return result;
+            double tol = MillimetresToInternal(options?.GeometryToleranceMm ?? 2);
+            double min = MillimetresToInternal(options?.MinimumLengthMm ?? 100);
+            var highLines = GetFloorBoundaryCurves(high.Document, high).OfType<Line>().ToList();
+            var lowLines = GetFloorBoundaryCurves(low.Document, low).OfType<Line>().ToList();
+            foreach (var h in highLines)
+            foreach (var l in lowLines)
+            {
+                var a = h.GetEndPoint(0); var b = h.GetEndPoint(1);
+                var c = l.GetEndPoint(0); var d = l.GetEndPoint(1);
+                var hv = new XYZ(b.X-a.X,b.Y-a.Y,0); var lv = new XYZ(d.X-c.X,d.Y-c.Y,0);
+                if (hv.GetLength() < tol || lv.GetLength() < tol) continue;
+                hv = hv.Normalize(); lv = lv.Normalize();
+                if (Math.Abs(hv.X*lv.Y-hv.Y*lv.X) > 1e-6 && Math.Abs(hv.X*lv.Y-hv.Y*lv.X) > tol) continue;
+                if (Math.Abs((c-a).X*hv.Y-(c-a).Y*hv.X) > tol) continue;
+                double h0 = 0, h1 = h.Distance(a); double l0 = (c-a).DotProduct(hv), l1 = (d-a).DotProduct(hv);
+                double start = Math.Max(h0, Math.Min(l0,l1)); double end = Math.Min(h1, Math.Max(l0,l1));
+                if (end-start < min) continue;
+                var p0 = a + hv*start; var p1 = a + hv*end;
+                result.Add(new SharedBoundarySegment { Curve = Line.CreateBound(p0,p1) });
+            }
+            return result;
         }
 
         /// <summary>
@@ -289,7 +319,7 @@ namespace KhimTools.SlabStep.Services
 
         #region PRIVATE GEOMETRIC HELPERS
 
-        private static double GetFloorTopElevation(Floor floor)
+        public static double GetFloorTopElevation(Floor floor)
         {
             var pOffset = floor.get_Parameter(BuiltInParameter.FLOOR_HEIGHTABOVELEVEL_PARAM);
             double offset = (pOffset != null && pOffset.HasValue) ? pOffset.AsDouble() : 0.0;
@@ -342,7 +372,7 @@ namespace KhimTools.SlabStep.Services
             return isInsideLow;
         }
 
-        private static bool IsPointInsideFloor2D(Floor floor, XYZ pt)
+        public static bool IsPointInsideFloor2D(Floor floor, XYZ pt)
         {
             var doc = floor.Document;
             var curves = GetFloorBoundaryCurves(doc, floor);
