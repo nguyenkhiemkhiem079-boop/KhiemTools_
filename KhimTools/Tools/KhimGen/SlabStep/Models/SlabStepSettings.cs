@@ -13,6 +13,6 @@ namespace KhimTools.SlabStep.Models
         
         public bool ReverseOrientation { get; set; } = false;
         
-        public double MaxDistanceToleranceMm { get; set; } = 300.0; // 30cm dung sai tìm cạnh ranh giới
+        public double MaxDistanceToleranceMm { get; set; } = 2.0; // dung sai hình học, không phải độ rộng sàn
     }
 }
