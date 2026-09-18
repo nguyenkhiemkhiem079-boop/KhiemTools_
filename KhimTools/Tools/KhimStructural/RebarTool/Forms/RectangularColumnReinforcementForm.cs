@@ -743,282 +743,405 @@ namespace KhimTools.RebarTool.Forms
         {
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-
             bool isEn = LanguageManager.IsEnglish;
 
-            // ══════════════════════════════════════════════════════════════════
-            // 1. DỮ LIỆU CỘT & THIẾT LẬP THÉP
-            // ══════════════════════════════════════════════════════════════════
-            var selectedItem = _columnListBox.SelectedItem as ColumnListItem;
-            FamilyInstance col = selectedItem?.Column ?? _preSelectedColumns.FirstOrDefault() ?? _availableColumns.FirstOrDefault();
+            // K-TOOLS Engineering Color Palette
+            var cBg      = Color.FromArgb(247, 248, 250);
+            var cOutline = Color.FromArgb(38,  50,  56);
+            var cBar     = Color.FromArgb(21,  101, 192);
+            var cTie     = Color.FromArgb(211, 47,  47);
+            var cDim     = Color.FromArgb(84,  110, 122);
+            var cConc    = Color.FromArgb(236, 239, 241);
+            var cHatch   = Color.FromArgb(189, 199, 205);
+            var cHdr     = Color.FromArgb(38,  50,  56);
+            var cOk      = Color.FromArgb(27,  94,  32);
+            var cWarn    = Color.FromArgb(183, 28,  28);
 
-            double heightMm = 3600;
-            double bMm = 600;
-            double hMm = 700;
+            // Data from form controls
+            var sel = _columnListBox?.SelectedItem as ColumnListItem;
+            FamilyInstance col = sel?.Column
+                ?? _preSelectedColumns?.FirstOrDefault()
+                ?? _availableColumns?.FirstOrDefault();
+
+            double bMm = 500, hMm = 500, heightMm = 3600;
             string mark = "<not set>";
-            string levelName = isEn ? "Level 1" : "Tầng 1";
-
+            string levelName = isEn ? "Level 1" : "Tang 1";
             if (col != null)
             {
                 try
                 {
-                    var profile = RectangularColumnGeometryHelper.GetRectangularProfile(col);
-                    heightMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.Height, UnitTypeId.Millimeters));
-                    bMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters));
-                    hMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters));
+                    var p = RectangularColumnGeometryHelper.GetRectangularProfile(col);
+                    bMm      = Math.Round(UnitUtils.ConvertFromInternalUnits(p.B,      UnitTypeId.Millimeters));
+                    hMm      = Math.Round(UnitUtils.ConvertFromInternalUnits(p.H,      UnitTypeId.Millimeters));
+                    heightMm = Math.Round(UnitUtils.ConvertFromInternalUnits(p.Height, UnitTypeId.Millimeters));
                     mark = col.LookupParameter("Mark")?.AsString() ?? "<not set>";
-                    levelName = _doc.GetElement(col.LevelId)?.Name ?? (isEn ? "Level" : "Tầng");
+                    if (_doc != null) levelName = _doc.GetElement(col.LevelId)?.Name ?? levelName;
                 }
                 catch { }
             }
 
-            int barsB = (int)_numBarsB.Value;
-            int barsH = (int)_numBarsH.Value;
-            int totalBars = 2 * (barsB + barsH - 2);
-            string diaStr = _cmbMainDia?.Text ?? "18";
-            string stirrupDiaStr = _cmbStirrupDia?.Text ?? "8";
-            double coverVal = _chkCustomCover.Checked ? (double)_numCustomCover.Value : 25;
+            int nB  = (int)(_numBarsB?.Value ?? 3);
+            int nH  = (int)(_numBarsH?.Value ?? 3);
+            int tot = 2 * (nB + nH - 2);
+            double cover = _chkCustomCover?.Checked == true ? (double)(_numCustomCover?.Value ?? 25) : 25;
+            double a1mm  = (double)(_numStirrupSpacingA1?.Value ?? 100);
+            double a2mm  = (double)(_numStirrupSpacingA2?.Value ?? 200);
+            bool diamond = _chkInnerDiamond?.Checked == true && nB >= 3 && nH >= 3;
+            bool xcross  = _chkCrossLinks?.Checked   == true;
+            bool isFdn   = _rdBaseFoundation?.Checked  == true;
+            bool topHook = _chkTopAnchor?.Checked    == true;
+            bool cranked = _chkCrankedSplice?.Checked == true;
+            string mD = _cmbMainDia?.Text    ?? "?";
+            string tD = _cmbStirrupDia?.Text ?? "?";
 
-            using var fontTitle = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            using var fontSmall = new Font("Segoe UI", 7.5F);
-            using var fontRed = new Font("Segoe UI", 7.5F, FontStyle.Bold);
+            using var fHdr = new Font("Segoe UI Semibold", 7.5f, FontStyle.Bold);
+            using var fLbl = new Font("Segoe UI Semibold", 7f);
+            using var fBdy = new Font("Segoe UI", 6.5f);
+            using var fSml = new Font("Segoe UI", 6f);
+            using var fMon = new Font("Consolas", 6.5f);
+            using var sfC  = new StringFormat { Alignment = StringAlignment.Center,  LineAlignment = StringAlignment.Center };
+            using var sfL  = new StringFormat { Alignment = StringAlignment.Near,    LineAlignment = StringAlignment.Center };
 
-            // ══════════════════════════════════════════════════════════════════
-            // 2. PHẦN TRÊN: MẶT ĐỨNG CỐT THÉP CỘT (ELEVATION PREVIEW)
-            // ══════════════════════════════════════════════════════════════════
-            g.DrawString(isEn ? "1. COLUMN ELEVATION PREVIEW" : "1. MẶT ĐỨNG CỐT THÉP CỘT", fontTitle, Brushes.DarkRed, 10, 6);
+            int W = _previewPanel.Width;
+            int H = _previewPanel.Height;
+            const int HDR = 18;
 
-            int colWidth = 45;
-            int colHeight = 180;
-            int cx = Math.Max(_previewPanel.Width / 2, 110);
-            int cy = 115;
-            int x0 = cx - colWidth / 2;
-            int y0 = cy - colHeight / 2;
+            g.Clear(cBg);
 
-            // Thân bê tông mặt đứng
-            using (var fillBrush = new SolidBrush(Color.FromArgb(40, 140, 70)))
-                g.FillRectangle(fillBrush, x0, y0, colWidth, colHeight);
-            using (var outlinePen = new Pen(Color.Black, 1.5f))
-                g.DrawRectangle(outlinePen, x0, y0, colWidth, colHeight);
+            int topH  = Math.Max(200, (int)(H * 0.56));
+            int leftW = Math.Max(200, (int)(W * 0.57));
 
-            // Các đường đai ngang màu đỏ (Dày A1 ở 2 đầu, thưa A2 ở giữa)
-            using (var stirrupPen = new Pen(Color.Red, 1.2f))
+            using (var hb = new SolidBrush(cHdr))
             {
-                for (int y = y0 + colHeight - 4; y >= y0 + colHeight - 38; y -= 5)
-                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
-
-                for (int y = y0 + colHeight - 46; y >= y0 + 46; y -= 10)
-                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
-
-                for (int y = y0 + 38; y >= y0 + 4; y -= 5)
-                    g.DrawLine(stirrupPen, x0 + 2, y, x0 + colWidth - 2, y);
+                g.FillRectangle(hb, 0,     0,    leftW,     HDR);
+                g.FillRectangle(hb, leftW, 0,    W - leftW, HDR);
+                g.FillRectangle(hb, 0,     topH, W,         HDR);
             }
 
-            // Thép chủ đứng (Cranked 1:6 / Móc đỉnh / Chân quỳ)
-            using (var rebarPen = new Pen(Color.Navy, 2))
+            string secTitle = isEn ? "CROSS SECTION  B x H" : "TIET DIEN NGANG  B x H";
+            string infoTitle = isEn ? "ENGINEERING DATA" : "DU LIEU KY THUAT";
+            string elvTitle  = isEn ? "COLUMN ELEVATION  -  Stirrup Zones A1 / A2 / A1"
+                                    : "MAT DUNG COT  -  Vung dai A1 / A2 / A1";
+            g.DrawString(secTitle,  fHdr, Brushes.White, 5f, 4f);
+            g.DrawString(infoTitle, fHdr, Brushes.White, leftW + 5f, 4f);
+            g.DrawString(elvTitle,  fHdr, Brushes.White, 5f, topH + 4f);
+
+            using (var dp = new Pen(Color.FromArgb(198, 210, 216), 1f))
             {
-                bool isFoundation = _rdBaseFoundation != null && _rdBaseFoundation.Checked;
-                bool isTopHook = _chkTopAnchor != null && _chkTopAnchor.Checked;
-                bool isCranked = _chkCrankedSplice != null && _chkCrankedSplice.Checked;
+                g.DrawLine(dp, 0,     topH, W,     topH);
+                g.DrawLine(dp, leftW, HDR,  leftW, topH);
+            }
 
-                int[] barXs = new int[] { x0 + 6, x0 + colWidth / 2, x0 + colWidth - 6 };
+            // I. CROSS-SECTION (left panel)
+            {
+                int ax = 5, ay = HDR + 3, aw = leftW - ax - 3, ah = topH - ay - 4;
+                int dimHLeft = 28, dimVTop = 18;
+                int mxW = Math.Max(60, aw - dimHLeft - 8);
+                int mxH = Math.Max(40, ah - dimVTop  - 18);
 
-                foreach (int bx in barXs)
+                double ratio = (hMm > 0 && bMm > 0) ? bMm / hMm : 1.0;
+                int sW, sH;
+                if (ratio >= 1.0) { sW = mxW; sH = (int)(mxW / ratio); if (sH > mxH) { sH = mxH; sW = (int)(mxH * ratio); } }
+                else              { sH = mxH; sW = (int)(mxH * ratio); if (sW > mxW) { sW = mxW; sH = (int)(mxW / ratio); } }
+                sW = Math.Max(60, Math.Min(sW, mxW));
+                sH = Math.Max(40, Math.Min(sH, mxH));
+
+                int sX = ax + dimHLeft + (mxW - sW) / 2;
+                int sY = ay + dimVTop  + (mxH - sH) / 2;
+
+                using (var cb = new SolidBrush(cConc)) g.FillRectangle(cb, sX, sY, sW, sH);
+                g.SetClip(new Rectangle(sX, sY, sW, sH));
+                using (var hp = new Pen(cHatch, 0.7f))
+                    for (int d = -(sH + 2); d < sW + 2; d += 10)
+                        g.DrawLine(hp, sX + d, sY, sX + d + sH, sY + sH);
+                g.ResetClip();
+                using (var op = new Pen(cOutline, 2f)) g.DrawRectangle(op, sX, sY, sW, sH);
+
+                int cv = Math.Max(5, (int)(Math.Min(sW, sH) * 0.09));
+                int iX = sX + cv, iY = sY + cv, iW = sW - 2 * cv, iH = sH - 2 * cv;
+
+                using (var tp = new Pen(cTie, 2f)) g.DrawRectangle(tp, iX, iY, iW, iH);
+
+                if (diamond)
                 {
-                    int bY = y0 + colHeight;
-                    int tY = y0;
-
-                    // Base anchor
-                    if (isFoundation)
+                    using var dp2 = new Pen(cTie, 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                    g.DrawPolygon(dp2, new PointF[]
                     {
-                        int footDir = (bx < cx) ? -12 : 12;
-                        g.DrawLine(rebarPen, bx + footDir, bY + 12, bx, bY + 12);
-                        g.DrawLine(rebarPen, bx, bY + 12, bx, bY);
+                        new PointF(iX + iW / 2f, iY),
+                        new PointF(iX + iW,       iY + iH / 2f),
+                        new PointF(iX + iW / 2f,  iY + iH),
+                        new PointF(iX,            iY + iH / 2f)
+                    });
+                }
+
+                if (xcross)
+                {
+                    using var cp = new Pen(Color.FromArgb(180, 28, 28), 1.2f)
+                        { DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot };
+                    for (int i = 1; i < nB - 1; i++)
+                    {
+                        float lx = iX + (float)i / Math.Max(nB - 1, 1) * iW;
+                        g.DrawLine(cp, lx, iY, lx, iY + iH);
+                    }
+                    for (int j = 1; j < nH - 1; j++)
+                    {
+                        float ly = iY + (float)j / Math.Max(nH - 1, 1) * iH;
+                        g.DrawLine(cp, iX, ly, iX + iW, ly);
+                    }
+                }
+
+                int dr = Math.Max(4, Math.Min(8, iW / Math.Max(nB, 1) / 2 + 1));
+                using (var bf = new SolidBrush(cBar))
+                using (var bw = new Pen(Color.White, 1.2f))
+                {
+                    void Dot(float x, float y)
+                    {
+                        g.FillEllipse(bf, x - dr / 2f, y - dr / 2f, dr, dr);
+                        g.DrawEllipse(bw, x - dr / 2f, y - dr / 2f, dr, dr);
+                    }
+                    for (int i = 0; i < nB; i++)
+                    {
+                        float bx = iX + (float)i / Math.Max(nB - 1, 1) * iW;
+                        Dot(bx, iY); Dot(bx, iY + iH);
+                    }
+                    for (int j = 1; j < nH - 1; j++)
+                    {
+                        float by = iY + (float)j / Math.Max(nH - 1, 1) * iH;
+                        Dot(iX, by); Dot(iX + iW, by);
+                    }
+                }
+
+                using var dimPen = new Pen(cDim, 1f);
+                using var dimBr  = new SolidBrush(cDim);
+
+                int bdY = sY - 11;
+                g.DrawLine(dimPen, sX, bdY, sX + sW, bdY);
+                g.DrawLine(dimPen, sX, sY, sX, bdY);
+                g.DrawLine(dimPen, sX + sW, sY, sX + sW, bdY);
+                g.DrawLine(dimPen, sX,      bdY - 3, sX,      bdY + 3);
+                g.DrawLine(dimPen, sX + sW, bdY - 3, sX + sW, bdY + 3);
+                g.DrawString(string.Format("B = {0:0} mm", bMm), fBdy, dimBr,
+                    new RectangleF(sX, bdY - 13, sW, 12), sfC);
+
+                int hdX = sX - 11;
+                g.DrawLine(dimPen, hdX, sY,      hdX, sY + sH);
+                g.DrawLine(dimPen, hdX, sY,      sX, sY);
+                g.DrawLine(dimPen, hdX, sY + sH, sX, sY + sH);
+                g.DrawLine(dimPen, hdX - 3, sY,      hdX + 3, sY);
+                g.DrawLine(dimPen, hdX - 3, sY + sH, hdX + 3, sY + sH);
+                var savedTf = g.Transform;
+                g.TranslateTransform(hdX - 11f, sY + sH / 2f);
+                g.RotateTransform(-90f);
+                g.DrawString(string.Format("H = {0:0} mm", hMm), fBdy, dimBr,
+                    new RectangleF(-sH / 2f, -11, sH, 12), sfC);
+                g.Transform = savedTf;
+
+                using var cvp = new Pen(cDim, 0.7f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
+                g.DrawLine(cvp, sX + sW + 3, sY, sX + sW + 3, iY);
+                g.DrawString(string.Format("c={0:0}", cover), fSml, dimBr, sX + sW + 5, sY + 2);
+
+                string legText = isEn
+                    ? string.Format("{0}ph{1}  ({2}B + {3}H)  Tie: ph{4}", tot, mD, nB, nH, tD)
+                    : string.Format("{0}ph{1}  ({2}xB + {3}xH)  Dai: ph{4}", tot, mD, nB, nH, tD);
+                legText = legText.Replace("ph", "\u03a6");
+                using var sfLeg = new StringFormat { Alignment = StringAlignment.Center };
+                g.DrawString(legText, fSml, new SolidBrush(cOutline),
+                    new RectangleF(ax, sY + sH + 5, aw, 15), sfLeg);
+            }
+
+            // II. ENGINEERING INFO PANEL (right)
+            {
+                int px = leftW + 4, py = HDR + 3;
+                int pw2 = W - leftW - 7, ph2 = topH - py - 3;
+
+                using (var ib = new SolidBrush(Color.FromArgb(250, 251, 252)))
+                    g.FillRectangle(ib, px, py, pw2, ph2);
+                using (var ib2 = new Pen(Color.FromArgb(210, 218, 224), 1f))
+                    g.DrawRectangle(ib2, px, py, pw2, ph2);
+
+                int tx = px + 7, ty = py + 7;
+
+                string sm = mark.Length > 15 ? mark.Substring(0, 14) + "..." : mark;
+                using (var ob = new SolidBrush(cOutline))
+                using (var db = new SolidBrush(cDim))
+                {
+                    g.DrawString(isEn ? "Column" : "Cot", fBdy, db, tx, ty); ty += 8;
+                    g.DrawString(sm, fHdr, ob, tx, ty); ty += 13;
+                    g.DrawString(levelName, fBdy, db, tx, ty); ty += 16;
+                }
+
+                void Div()
+                {
+                    using var dpd = new Pen(Color.FromArgb(218, 225, 230), 1f);
+                    g.DrawLine(dpd, tx, ty + 2, px + pw2 - 5, ty + 2);
+                    ty += 7;
+                }
+                void Row(string lbl, string val, bool bold = false)
+                {
+                    using var db2 = new SolidBrush(cDim);
+                    using var ob2 = new SolidBrush(cOutline);
+                    g.DrawString(lbl, fBdy, db2, tx, ty);
+                    g.DrawString(val, bold ? fLbl : fMon, ob2, tx, ty + 8);
+                    ty += 19;
+                }
+
+                Div();
+                Row(isEn ? "B x H" : "Tiet dien B x H",
+                    string.Format("{0:0} x {1:0} mm", bMm, hMm), true);
+                Row(isEn ? "Height" : "Chieu cao", string.Format("{0:0} mm", heightMm));
+                Div();
+                Row(isEn ? "Main bars" : "Thep chu",
+                    string.Format("{0} \u03a6{1}", tot, mD), true);
+                Row(isEn ? "  B-side" : "  Canh B", string.Format("{0} bars", nB));
+                Row(isEn ? "  H-side" : "  Canh H", string.Format("{0} bars", nH));
+                Div();
+                Row(isEn ? "Stirrups" : "Thep dai", string.Format("\u03a6{0}", tD), true);
+                Row(isEn ? "  Zone A1 (dense)" : "  Vung A1 (day)",
+                    string.Format("@{0:0} mm", a1mm));
+                Row(isEn ? "  Zone A2 (spare)" : "  Vung A2 (thua)",
+                    string.Format("@{0:0} mm", a2mm));
+                Row(isEn ? "Cover" : "Lop bao ve",
+                    string.Format("c = {0:0} mm", cover));
+                Div();
+
+                var flags = new List<string>();
+                if (diamond)  flags.Add(isEn ? "Diamond" : "Dai thoi");
+                if (xcross)   flags.Add(isEn ? "CrossLink" : "Dai C");
+                if (isFdn)    flags.Add(isEn ? "Foundation" : "Mong");
+                if (topHook)  flags.Add(isEn ? "90deg hook" : "Moc 90deg");
+                if (cranked)  flags.Add("1:6");
+                string fs = flags.Count > 0 ? string.Join("  ", flags) : "-";
+                using (var db3 = new SolidBrush(cDim))
+                    g.DrawString(isEn ? "Options" : "Tuy chon", fBdy, db3, tx, ty);
+                ty += 8;
+                using (var ob3 = new SolidBrush(cOutline))
+                    g.DrawString(fs, fSml, ob3, new RectangleF(tx, ty, pw2 - 10, 22), sfL);
+                ty += 22;
+                Div();
+
+                bool ok = a1mm <= a2mm && nB >= 2 && nH >= 2 && cover >= 15;
+                int stY = Math.Min(ty, py + ph2 - 20);
+                using (var stb = new SolidBrush(ok
+                    ? Color.FromArgb(200, 232, 244, 234)
+                    : Color.FromArgb(200, 255, 235, 235)))
+                    g.FillRectangle(stb, px + 4, stY, pw2 - 8, 18);
+                string stMsg = ok
+                    ? (isEn ? "OK  Configuration valid" : "OK  Cau hinh hop le")
+                    : (a1mm > a2mm
+                        ? (isEn ? "! A1 spacing > A2!"   : "! A1 > A2!")
+                        : (isEn ? "! Check inputs"        : "! Kiem tra"));
+                using (var stbr = new SolidBrush(ok ? cOk : cWarn))
+                    g.DrawString(stMsg, fLbl, stbr, px + 8, stY + 4);
+            }
+
+            // III. COLUMN ELEVATION SCHEMATIC (bottom panel)
+            {
+                int botY = topH + HDR + 4;
+                int eh   = H - topH - HDR - 10;
+                if (eh < 40) return;
+
+                int colW = Math.Min(36, Math.Max(20, (int)(W * 0.065)));
+                int colH = eh - 16;
+                int colX = W / 5 - colW / 2;
+                int colY = botY + 4;
+
+                using (var cf = new SolidBrush(cConc))  g.FillRectangle(cf, colX, colY, colW, colH);
+                using (var co = new Pen(cOutline, 1.5f)) g.DrawRectangle(co, colX, colY, colW, colH);
+
+                int a1TopPx = (int)(colH * 0.26);
+                int a1BotPx = (int)(colH * 0.26);
+
+                using (var sp = new Pen(cTie, 1.3f))
+                {
+                    for (int sy = colY + colH - 3; sy > colY + colH - a1BotPx; sy -= 5)
+                        g.DrawLine(sp, colX - 2, sy, colX + colW + 2, sy);
+                    for (int sy = colY + colH - a1BotPx - 4; sy > colY + a1TopPx + 2; sy -= 12)
+                        g.DrawLine(sp, colX - 2, sy, colX + colW + 2, sy);
+                    for (int sy = colY + a1TopPx; sy >= colY + 2; sy -= 5)
+                        g.DrawLine(sp, colX - 2, sy, colX + colW + 2, sy);
+                }
+
+                int bL = colX + 7, bR = colX + colW - 7;
+                using var rp   = new Pen(cBar, 2f);
+                using var dimB = new SolidBrush(cDim);
+
+                if (isFdn)
+                {
+                    int fl = 14;
+                    g.DrawLine(rp, bL - fl, colY + colH + 10, bL, colY + colH + 10);
+                    g.DrawLine(rp, bL, colY + colH + 10, bL, colY);
+                    g.DrawLine(rp, bR + fl, colY + colH + 10, bR, colY + colH + 10);
+                    g.DrawLine(rp, bR, colY + colH + 10, bR, colY);
+                    g.DrawString(isEn ? "L-bend" : "Chan quy", fSml, dimB, colX - 10, colY + colH + 1);
+                }
+                else
+                {
+                    if (cranked)
+                    {
+                        int crY1 = colY + colH - a1BotPx - 4;
+                        int crY2 = crY1 - 10;
+                        g.DrawLine(rp, bL, colY + colH, bL, crY1);
+                        g.DrawLine(rp, bL, crY1, bL - 4, crY2);
+                        g.DrawLine(rp, bL - 4, crY2, bL - 4, colY);
+                        g.DrawLine(rp, bR, colY + colH, bR, crY1);
+                        g.DrawLine(rp, bR, crY1, bR + 4, crY2);
+                        g.DrawLine(rp, bR + 4, crY2, bR + 4, colY);
+                        g.DrawString("1:6", fSml, dimB, bR + 5, crY2);
                     }
                     else
                     {
-                        g.DrawLine(rebarPen, bx, bY + 12, bx, bY);
+                        g.DrawLine(rp, bL, colY + colH, bL, colY);
+                        g.DrawLine(rp, bR, colY + colH, bR, colY);
                     }
-
-                    // Body
-                    if (isCranked && !isTopHook)
-                    {
-                        int crankY1 = y0 + 12;
-                        int crankY2 = y0 - 4;
-                        int crankX = (bx < cx) ? bx + 4 : (bx > cx ? bx - 4 : bx);
-
-                        g.DrawLine(rebarPen, bx, bY, bx, crankY1);
-                        g.DrawLine(rebarPen, bx, crankY1, crankX, crankY2);
-                        g.DrawLine(rebarPen, crankX, crankY2, crankX, y0 - 20);
-                    }
-                    else
-                    {
-                        g.DrawLine(rebarPen, bx, bY, bx, tY);
-                    }
-
-                    // Top Hook
-                    if (isTopHook)
-                    {
-                        int hookDir = (bx < cx) ? 10 : (bx > cx ? -10 : -5);
-                        g.DrawLine(rebarPen, bx, tY, bx, tY + 2);
-                        g.DrawLine(rebarPen, bx, tY + 2, bx + hookDir, tY + 2);
-                    }
+                    using var dp4 = new Pen(cBar, 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                    g.DrawLine(dp4, bL, colY + colH, bL, colY + colH + 12);
+                    g.DrawLine(dp4, bR, colY + colH, bR, colY + colH + 12);
                 }
-            }
 
-            // Đường tim cao độ tầng
-            using (var levelPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot })
-                g.DrawLine(levelPen, x0 - 15, y0 + colHeight, x0 + colWidth + 20, y0 + colHeight);
-            g.DrawString($"▼ {levelName}", fontSmall, Brushes.Black, x0 + colWidth + 2, y0 + colHeight + 2);
-
-            // Thông số mặt đứng
-            int leftX = 6;
-            int rightX = x0 + colWidth + 6;
-            int textY = y0 + colHeight / 2 - 25;
-
-            string heightLabel = isEn ? "Height" : "Chiều cao";
-            string markLabel = isEn ? "Mark" : "Ký hiệu";
-            string mainRebarLabel = isEn ? "Main Rebar" : "Thép chủ";
-            string distLabel = isEn ? "Distribute" : "Phân bố";
-
-            g.DrawString($"{heightLabel} = {heightMm} (mm)\nBxH = {bMm}x{hMm}\n{markLabel}: {mark}", fontSmall, Brushes.Black, leftX, textY);
-            g.DrawString($"{mainRebarLabel}:\n  {totalBars}Φ{diaStr}\n{distLabel}:\n  A1, A2, A1", fontRed, Brushes.Red, rightX, textY);
-
-            // ══════════════════════════════════════════════════════════════════
-            // 3. ĐƯỜNG PHÂN CÁCH (DIVIDER)
-            // ══════════════════════════════════════════════════════════════════
-            int dividerY = y0 + colHeight + 25;
-            using (var divPen = new Pen(Color.FromArgb(220, 220, 230), 1))
-                g.DrawLine(divPen, 8, dividerY, _previewPanel.Width - 8, dividerY);
-
-            // ══════════════════════════════════════════════════════════════════
-            // 4. PHẦN DƯỚI: MẶT CẮT NGANG TIẾT DIỆN (CROSS SECTION BxH PREVIEW)
-            // ══════════════════════════════════════════════════════════════════
-            int secTitleY = dividerY + 6;
-            g.DrawString(isEn ? "2. CROSS SECTION PREVIEW (B x H)" : "2. MẶT CẮT TIẾT DIỆN THÉP CỘT (B x H)", fontTitle, Brushes.DarkBlue, 10, secTitleY);
-
-            // Tính kích thước vẽ tiết diện theo tỷ lệ B / H
-            int secAreaY = secTitleY + 40;
-            int maxBoxW = 140;
-            int maxBoxH = 120;
-            double ratio = (hMm > 0) ? (bMm / hMm) : 1.0;
-            int secW = ratio >= 1.0 ? maxBoxW : (int)(maxBoxH * ratio);
-            int secH = ratio >= 1.0 ? (int)(maxBoxW / ratio) : maxBoxH;
-            secW = Math.Max(secW, 70);
-            secH = Math.Max(secH, 70);
-
-            int secX = (_previewPanel.Width - secW) / 2;
-            int secY = secAreaY + (maxBoxH - secH) / 2;
-
-            // 4.1 Bê tông cột (Nền xanh nhạt + viền đen)
-            using (var secFill = new SolidBrush(Color.FromArgb(235, 245, 235)))
-                g.FillRectangle(secFill, secX, secY, secW, secH);
-            using (var secBorder = new Pen(Color.Black, 2))
-                g.DrawRectangle(secBorder, secX, secY, secW, secH);
-
-            // 4.2 Lớp bảo vệ bê tông (Cover offset)
-            int coverPx = 10;
-            int inX = secX + coverPx;
-            int inY = secY + coverPx;
-            int inW = secW - coverPx * 2;
-            int inH = secH - coverPx * 2;
-
-            // 4.3 Đai ngoài chữ nhật kín màu đỏ (Outer Hoop)
-            using (var outerStirrupPen = new Pen(Color.Red, 2))
-                g.DrawRectangle(outerStirrupPen, inX, inY, inW, inH);
-
-            // 4.4 Đai thoi / Đai lồng (Diamond Hoop) nếu có từ 3 thanh/cạnh
-            if (_chkInnerDiamond != null && _chkInnerDiamond.Checked && barsB >= 3 && barsH >= 3)
-            {
-                using var diamondPen = new Pen(Color.OrangeRed, 1.5f);
-                Point[] diamondPts = new Point[]
+                if (topHook)
                 {
-                    new Point(inX + inW / 2, inY),
-                    new Point(inX + inW, inY + inH / 2),
-                    new Point(inX + inW / 2, inY + inH),
-                    new Point(inX, inY + inH / 2)
-                };
-                g.DrawPolygon(diamondPen, diamondPts);
-            }
-
-            // 4.5 Đai C / Crosslink nếu có
-            if (_chkCrossLinks != null && _chkCrossLinks.Checked)
-            {
-                using var crossPen = new Pen(Color.Purple, 1.2f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dot };
-                if (barsB >= 3)
-                {
-                    for (int i = 1; i < barsB - 1; i++)
-                    {
-                        int lx = inX + (int)((double)i / (barsB - 1) * inW);
-                        g.DrawLine(crossPen, lx, inY, lx, inY + inH);
-                    }
+                    g.DrawLine(rp, bL, colY, bL + 10, colY);
+                    g.DrawLine(rp, bR, colY, bR - 10, colY);
+                    g.DrawString(isEn ? "90deg hook" : "Moc 90deg", fSml, dimB, colX - 8, colY - 12);
                 }
-                if (barsH >= 3)
+                else
                 {
-                    for (int j = 1; j < barsH - 1; j++)
-                    {
-                        int ly = inY + (int)((double)j / (barsH - 1) * inH);
-                        g.DrawLine(crossPen, inX, ly, inX + inW, ly);
-                    }
+                    using var dp5 = new Pen(cBar, 1.5f) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                    g.DrawLine(dp5, bL, colY, bL, colY - 10);
+                    g.DrawLine(dp5, bR, colY, bR, colY - 10);
                 }
-            }
 
-            // 4.6 Các chấm tròn thép chủ (Main Rebar Dots)
-            int dotR = 8;
-            using var barFill = new SolidBrush(Color.Navy);
-            using var barBorder = new Pen(Color.White, 1.2f);
+                int bkX = colX + colW + 10;
+                using var bkp = new Pen(cDim, 0.8f);
+                void Bracket(int y1, int y2, string lbl)
+                {
+                    g.DrawLine(bkp, bkX, y1, bkX, y2);
+                    g.DrawLine(bkp, bkX, y1, bkX + 3, y1);
+                    g.DrawLine(bkp, bkX, y2, bkX + 3, y2);
+                    g.DrawString(lbl, fSml, dimB, bkX + 5, (y1 + y2) / 2 - 7);
+                }
+                Bracket(colY,                  colY + a1TopPx,        string.Format("A1 @{0:0}", a1mm));
+                Bracket(colY + a1TopPx,        colY + colH - a1BotPx, string.Format("A2 @{0:0}", a2mm));
+                Bracket(colY + colH - a1BotPx, colY + colH,           string.Format("A1 @{0:0}", a1mm));
 
-            var barPts = new List<Point>();
+                using var lvp = new Pen(cDim, 0.8f) { DashStyle = System.Drawing.Drawing2D.DashStyle.DashDot };
+                g.DrawLine(lvp, colX - 14, colY + colH, bkX + 60, colY + colH);
+                g.DrawString(string.Format("v {0}", levelName), fSml, dimB, bkX + 62, colY + colH - 6);
 
-            // Cạnh trên & dưới
-            for (int i = 0; i < barsB; i++)
-            {
-                int x = inX + (int)((double)i / (barsB - 1) * inW);
-                barPts.Add(new Point(x, inY));
-                barPts.Add(new Point(x, inY + inH));
-            }
+                using var hap = new Pen(cDim, 0.8f);
+                int hax = colX - 8;
+                g.DrawLine(hap, hax, colY,        hax, colY + colH);
+                g.DrawLine(hap, hax - 3, colY,        hax + 3, colY);
+                g.DrawLine(hap, hax - 3, colY + colH, hax + 3, colY + colH);
 
-            // Cạnh trái & phải
-            for (int j = 1; j < barsH - 1; j++)
-            {
-                int y = inY + (int)((double)j / (barsH - 1) * inH);
-                barPts.Add(new Point(inX, y));
-                barPts.Add(new Point(inX + inW, y));
-            }
-
-            foreach (var pt in barPts)
-            {
-                g.FillEllipse(barFill, pt.X - dotR / 2, pt.Y - dotR / 2, dotR, dotR);
-                g.DrawEllipse(barBorder, pt.X - dotR / 2, pt.Y - dotR / 2, dotR, dotR);
-            }
-
-            // 4.7 Kích thước & Chú thích tiết diện
-            using (var dimPen = new Pen(Color.DarkSlateGray, 1))
-            {
-                // Dim B (Top)
-                g.DrawLine(dimPen, secX, secY - 6, secX + secW, secY - 6);
-                g.DrawLine(dimPen, secX, secY - 9, secX, secY - 3);
-                g.DrawLine(dimPen, secX + secW, secY - 9, secX + secW, secY - 3);
-                using var sfCenter = new StringFormat { Alignment = StringAlignment.Center };
-                g.DrawString($"B = {bMm}", fontSmall, Brushes.Black, secX + secW / 2, secY - 20, sfCenter);
-
-                // Dim H (Right)
-                g.DrawLine(dimPen, secX + secW + 6, secY, secX + secW + 6, secY + secH);
-                g.DrawLine(dimPen, secX + secW + 3, secY, secX + secW + 9, secY);
-                g.DrawLine(dimPen, secX + secW + 3, secY + secH, secX + secW + 9, secY + secH);
-                g.DrawString($"H = {hMm}", fontSmall, Brushes.Black, secX + secW + 10, secY + secH / 2 - 6);
-            }
-
-            // Legend ghi chú dưới cùng
-            int legendY = secY + secH + 8;
-            string secLegend = isEn
-                ? $"Section: {totalBars}Φ{diaStr} ({barsB}xB + {barsH}xH) | Stirrup: Φ{stirrupDiaStr} | Cover: {coverVal}mm"
-                : $"Tiết diện: {totalBars}Φ{diaStr} ({barsB}xB + {barsH}xH) | Đai: Φ{stirrupDiaStr} | Lớp bảo vệ: {coverVal}mm";
-
-            using (var sfLeg = new StringFormat { Alignment = StringAlignment.Center })
-            {
-                g.DrawString(secLegend, fontSmall, Brushes.DarkBlue,
-                    new RectangleF(10, legendY, _previewPanel.Width - 20, 60), sfLeg);
+                using var sfCen = new StringFormat { Alignment = StringAlignment.Center };
+                int lblW = colX - 6;
+                g.DrawString(mark,
+                    fLbl, new SolidBrush(cOutline),
+                    new RectangleF(0, botY + 4,  lblW, 14), sfCen);
+                g.DrawString(string.Format("{0:0} mm", heightMm),
+                    fSml, new SolidBrush(cDim),
+                    new RectangleF(0, botY + 18, lblW, 12), sfCen);
             }
         }
 
