@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -18,7 +18,7 @@ using View = Autodesk.Revit.DB.View;
 
 namespace KhimTools.SheetGen.Forms
 {
-    public class SheetGenForm : KTBaseForm
+    public partial class SheetGenForm : KTBaseForm
     {
         private readonly Document _doc;
         private List<TitleBlockOption> _titleBlocks;
@@ -30,13 +30,20 @@ namespace KhimTools.SheetGen.Forms
         private DataGridView _gridPreview;
         private Label _lblStatus;
         private Button _btnGenerate;
+        private bool _updatingStatus;
 
-        public SheetGenForm(Document doc)
+        public SheetGenForm(Document doc) : this(doc, true) { }
+
+        internal static SheetGenForm CreateLayoutPreview() => new SheetGenForm(null, false);
+
+        private SheetGenForm(Document doc, bool loadDocument)
         {
             _doc = doc;
-            InitializeData();
+            if (loadDocument) InitializeData();
+            else { _titleBlocks = new List<TitleBlockOption>(); _views = new List<ViewOption>(); }
             InitializeComponent();
             ApplyLanguage();
+            if (!loadDocument) _btnGenerate.Enabled = false;
         }
 
         private void InitializeData()
@@ -75,6 +82,7 @@ namespace KhimTools.SheetGen.Forms
             tabPreview.BackColor = System.Drawing.Color.White;
             SetupPreviewTab(tabPreview);
             _tabControl.TabPages.Add(tabPreview);
+            SetupAutoViewSheetTab();
 
             this.Controls.Add(_tabControl);
 
@@ -271,10 +279,12 @@ namespace KhimTools.SheetGen.Forms
             _gridSeries.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Quy Tắc Tên (Name Template: {n})", Width = 230 });
 
             var tbCol = new DataGridViewComboBoxColumn { HeaderText = "Khung Tên (TitleBlock)", Width = 180 };
-            foreach (var tb in _titleBlocks) tbCol.Items.Add(tb.Name);
+            tbCol.Items.Add("<No title block - explicit blank sheet>"); tbCol.Items.Add("<Missing title block>"); foreach (var tb in _titleBlocks) tbCol.Items.Add(tb.Name);
             _gridSeries.Columns.Add(tbCol);
 
             _gridSeries.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Bộ Môn (Discipline)", Width = 110 });
+            _gridSeries.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Hậu Tố (Suffix)", Width = 80 });
+            _gridSeries.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Padding Số", Width = 75 });
         }
 
         private void SetupPreviewTab(TabPage tab)
@@ -340,6 +350,7 @@ namespace KhimTools.SheetGen.Forms
             };
 
             SetupPreviewGridColumns();
+            _gridPreview.CellEndEdit += (sender, args) => { if (args.ColumnIndex < 8) UpdateStatus(); };
             tab.Controls.Add(_gridPreview);
             pnlTop.BringToFront();
             _gridPreview.BringToFront();
@@ -353,7 +364,7 @@ namespace KhimTools.SheetGen.Forms
             _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Tên Bản Vẽ (Sheet Name)", FillWeight = 35 });
 
             var tbCol = new DataGridViewComboBoxColumn { HeaderText = "Khung Tên (TitleBlock)", FillWeight = 25 };
-            foreach (var tb in _titleBlocks) tbCol.Items.Add(tb.Name);
+            tbCol.Items.Add("<No title block - explicit blank sheet>"); tbCol.Items.Add("<Missing title block>"); foreach (var tb in _titleBlocks) tbCol.Items.Add(tb.Name);
             _gridPreview.Columns.Add(tbCol);
 
             var viewCol = new DataGridViewComboBoxColumn { HeaderText = "Gán Viewport (Optional)", FillWeight = 25 };
@@ -364,12 +375,14 @@ namespace KhimTools.SheetGen.Forms
             _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Bộ Môn", FillWeight = 12 });
             _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Người vẽ", FillWeight = 10 });
             _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Kiểm tra", FillWeight = 10 });
+            _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", FillWeight = 16, ReadOnly = true });
+            _gridPreview.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status message", FillWeight = 35, ReadOnly = true });
         }
 
         private void LoadStructuralPreset()
         {
             _gridSeries.Rows.Clear();
-            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "";
+            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "<Missing title block>";
 
             _gridSeries.Rows.Add(true, "Móng & Cọc", "KC-", 1, 3, 1, "MẶT BẰNG & CHI TIẾT MÓNG {n}", defTb, "Structural");
             _gridSeries.Rows.Add(true, "Mặt Bằng Kết Cấu", "KC-", 101, 5, 1, "MẶT BẰNG KẾT CẤU TẦNG {n}", defTb, "Structural");
@@ -383,7 +396,7 @@ namespace KhimTools.SheetGen.Forms
         private void LoadArchitecturalPreset()
         {
             _gridSeries.Rows.Clear();
-            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "";
+            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "<Missing title block>";
 
             _gridSeries.Rows.Add(true, "Mặt Bằng Kiến Trúc", "KT-", 101, 5, 1, "MẶT BẰNG KIẾN TRÚC TẦNG {n}", defTb, "Architectural");
             _gridSeries.Rows.Add(true, "Mặt Đứng Tổng Thể", "KT-", 201, 4, 1, "MẶT ĐỨNG TRỤC {n}", defTb, "Architectural");
@@ -396,7 +409,7 @@ namespace KhimTools.SheetGen.Forms
         private void LoadMepPreset()
         {
             _gridSeries.Rows.Clear();
-            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "";
+            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "<Missing title block>";
 
             _gridSeries.Rows.Add(true, "Hệ Thống Điện", "E-", 101, 5, 1, "MẶT BẰNG HỆ THỐNG ĐIỆN TẦNG {n}", defTb, "Electrical");
             _gridSeries.Rows.Add(true, "Cấp Thoát Nước", "P-", 101, 5, 1, "MẶT BẰNG CẤP THOÁT NƯỚC TẦNG {n}", defTb, "Plumbing");
@@ -407,7 +420,7 @@ namespace KhimTools.SheetGen.Forms
 
         private void AddSeriesRow()
         {
-            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "";
+            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "<Missing title block>";
             _gridSeries.Rows.Add(true, "Phân Hệ Mới", "KC-", 501, 3, 1, "BẢN VẼ CHI TIẾT {n}", defTb, "Structural");
         }
 
@@ -429,8 +442,11 @@ namespace KhimTools.SheetGen.Forms
                     Count = int.TryParse(row.Cells[4].Value?.ToString(), out int cnt) ? cnt : 1,
                     Step = int.TryParse(row.Cells[5].Value?.ToString(), out int st) ? st : 1,
                     NamePattern = row.Cells[6].Value?.ToString() ?? "BẢN VẼ {n}",
-                    TitleBlockName = row.Cells[7].Value?.ToString() ?? "",
-                    Discipline = row.Cells[8].Value?.ToString() ?? "Structural"
+                    TitleBlockName = ((row.Cells[7].Value?.ToString() ?? "").StartsWith("<No title block", StringComparison.OrdinalIgnoreCase) || (row.Cells[7].Value?.ToString() ?? "").StartsWith("<Missing title block", StringComparison.OrdinalIgnoreCase)) ? "" : row.Cells[7].Value?.ToString() ?? "",
+                    Discipline = row.Cells[8].Value?.ToString() ?? "Structural",
+                    Suffix = row.Cells.Count > 9 ? row.Cells[9].Value?.ToString() ?? "" : "",
+                    NumberPadding = row.Cells.Count > 10 && int.TryParse(row.Cells[10].Value?.ToString(), out int padding) ? Math.Max(0, padding) : 2,
+                    AllowBlankTitleBlock = (row.Cells[7].Value?.ToString() ?? "").StartsWith("<No title block", StringComparison.OrdinalIgnoreCase)
                 });
             }
 
@@ -439,7 +455,7 @@ namespace KhimTools.SheetGen.Forms
 
             foreach (var it in items)
             {
-                _gridPreview.Rows.Add(true, it.SheetNumber, it.SheetName, it.TitleBlockName, "<Không gán View>", it.Discipline, "", "");
+                _gridPreview.Rows.Add(true, it.SheetNumber, it.SheetName, string.IsNullOrWhiteSpace(it.TitleBlockName) ? (it.AllowBlankTitleBlock ? "<No title block - explicit blank sheet>" : "<Missing title block>") : it.TitleBlockName, "<Không gán View>", it.Discipline, "", "", SheetGenStatusCodes.ToDisplayCode(it.StatusCode), it.StatusMessage);
             }
 
             UpdateStatus();
@@ -453,8 +469,8 @@ namespace KhimTools.SheetGen.Forms
 
         private void AddSinglePreviewRow()
         {
-            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "";
-            _gridPreview.Rows.Add(true, "NEW-01", "TÊN BẢN VẼ MỚI", defTb, "<Không gán View>", "Structural", "", "");
+            string defTb = _titleBlocks.FirstOrDefault()?.Name ?? "<Missing title block>";
+            _gridPreview.Rows.Add(true, "NEW-01", "TÊN BẢN VẼ MỚI", defTb, "<Không gán View>", "Structural", "", "", "Ready", "");
             UpdateStatus();
         }
 
@@ -474,11 +490,34 @@ namespace KhimTools.SheetGen.Forms
 
         private void UpdateStatus()
         {
-            int total = _gridPreview.Rows.Count;
-            int selected = _gridPreview.Rows.Cast<DataGridViewRow>().Count(r => Convert.ToBoolean(r.Cells[0].Value));
-            _lblStatus.Text = LanguageManager.IsEnglish
-                ? $"Total: {total} Sheets generated ({selected} selected for creation)"
-                : $"Tổng cộng: {total} Sheet đã sinh ({selected} được chọn tạo vào Revit)";
+            if (_updatingStatus) return;
+            _updatingStatus = true;
+            try
+            {
+                int total = _gridPreview.Rows.Count;
+                int selected = _gridPreview.Rows.Cast<DataGridViewRow>().Count(r => Convert.ToBoolean(r.Cells[0].Value ?? false));
+                _lblStatus.Text = LanguageManager.IsEnglish
+                    ? $"Total: {total} Sheets generated ({selected} selected for creation)"
+                    : $"Tổng cộng: {total} Sheet đã sinh ({selected} được chọn tạo vào Revit)";
+                RefreshPreviewStatus();
+            }
+            finally { _updatingStatus = false; }
+        }
+
+        private void RefreshPreviewStatus()
+        {
+            if (_doc == null || _gridPreview == null || _gridPreview.Rows.Count == 0) return;
+            var items = CollectItemsFromGrid();
+            var checks = SheetGenPreflightService.Validate(_doc, items);
+            bool canCreate = false;
+            for (int i = 0; i < checks.Count && i < _gridPreview.Rows.Count; i++)
+            {
+                var row = _gridPreview.Rows[i];
+                row.Cells[8].Value = SheetGenStatusCodes.ToDisplayCode(checks[i].Code);
+                row.Cells[9].Value = checks[i].Message;
+                if (items[i].IsSelected && checks[i].CanCreate) canCreate = true;
+            }
+            _btnGenerate.Enabled = canCreate;
         }
 
         private void ExportCsv()
@@ -509,21 +548,30 @@ namespace KhimTools.SheetGen.Forms
                 Title = "Import Danh Mục Sheet từ CSV"
             })
             {
-                if (ofd.ShowDialog() == DialogResult.OK)
+                if (ofd.ShowDialog() != DialogResult.OK) return;
+                var importedResult = SheetGenService.ImportFromCsvDetailed(ofd.FileName, _titleBlocks, _views);
+                if (importedResult.Items.Any())
                 {
-                    var imported = SheetGenService.ImportFromCsv(ofd.FileName, _titleBlocks);
-                    if (imported.Any())
+                    _gridPreview.Rows.Clear();
+                    foreach (var it in importedResult.Items)
                     {
-                        _gridPreview.Rows.Clear();
-                        foreach (var it in imported)
-                        {
-                            _gridPreview.Rows.Add(true, it.SheetNumber, it.SheetName, it.TitleBlockName, "<Không gán View>", it.Discipline, it.DrawnBy, it.CheckedBy);
-                        }
-                        UpdateStatus();
-                        _tabControl.SelectedIndex = 1;
-                        TaskDialog.Show("Import Sheet", $"Đã nạp thành công {imported.Count} Sheet từ file CSV!");
+                        var importedView = _views.FirstOrDefault(v => string.Equals(v.UniqueId, it.AssignedViewUniqueId, StringComparison.Ordinal) ||
+                                                                       string.Equals(v.Name, it.AssignedViewName, StringComparison.OrdinalIgnoreCase));
+                        string viewDisplay = importedView == null ? "<Không gán View>" : importedView.ToString();
+                        _gridPreview.Rows.Add(it.IsSelected, it.SheetNumber, it.SheetName,
+                            string.IsNullOrWhiteSpace(it.TitleBlockName) ? (it.AllowBlankTitleBlock ? "<No title block - explicit blank sheet>" : "<Missing title block>") : it.TitleBlockName,
+                            viewDisplay,
+                            it.Discipline, it.DrawnBy, it.CheckedBy, SheetGenStatusCodes.ToDisplayCode(it.StatusCode), it.StatusMessage);
                     }
+                    UpdateStatus();
+                    _tabControl.SelectedIndex = 1;
                 }
+
+                string detail = importedResult.Diagnostics.Count == 0 ? "" :
+                    Environment.NewLine + Environment.NewLine +
+                    string.Join(Environment.NewLine, importedResult.Diagnostics.Take(12).Select(d => d.ToString()));
+                TaskDialog.Show("Import Sheet",
+                    $"Đã nạp {importedResult.Items.Count} Sheet. Diagnostics: {importedResult.Diagnostics.Count}.{detail}");
             }
         }
 
@@ -533,25 +581,37 @@ namespace KhimTools.SheetGen.Forms
             foreach (DataGridViewRow row in _gridPreview.Rows)
             {
                 if (row.IsNewRow) continue;
-
+                string titleBlockCell = row.Cells[3].Value?.ToString() ?? "";
                 var item = new SheetGenItem
                 {
                     IsSelected = Convert.ToBoolean(row.Cells[0].Value ?? false),
                     SheetNumber = row.Cells[1].Value?.ToString()?.Trim() ?? "",
                     SheetName = row.Cells[2].Value?.ToString()?.Trim() ?? "",
-                    TitleBlockName = row.Cells[3].Value?.ToString() ?? "",
+                    TitleBlockName = (titleBlockCell.StartsWith("<No title block", StringComparison.OrdinalIgnoreCase) || titleBlockCell.StartsWith("<Missing title block", StringComparison.OrdinalIgnoreCase)) ? "" : titleBlockCell,
+                    AllowBlankTitleBlock = titleBlockCell.StartsWith("<No title block", StringComparison.OrdinalIgnoreCase),
                     AssignedViewName = row.Cells[4].Value?.ToString() ?? "",
                     Discipline = row.Cells[5].Value?.ToString() ?? "",
                     DrawnBy = row.Cells[6].Value?.ToString()?.Trim() ?? "",
                     CheckedBy = row.Cells[7].Value?.ToString()?.Trim() ?? ""
                 };
 
-                var tb = _titleBlocks.FirstOrDefault(t => t.Name == item.TitleBlockName);
-                if (tb != null) item.TitleBlockId = tb.Id;
+                var tb = _titleBlocks.FirstOrDefault(t => string.Equals(t.Name, item.TitleBlockName, StringComparison.OrdinalIgnoreCase));
+                if (tb != null) { item.TitleBlockId = tb.Id; item.TitleBlockName = tb.Name; item.TitleBlockUniqueId = tb.UniqueId; }
 
-                var v = _views.FirstOrDefault(vw => vw.ToString() == item.AssignedViewName);
-                if (v != null) item.AssignedViewId = v.Id;
+                SheetGenStatusCode importedStatus;
+                if (SheetGenStatusCodes.TryParse(row.Cells[8].Value?.ToString(), out importedStatus)) item.StatusCode = importedStatus;
+                item.StatusMessage = row.Cells[9].Value?.ToString() ?? "";
 
+                var v = _views.FirstOrDefault(vw => vw.ToString() == item.AssignedViewName ||
+                                                    string.Equals(vw.Name, item.AssignedViewName, StringComparison.OrdinalIgnoreCase));
+                if (v != null)
+                {
+                    item.AssignedViewId = v.Id;
+                    item.AssignedViewUniqueId = v.UniqueId;
+                    item.AssignedViewType = v.ViewType;
+                    item.ContentKind = v.ContentKind;
+                    item.AssignedViewName = v.Name;
+                }
                 list.Add(item);
             }
             return list;
@@ -568,32 +628,35 @@ namespace KhimTools.SheetGen.Forms
 
             _btnGenerate.Enabled = false;
             _btnGenerate.Text = LanguageManager.IsEnglish ? "Creating..." : "Đang tạo Sheet...";
-
             try
             {
-                var (created, errors) = SheetGenService.CreateSheets(_doc, items);
+                var result = SheetGenService.CreateSheetsDetailed(_doc, items);
+                string summary = LanguageManager.IsEnglish
+                    ? "Requested: " + result.Requested + Environment.NewLine +
+                      "Valid: " + result.Valid + Environment.NewLine +
+                      "Created: " + result.Created + Environment.NewLine +
+                      "Skipped: " + result.Skipped + Environment.NewLine +
+                      "Failed: " + result.Failed
+                    : "Yêu cầu: " + result.Requested + Environment.NewLine +
+                      "Hợp lệ: " + result.Valid + Environment.NewLine +
+                      "Đã tạo: " + result.Created + Environment.NewLine +
+                      "Bỏ qua: " + result.Skipped + Environment.NewLine +
+                      "Lỗi: " + result.Failed;
+                var details = result.Results.Where(r => r.Status != SheetGenStatusCode.Created)
+                    .Take(15).Select(r => $"{r.SheetNumber}: {r.Status} - {r.StatusText}").ToList();
+                if (details.Any()) summary += Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, details);
+                TaskDialog.Show("Kết Quả Tạo Sheet", summary);
 
-                string resultMsg = LanguageManager.IsEnglish
-                    ? $"Successfully created {created} / {items.Count} Sheets into project!"
-                    : $"Đã tạo thành công {created} / {items.Count} Sheet vào dự án!";
-
-                if (errors.Any())
+                if (result.Created > 0 && result.Failed == 0 && result.Skipped == 0)
                 {
-                    resultMsg += "\n\n" + (LanguageManager.IsEnglish ? "Warnings/Errors:" : "Chi tiết lưu ý:") + "\n" + string.Join("\n", errors.Take(10));
-                }
-
-                TaskDialog.Show("Kết Quả Tạo Sheet", resultMsg);
-
-                if (created > 0)
-                {
-                    this.DialogResult = DialogResult.OK;
-                    this.Close();
+                    DialogResult = DialogResult.OK;
+                    Close();
                 }
             }
             finally
             {
-                _btnGenerate.Enabled = true;
                 _btnGenerate.Text = LanguageManager.IsEnglish ? "🚀 CREATE ALL SHEETS" : "🚀 TẠO TẤT CẢ SHEET VÀO REVIT";
+                RefreshPreviewStatus();
             }
         }
 

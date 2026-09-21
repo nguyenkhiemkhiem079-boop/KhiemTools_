@@ -1,11 +1,8 @@
-﻿using System;
 using Autodesk.Revit.DB;
 
 namespace KhimTools.SheetGen.Models
 {
-    /// <summary>
-    /// Cấu hình thông tin cho một phân hệ / chuỗi bản vẽ (Sheet Series).
-    /// </summary>
+    /// <summary>Configuration for one sheet series. Defaults remain compatible with the original SheetGen UI.</summary>
     public class SheetSeriesConfig
     {
         public bool IsEnabled { get; set; } = true;
@@ -15,9 +12,11 @@ namespace KhimTools.SheetGen.Models
         public int Count { get; set; } = 5;
         public int Step { get; set; } = 1;
         public string Suffix { get; set; } = "";
+        public int NumberPadding { get; set; } = 2;
         public string NamePattern { get; set; } = "MẶT BẰNG TẦNG {n}";
         public string TitleBlockName { get; set; } = "";
         public ElementId TitleBlockId { get; set; } = ElementId.InvalidElementId;
+        public bool AllowBlankTitleBlock { get; set; }
         public string Discipline { get; set; } = "Structural";
     }
 }
