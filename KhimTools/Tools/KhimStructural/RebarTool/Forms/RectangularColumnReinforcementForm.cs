@@ -1124,7 +1124,7 @@ namespace KhimTools.RebarTool.Forms
                 int sY = ay + dimVTop  + (mxH - sH) / 2;
 
                 using (var cb = new SolidBrush(cConc)) g.FillRectangle(cb, sX, sY, sW, sH);
-                g.SetClip(new Rectangle(sX, sY, sW, sH));
+                g.SetClip(new System.Drawing.Rectangle(sX, sY, sW, sH));
                 using (var hp = new Pen(cHatch, 0.7f))
                     for (int d = -(sH + 2); d < sW + 2; d += 10)
                         g.DrawLine(hp, sX + d, sY, sX + d + sH, sY + sH);
