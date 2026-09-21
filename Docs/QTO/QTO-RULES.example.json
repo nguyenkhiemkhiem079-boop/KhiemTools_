@@ -1,0 +1,80 @@
+{
+  "profileId": "KTOOLS-QTO-BASELINE",
+  "version": "1.0.0",
+  "name": "K-TOOLS QTO Baseline",
+  "classificationSystem": "PROJECT",
+  "rounding": {
+    "length": 2,
+    "area": 2,
+    "volume": 3,
+    "mass": 1,
+    "count": 0
+  },
+  "rules": [
+    {
+      "id": "WALL-CONCRETE-VOLUME",
+      "itemCode": "STR-CONC-WALL",
+      "description": "Concrete wall",
+      "match": {
+        "categories": ["OST_Walls"],
+        "materialNameContains": ["concrete", "betong", "bê tông"]
+      },
+      "requiredFields": ["Type Mark", "Level", "Material"],
+      "sourcePriority": ["MaterialVolume", "HostVolume", "CalculatedGeometry"],
+      "unit": "m3",
+      "wastePercent": 0,
+      "minimumQuantity": 0,
+      "groupBy": ["ItemCode", "Material", "Level"]
+    },
+    {
+      "id": "FLOOR-FINISH-AREA",
+      "itemCode": "ARC-FIN-FLOOR",
+      "description": "Floor finish",
+      "match": {
+        "categories": ["OST_Floors"],
+        "typeNameContains": ["finish", "tile", "hoàn thiện", "gạch"]
+      },
+      "requiredFields": ["Type Mark", "Level"],
+      "sourcePriority": ["MaterialArea", "HostArea"],
+      "unit": "m2",
+      "wastePercent": 5,
+      "minimumQuantity": 0,
+      "groupBy": ["ItemCode", "Type", "Level"]
+    },
+    {
+      "id": "DOOR-COUNT",
+      "itemCode": "ARC-DOOR",
+      "description": "Door set",
+      "match": {
+        "categories": ["OST_Doors"]
+      },
+      "requiredFields": ["Mark", "Type Mark", "Level"],
+      "sourcePriority": ["Count"],
+      "unit": "ea",
+      "wastePercent": 0,
+      "minimumQuantity": 1,
+      "groupBy": ["ItemCode", "Family", "Type"]
+    },
+    {
+      "id": "REBAR-MASS",
+      "itemCode": "STR-REBAR",
+      "description": "Reinforcement steel",
+      "match": {
+        "categories": ["OST_Rebar"]
+      },
+      "requiredFields": ["Bar Diameter"],
+      "sourcePriority": ["RebarVolume", "TotalBarLength"],
+      "unit": "kg",
+      "densityKgPerM3": 7850,
+      "wastePercent": 3,
+      "minimumQuantity": 0,
+      "groupBy": ["ItemCode", "BarDiameter"]
+    }
+  ],
+  "qa": {
+    "blockOnMissingClassification": true,
+    "blockOnInvalidLink": true,
+    "warnOnGeometryFallback": true,
+    "quantityVarianceTolerancePercent": 1.0
+  }
+}
