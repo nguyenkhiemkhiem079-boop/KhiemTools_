@@ -17,6 +17,7 @@ using Panel = System.Windows.Forms.Panel;
 using Button = System.Windows.Forms.Button;
 using Label = System.Windows.Forms.Label;
 using TextBox = System.Windows.Forms.TextBox;
+using ComboBox = System.Windows.Forms.ComboBox;
 using CheckBox = System.Windows.Forms.CheckBox;
 using RadioButton = System.Windows.Forms.RadioButton;
 using GroupBox = System.Windows.Forms.GroupBox;
@@ -31,9 +32,10 @@ namespace KhimTools.ViewportAlign.Forms
         private readonly UIDocument _uidoc;
         private readonly Document _doc;
         private Viewport _sourceViewport;
+        private ScheduleSheetInstance _sourceSchedule;
         private View _sourceView;
         private ViewSheet _sourceSheet;
-        private readonly List<ViewSheet> _allSheets;
+        private List<ViewSheet> _allSheets;
 
         // UI Controls
         private TextBox _txtSearch;
@@ -41,6 +43,9 @@ namespace KhimTools.ViewportAlign.Forms
         private TreeView _treeSheets;
         private Label _lblTemplateName;
         private Button _btnSelectTemplate;
+        private Button _btnSelectSchedule;
+        private ComboBox _cmbOperation;
+        private Label _lblPreview;
 
         // Arrange Options
         private RadioButton _rdViewsAndTitles;
@@ -59,6 +64,35 @@ namespace KhimTools.ViewportAlign.Forms
         private bool _isUpdatingTree = false;
 
         public Viewport SourceViewport => _sourceViewport;
+        public ScheduleSheetInstance SourceSchedule => _sourceSchedule;
+        public AlignmentReference SourceReference
+        {
+            get
+            {
+                try
+                {
+                    if (_sourceViewport != null) return ViewportAlignService.CreateViewportReference(_doc, _sourceViewport);
+                    if (_sourceSchedule != null) return ViewportAlignService.CreateScheduleReference(_doc, _sourceSchedule);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("[ViewportAlign] source reference unavailable: " + ex.Message);
+                }
+                return null;
+            }
+        }
+        public AlignmentOperation SelectedOperation
+        {
+            get
+            {
+                if (_cmbOperation?.SelectedItem is AlignmentOperation operation) return operation;
+                return SelectedArrangeMode == ArrangeMode.ViewsOnly
+                    ? AlignmentOperation.MATCH_CENTER
+                    : SelectedArrangeMode == ArrangeMode.TitlesOnly
+                        ? AlignmentOperation.MATCH_TITLE
+                        : AlignmentOperation.MATCH_VIEW_AND_TITLE;
+            }
+        }
         public ArrangeMode SelectedArrangeMode
         {
             get
@@ -83,12 +117,7 @@ namespace KhimTools.ViewportAlign.Forms
                 _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
             }
 
-            _allSheets = _doc == null ? new List<ViewSheet>() : new FilteredElementCollector(_doc)
-                .OfClass(typeof(ViewSheet))
-                .Cast<ViewSheet>()
-                .Where(s => !s.IsPlaceholder)
-                .OrderBy(s => s.SheetNumber)
-                .ToList();
+            ReloadDocumentState();
 
             BuildUi();
             PopulateTree();
@@ -171,7 +200,7 @@ namespace KhimTools.ViewportAlign.Forms
             {
                 Text = isEn ? "Source Viewport" : "Viewport Mẫu (Source)",
                 Dock = DockStyle.Top,
-                Height = 135,
+                Height = 175,
                 Padding = new Padding(12, 10, 12, 10),
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 41, 59)
@@ -212,6 +241,20 @@ namespace KhimTools.ViewportAlign.Forms
             _btnSelectTemplate.FlatAppearance.BorderSize = 0;
             _btnSelectTemplate.Click += (s, e) => PickSourceViewportInteractively();
 
+            _btnSelectSchedule = new Button
+            {
+                Text = isEn ? "Select Schedule Reference" : "Chọn Schedule Mẫu",
+                Dock = DockStyle.Bottom,
+                Height = 30,
+                BackColor = Color.FromArgb(14, 116, 144),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold)
+            };
+            _btnSelectSchedule.FlatAppearance.BorderSize = 0;
+            _btnSelectSchedule.Click += (s, e) => PickSourceScheduleInteractively();
+
+            grpSource.Controls.Add(_btnSelectSchedule);
             grpSource.Controls.Add(_btnSelectTemplate);
             grpSource.Controls.Add(_lblTemplateName);
             grpSource.Controls.Add(lblSourceTitle);
@@ -263,6 +306,22 @@ namespace KhimTools.ViewportAlign.Forms
             flpArrange.Controls.Add(_rdViewsAndTitles);
             flpArrange.Controls.Add(_rdViewsOnly);
             flpArrange.Controls.Add(_rdTitlesOnly);
+
+            _cmbOperation = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Width = 300,
+                Height = 28,
+                Margin = new Padding(3, 8, 3, 3)
+            };
+            foreach (AlignmentOperation operation in Enum.GetValues(typeof(AlignmentOperation)))
+                _cmbOperation.Items.Add(operation);
+            _cmbOperation.SelectedItem = AlignmentOperation.MATCH_VIEW_AND_TITLE;
+            _rdViewsAndTitles.CheckedChanged += (s, e) => { if (_rdViewsAndTitles.Checked) _cmbOperation.SelectedItem = AlignmentOperation.MATCH_VIEW_AND_TITLE; };
+            _rdViewsOnly.CheckedChanged += (s, e) => { if (_rdViewsOnly.Checked) _cmbOperation.SelectedItem = AlignmentOperation.MATCH_CENTER; };
+            _rdTitlesOnly.CheckedChanged += (s, e) => { if (_rdTitlesOnly.Checked) _cmbOperation.SelectedItem = AlignmentOperation.MATCH_TITLE; };
+            _cmbOperation.SelectedIndexChanged += (s, e) => UpdatePreviewSummary();
+            flpArrange.Controls.Add(_cmbOperation);
             grpArrange.Controls.Add(flpArrange);
             rightPanel.Controls.Add(grpArrange);
 
@@ -303,6 +362,19 @@ namespace KhimTools.ViewportAlign.Forms
             grpAutoSelect.Controls.Add(flpAutoSelect);
             rightPanel.Controls.Add(grpAutoSelect);
 
+            _lblPreview = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                AutoEllipsis = true,
+                Padding = new Padding(4),
+                ForeColor = Color.FromArgb(71, 85, 105),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Text = isEn ? "Preview: no targets selected" : "Xem trước: chưa chọn đối tượng"
+            };
+            rightPanel.Controls.Add(_lblPreview);
+
             Controls.Add(rightPanel);
 
             // ══════════════════════════════════════════════════════════════════
@@ -341,6 +413,7 @@ namespace KhimTools.ViewportAlign.Forms
             _btnRefresh.Click += (s, e) =>
             {
                 _txtSearch.Text = "";
+                ReloadDocumentState();
                 PopulateTree();
             };
 
@@ -367,6 +440,13 @@ namespace KhimTools.ViewportAlign.Forms
 
         private string GetSourceViewportDisplay()
         {
+            if (_sourceSchedule != null)
+            {
+                string scheduleName = _doc?.GetElement(_sourceSchedule.ScheduleId) is ViewSchedule schedule
+                    ? schedule.Name
+                    : (LanguageManager.IsEnglish ? "Schedule" : "Bảng thống kê");
+                return $" [Schedule] {scheduleName}";
+            }
             if (_sourceViewport == null) return " <None>";
             string sheetNum = _sourceSheet?.SheetNumber ?? "";
             string viewName = _sourceView?.Name ?? "Viewport";
@@ -388,9 +468,11 @@ namespace KhimTools.ViewportAlign.Forms
                 if (pickedRef != null && _doc.GetElement(pickedRef) is Viewport vp)
                 {
                     _sourceViewport = vp;
+                    _sourceSchedule = null;
                     _sourceView = _doc.GetElement(_sourceViewport.ViewId) as View;
                     _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
                     _lblTemplateName.Text = GetSourceViewportDisplay();
+                    UpdatePreviewSummary();
                 }
             }
             catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
@@ -405,6 +487,79 @@ namespace KhimTools.ViewportAlign.Forms
             }
         }
 
+        private void PickSourceScheduleInteractively()
+        {
+            Hide();
+            try
+            {
+                Reference pickedRef = _uidoc.Selection.PickObject(
+                    ObjectType.Element,
+                    new ScheduleSelectionFilter(),
+                    LanguageManager.IsEnglish
+                        ? "Select source Schedule on Sheet to use as alignment reference"
+                        : "Chọn Schedule nguồn trên Sheet để làm tham chiếu");
+
+                if (pickedRef != null && _doc.GetElement(pickedRef) is ScheduleSheetInstance schedule)
+                {
+                    _sourceSchedule = schedule;
+                    _sourceViewport = null;
+                    _sourceView = _doc.GetElement(schedule.ScheduleId) as View;
+                    _sourceSheet = _doc.GetElement(schedule.OwnerViewId) as ViewSheet;
+                    _lblTemplateName.Text = GetSourceViewportDisplay();
+                    UpdatePreviewSummary();
+                }
+            }
+            catch (Autodesk.Revit.Exceptions.OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Khim Tools", ex.Message);
+            }
+            finally
+            {
+                Show();
+                BringToFront();
+            }
+        }
+
+        private void ReloadDocumentState()
+        {
+            if (_allSheets == null) _allSheets = new List<ViewSheet>();
+            _allSheets.Clear();
+            if (_doc == null) return;
+            _allSheets.AddRange(new FilteredElementCollector(_doc)
+                .OfClass(typeof(ViewSheet))
+                .Cast<ViewSheet>()
+                .Where(s => s != null && !s.IsPlaceholder)
+                .OrderBy(s => s.SheetNumber ?? "")
+                .ToList());
+        }
+
+        private void UpdatePreviewSummary()
+        {
+            if (_lblPreview == null) return;
+            int selected = _treeSheets?.Nodes.Cast<TreeNode>()
+                .SelectMany(n => n.Nodes.Cast<TreeNode>())
+                .Count(n => n.Checked) ?? 0;
+            string sourceKind = _sourceSchedule != null ? "SCHEDULE" : _sourceViewport != null ? "VIEWPORT" : "NONE";
+            int ready = 0;
+            int blocked = 0;
+            var source = SourceReference;
+            if (source != null && _treeSheets != null)
+            {
+                var selectedItems = _treeSheets.Nodes.Cast<TreeNode>()
+                    .SelectMany(n => n.Nodes.Cast<TreeNode>())
+                    .Where(n => n.Checked && n.Tag is TargetViewItem)
+                    .Select(n => (TargetViewItem)n.Tag)
+                    .ToList();
+                var rows = ViewportAlignmentPreflightService.Run(_doc, source, selectedItems, SelectedOperation);
+                ready = rows.Count(r => r.CanExecute);
+                blocked = rows.Count - ready;
+            }
+            _lblPreview.Text = LanguageManager.IsEnglish
+                ? $"Preview — Source: {sourceKind}; Operation: {SelectedOperation}; Selected: {selected}; Ready: {ready}; Blocked: {blocked}"
+                : $"Xem trước — Nguồn: {sourceKind}; Thao tác: {SelectedOperation}; Đã chọn: {selected}; Sẵn sàng: {ready}; Bị chặn: {blocked}";
+        }
+
         private void PopulateTree()
         {
             _isUpdatingTree = true;
@@ -415,21 +570,21 @@ namespace KhimTools.ViewportAlign.Forms
 
             foreach (var sheet in _allSheets)
             {
-                var viewsOnSheet = ViewportAlignService.GetViewsOnSheet(_doc, sheet);
+                var viewsOnSheet = ViewportAlignmentCollector.Collect(_doc, sheet);
                 if (!viewsOnSheet.Any()) continue;
 
                 // Kiểm tra bộ lọc từ khóa
                 bool sheetMatches = string.IsNullOrEmpty(search) ||
-                                    sheet.SheetNumber.ToLowerInvariant().Contains(search) ||
-                                    sheet.Name.ToLowerInvariant().Contains(search);
+                                    (sheet.SheetNumber ?? "").ToLowerInvariant().Contains(search) ||
+                                    (sheet.Name ?? "").ToLowerInvariant().Contains(search);
 
                 var matchingViews = string.IsNullOrEmpty(search)
                     ? viewsOnSheet
-                    : viewsOnSheet.Where(v => sheetMatches || v.ViewName.ToLowerInvariant().Contains(search)).ToList();
+                    : viewsOnSheet.Where(v => sheetMatches || (v.ViewName ?? "").ToLowerInvariant().Contains(search)).ToList();
 
                 if (!matchingViews.Any()) continue;
 
-                string sheetTitle = $"{sheet.SheetNumber} - {sheet.Name}";
+                string sheetTitle = $"{sheet.SheetNumber ?? ""} - {sheet.Name ?? ""}";
                 var sheetNode = new TreeNode(sheetTitle)
                 {
                     Tag = sheet,
@@ -439,7 +594,8 @@ namespace KhimTools.ViewportAlign.Forms
                 foreach (var viewItem in matchingViews)
                 {
                     // Đánh dấu nếu là viewport mẫu
-                    bool isSource = (_sourceViewport != null && viewItem.ViewportOrScheduleId == _sourceViewport.Id);
+                    bool isSource = (_sourceViewport != null && viewItem.ViewportOrScheduleId == _sourceViewport.Id) ||
+                                    (_sourceSchedule != null && viewItem.ViewportOrScheduleId == _sourceSchedule.Id);
                     string viewTitle = isSource ? $"{viewItem.ViewName} (Source Reference)" : viewItem.ViewName;
 
                     var viewNode = new TreeNode(viewTitle)
@@ -458,6 +614,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _treeSheets.EndUpdate();
             _isUpdatingTree = false;
+            UpdatePreviewSummary();
         }
 
         private void FilterTree()
@@ -500,6 +657,7 @@ namespace KhimTools.ViewportAlign.Forms
             finally
             {
                 _isUpdatingTree = false;
+                UpdatePreviewSummary();
             }
         }
 
@@ -556,12 +714,12 @@ namespace KhimTools.ViewportAlign.Forms
 
         private void ExecuteAlignment()
         {
-            if (_sourceViewport == null)
+            if (SourceReference == null)
             {
                 TaskDialog.Show("Khim Tools",
                     LanguageManager.IsEnglish
-                        ? "Please select a Source Viewport template first."
-                        : "Vui lòng chọn một Viewport mẫu trước khi căn chỉnh.");
+                        ? "Please select a source Viewport or Schedule reference first."
+                        : "Vui lòng chọn Viewport hoặc Schedule nguồn trước khi căn chỉnh.");
                 return;
             }
 
@@ -573,11 +731,8 @@ namespace KhimTools.ViewportAlign.Forms
                 {
                     if (viewNode.Checked && viewNode.Tag is TargetViewItem item)
                     {
-                        // Không căn chỉnh lại chính Viewport mẫu
-                        if (item.ViewportOrScheduleId != _sourceViewport.Id)
-                        {
-                            SelectedTargetViews.Add(item);
-                        }
+                        // Keep the reference in the selection so preflight can report SOURCE_REFERENCE.
+                        SelectedTargetViews.Add(item);
                     }
                 }
             }
@@ -598,6 +753,12 @@ namespace KhimTools.ViewportAlign.Forms
         private class ViewportSelectionFilter : ISelectionFilter
         {
             public bool AllowElement(Element elem) => elem is Viewport;
+            public bool AllowReference(Reference reference, XYZ position) => false;
+        }
+
+        private class ScheduleSelectionFilter : ISelectionFilter
+        {
+            public bool AllowElement(Element elem) => elem is ScheduleSheetInstance;
             public bool AllowReference(Reference reference, XYZ position) => false;
         }
     }

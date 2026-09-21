@@ -13,9 +13,7 @@ using DialogResult = System.Windows.Forms.DialogResult;
 
 namespace KhimTools.ViewportAlign.Commands
 {
-    /// <summary>
-    /// Command: Đồng bộ và Căn chỉnh vị trí Viewport, View Titles và Bảng thống kê giữa các Sheet.
-    /// </summary>
+    /// <summary>Command identity preserved for ribbon and workspace integrations.</summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class CmdAlignViewport : IExternalCommand
@@ -24,7 +22,6 @@ namespace KhimTools.ViewportAlign.Commands
         {
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc?.Document;
-
             if (doc == null)
             {
                 TaskDialog.Show("Khim Tools", "Không tìm thấy tài liệu Revit đang mở.");
@@ -34,122 +31,167 @@ namespace KhimTools.ViewportAlign.Commands
             try
             {
                 Viewport preSelectedVp = null;
-
-                // 1. Kiểm tra xem người dùng đã chọn sẵn Viewport trên Sheet chưa
                 var selectedIds = uidoc.Selection.GetElementIds();
                 if (selectedIds.Count == 1)
-                {
                     preSelectedVp = doc.GetElement(selectedIds.First()) as Viewport;
-                }
 
-                // 2. Mở form tương tác chuyên nghiệp (tự động load viewport mẫu nếu có, hoặc cho phép pick trên form)
                 var form = new AlignViewportForm(uidoc, preSelectedVp);
                 if (form.ShowDialog() != DialogResult.OK)
+                    return Result.Cancelled;
+
+                AlignmentReference source = form.SourceReference;
+                if (source == null && form.SourceViewport != null)
+                    source = ViewportAlignService.CreateViewportReference(doc, form.SourceViewport);
+                var targets = form.SelectedTargetViews ?? new List<TargetViewItem>();
+                AlignmentOperation operation = form.SelectedOperation;
+                if (source == null || targets.Count == 0)
+                    return Result.Cancelled;
+
+                // Re-resolve the reference after the modal form closes so stale element state cannot drive a transaction.
+                source = source.ReferenceType == AlignmentReferenceType.VIEWPORT
+                    ? ViewportAlignService.CreateViewportReference(doc, doc.GetElement(source.ElementId) as Viewport)
+                    : ViewportAlignService.CreateScheduleReference(doc, doc.GetElement(source.ElementId) as ScheduleSheetInstance);
+                if (source == null)
                 {
+                    TaskDialog.Show("Khim Tools", LanguageManager.IsEnglish
+                        ? "The selected alignment reference no longer exists."
+                        : "Đối tượng tham chiếu đã chọn không còn tồn tại.");
                     return Result.Cancelled;
                 }
 
-                Viewport sourceVp = form.SourceViewport;
-                var targetViews = form.SelectedTargetViews;
-                ArrangeMode mode = form.SelectedArrangeMode;
-
-                if (sourceVp == null || !targetViews.Any())
+                var preflight = ViewportAlignmentPreflightService.Run(doc, source, targets, operation);
+                var preflightById = preflight.ToDictionary(p => p.TargetId.IntegerValue, p => p);
+                var readyTargets = targets.Where(t => t != null && preflightById.TryGetValue(t.ViewportOrScheduleId.IntegerValue, out var p) && p.CanExecute).ToList();
+                if ((operation == AlignmentOperation.DISTRIBUTE_HORIZONTAL || operation == AlignmentOperation.DISTRIBUTE_VERTICAL) && readyTargets.Count < 3)
                 {
+                    TaskDialog.Show("Khim Tools", LanguageManager.IsEnglish
+                        ? "Distribution requires at least three compatible targets."
+                        : "Căn phân bố cần ít nhất ba đối tượng tương thích.");
                     return Result.Cancelled;
                 }
 
-                // 3. Tiến hành căn chỉnh trên từng View/Schedule
-                int viewportCount = 0;
-                int scheduleCount = 0;
-                int failedCount = 0;
-
-                using (var tg = new TransactionGroup(doc, "Arrange Views & Titles Across Sheets"))
+                var distributionCenters = ViewportAlignService.ComputeDistributionCenters(doc, readyTargets, operation);
+                var summary = new AlignmentBatchSummary
                 {
-                    tg.Start();
+                    Requested = targets.Count,
+                    Ready = readyTargets.Count
+                };
+                var results = new List<AlignmentExecutionResult>();
 
-                    foreach (var targetItem in targetViews)
+                using (var group = new TransactionGroup(doc, "K-TOOLS Align Viewports 2.0"))
+                {
+                    group.Start();
+                    foreach (var item in targets)
                     {
-                        if (targetItem.IsSchedule)
+                        AlignmentPreflightResult preflightRow = item == null || item.ViewportOrScheduleId == null
+                            ? null
+                            : preflightById.TryGetValue(item.ViewportOrScheduleId.IntegerValue, out var row) ? row : null;
+                        if (preflightRow == null || !preflightRow.CanExecute)
                         {
-                            // Bảng Schedule
-                            ScheduleSheetInstance targetSched = doc.GetElement(targetItem.ViewportOrScheduleId) as ScheduleSheetInstance;
-                            if (targetSched != null)
+                            var blocked = new AlignmentExecutionResult
                             {
-                                using (var tx = new Transaction(doc, $"Align Schedule {targetItem.ViewName}"))
-                                {
-                                    tx.Start();
-                                    try
-                                    {
-                                        // Tìm schedule mẫu trên source sheet
-                                        var sourceSchedules = new FilteredElementCollector(doc, sourceVp.SheetId)
-                                            .OfClass(typeof(ScheduleSheetInstance))
-                                            .Cast<ScheduleSheetInstance>()
-                                            .ToList();
-
-                                        var matchSource = sourceSchedules.FirstOrDefault(s => s.ScheduleId == targetSched.ScheduleId)
-                                                          ?? sourceSchedules.FirstOrDefault();
-
-                                        if (matchSource != null && ViewportAlignService.AlignSchedule(doc, targetSched, matchSource))
-                                        {
-                                            scheduleCount++;
-                                        }
-                                        tx.Commit();
-                                    }
-                                    catch
-                                    {
-                                        tx.RollBack();
-                                        failedCount++;
-                                    }
-                                }
-                            }
+                                TargetElementId = item?.ViewportOrScheduleId ?? ElementId.InvalidElementId,
+                                SheetNumber = item?.SheetNumber ?? "",
+                                TargetName = item?.ViewName ?? "",
+                                Operation = operation,
+                                Status = AlignmentExecutionStatus.BLOCKED,
+                                StatusCode = preflightRow?.StatusCode ?? AlignmentStatusCode.INVALID_TARGET,
+                                Message = preflightRow?.Message ?? "Target is invalid."
+                            };
+                            results.Add(blocked);
+                            summary.Add(blocked);
+                            continue;
                         }
-                        else
+
+                        // Re-resolve all mutable state immediately before its transaction.
+                        Element liveElement = doc.GetElement(item.ViewportOrScheduleId);
+                        if (liveElement == null)
                         {
-                            // Viewport
-                            Viewport targetVp = doc.GetElement(targetItem.ViewportOrScheduleId) as Viewport;
-                            if (targetVp != null)
+                            var missing = new AlignmentExecutionResult
                             {
-                                using (var tx = new Transaction(doc, $"Arrange Viewport {targetItem.ViewName}"))
-                                {
-                                    tx.Start();
-                                    try
-                                    {
-                                        if (ViewportAlignService.AlignViewport(doc, targetVp, sourceVp, mode))
-                                        {
-                                            viewportCount++;
-                                        }
-                                        tx.Commit();
-                                    }
-                                    catch
-                                    {
-                                        tx.RollBack();
-                                        failedCount++;
-                                    }
-                                }
+                                TargetElementId = item.ViewportOrScheduleId,
+                                SheetNumber = item.SheetNumber,
+                                TargetName = item.ViewName,
+                                Operation = operation,
+                                Status = AlignmentExecutionStatus.BLOCKED,
+                                StatusCode = AlignmentStatusCode.MISSING_ELEMENT,
+                                Message = "Target no longer exists."
+                            };
+                            results.Add(missing);
+                            summary.Add(missing);
+                            continue;
+                        }
+                        item.IsPinned = liveElement.Pinned;
+                        if (item.IsPinned)
+                        {
+                            var pinned = new AlignmentExecutionResult
+                            {
+                                TargetElementId = item.ViewportOrScheduleId,
+                                SheetNumber = item.SheetNumber,
+                                TargetName = item.ViewName,
+                                Operation = operation,
+                                Status = AlignmentExecutionStatus.BLOCKED,
+                                StatusCode = AlignmentStatusCode.PINNED,
+                                Message = "Pinned targets are not moved automatically."
+                            };
+                            results.Add(pinned);
+                            summary.Add(pinned);
+                            continue;
+                        }
+                        if (doc.IsReadOnly || item.IsReadOnly)
+                        {
+                            var readOnly = new AlignmentExecutionResult
+                            {
+                                TargetElementId = item.ViewportOrScheduleId,
+                                SheetNumber = item.SheetNumber,
+                                TargetName = item.ViewName,
+                                Operation = operation,
+                                Status = AlignmentExecutionStatus.BLOCKED,
+                                StatusCode = AlignmentStatusCode.READ_ONLY,
+                                Message = "Target or active document is read-only."
+                            };
+                            results.Add(readOnly);
+                            summary.Add(readOnly);
+                            continue;
+                        }
+
+                        using (var tx = new Transaction(doc, "Align " + (item.ViewName ?? "target")))
+                        {
+                            tx.Start();
+                            AlignmentExecutionResult execution;
+                            try
+                            {
+                                distributionCenters.TryGetValue(item.ViewportOrScheduleId, out var distributionCenter);
+                                execution = ViewportAlignmentExecutor.Execute(doc, source, item, operation, distributionCenter);
+                                if (execution.Status == AlignmentExecutionStatus.FAILED || execution.Status == AlignmentExecutionStatus.BLOCKED)
+                                    tx.RollBack();
+                                else
+                                    tx.Commit();
                             }
+                            catch (Exception ex)
+                            {
+                                tx.RollBack();
+                                execution = new AlignmentExecutionResult
+                                {
+                                    TargetElementId = item.ViewportOrScheduleId,
+                                    SheetNumber = item.SheetNumber,
+                                    TargetName = item.ViewName,
+                                    Operation = operation,
+                                    Status = AlignmentExecutionStatus.FAILED,
+                                    StatusCode = AlignmentStatusCode.FAILED,
+                                    Message = ex.Message
+                                };
+                            }
+                            results.Add(execution);
+                            summary.Add(execution);
                         }
                     }
-
-                    tg.Assimilate();
+                    group.Assimilate();
                 }
 
-                // Làm mới giao diện Active View
+                System.Diagnostics.Debug.WriteLine($"[ViewportAlign] source={source.ElementId.IntegerValue}; operation={operation}; requested={summary.Requested}; ready={summary.Ready}; changed={summary.Changed}; skipped={summary.Skipped}; failed={summary.Failed}");
                 uidoc.RefreshActiveView();
-
-                string msgSummary = LanguageManager.IsEnglish
-                    ? $"Alignment Completed!\n\n" +
-                      $"• Viewports successfully aligned: {viewportCount}\n" +
-                      $"• Schedules successfully aligned: {scheduleCount}\n" +
-                      $"• Arrange Mode: {mode}\n" +
-                      (failedCount > 0 ? $"• Errors: {failedCount}\n" : "")
-                    : $"Đã hoàn tất căn chỉnh vị trí Viewport & Tiêu đề bản vẽ!\n\n" +
-                      $"• Số Viewport căn chỉnh thành công: {viewportCount}\n" +
-                      $"• Số Bảng Schedule căn chỉnh thành công: {scheduleCount}\n" +
-                      $"• Chế độ căn chỉnh: {mode}\n" +
-                      (failedCount > 0 ? $"• Lỗi: {failedCount}\n" : "");
-
-                TaskDialog.Show("Khim Tools — Arrange Views & Title", msgSummary);
-
+                ShowSummary(summary, operation);
                 return Result.Succeeded;
             }
             catch (Exception ex)
@@ -158,6 +200,14 @@ namespace KhimTools.ViewportAlign.Commands
                 TaskDialog.Show("Khim Tools — Error", ex.Message);
                 return Result.Failed;
             }
+        }
+
+        private static void ShowSummary(AlignmentBatchSummary summary, AlignmentOperation operation)
+        {
+            string text = LanguageManager.IsEnglish
+                ? $"Alignment Completed\n\nRequested: {summary.Requested}\nReady: {summary.Ready}\nChanged: {summary.Changed}\nAlready aligned: {summary.AlreadyAligned}\nSkipped: {summary.Skipped}\nFailed: {summary.Failed}\nOperation: {operation}"
+                : $"Đã hoàn tất căn chỉnh\n\nYêu cầu: {summary.Requested}\nSẵn sàng: {summary.Ready}\nĐã thay đổi: {summary.Changed}\nĐã đúng vị trí: {summary.AlreadyAligned}\nBỏ qua: {summary.Skipped}\nLỗi: {summary.Failed}\nThao tác: {operation}";
+            TaskDialog.Show("Khim Tools — Align Viewports", text);
         }
     }
 }
