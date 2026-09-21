@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using Autodesk.Revit.DB;
 
@@ -44,7 +45,7 @@ namespace KhimTools.ElementTags.Services
             if (host is Floor)
             {
                 try { var z = TagPlacement.Anchor(host, view).Z; return z >= Bottom - tolerance && z <= Top + tolerance; }
-                catch { return false; }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] height range anchor failed: " + ex); return false; }
             }
             var box = host.get_BoundingBox(null);
             return box != null && box.Max.Z >= Bottom - tolerance && box.Min.Z <= Top + tolerance;

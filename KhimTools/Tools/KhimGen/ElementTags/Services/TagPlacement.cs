@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -7,13 +8,14 @@ namespace KhimTools.ElementTags.Services
 {
     internal static class TagPlacement
     {
+        internal const double MaxPaperSearchMm = 12;
         internal static double PaperDistance(View view, double mm) => mm / 304.8 * Math.Max(1, view.Scale);
 
         internal static Dictionary<ElementId, XYZ> AlignedAnchors(IEnumerable<Element> hosts, View view)
         {
             var anchors = new List<Tuple<ElementId, XYZ>>();
             foreach (var host in hosts)
-                try { anchors.Add(Tuple.Create(host.Id, Anchor(host, view))); } catch { }
+                try { anchors.Add(Tuple.Create(host.Id, Anchor(host, view))); } catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
             var result = new Dictionary<ElementId, XYZ>();
             var pending = anchors.OrderBy(a => a.Item2.DotProduct(view.UpDirection)).ToList();
             while (pending.Count > 0)
@@ -87,7 +89,7 @@ namespace KhimTools.ElementTags.Services
                 {
                     sub.Start();
                     try { var bounds = HeadBounds(doc, view, tag); if (bounds != null) result.Add(bounds); }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                     finally { sub.RollBack(); }
                 }
             }
@@ -99,6 +101,7 @@ namespace KhimTools.ElementTags.Services
             var original = tag.TagHeadPosition;
             double gap = PaperDistance(view, 1), step = PaperDistance(view, 2);
             // Nearest first, bounded to 12 mm on paper; use the view's axes, not world Y.
+            double maxSearch = PaperDistance(view, MaxPaperSearchMm);
             var offsets = new List<Tuple<int, int>>();
             for (int x = -6; x <= 6; x++) for (int y = -6; y <= 6; y++)
                 if (x * x + y * y <= 36 && (!alignedRow || y == 0)) offsets.Add(Tuple.Create(x, y));
@@ -107,6 +110,7 @@ namespace KhimTools.ElementTags.Services
             {
                 var candidate = origin + view.RightDirection * (offset.Item1 * step)
                     + view.UpDirection * (offset.Item2 * step);
+                if (candidate.DistanceTo(origin) > maxSearch + 1e-9) continue;
                 if (host is Floor floor)
                 {
                     bool inside = HostObjectUtils.GetTopFaces(floor).Any(r =>

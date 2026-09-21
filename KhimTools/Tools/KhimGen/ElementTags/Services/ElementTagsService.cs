@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -78,96 +79,45 @@ namespace KhimTools.ElementTags.Services
 
         public static int TagElements(Document doc, View view, List<ElementTagsItem> configs, bool addLeader, bool onlyUntagged, List<ElementId> preSelectedIds, TagHeightRange heightRange = null)
         {
-            int createdCount = 0; int manualCount = 0; int failedCount = 0;
-
-            // Collect existing tags to avoid duplicate tagging if checked
-            var existingTags = new FilteredElementCollector(doc, view.Id)
-                .OfClass(typeof(IndependentTag))
-                .Cast<IndependentTag>()
-                .ToList();
-
-            var taggedHostsSet = new HashSet<ElementId>();
-            if (onlyUntagged)
+            // Compatibility entry point retained for the existing form. The actual
+            // operation now follows collect -> index -> audit -> preflight -> plan
+            // -> isolated execution -> verification.
+            var options = new ElementTagWorkflowOptions
             {
-                foreach (var tag in existingTags)
-                {
-                    foreach (var hostId in tag.GetTaggedLocalElementIds())
-                        if (hostId != null && hostId != ElementId.InvalidElementId) taggedHostsSet.Add(hostId);
-                }
-            }
+                AddLeader = addLeader,
+                OnlyUntagged = onlyUntagged,
+                SelectedHostIds = preSelectedIds ?? new List<ElementId>(),
+                HeightRange = heightRange,
+                Configurations = (configs ?? new List<ElementTagsItem>()).Where(item => item != null && item.IsChecked).ToList()
+            };
+            TagPreflightReport report = TagPreflightService.Preflight(doc, view, options);
+            if (!report.IsValid)
+                throw new InvalidOperationException(string.Join("\n", report.Errors));
+            TagBatchResult result = TagActionExecutor.Execute(doc, view, report);
+            if (result.Failed > 0)
+                TaskDialog.Show("Auto Tag", $"Đã tạo {result.Created} tag; {result.Failed} phần tử không thực hiện được. Hãy xem audit để xử lý tiếp.");
+            return result.Created;
+        }
 
-            using (var tx = new Transaction(doc, "K-TOOLS: Elements Auto Tag"))
-            {
-                tx.Start();
-                var occupied = TagPlacement.Obstacles(doc, view, existingTags);
+        public static TagRelationshipIndex BuildRelationshipIndex(Document doc, View view)
+        {
+            return TagRelationshipIndex.Build(doc, view);
+        }
 
-                foreach (var config in configs)
-                {
-                    if (!config.IsChecked || config.SelectedTagSymbol == null) continue;
+        public static TagAuditResult Audit(Document doc, View view, List<ElementTagsItem> configs)
+        {
+            TagRelationshipIndex index = TagRelationshipIndex.Build(doc, view);
+            return TagAuditService.Audit(doc, view, index, configs);
+        }
 
-                    // Collect target host elements
-                    var hostCollector = new FilteredElementCollector(doc, view.Id)
-                        .OfCategory(config.HostCategory)
-                        .WhereElementIsNotElementType();
+        public static TagPreflightReport Preflight(Document doc, View view, ElementTagWorkflowOptions options)
+        {
+            return TagPreflightService.Preflight(doc, view, options);
+        }
 
-                    var hosts = hostCollector.ToList();
-                    if (preSelectedIds != null && preSelectedIds.Any())
-                    {
-                        hosts = hosts.Where(h => preSelectedIds.Contains(h.Id)).ToList();
-                    }
-
-                    if (heightRange != null) hosts = hosts.Where(h => heightRange.Contains(h, view)).ToList();
-                    if (onlyUntagged) hosts = hosts.Where(h => !taggedHostsSet.Contains(h.Id)).ToList();
-                    var alignedAnchors = TagPlacement.AlignedAnchors(hosts, view);
-                    foreach (var host in hosts.OrderBy(h => alignedAnchors.TryGetValue(h.Id, out var a)
-                        ? a.DotProduct(view.UpDirection) : double.MaxValue)
-                        .ThenBy(h => alignedAnchors.TryGetValue(h.Id, out var a)
-                            ? a.DotProduct(view.RightDirection) : double.MaxValue)
-                        .ThenBy(h => h.UniqueId, StringComparer.Ordinal))
-                    {
-                        if (onlyUntagged && taggedHostsSet.Contains(host.Id)) continue;
-
-                        using (var placement = new SubTransaction(doc))
-                        {
-                        placement.Start();
-                        try
-                        {
-                            // Calculate position
-                            if (!alignedAnchors.TryGetValue(host.Id, out var point))
-                                throw new InvalidOperationException("Không tìm được điểm tag hợp lệ.");
-
-                            // Place tag
-                            Reference reference = new Reference(host);
-#if NET48
-                            IndependentTag newTag = IndependentTag.Create(
-                                doc, config.SelectedTagSymbol.Id, view.Id, reference,
-                                addLeader, TagOrientation.Horizontal, point);
-#else
-                            IndependentTag newTag = IndependentTag.Create(
-                                doc, config.SelectedTagSymbol.Id, view.Id, reference,
-                                addLeader, TagOrientation.Horizontal, point);
-#endif
-                            if (newTag != null)
-                            {
-                                if (!TagPlacement.Place(doc, view, newTag, point, occupied, host, alignedRow: true))
-                                {
-                                    placement.RollBack();
-                                    manualCount++;
-                                    continue;
-                                }
-                                createdCount++;
-                            }
-                            placement.Commit();
-                        }
-                        catch { placement.RollBack(); failedCount++; }
-                        }
-                    }
-                }
-
-                tx.Commit();
-            }
-            if (manualCount > 0 || failedCount > 0) TaskDialog.Show("Auto Tag", $"Đã bỏ qua {manualCount} tag vì không có chỗ hợp lệ trên hàng trong phạm vi 12 mm trên giấy. {failedCount} phần tử không tạo được tag. Hãy gắn tag thủ công cho các phần tử còn thiếu.");
-            return createdCount;
+        public static TagBatchResult ExecutePlan(Document doc, View view, TagPreflightReport report)
+        {
+            return TagActionExecutor.Execute(doc, view, report);
         }
 
         public static void ApplyColorOverride(Document doc, View view, List<ElementTagsItem> configs)
@@ -239,7 +189,7 @@ namespace KhimTools.ElementTags.Services
                         .ToList();
                     structuralElements.AddRange(elms);
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
             }
 
             foreach (var tag in tags)
@@ -282,7 +232,7 @@ namespace KhimTools.ElementTags.Services
                         tooFarTagIds.Add(tag.Id);
                     }
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
 
                 // Check 3: Clash with other structural elements or other tags
                 if (tagBox != null)
@@ -345,7 +295,7 @@ namespace KhimTools.ElementTags.Services
                     {
                         view.SetElementOverrides(tag.Id, new OverrideGraphicSettings());
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
 
                 // Apply red override to clashing tags
@@ -357,7 +307,7 @@ namespace KhimTools.ElementTags.Services
                         ogs.SetProjectionLineColor(red);
                         view.SetElementOverrides(tagId, ogs);
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
 
                 tx.Commit();
@@ -386,7 +336,7 @@ namespace KhimTools.ElementTags.Services
                             if (tag.TagHeadPosition.DistanceTo(original) > 1e-6) adjusted++;
                             sub.Commit();
                         }
-                        catch { sub.RollBack(); unresolved++; }
+                        catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] clash adjustment failed: " + ex); sub.RollBack(); unresolved++; }
                     }
                 }
                 tx.Commit();
@@ -436,7 +386,7 @@ namespace KhimTools.ElementTags.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
 
             try
             {
@@ -446,7 +396,7 @@ namespace KhimTools.ElementTags.Services
                     return prop.GetValue(tag) as ElementId;
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
 
             return ElementId.InvalidElementId;
         }
@@ -478,7 +428,7 @@ namespace KhimTools.ElementTags.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
 
             try
             {
@@ -489,7 +439,7 @@ namespace KhimTools.ElementTags.Services
                     return prop.GetValue(tag) as XYZ;
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
 
             return tag.TagHeadPosition;
         }
@@ -542,7 +492,7 @@ namespace KhimTools.ElementTags.Services
                         }
                     }
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
             }
 
             if (candidates.Count > 0)
@@ -599,7 +549,7 @@ namespace KhimTools.ElementTags.Services
                             boundaryCandidates.Add(Tuple.Create(floor, minDistForFloor));
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
 
                 if (boundaryCandidates.Count > 0)
@@ -727,7 +677,7 @@ namespace KhimTools.ElementTags.Services
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
             }
 
@@ -851,7 +801,7 @@ namespace KhimTools.ElementTags.Services
                         ogs.SetProjectionLineColor(red);
                         view.SetElementOverrides(id, ogs);
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
 
                 tx.Commit();
@@ -870,7 +820,7 @@ namespace KhimTools.ElementTags.Services
                     {
                         view.SetElementOverrides(id, new OverrideGraphicSettings());
                     }
-                    catch { }
+                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
                 }
 
                 tx.Commit();
