@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -29,27 +28,15 @@ namespace KhimTools.DetailNumberUpdater.Commands
 
             try
             {
-                // Kiểm tra xem view hiện tại có phải là Sheet không
                 ViewSheet sheet = doc.ActiveView as ViewSheet;
-
                 if (sheet == null)
                 {
-                    // Nếu không phải đang đứng ở Sheet, hỗ trợ người dùng chọn 1 Sheet
-                    var allSheets = new FilteredElementCollector(doc)
-                        .OfClass(typeof(ViewSheet))
-                        .Cast<ViewSheet>()
-                        .Where(s => !s.IsPlaceholder)
-                        .OrderBy(s => s.SheetNumber)
-                        .ToList();
-
-                    if (!allSheets.Any())
+                    using (var selector = new SheetSelectionForm(doc))
                     {
-                        TaskDialog.Show("K-TOOLS — Update Detail Numbers",
-                            "Dự án không có Sheet nào hoặc bạn chưa mở Sheet. Vui lòng mở 1 Sheet để sử dụng tool.");
-                        return Result.Cancelled;
+                        if (selector.ShowDialog() != DialogResult.OK || selector.SelectedSheet == null)
+                            return Result.Cancelled;
+                        sheet = selector.SelectedSheet;
                     }
-
-                    sheet = allSheets.FirstOrDefault();
                 }
 
                 if (sheet == null)
