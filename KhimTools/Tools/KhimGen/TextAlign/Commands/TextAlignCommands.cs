@@ -1,21 +1,50 @@
-﻿using System;
+using System;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.TextAlign.Services;
+using TaskDialog = Autodesk.Revit.UI.TaskDialog;
 
 namespace KhimTools.TextAlign.Commands
 {
+    internal static class TextAlignCommandRunner
+    {
+        public static Result Run(ExternalCommandData commandData, ref string message, AlignType operation)
+        {
+            UIDocument uidoc = commandData?.Application?.ActiveUIDocument;
+            if (uidoc == null) return Result.Cancelled;
+            try
+            {
+                TextAlignBatchResult batch = TextAlignService.AlignSelectedElements(uidoc, operation);
+                if (batch.Cancelled)
+                {
+                    if (!string.IsNullOrWhiteSpace(batch.Message)) message = batch.Message;
+                    return Result.Cancelled;
+                }
+                TextAlignService.ShowSummary(batch, operation);
+                if (batch.Changed == 0 && batch.AlreadyAligned == 0)
+                {
+                    message = batch.Message ?? "No supported targets were changed.";
+                    return batch.Failed > 0 ? Result.Failed : Result.Cancelled;
+                }
+                return Result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                message = ex.Message;
+                TaskDialog.Show("Khim Tools — Text Align Error", ex.Message);
+                return Result.Failed;
+            }
+        }
+    }
+
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
     public class CmdAlignTop : IExternalCommand
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.Top);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.Top);
         }
     }
 
@@ -25,10 +54,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.Bottom);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.Bottom);
         }
     }
 
@@ -38,10 +64,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.Left);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.Left);
         }
     }
 
@@ -51,10 +74,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.Right);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.Right);
         }
     }
 
@@ -64,10 +84,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.Middle);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.Middle);
         }
     }
 
@@ -77,10 +94,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.HorizontalEquals);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.HorizontalEquals);
         }
     }
 
@@ -90,10 +104,7 @@ namespace KhimTools.TextAlign.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            var uidoc = commandData.Application.ActiveUIDocument;
-            if (uidoc == null) return Result.Cancelled;
-            TextAlignService.AlignSelectedElements(uidoc, AlignType.VerticalEquals);
-            return Result.Succeeded;
+            return TextAlignCommandRunner.Run(commandData, ref message, AlignType.VerticalEquals);
         }
     }
 }
