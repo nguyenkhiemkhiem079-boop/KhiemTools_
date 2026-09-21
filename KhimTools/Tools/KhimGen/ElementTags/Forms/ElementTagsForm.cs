@@ -12,6 +12,8 @@ using Color = System.Drawing.Color;
 using Form = System.Windows.Forms.Form;
 using Document = Autodesk.Revit.DB.Document;
 using View = Autodesk.Revit.DB.View;
+using ViewPlan = Autodesk.Revit.DB.ViewPlan;
+using ViewSheet = Autodesk.Revit.DB.ViewSheet;
 using View3D = Autodesk.Revit.DB.View3D;
 using ElementId = Autodesk.Revit.DB.ElementId;
 using FamilySymbol = Autodesk.Revit.DB.FamilySymbol;
@@ -38,6 +40,11 @@ namespace KhimTools.ElementTags.Forms
         }
         private CheckBox _chkAddLeader;
         private CheckBox _chkOnlyUntagged;
+        private CheckBox _chkHeightRange;
+        private System.Windows.Forms.ComboBox _cmbHeightRange;
+        private NumericUpDown _numRangeBottom;
+        private NumericUpDown _numRangeTop;
+        private Label _lblRangeInfo;
         private Button _btnTagAll;
         private Button _btnCheckHost;
         private Button _btnClashTag;
@@ -78,6 +85,7 @@ namespace KhimTools.ElementTags.Forms
 
             InitializeComponent();
             LoadData();
+            UpdateHeightRangeUi();
             
             // Run initial audit on load
             RunProximityAudit();
@@ -103,8 +111,8 @@ namespace KhimTools.ElementTags.Forms
                 ColumnCount = 2,
                 RowCount = 1
             };
-            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 410));
-            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
+            pnlContainer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
             pnlContainer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             this.Controls.Add(pnlContainer);
 
@@ -149,7 +157,7 @@ namespace KhimTools.ElementTags.Forms
             var colColor = new DataGridViewTextBoxColumn
             {
                 Name = "colColor",
-                HeaderText = "COLOR",
+                HeaderText = "Màu",
                 Width = 55,
                 ReadOnly = true
             };
@@ -157,11 +165,27 @@ namespace KhimTools.ElementTags.Forms
             {
                 Name = "colTagType",
                 HeaderText = "TAG TYPE",
-                Width = 180,
+                Width = 280,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill,
+                MinimumWidth = 240,
                 FlatStyle = FlatStyle.Flat
             };
 
             _grid.Columns.AddRange(colCheck, colCategory, colColor, colTagType);
+            _grid.ShowCellToolTips = true;
+            _grid.CellToolTipTextNeeded += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && e.ColumnIndex == colTagType.Index)
+                    e.ToolTipText = Convert.ToString(_grid.Rows[e.RowIndex].Cells[e.ColumnIndex].FormattedValue);
+            };
+            _grid.EditingControlShowing += (s, e) =>
+            {
+                if (!(e.Control is DataGridViewComboBoxEditingControl combo)) return;
+                combo.DropDown -= TagType_DropDown;
+                combo.DropDown += TagType_DropDown;
+                combo.IntegralHeight = false;
+                combo.MaxDropDownItems = 16;
+            };
             _grid.EnableHeadersVisualStyles = false;
             _grid.ColumnHeadersDefaultCellStyle = new DataGridViewCellStyle
             {
@@ -185,7 +209,7 @@ namespace KhimTools.ElementTags.Forms
             var pnlLeftBottom = new System.Windows.Forms.Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 220,
+                Height = 320,
                 Padding = new Padding(0, 10, 0, 0)
             };
             pnlLeft.Controls.Add(pnlLeftBottom);
@@ -216,6 +240,24 @@ namespace KhimTools.ElementTags.Forms
                 Margin = new Padding(0, 6, 3, 3)
             };
             pnlOptions.Controls.AddRange(new System.Windows.Forms.Control[] { _chkAddLeader, _chkOnlyUntagged });
+
+            var rangePanel = new System.Windows.Forms.Panel { Left = 0, Top = 44, Width = pnlLeft.ClientSize.Width - 10, Height = 100,
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
+            _chkHeightRange = new CheckBox { Text = "Lọc cao độ (View Range)", Checked = true, Left = 0, Top = 0, Width = 200 };
+            _cmbHeightRange = new System.Windows.Forms.ComboBox { Left = 205, Top = 0, Width = 235,
+                DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbHeightRange.Items.AddRange(new object[] { "View Range hiện tại", "Khoảng cao độ tùy chỉnh" });
+            _cmbHeightRange.SelectedIndex = 0;
+            _numRangeBottom = new NumericUpDown { Left = 55, Top = 31, Width = 120, Minimum = -1000000, Maximum = 1000000, Value = -500 };
+            _numRangeTop = new NumericUpDown { Left = 245, Top = 31, Width = 120, Minimum = -1000000, Maximum = 1000000, Value = 3000 };
+            _lblRangeInfo = new Label { Left = 0, Top = 62, Width = 440, Height = 36 };
+            rangePanel.Controls.AddRange(new System.Windows.Forms.Control[] { _chkHeightRange, _cmbHeightRange,
+                new Label { Text = "Dưới:", Left = 0, Top = 35, AutoSize = true }, _numRangeBottom,
+                new Label { Text = "Trên:", Left = 190, Top = 35, AutoSize = true }, _numRangeTop, _lblRangeInfo });
+            _chkHeightRange.CheckedChanged += (s, e) => UpdateHeightRangeUi();
+            _cmbHeightRange.SelectedIndexChanged += (s, e) => UpdateHeightRangeUi();
+            pnlLeftBottom.Controls.Add(rangePanel);
+            UpdateHeightRangeUi();
 
             var pnlActions = new System.Windows.Forms.Panel
             {
@@ -488,6 +530,12 @@ namespace KhimTools.ElementTags.Forms
                         cellCombo.DisplayMember = "Name";
                         cellCombo.ValueMember = "Key";
                         cellCombo.DataSource = choices;
+                        // The cell reapplies DropDownWidth after EditingControlShowing.
+                        // Store the measured width on the cell as well as the editing control.
+                        cellCombo.DropDownWidth = Math.Min(
+                            Math.Max(480, choices.Count == 0 ? 480 : choices.Max(choice =>
+                                TextRenderer.MeasureText(choice.Name, _grid.Font).Width + 48)),
+                            Screen.FromControl(_grid).WorkingArea.Width - 32);
                         if (item.SelectedTagSymbol == null || !item.AvailableTagSymbols.Contains(item.SelectedTagSymbol))
                         {
                             item.SelectedTagSymbol = item.AvailableTagSymbols.FirstOrDefault();
@@ -502,6 +550,49 @@ namespace KhimTools.ElementTags.Forms
             {
                 KhimDialogHelper.ShowError("Lỗi Load Dữ Liệu", ex.Message);
             }
+        }
+
+        private TagHeightRange GetHeightRange()
+        {
+            if (_doc?.ActiveView is ViewSheet)
+                throw new InvalidOperationException("Hãy mở hoặc Activate View mặt bằng trong sheet trước khi gắn tag.");
+            if (!_chkHeightRange.Checked) return null;
+            var plan = _doc?.ActiveView as ViewPlan;
+            if (plan?.GenLevel == null)
+                throw new InvalidOperationException("Lọc View Range cần view mặt bằng có Level. Hãy mở view mặt bằng hoặc tắt lọc cao độ.");
+            if (_cmbHeightRange.SelectedIndex == 0) return TagHeightRange.FromView(_doc, plan);
+            if (_numRangeBottom.Value > _numRangeTop.Value)
+                throw new InvalidOperationException("Cao độ dưới phải nhỏ hơn hoặc bằng cao độ trên.");
+            return new TagHeightRange { Bottom = plan.GenLevel.Elevation + (double)_numRangeBottom.Value / 304.8,
+                Top = plan.GenLevel.Elevation + (double)_numRangeTop.Value / 304.8 };
+        }
+
+        private void UpdateHeightRangeUi()
+        {
+            bool custom = _chkHeightRange.Checked && _cmbHeightRange.SelectedIndex == 1;
+            _cmbHeightRange.Enabled = _chkHeightRange.Checked;
+            _numRangeBottom.Enabled = _numRangeTop.Enabled = custom;
+            _lblRangeInfo.Text = custom ? "mm so với Level của view; sàn lọc theo mặt trên." : "Đọc Bottom–Top của view; không đổi View Range trong model.";
+            if (!_chkHeightRange.Checked) { _lblRangeInfo.Text = "Không lọc cao độ; chỉ dùng phần tử trong view."; return; }
+            if (_doc == null || custom) return;
+            try
+            {
+                var range = GetHeightRange();
+                double levelZ = ((ViewPlan)_doc.ActiveView).GenLevel.Elevation;
+                _lblRangeInfo.Text = $"Dưới: {(range.Bottom - levelZ) * 304.8:0.#} | Trên: {(range.Top - levelZ) * 304.8:0.#} mm so với Level. Không gồm View Depth / Plan Region.";
+            }
+            catch (Exception ex) { _lblRangeInfo.Text = ex.Message; }
+        }
+
+        private void TagType_DropDown(object sender, EventArgs e)
+        {
+            if (!(sender is System.Windows.Forms.ComboBox combo)) return;
+            int width = Math.Max(480, combo.Width);
+            foreach (var item in combo.Items)
+                width = Math.Max(width, TextRenderer.MeasureText(combo.GetItemText(item), combo.Font).Width + 48);
+            width = Math.Min(width, Screen.FromControl(combo).WorkingArea.Width - 32);
+            if (_grid.CurrentCell is DataGridViewComboBoxCell cell) cell.DropDownWidth = width;
+            combo.DropDownWidth = width;
         }
 
         private void Grid_CellPainting(object sender, DataGridViewCellPaintingEventArgs e)
@@ -571,7 +662,7 @@ namespace KhimTools.ElementTags.Forms
                 int created = ElementTagsService.TagElements(
                     _doc, _doc.ActiveView, _allItems,
                     _chkAddLeader.Checked, _chkOnlyUntagged.Checked,
-                    activeSelection);
+                    activeSelection, GetHeightRange());
 
                 string msg = LanguageManager.IsEnglish
                     ? $"Successfully created {created} tags."

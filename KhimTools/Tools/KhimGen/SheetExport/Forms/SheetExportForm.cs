@@ -153,6 +153,7 @@ namespace KhimTools.SheetExport.Forms
             if (disposing)
             {
                 _advancedSettingsForm?.Dispose();
+                _compactSettings?.Dispose();
                 _toolTips.Dispose();
             }
             base.Dispose(disposing);
@@ -175,39 +176,143 @@ namespace KhimTools.SheetExport.Forms
 
         private void BuildUnifiedWorkspace()
         {
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 1,
-                RowCount = 3,
-                BackColor = KhimUiStyle.FormBg,
-                Padding = new Padding(12)
-            };
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
-
-            root.Controls.Add(BuildWorkflowToolbar(), 0, 0);
-
-            var workspace = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                BackColor = KhimUiStyle.FormBg,
-                Margin = new Padding(0)
-            };
-            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 65));
-            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35));
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1,
+                BackColor = Color.White, Padding = new Padding(10) };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var selection = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+                Padding = new Padding(0, 0, 10, 0) };
+            selection.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            selection.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            selection.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var formats = BuildWorkflowToolbar();
             var sheetWorkspace = BuildSheetWorkspace();
-            sheetWorkspace.Margin = new Padding(0, 0, 6, 0);
             var setupPanel = BuildExportSetupPanel();
-            setupPanel.Margin = new Padding(6, 0, 0, 0);
-            workspace.Controls.Add(sheetWorkspace, 0, 0);
-            workspace.Controls.Add(setupPanel, 1, 0);
-            root.Controls.Add(workspace, 0, 1);
-            root.Controls.Add(BuildUnifiedFooter(), 0, 2);
+            _compactSettings = setupPanel;
+            _compactSettings.Visible = false;
+            var sets = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true,
+                Padding = new Padding(0, 4, 0, 6) };
+            sets.Controls.AddRange(new Control[] { _btnSaveSelection, _btnLoadSelection, _lblCurrentSelectionFile });
+            _lblCurrentSelectionFile.Width = 290;
+            _lblCurrentSelectionFile.Margin = new Padding(0, 4, 0, 4);
+            var settingsButton = CreateSecondaryButton("Settings", 90);
+            settingsButton.Click += (s, e) => ShowCompactSettings();
+            sets.Controls.Add(settingsButton);
+            selection.Controls.Add(sets, 0, 0);
+            var filters = (Control)_txtSearchSheet.Parent;
+            filters.Dock = DockStyle.Fill;
+            _txtSearchSheet.Width = 285;
+            _cmbDisciplineFilter.Width = 285;
+            _cmbPaperFilter.Visible = false;
+            _cmbIssueStatusFilter.Visible = false;
+            _chkFilterModifiedOnly.Visible = false;
+            selection.Controls.Add(filters, 0, 1);
+            _sheetTree = new TreeView { Dock = DockStyle.Fill, CheckBoxes = true, BorderStyle = BorderStyle.None,
+                HideSelection = false, ItemHeight = 24 };
+            _sheetTree.AfterCheck += SheetTreeAfterCheck;
+            selection.Controls.Add(_sheetTree, 0, 2);
+            var export = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4 };
+            export.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            export.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            export.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            export.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
+            var file = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, RowCount = 4,
+                Padding = new Padding(8), BackColor = Color.FromArgb(248, 249, 251) };
+            file.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170));
+            file.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var mode = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true };
+            _rbSeparateFiles.Margin = new Padding(0, 4, 20, 4);
+            _rbCombineFiles.Margin = new Padding(0, 4, 12, 4);
+            mode.Controls.AddRange(new Control[] { _rbSeparateFiles, _rbCombineFiles });
+            file.Controls.Add(mode, 0, 0);
+            file.SetColumnSpan(mode, 2);
+            _txtNamingPattern.Dock = DockStyle.Fill;
+            _txtNamingPattern.Margin = new Padding(4);
+            _txtFileCombineName.Dock = DockStyle.Fill;
+            _txtFileCombineName.Margin = new Padding(4);
+            _lblNamingPreview.Dock = DockStyle.Fill;
+            _lblNamingPreview.Height = 24;
+            _lblNamingPreview.Margin = new Padding(4);
+            file.Controls.Add(_chkUseNamingConvention, 0, 1);
+            file.Controls.Add(_txtNamingPattern, 1, 1);
+            file.Controls.Add(new Label { Text = "Tên file PDF gộp", AutoSize = true, Margin = new Padding(0, 6, 0, 0) }, 0, 2);
+            file.Controls.Add(_txtFileCombineName, 1, 2);
+            file.Controls.Add(_lblNamingPreview, 0, 3);
+            file.SetColumnSpan(_lblNamingPreview, 2);
+            export.Controls.Add(file, 0, 0);
+            export.Controls.Add(formats, 0, 1);
+            export.Controls.Add(sheetWorkspace, 0, 2);
+            var footer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            footer.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var folder = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1 };
+            folder.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 115));
+            folder.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            folder.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 105));
+            _txtOutputDirectory.Dock = DockStyle.Fill;
+            folder.Controls.Add(_btnBrowseFolder, 0, 0);
+            folder.Controls.Add(_txtOutputDirectory, 1, 0);
+            folder.Controls.Add(_btnOpenFolderSelection, 2, 0);
+            footer.Controls.Add(folder, 0, 0);
+            footer.Controls.Add(BuildUnifiedFooter(), 0, 1);
+            export.Controls.Add(footer, 0, 3);
+            root.Controls.Add(selection, 0, 0);
+            root.Controls.Add(export, 1, 0);
             Controls.Add(root);
+        }
+
+        private Control _compactSettings;
+        private TreeView _sheetTree;
+        private bool _updatingSheetTree;
+        private List<SheetExportItem> _selectionCandidates = new List<SheetExportItem>();
+
+        private void ShowCompactSettings()
+        {
+            using (var dialog = new Form { Text = "Export Settings", Size = new Size(460, 700),
+                StartPosition = FormStartPosition.CenterParent, MinimizeBox = false, MaximizeBox = false })
+            {
+                _compactSettings.Visible = true;
+                dialog.Controls.Add(_compactSettings);
+                var flow = _compactSettings.Controls.OfType<FlowLayoutPanel>().First();
+                flow.Controls.AddRange(new Control[] { _cmbPaperFilter, _cmbIssueStatusFilter, _chkFilterModifiedOnly });
+                _cmbPaperFilter.Visible = _cmbIssueStatusFilter.Visible = _chkFilterModifiedOnly.Visible = true;
+                dialog.ShowDialog(this);
+                dialog.Controls.Remove(_compactSettings);
+                _compactSettings.Visible = false;
+            }
+        }
+
+        private void SheetTreeAfterCheck(object sender, TreeViewEventArgs e)
+        {
+            if (_updatingSheetTree) return;
+            if (e.Node.Tag is SheetExportItem item) item.IsSelected = e.Node.Checked;
+            else foreach (TreeNode child in e.Node.Nodes)
+                if (child.Tag is SheetExportItem sheet) sheet.IsSelected = e.Node.Checked;
+            RefreshGridRows();
+            UpdateSummaryLabel();
+            UpdateNamingPreview();
+        }
+
+        private void RefreshSheetTree()
+        {
+            if (_sheetTree == null) return;
+            var expanded = new HashSet<string>(_sheetTree.Nodes.Cast<TreeNode>().Where(n => n.IsExpanded).Select(n => n.Name));
+            _updatingSheetTree = true;
+            _sheetTree.BeginUpdate();
+            try
+            {
+                _sheetTree.Nodes.Clear();
+                foreach (var group in _selectionCandidates.GroupBy(s => GetSheetSeries(s.SheetNumber)))
+                {
+                    var node = new TreeNode($"{group.Key}  [{group.Count(s => s.IsSelected)}/{group.Count()}]")
+                        { Name = group.Key, Checked = group.All(s => s.IsSelected) };
+                    foreach (var sheet in group)
+                        node.Nodes.Add(new TreeNode($"{sheet.SheetNumber}  {sheet.SheetName}") { Tag = sheet, Checked = sheet.IsSelected });
+                    _sheetTree.Nodes.Add(node);
+                    if (expanded.Contains(group.Key)) node.Expand();
+                }
+            }
+            finally { _sheetTree.EndUpdate(); _updatingSheetTree = false; }
         }
 
         private Control BuildWorkflowToolbar()
@@ -319,6 +424,8 @@ namespace KhimTools.SheetExport.Forms
             _gridSheets.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             _gridSheets.EnableHeadersVisualStyles = false;
             BuildGridColumns();
+            _gridSheets.Columns[0].Visible = false;
+            _gridSheets.Columns[0].ReadOnly = true;
             _gridSheets.CellValueChanged += (s, e) =>
             {
                 if (e.RowIndex >= 0 && e.ColumnIndex == 0 && e.RowIndex < _filteredSheetItems.Count)
@@ -848,8 +955,8 @@ namespace KhimTools.SheetExport.Forms
                 Resizable = DataGridViewTriState.False
             };
             var colIndex = new DataGridViewTextBoxColumn { HeaderText = "#", Width = 45, FillWeight = 10, ReadOnly = true };
-            var colNum = new DataGridViewTextBoxColumn { HeaderText = "Số Hiệu (Number)", Width = 110, FillWeight = 25, ReadOnly = true };
-            var colName = new DataGridViewTextBoxColumn { HeaderText = "Tên Bản Vẽ (Sheet Name)", Width = 280, FillWeight = 60, ReadOnly = true };
+            var colNum = new DataGridViewTextBoxColumn { HeaderText = "Số hiệu", Width = 110, FillWeight = 25, ReadOnly = true };
+            var colName = new DataGridViewTextBoxColumn { HeaderText = "Tên sheet", Width = 280, FillWeight = 60, ReadOnly = true };
             var colRev = new DataGridViewTextBoxColumn { HeaderText = "Rev", Width = 55, FillWeight = 12, ReadOnly = true };
             var colRevDate = new DataGridViewTextBoxColumn { HeaderText = "Ngày Rev", Width = 85, FillWeight = 18, ReadOnly = true };
             var colSize = new DataGridViewTextBoxColumn { HeaderText = "Khổ Giấy", Width = 75, FillWeight = 15, ReadOnly = true };
@@ -1292,7 +1399,8 @@ namespace KhimTools.SheetExport.Forms
                 list = list.Where(s => s.IssueStatus == SheetIssueStatus.New || s.IssueStatus == SheetIssueStatus.Modified);
             }
 
-            _filteredSheetItems = list.ToList();
+            _selectionCandidates = list.ToList();
+            _filteredSheetItems = _allSheetItems.Where(s => s.IsSelected).ToList();
             RefreshGridRows();
             UpdateSummaryLabel();
         }
@@ -1517,7 +1625,7 @@ namespace KhimTools.SheetExport.Forms
 
         private void SetAllGridItems(bool state)
         {
-            foreach (var item in _filteredSheetItems)
+            foreach (var item in _selectionCandidates)
             {
                 item.IsSelected = state;
             }
@@ -1527,7 +1635,7 @@ namespace KhimTools.SheetExport.Forms
 
         private void InvertGridItems()
         {
-            foreach (var item in _filteredSheetItems)
+            foreach (var item in _selectionCandidates)
             {
                 item.IsSelected = !item.IsSelected;
             }
@@ -1537,6 +1645,8 @@ namespace KhimTools.SheetExport.Forms
 
         private void RefreshGridRows()
         {
+            _filteredSheetItems = _allSheetItems.Where(s => s.IsSelected).ToList();
+            RefreshSheetTree();
             _gridSheets.Rows.Clear();
 
             int idx = 1;
@@ -1571,7 +1681,7 @@ namespace KhimTools.SheetExport.Forms
         private void UpdateCombineFileName()
         {
             if (_txtFileCombineName == null || _txtFileCombineName.Focused) return;
-            string project = SanitizeFileName(_doc.ProjectInformation?.Name ?? _doc.Title ?? "Project");
+            string project = SanitizeFileName(_doc?.ProjectInformation?.Name ?? _doc?.Title ?? "Project");
             _txtFileCombineName.Text = $"{project}_Sheets_{DateTime.Now:yyyyMMdd}.pdf";
         }
 
@@ -1861,7 +1971,7 @@ namespace KhimTools.SheetExport.Forms
 
             if (_chkUseNamingConvention.Checked && _txtNamingPattern != null)
             {
-                string project = _doc.ProjectInformation?.Name ?? _doc.Title ?? "Project";
+                string project = _doc?.ProjectInformation?.Name ?? _doc?.Title ?? "Project";
                 string revision = item.CurrentRevisionNumber ?? "";
                 string result = _txtNamingPattern.Text
                     .Replace("{SheetNumber}", cleanNum)

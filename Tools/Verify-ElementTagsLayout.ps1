@@ -20,7 +20,7 @@ foreach ($size in @(@(1100,720),@(1360,900))) {
         $form.Size = [Drawing.Size]::new($size[0],$size[1])
         $handle = $form.Handle
         Layout-Tree $form
-        foreach ($name in @('_grid','_btnTagAll','_btnCheckHost','_btnClashTag','_btnCheck3d','_btnReset','_tabResult','_btnZoomTo','_btnPass','_btnClose','_btnHighlightRed','_btnResetColor')) {
+        foreach ($name in @('_grid','_btnTagAll','_btnCheckHost','_btnClashTag','_btnCheck3d','_btnReset','_tabResult','_btnZoomTo','_btnPass','_btnClose','_btnHighlightRed','_btnResetColor','_chkHeightRange','_cmbHeightRange','_numRangeBottom','_numRangeTop','_lblRangeInfo')) {
             $control = $type.GetField($name,$flags).GetValue($form)
             if (!$control.Parent.ClientRectangle.Contains($control.Bounds)) { throw "$name clipped: $($control.Bounds)" }
             foreach ($other in $control.Parent.Controls) {

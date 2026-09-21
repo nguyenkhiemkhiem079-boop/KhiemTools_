@@ -76,9 +76,9 @@ namespace KhimTools.ElementTags.Services
             return result;
         }
 
-        public static int TagElements(Document doc, View view, List<ElementTagsItem> configs, bool addLeader, bool onlyUntagged, List<ElementId> preSelectedIds)
+        public static int TagElements(Document doc, View view, List<ElementTagsItem> configs, bool addLeader, bool onlyUntagged, List<ElementId> preSelectedIds, TagHeightRange heightRange = null)
         {
-            int createdCount = 0;
+            int createdCount = 0; int manualCount = 0; int failedCount = 0;
 
             // Collect existing tags to avoid duplicate tagging if checked
             var existingTags = new FilteredElementCollector(doc, view.Id)
@@ -91,17 +91,15 @@ namespace KhimTools.ElementTags.Services
             {
                 foreach (var tag in existingTags)
                 {
-                    ElementId hostId = GetTaggedElementId(tag);
-                    if (hostId != null && hostId != ElementId.InvalidElementId)
-                    {
-                        taggedHostsSet.Add(hostId);
-                    }
+                    foreach (var hostId in tag.GetTaggedLocalElementIds())
+                        if (hostId != null && hostId != ElementId.InvalidElementId) taggedHostsSet.Add(hostId);
                 }
             }
 
             using (var tx = new Transaction(doc, "K-TOOLS: Elements Auto Tag"))
             {
                 tx.Start();
+                var occupied = TagPlacement.Obstacles(doc, view, existingTags);
 
                 foreach (var config in configs)
                 {
@@ -118,14 +116,25 @@ namespace KhimTools.ElementTags.Services
                         hosts = hosts.Where(h => preSelectedIds.Contains(h.Id)).ToList();
                     }
 
-                    foreach (var host in hosts)
+                    if (heightRange != null) hosts = hosts.Where(h => heightRange.Contains(h, view)).ToList();
+                    if (onlyUntagged) hosts = hosts.Where(h => !taggedHostsSet.Contains(h.Id)).ToList();
+                    var alignedAnchors = TagPlacement.AlignedAnchors(hosts, view);
+                    foreach (var host in hosts.OrderBy(h => alignedAnchors.TryGetValue(h.Id, out var a)
+                        ? a.DotProduct(view.UpDirection) : double.MaxValue)
+                        .ThenBy(h => alignedAnchors.TryGetValue(h.Id, out var a)
+                            ? a.DotProduct(view.RightDirection) : double.MaxValue)
+                        .ThenBy(h => h.UniqueId, StringComparer.Ordinal))
                     {
                         if (onlyUntagged && taggedHostsSet.Contains(host.Id)) continue;
 
+                        using (var placement = new SubTransaction(doc))
+                        {
+                        placement.Start();
                         try
                         {
                             // Calculate position
-                            XYZ point = GetElementTagPoint(host, view);
+                            if (!alignedAnchors.TryGetValue(host.Id, out var point))
+                                throw new InvalidOperationException("Không tìm được điểm tag hợp lệ.");
 
                             // Place tag
                             Reference reference = new Reference(host);
@@ -140,16 +149,24 @@ namespace KhimTools.ElementTags.Services
 #endif
                             if (newTag != null)
                             {
+                                if (!TagPlacement.Place(doc, view, newTag, point, occupied, host, alignedRow: true))
+                                {
+                                    placement.RollBack();
+                                    manualCount++;
+                                    continue;
+                                }
                                 createdCount++;
                             }
+                            placement.Commit();
                         }
-                        catch { }
+                        catch { placement.RollBack(); failedCount++; }
+                        }
                     }
                 }
 
                 tx.Commit();
             }
-
+            if (manualCount > 0 || failedCount > 0) TaskDialog.Show("Auto Tag", $"Đã bỏ qua {manualCount} tag vì không có chỗ hợp lệ trên hàng trong phạm vi 12 mm trên giấy. {failedCount} phần tử không tạo được tag. Hãy gắn tag thủ công cho các phần tử còn thiếu.");
             return createdCount;
         }
 
@@ -349,51 +366,34 @@ namespace KhimTools.ElementTags.Services
 
         public static int ResolveClashingTags(Document doc, View view)
         {
-            var tags = new FilteredElementCollector(doc, view.Id)
-                .OfClass(typeof(IndependentTag))
-                .Cast<IndependentTag>()
-                .ToList();
-
-            int adjustedCount = 0;
-
+            var tags = new FilteredElementCollector(doc, view.Id).OfClass(typeof(IndependentTag))
+                .Cast<IndependentTag>().OrderBy(t => t.UniqueId, StringComparer.Ordinal).ToList();
+            int adjusted = 0, unresolved = 0;
             using (var tx = new Transaction(doc, "K-TOOLS: Clash Tag Adjuster"))
             {
                 tx.Start();
-
-                for (int i = 0; i < tags.Count; i++)
+                var occupied = TagPlacement.Obstacles(doc, view, tags.Where(t => t.Pinned));
+                foreach (var tag in tags.Where(t => !t.Pinned))
                 {
-                    var tagA = tags[i];
-                    var boxA = tagA.get_BoundingBox(view);
-                    if (boxA == null) continue;
-
-                    for (int j = i + 1; j < tags.Count; j++)
+                    using (var sub = new SubTransaction(doc))
                     {
-                        var tagB = tags[j];
-                        var boxB = tagB.get_BoundingBox(view);
-                        if (boxB == null) continue;
-
-                        // Check intersection
-                        if (boxA.Min.X < boxB.Max.X && boxA.Max.X > boxB.Min.X &&
-                            boxA.Min.Y < boxB.Max.Y && boxA.Max.Y > boxB.Min.Y)
+                        sub.Start();
+                        try
                         {
-                            // Shift Tag B slightly on Y-axis
-                            try
-                            {
-                                XYZ oldHead = tagB.TagHeadPosition;
-                                tagB.TagHeadPosition = new XYZ(oldHead.X, oldHead.Y + 0.5, oldHead.Z);
-                                adjustedCount++;
-                            }
-                            catch { }
+                            var original = tag.TagHeadPosition;
+                            bool placed = TagPlacement.Place(doc, view, tag, original, occupied);
+                            if (!placed) unresolved++;
+                            if (tag.TagHeadPosition.DistanceTo(original) > 1e-6) adjusted++;
+                            sub.Commit();
                         }
+                        catch { sub.RollBack(); unresolved++; }
                     }
                 }
-
                 tx.Commit();
             }
-
-            return adjustedCount;
+            if (unresolved > 0) TaskDialog.Show("Clash Tag", $"{unresolved} tag cần chỉnh tay; đã giới hạn di chuyển tối đa 12 mm trên giấy.");
+            return adjusted;
         }
-
         private static XYZ GetElementTagPoint(Element el, View view)
         {
             if (el.Location is LocationPoint lp)
@@ -426,6 +426,7 @@ namespace KhimTools.ElementTags.Services
                     {
                         foreach (var linkId in ids)
                         {
+                            if (linkId is ElementId localId) return localId;
                             var hostIdProp = linkId.GetType().GetProperty("HostElementId");
                             if (hostIdProp != null)
                             {
@@ -688,7 +689,8 @@ namespace KhimTools.ElementTags.Services
         public static double Get2DDistanceToElement(Element el, XYZ checkPoint, View view)
         {
             double minDist = double.MaxValue;
-            var opt = new Options { DetailLevel = ViewDetailLevel.Medium, View = view };
+            // View-specific geometry uses the view's detail level. Revit forbids setting both.
+            var opt = new Options { View = view };
             var geom = el.get_Geometry(opt);
             if (geom == null) return double.MaxValue;
 

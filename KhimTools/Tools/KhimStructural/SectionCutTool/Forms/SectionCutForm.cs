@@ -92,6 +92,17 @@ namespace KhimTools.SectionCutTool.Forms
         private Button _btnClose;
         private ComboBox _cmbLanguage;
 
+        private SectionCutForm()
+        {
+            _allItems = new List<ElementCutItem>();
+            KhimUiStyle.ApplyFormTheme(this);
+            BuildUi();
+            ApplySettingsToUi(new SectionCutSettings { CreateCrossSection = false });
+            ApplyLanguage();
+        }
+
+        internal static SectionCutForm CreateLayoutPreview() => new SectionCutForm();
+
         public SectionCutForm(Document doc, List<Element> availableElements, List<Element> preSelectedElements = null)
             : this(doc, null, availableElements, preSelectedElements)
         {
@@ -123,7 +134,7 @@ namespace KhimTools.SectionCutTool.Forms
             PopulateSectionViewTypes();
             PopulateViewTemplates();
             LoadTemplateList();
-            ApplySettingsToUi(new SectionCutSettings());
+            ApplySettingsToUi(new SectionCutSettings { CreateCrossSection = !_allItems.Where(i => i.IsSelected).All(i => i.Element is Wall) });
             RefreshGrid();
             ApplyLanguage();
         }
@@ -131,11 +142,12 @@ namespace KhimTools.SectionCutTool.Forms
         private void BuildUi()
         {
             Text = "K-TOOLS — Cắt Mặt Cắt Kết Cấu Tự Động (Auto Section Cut)";
-            Width = 980;
+            Width = 1120;
             Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            MinimumSize = new Size(1020, 720);
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
             MinimizeBox = false;
 
 
@@ -164,14 +176,14 @@ namespace KhimTools.SectionCutTool.Forms
             {
                 Left = 48,
                 Top = 22,
-                Width = 195,
+                Width = 365,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => RefreshGrid();
 
-            _btnPickRevit = new Button { Text = "Chọn trong Revit", Left = 238, Top = 20, Width = 98, Height = 27, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
-            _btnSelectAll = new Button { Text = "Tất cả", Left = 340, Top = 20, Width = 38, Height = 27 };
-            _btnDeselectAll = new Button { Text = "Bỏ", Left = 382, Top = 20, Width = 36, Height = 27 };
+            _btnPickRevit = new Button { Text = "Chọn trong Revit", Left = 12, Top = 50, Width = 150, Height = 27, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold) };
+            _btnSelectAll = new Button { Text = "Tất cả", Left = 174, Top = 50, Width = 110, Height = 27 };
+            _btnDeselectAll = new Button { Text = "Bỏ", Left = 294, Top = 50, Width = 124, Height = 27 };
 
             KhimUiStyle.ApplyPrimaryButton(_btnPickRevit, Color.FromArgb(14, 116, 144));
             KhimUiStyle.ApplySecondaryButton(_btnSelectAll);
@@ -184,9 +196,9 @@ namespace KhimTools.SectionCutTool.Forms
             _gridElements = new DataGridView
             {
                 Left = 12,
-                Top = 55,
+                Top = 88,
                 Width = 406,
-                Height = 465,
+                Height = 432,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 RowHeadersVisible = false,
@@ -198,7 +210,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             var colCheck = new DataGridViewCheckBoxColumn { Name = "colCheck", HeaderText = "✓", Width = 35 };
             var colMark = new DataGridViewTextBoxColumn { Name = "colMark", HeaderText = "Mark", Width = 80 };
-            var colType = new DataGridViewTextBoxColumn { Name = "colType", HeaderText = "Type", Width = 100 };
+            var colType = new DataGridViewTextBoxColumn { Name = "colType", HeaderText = "Type", Width = 160, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, MinimumWidth = 120 };
             var colCategory = new DataGridViewTextBoxColumn { Name = "colCat", HeaderText = "Loại", Width = 90 };
             var colLength = new DataGridViewTextBoxColumn { Name = "colLen", HeaderText = "Dài (mm)", Width = 80 };
 
@@ -237,15 +249,18 @@ namespace KhimTools.SectionCutTool.Forms
                 Height = 560
             };
 
-            _tabTypes = new TabPage { Text = "1. Loại Mặt Cắt & Template" };
-            _tabCrop = new TabPage { Text = "2. Crop Box & Template Chi Tiết" };
-            _tabNaming = new TabPage { Text = "3. Đặt Tên & Mẫu JSON" };
+            _tabTypes = new TabPage { Text = "Tạo section" };
+            _tabCrop = new TabPage { Text = "Phạm vi & hiển thị" };
+            _tabNaming = new TabPage { Text = "Đặt tên & mẫu" };
 
             BuildTabTypes(_tabTypes);
             BuildTabCrop(_tabCrop);
             BuildTabNaming(_tabNaming);
 
-            _tabControl.TabPages.AddRange(new[] { _tabTypes, _tabCrop, _tabNaming });
+            var crossTab = _tabControl.TabPages[0];
+            _tabControl.TabPages.Clear();
+            _tabControl.TabPages.AddRange(new[] { _tabTypes, crossTab, _tabCrop, _tabNaming });
+            foreach (TabPage tab in _tabControl.TabPages) tab.AutoScroll = true;
             pnlMain.Controls.Add(_tabControl);
 
             // ── Bottom Action Panel ───────────────────────────────────────────
@@ -266,7 +281,7 @@ namespace KhimTools.SectionCutTool.Forms
                 Width = 110,
                 DropDownStyle = ComboBoxStyle.DropDownList
             };
-            _cmbLanguage.Items.AddRange(new object[] { "🇻🇳 Tiếng Việt", "🇬🇧 English" });
+            _cmbLanguage.Items.AddRange(new object[] { "Tiếng Việt", "English" });
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
             _cmbLanguage.SelectedIndexChanged += (s, e) =>
             {
@@ -276,7 +291,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnPreview = new Button
             {
-                Text = "👁️ Xem trước số view",
+                Text = "Xem trước số view",
                 Left = 460,
                 Top = 9,
                 Width = 150,
@@ -287,7 +302,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _btnGenerate = new Button
             {
-                Text = "⚡ TẠO MẶT CẮT HÀNG LOẠT",
+                Text = "TẠO MẶT CẮT",
                 Left = 620,
                 Top = 9,
                 Width = 230,
@@ -313,6 +328,19 @@ namespace KhimTools.SectionCutTool.Forms
             pnlBottom.Controls.Add(_btnPreview);
             pnlBottom.Controls.Add(_btnGenerate);
             pnlBottom.Controls.Add(_btnClose);
+            pnlMain.Resize += (s, e) =>
+            {
+                grpLeft.Height = Math.Max(560, pnlMain.ClientSize.Height - 24);
+                _gridElements.Height = grpLeft.Height - 128;
+                _lblSelectedCount.Top = grpLeft.Height - 32;
+                _tabControl.Size = new Size(Math.Max(500, pnlMain.ClientSize.Width - 464), grpLeft.Height);
+            };
+            pnlBottom.Resize += (s, e) =>
+            {
+                _btnClose.Left = pnlBottom.ClientSize.Width - 102;
+                _btnGenerate.Left = _btnClose.Left - _btnGenerate.Width - 10;
+                _btnPreview.Left = _btnGenerate.Left - _btnPreview.Width - 10;
+            };
         }
 
         private void BuildTabTypes(TabPage page)
@@ -348,7 +376,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _chkCreateLongitudinal = new CheckBox
             {
-                Text = "Tạo mặt cắt dọc theo trục tim cấu kiện",
+                Text = "Tạo mặt cắt dọc",
                 Left = 15,
                 Top = 22,
                 Width = 260,
@@ -367,7 +395,7 @@ namespace KhimTools.SectionCutTool.Forms
                 Value = 50
             };
 
-            var lblLongTpl = new Label { Text = "View Template Mặt Cắt Dọc:", Left = 15, Top = 60, AutoSize = true, ForeColor = KhimUiStyle.PrimaryButtonBg };
+            var lblLongTpl = new Label { Text = "Template dọc:", Left = 15, Top = 60, AutoSize = true, ForeColor = KhimUiStyle.PrimaryButtonBg };
             _cmbLongitudinalTemplate = new ComboBox { Left = 180, Top = 57, Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
 
             grpLong.Controls.Add(_chkCreateLongitudinal);
@@ -390,7 +418,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _chkCreateCrossSection = new CheckBox
             {
-                Text = "Tạo các mặt cắt ngang qua thân cấu kiện",
+                Text = "Tạo mặt cắt ngang",
                 Left = 15,
                 Top = 22,
                 Width = 260,
@@ -409,14 +437,14 @@ namespace KhimTools.SectionCutTool.Forms
                 Value = 20
             };
 
-            var lblCrossTpl = new Label { Text = "View Template Mặt Cắt Ngang:", Left = 15, Top = 58, AutoSize = true, ForeColor = KhimUiStyle.PrimaryButtonBg };
+            var lblCrossTpl = new Label { Text = "Template ngang:", Left = 15, Top = 58, AutoSize = true, ForeColor = KhimUiStyle.PrimaryButtonBg };
             _cmbCrossSectionTemplate = new ComboBox { Left = 180, Top = 55, Width = 270, DropDownStyle = ComboBoxStyle.DropDownList };
 
             var lblMode = new Label { Text = "Phương pháp xác định vị trí cắt ngang:", Left = 15, Top = 95, AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             _rdModeKeyPositions = new RadioButton
             {
-                Text = "⭐ Vị trí đặc trưng tự động (Gối trái 15%, Giữa nhịp 50%, Gối phải 85%)",
+                Text = "Vị trí tự động: 15%, 50%, 85%",
                 Left = 15,
                 Top = 120,
                 Width = 440,
@@ -425,7 +453,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _rdModeRelative = new RadioButton
             {
-                Text = "📐 Theo danh sách vị trí % (cách nhau bởi dấu phẩy):",
+                Text = "Nhập vị trí theo %:",
                 Left = 15,
                 Top = 150,
                 Width = 440
@@ -441,7 +469,7 @@ namespace KhimTools.SectionCutTool.Forms
 
             _rdModeSpacing = new RadioButton
             {
-                Text = "📏 Cắt theo khoảng cách đều cố định (Spacing):",
+                Text = "Cắt theo khoảng cách đều:",
                 Left = 15,
                 Top = 210,
                 Width = 400
@@ -487,7 +515,7 @@ namespace KhimTools.SectionCutTool.Forms
             {
                 Text = "Hướng Lọc Cấu Kiện (Direction Filter)",
                 Left = 10,
-                Top = 525,
+                Top = 390,
                 Width = 470,
                 Height = 55
             };
@@ -501,7 +529,45 @@ namespace KhimTools.SectionCutTool.Forms
             grpDir.Controls.Add(_rdDirX);
             grpDir.Controls.Add(_rdDirY);
             page.Controls.Add(grpDir);
-            page.Controls.Add(grpCross);
+            var crossPage = new TabPage { Text = "Cắt ngang", AutoScroll = true };
+            grpCross.Top = 10;
+            crossPage.Controls.Add(grpCross);
+            _tabControl.TabPages.Add(crossPage);
+            var presets = new FlowLayoutPanel { Left = 10, Top = 8, Width = 470, Height = 36, WrapContents = false };
+            foreach (var mode in new[] { "Chỉ dọc", "Chỉ ngang", "Dọc + ngang" })
+            {
+                var button = new Button { Text = mode, Width = 145, Height = 30 };
+                KhimUiStyle.ApplySecondaryButton(button);
+                button.Click += (s, e) =>
+                {
+                    _chkCreateLongitudinal.Checked = mode != "Chỉ ngang";
+                    _chkCreateCrossSection.Checked = mode != "Chỉ dọc";
+                    if (mode == "Chỉ dọc") _rdDirBoth.Checked = true;
+                };
+                presets.Controls.Add(button);
+            }
+            page.Controls.Add(presets);
+            grpType.Top = 50;
+            grpLong.Top = 115;
+            page.Controls.Add(new Label { Left = 20, Top = 240, Width = 440, Height = 90,
+                Text = "1. Chọn tường hoặc cấu kiện bên trái.\r\n2. Chọn chế độ, tỷ lệ và View Template.\r\n3. Xem trước số view rồi tạo mặt cắt.\r\n\r\nCấu hình vị trí cắt ngang, crop và tên nằm ở các tab riêng." });
+            _chkCreateCrossSection.CheckedChanged += (s, e) =>
+            {
+                foreach (Control control in grpCross.Controls)
+                    if (control != _chkCreateCrossSection) control.Enabled = _chkCreateCrossSection.Checked;
+            };
+            var modeSummary = new Label { Left = 20, Top = 340, Width = 440, Height = 32,
+                ForeColor = KhimUiStyle.PrimaryButtonBg };
+            Action updateMode = () => {
+                if (_btnGenerate != null) _btnGenerate.Enabled = _chkCreateLongitudinal.Checked || _chkCreateCrossSection.Checked;
+                if (_btnPreview != null) _btnPreview.Enabled = _chkCreateLongitudinal.Checked || _chkCreateCrossSection.Checked;
+                modeSummary.Text =
+                "Mặt cắt dọc: " + (_chkCreateLongitudinal.Checked ? "Bật" : "Tắt")
+                + "    |    Mặt cắt ngang: " + (_chkCreateCrossSection.Checked ? "Bật" : "Tắt"); };
+            _chkCreateLongitudinal.CheckedChanged += (s, e) => updateMode();
+            _chkCreateCrossSection.CheckedChanged += (s, e) => updateMode();
+            updateMode();
+            page.Controls.Add(modeSummary);
         }
 
         private void BuildTabCrop(TabPage page)
@@ -704,7 +770,9 @@ namespace KhimTools.SectionCutTool.Forms
             _cmbSectionViewType.Items.Clear();
             var types = _generator.GetAvailableSectionViewTypes();
             foreach (var t in types) _cmbSectionViewType.Items.Add(t);
-            if (_cmbSectionViewType.Items.Count > 0) _cmbSectionViewType.SelectedIndex = 0;
+            var defaultType = _generator.FindSectionViewFamilyType();
+            if (defaultType != null) _cmbSectionViewType.SelectedItem = defaultType.Name;
+            if (_cmbSectionViewType.SelectedIndex < 0 && _cmbSectionViewType.Items.Count > 0) _cmbSectionViewType.SelectedIndex = 0;
         }
 
         private void PopulateViewTemplates()
@@ -1050,7 +1118,7 @@ namespace KhimTools.SectionCutTool.Forms
 
                 Cursor = Cursors.Default;
                 _btnGenerate.Enabled = true;
-                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "CREATE SECTIONS" : "TẠO MẶT CẮT";
 
                 var createdViews = report.Items.Where(x => x.Success && x.CreatedView != null).Select(x => x.CreatedView).ToList();
                 if (_uidoc != null && createdViews.Any())
@@ -1105,7 +1173,7 @@ namespace KhimTools.SectionCutTool.Forms
             {
                 Cursor = Cursors.Default;
                 _btnGenerate.Enabled = true;
-                _btnGenerate.Text = LanguageManager.IsEnglish ? "⚡ CREATE BATCH SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+                _btnGenerate.Text = LanguageManager.IsEnglish ? "CREATE SECTIONS" : "TẠO MẶT CẮT";
                 KhimDialogHelper.ShowError(
                     LanguageManager.IsEnglish ? "Error Creating Sections" : "Lỗi Tạo Mặt Cắt",
                     ex.Message,
@@ -1165,14 +1233,14 @@ namespace KhimTools.SectionCutTool.Forms
         private void ApplyLanguage()
         {
             bool en = LanguageManager.IsEnglish;
-            _tabTypes.Text = en ? "1. Section Types & Templates" : "1. Loại Mặt Cắt & Template";
-            _tabCrop.Text = en ? "2. Crop Box & Templates Detail" : "2. Crop Box & Template Chi Tiết";
-            _tabNaming.Text = en ? "3. Naming & Templates" : "3. Đặt Tên & Mẫu JSON";
+            _tabTypes.Text = en ? "Create section" : "Tạo section";
+            _tabCrop.Text = en ? "Crop & display" : "Phạm vi & hiển thị";
+            _tabNaming.Text = en ? "Naming & presets" : "Đặt tên & mẫu";
 
             _btnSelectAll.Text = en ? "Select All" : "Tất cả";
             _btnDeselectAll.Text = en ? "Deselect" : "Bỏ chọn";
-            _btnPreview.Text = en ? "👁️ Preview Count" : "👁️ Xem trước số view";
-            _btnGenerate.Text = en ? "⚡ GENERATE SECTIONS" : "⚡ TẠO MẶT CẮT HÀNG LOẠT";
+            _btnPreview.Text = en ? "Preview count" : "Xem trước số view";
+            _btnGenerate.Text = en ? "CREATE SECTIONS" : "TẠO MẶT CẮT";
             _btnClose.Text = en ? "Close" : "Đóng";
         }
     }

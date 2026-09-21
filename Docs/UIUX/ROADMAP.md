@@ -41,3 +41,11 @@ Phase 7 — Acceptance
 - Confirm command invocation
 - Confirm no functional regressions
 - Compare ribbon/workspace density before vs after
+
+Phase 8 — K-QS
+- Add a dedicated K-QS panel inside the existing K-TOOLS tab
+- Primary Quantity Takeoff workflow
+- Data Check and element isolation
+- Snapshot comparison
+- Rule profiles and issue history
+- Keep the full workflow in one QTO workspace; use ribbon commands as entry points

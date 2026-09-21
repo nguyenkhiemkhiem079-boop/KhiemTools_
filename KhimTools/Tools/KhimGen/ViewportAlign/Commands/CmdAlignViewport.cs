@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.Attributes;
@@ -14,7 +14,7 @@ using DialogResult = System.Windows.Forms.DialogResult;
 namespace KhimTools.ViewportAlign.Commands
 {
     /// <summary>
-    /// Command: ─Éß╗ông bß╗Ö v├á C─ân chß╗ënh vß╗ï tr├¡ Viewport, View Titles v├á Bß║úng thß╗æng k├¬ giß╗»a c├íc Sheet.
+    /// Command: Đồng bộ và Căn chỉnh vị trí Viewport, View Titles và Bảng thống kê giữa các Sheet.
     /// </summary>
     [Transaction(TransactionMode.Manual)]
     [Regeneration(RegenerationOption.Manual)]
@@ -27,7 +27,7 @@ namespace KhimTools.ViewportAlign.Commands
 
             if (doc == null)
             {
-                TaskDialog.Show("Khim Tools", "Kh├┤ng t├¼m thß║Ñy t├ái liß╗çu Revit ─æang mß╗ƒ.");
+                TaskDialog.Show("Khim Tools", "Không tìm thấy tài liệu Revit đang mở.");
                 return Result.Cancelled;
             }
 
@@ -35,14 +35,14 @@ namespace KhimTools.ViewportAlign.Commands
             {
                 Viewport preSelectedVp = null;
 
-                // 1. Kiß╗âm tra xem ng╞░ß╗¥i d├╣ng ─æ├ú chß╗ìn sß║╡n Viewport tr├¬n Sheet ch╞░a
+                // 1. Kiểm tra xem người dùng đã chọn sẵn Viewport trên Sheet chưa
                 var selectedIds = uidoc.Selection.GetElementIds();
                 if (selectedIds.Count == 1)
                 {
                     preSelectedVp = doc.GetElement(selectedIds.First()) as Viewport;
                 }
 
-                // 2. Mß╗ƒ form t╞░╞íng t├íc chuy├¬n nghiß╗çp (tß╗▒ ─æß╗Öng load viewport mß║½u nß║┐u c├│, hoß║╖c cho ph├⌐p pick tr├¬n form)
+                // 2. Mở form tương tác chuyên nghiệp (tự động load viewport mẫu nếu có, hoặc cho phép pick trên form)
                 var form = new AlignViewportForm(uidoc, preSelectedVp);
                 if (form.ShowDialog() != DialogResult.OK)
                 {
@@ -58,7 +58,7 @@ namespace KhimTools.ViewportAlign.Commands
                     return Result.Cancelled;
                 }
 
-                // 3. Tiß║┐n h├ánh c─ân chß╗ënh tr├¬n tß╗½ng View/Schedule
+                // 3. Tiến hành căn chỉnh trên từng View/Schedule
                 int viewportCount = 0;
                 int scheduleCount = 0;
                 int failedCount = 0;
@@ -71,7 +71,7 @@ namespace KhimTools.ViewportAlign.Commands
                     {
                         if (targetItem.IsSchedule)
                         {
-                            // Bß║úng Schedule
+                            // Bảng Schedule
                             ScheduleSheetInstance targetSched = doc.GetElement(targetItem.ViewportOrScheduleId) as ScheduleSheetInstance;
                             if (targetSched != null)
                             {
@@ -80,7 +80,7 @@ namespace KhimTools.ViewportAlign.Commands
                                     tx.Start();
                                     try
                                     {
-                                        // T├¼m schedule mß║½u tr├¬n source sheet
+                                        // Tìm schedule mẫu trên source sheet
                                         var sourceSchedules = new FilteredElementCollector(doc, sourceVp.SheetId)
                                             .OfClass(typeof(ScheduleSheetInstance))
                                             .Cast<ScheduleSheetInstance>()
@@ -133,29 +133,29 @@ namespace KhimTools.ViewportAlign.Commands
                     tg.Assimilate();
                 }
 
-                // L├ám mß╗¢i giao diß╗çn Active View
+                // Làm mới giao diện Active View
                 uidoc.RefreshActiveView();
 
                 string msgSummary = LanguageManager.IsEnglish
                     ? $"Alignment Completed!\n\n" +
-                      $"ΓÇó Viewports successfully aligned: {viewportCount}\n" +
-                      $"ΓÇó Schedules successfully aligned: {scheduleCount}\n" +
-                      $"ΓÇó Arrange Mode: {mode}\n" +
-                      (failedCount > 0 ? $"ΓÇó Errors: {failedCount}\n" : "")
-                    : $"─É├ú ho├án tß║Ñt c─ân chß╗ënh vß╗ï tr├¡ Viewport & Ti├¬u ─æß╗ü bß║ún vß║╜!\n\n" +
-                      $"ΓÇó Sß╗æ Viewport c─ân chß╗ënh th├ánh c├┤ng: {viewportCount}\n" +
-                      $"ΓÇó Sß╗æ Bß║úng Schedule c─ân chß╗ënh th├ánh c├┤ng: {scheduleCount}\n" +
-                      $"ΓÇó Chß║┐ ─æß╗Ö c─ân chß╗ënh: {mode}\n" +
-                      (failedCount > 0 ? $"ΓÇó Lß╗ùi: {failedCount}\n" : "");
+                      $"• Viewports successfully aligned: {viewportCount}\n" +
+                      $"• Schedules successfully aligned: {scheduleCount}\n" +
+                      $"• Arrange Mode: {mode}\n" +
+                      (failedCount > 0 ? $"• Errors: {failedCount}\n" : "")
+                    : $"Đã hoàn tất căn chỉnh vị trí Viewport & Tiêu đề bản vẽ!\n\n" +
+                      $"• Số Viewport căn chỉnh thành công: {viewportCount}\n" +
+                      $"• Số Bảng Schedule căn chỉnh thành công: {scheduleCount}\n" +
+                      $"• Chế độ căn chỉnh: {mode}\n" +
+                      (failedCount > 0 ? $"• Lỗi: {failedCount}\n" : "");
 
-                TaskDialog.Show("Khim Tools ΓÇö Arrange Views & Title", msgSummary);
+                TaskDialog.Show("Khim Tools — Arrange Views & Title", msgSummary);
 
                 return Result.Succeeded;
             }
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Khim Tools ΓÇö Error", ex.Message);
+                TaskDialog.Show("Khim Tools — Error", ex.Message);
                 return Result.Failed;
             }
         }

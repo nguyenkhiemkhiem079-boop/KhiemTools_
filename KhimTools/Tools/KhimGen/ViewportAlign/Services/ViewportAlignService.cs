@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -36,12 +36,12 @@ namespace KhimTools.ViewportAlign.Services
     }
 
     /// <summary>
-    /// Service xß╗¡ l├╜ c─ân chß╗ënh v├á ─æß╗ông bß╗Ö vß╗ï tr├¡ Viewport, View Title v├á Schedule theo chuß║⌐n chuy├¬n nghiß╗çp.
+    /// Service xử lý căn chỉnh và đồng bộ vị trí Viewport, View Title và Schedule theo chuẩn chuyên nghiệp.
     /// </summary>
     public static class ViewportAlignService
     {
         /// <summary>
-        /// C─ân chß╗ënh Viewport ─æ├¡ch theo Viewport mß║½u (Vß╗ï tr├¡ BoxCenter v├á/hoß║╖c View Title LabelOffset).
+        /// Căn chỉnh Viewport đích theo Viewport mẫu (Vị trí BoxCenter và/hoặc View Title LabelOffset).
         /// </summary>
         public static bool AlignViewport(Document doc, Viewport targetVp, Viewport sourceVp, ArrangeMode mode)
         {
@@ -49,7 +49,7 @@ namespace KhimTools.ViewportAlign.Services
 
             bool moved = false;
 
-            // 1. C─ân chß╗ënh vß╗ï tr├¡ Khung nh├¼n (View Location)
+            // 1. Căn chỉnh vị trí Khung nhìn (View Location)
             if (mode == ArrangeMode.ViewsAndTitles || mode == ArrangeMode.ViewsOnly)
             {
                 XYZ sourceCenter = sourceVp.GetBoxCenter();
@@ -63,7 +63,7 @@ namespace KhimTools.ViewportAlign.Services
                 }
             }
 
-            // 2. C─ân chß╗ënh Ti├¬u ─æß╗ü Khung nh├¼n (View Title Label Offset & Line Length)
+            // 2. Căn chỉnh Tiêu đề Khung nhìn (View Title Label Offset & Line Length)
             if (mode == ArrangeMode.ViewsAndTitles || mode == ArrangeMode.TitlesOnly)
             {
                 try
@@ -91,7 +91,7 @@ namespace KhimTools.ViewportAlign.Services
         }
 
         /// <summary>
-        /// C─ân chß╗ënh vß╗ï tr├¡ Bß║úng thß╗æng k├¬ (ScheduleSheetInstance) theo vß╗ï tr├¡ cß╗ºa Bß║úng thß╗æng k├¬ mß║½u.
+        /// Căn chỉnh vị trí Bảng thống kê (ScheduleSheetInstance) theo vị trí của Bảng thống kê mẫu.
         /// </summary>
         public static bool AlignSchedule(Document doc, ScheduleSheetInstance targetSched, ScheduleSheetInstance sourceSched)
         {
@@ -111,7 +111,7 @@ namespace KhimTools.ViewportAlign.Services
         }
 
         /// <summary>
-        /// Lß║Ñy tß║Ñt cß║ú c├íc View v├á Schedule ─æß║╖t tr├¬n 1 Sheet.
+        /// Lấy tất cả các View và Schedule đặt trên 1 Sheet.
         /// </summary>
         public static List<TargetViewItem> GetViewsOnSheet(Document doc, ViewSheet sheet)
         {
@@ -158,7 +158,7 @@ namespace KhimTools.ViewportAlign.Services
                     SheetName = sheet.Name,
                     ViewId = vs?.Id ?? sched.Id,
                     ViewportOrScheduleId = sched.Id,
-                    ViewName = vs?.Name ?? (LanguageManager.IsEnglish ? "Schedule" : "Bß║úng thß╗æng k├¬"),
+                    ViewName = vs?.Name ?? (LanguageManager.IsEnglish ? "Schedule" : "Bảng thống kê"),
                     ViewType = ViewType.Schedule,
                     IsSchedule = true
                 });

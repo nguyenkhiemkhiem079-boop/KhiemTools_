@@ -34,6 +34,25 @@ foreach ($size in @(@(1120,700), @(1360,820), @(1600,900))) {
         $content.Size = $form.ClientSize
         $content.Visible = $true
         Prepare-Controls $content
+        $itemsField = $type.GetField('_allSheetItems', $flags)
+        $items = [Activator]::CreateInstance($itemsField.FieldType)
+        $itemType = $assembly.GetType('KhimTools.SheetExport.Models.SheetExportItem')
+        foreach ($sample in @(@('S100','GENERAL ARRANGEMENT',$true), @('S101','FLOOR PLAN',$false), @('A200','ELEVATIONS',$true))) {
+            $item = [Activator]::CreateInstance($itemType)
+            $item.SheetNumber = $sample[0]; $item.SheetName = $sample[1]; $item.IsSelected = $sample[2]
+            $items.Add($item)
+        }
+        $itemsField.SetValue($form, $items)
+        $type.GetMethod('ApplySearchAndFilter', $flags).Invoke($form, @()) | Out-Null
+        $tree = $type.GetField('_sheetTree', $flags).GetValue($form)
+        $grid = $type.GetField('_gridSheets', $flags).GetValue($form)
+        if ($grid.Rows.Count -ne 2 -or $tree.Nodes.Count -lt 2) { throw 'Sheet tree / export queue mismatch.' }
+        $tree.Nodes[0].Checked = $false
+        if ($items[0].IsSelected -or $grid.Rows.Count -ne 1) { throw 'Group deselection does not update export queue.' }
+        $tree.Nodes[0].Checked = $true
+        if (!$items[1].IsSelected -or $grid.Rows.Count -ne 3) { throw 'Group selection does not update export queue.' }
+        foreach ($node in $tree.Nodes) { $node.Expand() }
+        $checks += 3
         foreach ($name in @("_txtSearchSheet","_cmbDisciplineFilter","_cmbPaperFilter","_cmbIssueStatusFilter",
             "_chkFilterModifiedOnly","_btnSelectAll","_btnClearAll","_btnInvert","_btnRefreshList",
             "_rbFormatPdf","_rbFormatDwg","_rbFormatBoth","_btnSaveSelection","_btnLoadSelection","_btnPrint")) {

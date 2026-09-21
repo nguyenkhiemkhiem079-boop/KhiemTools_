@@ -101,10 +101,12 @@ namespace KhimTools.SlabJoin.Forms
             // ══════ MAIN SPLIT: Left (Rules + Templates) | Right (Terminal) ══════
             var splitContainer = new SplitContainer
             {
-                Dock = DockStyle.Fill,
                 Orientation = Orientation.Vertical,
+                Size = new Size(ClientSize.Width, Math.Max(300, ClientSize.Height - 92)),
+                SplitterDistance = 490,
                 Panel1MinSize = 350,
                 Panel2MinSize = 250,
+                Dock = DockStyle.Fill,
                 BackColor = Color.FromArgb(230, 230, 235)
             };
 

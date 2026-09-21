@@ -18,6 +18,7 @@ namespace KhimTools.Core
         public const string StructuralPanelName = "Structure";
         public const string ArchPanelName = "Architecture";
         public const string MepPanelName = "MEP";
+        public const string QuantitySurveyingPanelName = "K-QS";
 
         public static void BuildRibbon(UIControlledApplication application)
         {
@@ -44,6 +45,9 @@ namespace KhimTools.Core
 
             // 5. Panel: K-MEP
             try { BuildMepPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-MEP error: " + ex); }
+
+            // 6. Panel: K-QS (Quantity Surveying remains inside the K-TOOLS tab)
+            try { BuildQuantitySurveyingPanel(application, assemblyPath); } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[K-TOOLS] K-QS error: " + ex); }
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -223,6 +227,20 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_mep_tags_16.png")
             };
             panel.AddItem(elementTagsData);
+            panel.AddItem(new PushButtonData("CmdDrawingCheck", "Drawing" + Environment.NewLine + "Check",
+                assemblyPath, "KhimTools.DrawingCheck.CmdDrawingCheck")
+            {
+                ToolTip = "Kiểm tra sàn/tường thiếu tag và tag mất host trong view hoặc sheet.",
+                LargeImage = LoadImage("icon_mep_tags_32.png"),
+                Image = LoadImage("icon_mep_tags_16.png")
+            });
+            panel.AddItem(new PushButtonData("CmdCheckSlabStep", "Check" + Environment.NewLine + "Step",
+                assemblyPath, "KhimTools.SlabStep.Commands.CmdCheckSlabStep")
+            {
+                ToolTip = "Đối chiếu giá trị chiều cao và hướng Step với hai sàn liên kết. Step cũ kiểm tra trong Slab Step.",
+                LargeImage = LoadImage("icon_mep_tags_32.png"),
+                Image = LoadImage("icon_slabstep_16.png")
+            });
 
         }
 
@@ -549,6 +567,32 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_finishes_16.png")
             };
             panel.AddStackedItems(room3dData, finishData);
+
+            var createTools = panel.AddItem(new PulldownButtonData("ArchCreatePulldown", "Tạo kiến trúc")
+            {
+                ToolTip = "Các công cụ tạo cấu kiện và lớp hoàn thiện kiến trúc.",
+                LargeImage = LoadImage("icon_finishes_32.png"),
+                Image = LoadImage("icon_finishes_16.png")
+            }) as PulldownButton;
+            if (createTools != null)
+            {
+                AddPulldownItem(createTools, "CmdCreateLintels", "Tạo lanh tô",
+                    "KhimTools.Architectural.Lintels.CmdCreateLintels", assemblyPath, "icon_detail_16.png");
+                AddPulldownItem(createTools, "CmdRoomFinishesMenu", "Hoàn thiện theo Room",
+                    "KhimTools.Architectural.Finishes.CmdWallFloorFinishes", assemblyPath, "icon_finishes_16.png");
+            }
+
+            var doorTools = panel.AddItem(new PulldownButtonData("ArchDoorDetailsPulldown", "Triển khai" + Environment.NewLine + "cửa")
+            {
+                ToolTip = "Tạo view triển khai cửa theo Assembly hoặc Legend.",
+                LargeImage = LoadImage("icon_detail_32.png"),
+                Image = LoadImage("icon_detail_16.png")
+            }) as PulldownButton;
+            if (doorTools != null)
+            {
+                AddPulldownItem(doorTools, "CmdCreateDoorAssemblies", "Assembly",
+                    "KhimTools.Architectural.DoorDetails.CmdCreateDoorAssemblies", assemblyPath, "icon_detail_16.png");
+            }
         }
 
         // ════════════════════════════════════════════════════════════════════════════════
@@ -583,6 +627,26 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_mep_tags_16.png")
             };
             panel.AddStackedItems(openingData, tagData);
+        }
+
+        private static void BuildQuantitySurveyingPanel(UIControlledApplication application, string assemblyPath)
+        {
+            RibbonPanel panel = GetOrCreatePanel(application, TabName, QuantitySurveyingPanelName);
+            panel.AddItem(new PushButtonData("CmdQuantityTakeoff", "Quantity" + Environment.NewLine + "Takeoff",
+                assemblyPath, "KhimTools.QuantityTakeoff.Commands.CmdQuantityTakeoff")
+            {
+                ToolTip = "Bóc khối lượng BIM: bê tông, thép, tường xây, sơn, hoàn thiện, cửa, phòng và MEP.",
+                LongDescription = "Kiểm tra dữ liệu, giữ liên kết tới phần tử Revit, phân biệt Raw Quantity và Pay Quantity, xuất Excel có audit Element UniqueId.",
+                LargeImage = LoadImage("icon_quantity_32.png"),
+                Image = LoadImage("icon_quantity_16.png")
+            });
+            panel.AddItem(new PushButtonData("CmdQtoDataCheck", "Data" + Environment.NewLine + "Check",
+                assemblyPath, "KhimTools.QuantityTakeoff.Commands.CmdQtoDataCheck")
+            {
+                ToolTip = "Kiểm tra dữ liệu đầu vào trước khi phát hành khối lượng.",
+                LargeImage = LoadImage("icon_data_check_32.png"),
+                Image = LoadImage("icon_data_check_16.png")
+            });
         }
 
         // ════════════════════════════════════════════════════════════════════════════════

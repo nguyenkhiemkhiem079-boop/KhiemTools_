@@ -35,6 +35,7 @@ Target panels:
 - ARCHI: Quick Archi, Room/Finish/View tools
 - MEP: Openings, Elevation Tags
 - DOCS: Section, Viewport, Sheets, Tags
+- K-QS: Quantity Takeoff, Data Check, Compare, Rules and Issue History
 
 Use split/pulldown buttons for secondary commands. Keep primary commands discoverable and avoid 1-button-per-micro-operation ribbon clutter.
 

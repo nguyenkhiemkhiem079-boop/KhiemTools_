@@ -1,4 +1,4 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -83,7 +83,7 @@ namespace KhimTools.ViewportAlign.Forms
                 _sourceSheet = _doc.GetElement(_sourceViewport.SheetId) as ViewSheet;
             }
 
-            _allSheets = new FilteredElementCollector(_doc)
+            _allSheets = _doc == null ? new List<ViewSheet>() : new FilteredElementCollector(_doc)
                 .OfClass(typeof(ViewSheet))
                 .Cast<ViewSheet>()
                 .Where(s => !s.IsPlaceholder)
@@ -97,19 +97,20 @@ namespace KhimTools.ViewportAlign.Forms
         private void BuildUi()
         {
             bool isEn = LanguageManager.IsEnglish;
-            Text = isEn ? "Arrange Views & Title" : "C─ân Chß╗ënh Vß╗ï Tr├¡ Viewport & Ti├¬u ─Éß╗ü Bß║ún Vß║╜";
-            Width = 840;
+            Text = isEn ? "Arrange Views & Title" : "Căn Chỉnh Vị Trí Viewport & Tiêu Đề Bản Vẽ";
+            Width = 1020;
             Height = 650;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MinimumSize = new Size(920, 600);
+            MaximizeBox = true;
             MinimizeBox = false;
             BackColor = Color.FromArgb(248, 249, 250);
             Font = new Font("Segoe UI", 9F, FontStyle.Regular);
 
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             // 1. BOTTOM ACTION BAR
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             var bottomPanel = new Panel
             {
                 Dock = DockStyle.Bottom,
@@ -120,7 +121,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnOk = new Button
             {
-                Text = isEn ? "OK" : "C─ân Chß╗ënh Vß╗ï Tr├¡",
+                Text = isEn ? "OK" : "Căn Chỉnh Vị Trí",
                 Width = 140,
                 Height = 35,
                 BackColor = Color.FromArgb(0, 122, 255),
@@ -133,7 +134,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnCancel = new Button
             {
-                Text = isEn ? "Cancel" : "Hß╗ºy",
+                Text = isEn ? "Cancel" : "Hủy",
                 Width = 90,
                 Height = 35,
                 BackColor = Color.FromArgb(225, 228, 232),
@@ -153,13 +154,14 @@ namespace KhimTools.ViewportAlign.Forms
             };
             Controls.Add(bottomPanel);
 
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             // 2. RIGHT PANEL: SOURCE VIEWPORT & ARRANGE OPTIONS
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             var rightPanel = new Panel
             {
                 Dock = DockStyle.Right,
-                Width = 330,
+                Width = 390,
+                AutoScroll = true,
                 Padding = new Padding(10, 10, 15, 10),
                 BackColor = Color.FromArgb(248, 249, 250)
             };
@@ -167,7 +169,7 @@ namespace KhimTools.ViewportAlign.Forms
             // 2.1 Group: Source Viewport
             var grpSource = new GroupBox
             {
-                Text = isEn ? "Source Viewport" : "Viewport Mß║½u (Source)",
+                Text = isEn ? "Source Viewport" : "Viewport Mẫu (Source)",
                 Dock = DockStyle.Top,
                 Height = 135,
                 Padding = new Padding(12, 10, 12, 10),
@@ -177,7 +179,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             var lblSourceTitle = new Label
             {
-                Text = isEn ? "Selected Template Viewport:" : "Viewport mß║½u ─æ├ú chß╗ìn:",
+                Text = isEn ? "Selected Template Viewport:" : "Viewport mẫu đã chọn:",
                 Dock = DockStyle.Top,
                 Height = 18,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular),
@@ -199,7 +201,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnSelectTemplate = new Button
             {
-                Text = isEn ? "Select View Template" : "Chß╗ìn Viewport Mß║½u Tr├¬n Sheet",
+                Text = isEn ? "Select View Template" : "Chọn Viewport Mẫu Trên Sheet",
                 Dock = DockStyle.Bottom,
                 Height = 32,
                 BackColor = Color.FromArgb(2, 132, 199),
@@ -218,7 +220,7 @@ namespace KhimTools.ViewportAlign.Forms
             // 2.2 Group: Arrange Options
             var grpArrange = new GroupBox
             {
-                Text = isEn ? "Arrange Options" : "T├╣y Chß╗ìn C─ân Chß╗ënh",
+                Text = isEn ? "Arrange Options" : "Tùy Chọn Căn Chỉnh",
                 Dock = DockStyle.Top,
                 Height = 130,
                 Padding = new Padding(12, 8, 12, 8),
@@ -231,12 +233,13 @@ namespace KhimTools.ViewportAlign.Forms
             {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
 
             _rdViewsAndTitles = new RadioButton
             {
-                Text = isEn ? "Arrange Views & Titles" : "C─ân chß╗ënh cß║ú View & Ti├¬u ─æß╗ü (Titles)",
+                Text = isEn ? "Arrange Views & Titles" : "View và tiêu đề",
                 Checked = true,
                 AutoSize = true,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
@@ -245,14 +248,14 @@ namespace KhimTools.ViewportAlign.Forms
 
             _rdViewsOnly = new RadioButton
             {
-                Text = isEn ? "Arrange Views Only" : "Chß╗ë c─ân chß╗ënh vß╗ï tr├¡ View",
+                Text = isEn ? "Arrange Views Only" : "Chỉ vị trí view",
                 AutoSize = true,
                 Margin = new Padding(3, 4, 3, 4)
             };
 
             _rdTitlesOnly = new RadioButton
             {
-                Text = isEn ? "Arrange Titles Only" : "Chß╗ë c─ân chß╗ënh vß╗ï tr├¡ Ti├¬u ─æß╗ü (Titles)",
+                Text = isEn ? "Arrange Titles Only" : "Chỉ tiêu đề",
                 AutoSize = true,
                 Margin = new Padding(3, 4, 3, 4)
             };
@@ -266,7 +269,7 @@ namespace KhimTools.ViewportAlign.Forms
             // 2.3 Group: Auto Select Views
             var grpAutoSelect = new GroupBox
             {
-                Text = isEn ? "Auto Select Views" : "Chß╗ìn Nhanh ─Éß╗æi T╞░ß╗úng",
+                Text = isEn ? "Auto Select Views" : "Chọn Nhanh Đối Tượng",
                 Dock = DockStyle.Top,
                 Height = 150,
                 Padding = new Padding(12, 8, 12, 8),
@@ -279,13 +282,14 @@ namespace KhimTools.ViewportAlign.Forms
             {
                 Dock = DockStyle.Fill,
                 FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
                 Font = new Font("Segoe UI", 8.5F, FontStyle.Regular)
             };
 
-            _chkOnlyNotes = new CheckBox { Text = isEn ? "ONLY NOTE / LEGEND" : "CHß╗ê GHI CH├Ü / LEGEND", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
-            _chkOnlyKeyplan = new CheckBox { Text = isEn ? "ONLY KEYPLAN" : "CHß╗ê Mß║╢T Bß║░NG ─Éß╗èNH Vß╗è (KEYPLAN)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
-            _chkOnlyView = new CheckBox { Text = isEn ? "ONLY MODEL VIEW" : "CHß╗ê Mß║╢T Bß║░NG / Mß║╢T Cß║«T M├ö H├îNH", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
-            _chkOnlySchedule = new CheckBox { Text = isEn ? "ONLY SCHEDULES" : "CHß╗ê Bß║óNG THß╗ÉNG K├è (SCHEDULES)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlyNotes = new CheckBox { Text = isEn ? "ONLY NOTE / LEGEND" : "Ghi chú / Legend", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlyKeyplan = new CheckBox { Text = isEn ? "ONLY KEYPLAN" : "Mặt bằng định vị (Keyplan)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlyView = new CheckBox { Text = isEn ? "ONLY MODEL VIEW" : "Mặt bằng / mặt cắt mô hình", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
+            _chkOnlySchedule = new CheckBox { Text = isEn ? "ONLY SCHEDULES" : "Bảng thống kê (Schedules)", AutoSize = true, Margin = new Padding(3, 4, 3, 3) };
 
             _chkOnlyNotes.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
             _chkOnlyKeyplan.CheckedChanged += (s, e) => ApplyAutoSelectFilters();
@@ -301,9 +305,9 @@ namespace KhimTools.ViewportAlign.Forms
 
             Controls.Add(rightPanel);
 
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             // 3. LEFT PANEL: SEARCH BAR & TREEVIEW OF SHEETS AND VIEWS
-            // ΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉΓòÉ
+            // ══════════════════════════════════════════════════════════════════
             var leftPanel = new Panel
             {
                 Dock = DockStyle.Fill,
@@ -328,7 +332,7 @@ namespace KhimTools.ViewportAlign.Forms
 
             _btnRefresh = new Button
             {
-                Text = isEn ? "Refresh" : "L├ám mß╗¢i",
+                Text = isEn ? "Refresh" : "Làm mới",
                 Dock = DockStyle.Right,
                 Width = 85,
                 Height = 28,
@@ -379,7 +383,7 @@ namespace KhimTools.ViewportAlign.Forms
                     new ViewportSelectionFilter(),
                     LanguageManager.IsEnglish
                         ? "Select source Viewport on Sheet to use as alignment reference"
-                        : "Chß╗ìn Viewport nguß╗ôn tr├¬n Sheet ─æß╗â lß║Ñy vß╗ï tr├¡ mß║½u");
+                        : "Chọn Viewport nguồn trên Sheet để lấy vị trí mẫu");
 
                 if (pickedRef != null && _doc.GetElement(pickedRef) is Viewport vp)
                 {
@@ -414,7 +418,7 @@ namespace KhimTools.ViewportAlign.Forms
                 var viewsOnSheet = ViewportAlignService.GetViewsOnSheet(_doc, sheet);
                 if (!viewsOnSheet.Any()) continue;
 
-                // Kiß╗âm tra bß╗Ö lß╗ìc tß╗½ kh├│a
+                // Kiểm tra bộ lọc từ khóa
                 bool sheetMatches = string.IsNullOrEmpty(search) ||
                                     sheet.SheetNumber.ToLowerInvariant().Contains(search) ||
                                     sheet.Name.ToLowerInvariant().Contains(search);
@@ -434,7 +438,7 @@ namespace KhimTools.ViewportAlign.Forms
 
                 foreach (var viewItem in matchingViews)
                 {
-                    // ─É├ính dß║Ñu nß║┐u l├á viewport mß║½u
+                    // Đánh dấu nếu là viewport mẫu
                     bool isSource = (_sourceViewport != null && viewItem.ViewportOrScheduleId == _sourceViewport.Id);
                     string viewTitle = isSource ? $"{viewItem.ViewName} (Source Reference)" : viewItem.ViewName;
 
@@ -471,7 +475,7 @@ namespace KhimTools.ViewportAlign.Forms
                 TreeNode node = e.Node;
                 bool isChecked = node.Checked;
 
-                // 1. Nß║┐u t├¡ch v├áo Sheet cha -> Tß╗▒ ─æß╗Öng t├¡ch/bß╗Å t├¡ch tß║Ñt cß║ú View con
+                // 1. Nếu tích vào Sheet cha -> Tự động tích/bỏ tích tất cả View con
                 if (node.Parent == null)
                 {
                     foreach (TreeNode child in node.Nodes)
@@ -479,7 +483,7 @@ namespace KhimTools.ViewportAlign.Forms
                         child.Checked = isChecked;
                     }
                 }
-                // 2. Nß║┐u t├¡ch v├áo View con -> Cß║¡p nhß║¡t trß║íng th├íi Sheet cha
+                // 2. Nếu tích vào View con -> Cập nhật trạng thái Sheet cha
                 else
                 {
                     TreeNode parent = node.Parent;
@@ -528,9 +532,9 @@ namespace KhimTools.ViewportAlign.Forms
                         bool check = false;
                         string lowerName = (item.ViewName ?? "").ToLowerInvariant();
 
-                        if (filterNotes && (item.ViewType == ViewType.Legend || lowerName.Contains("note") || lowerName.Contains("legend") || lowerName.Contains("ghi ch├║")))
+                        if (filterNotes && (item.ViewType == ViewType.Legend || lowerName.Contains("note") || lowerName.Contains("legend") || lowerName.Contains("ghi chú")))
                             check = true;
-                        if (filterKeyplan && (lowerName.Contains("keyplan") || lowerName.Contains("─æß╗ïnh vß╗ï") || lowerName.Contains("so do")))
+                        if (filterKeyplan && (lowerName.Contains("keyplan") || lowerName.Contains("định vị") || lowerName.Contains("so do")))
                             check = true;
                         if (filterView && !item.IsSchedule && item.ViewType != ViewType.Legend && !lowerName.Contains("keyplan"))
                             check = true;
@@ -557,7 +561,7 @@ namespace KhimTools.ViewportAlign.Forms
                 TaskDialog.Show("Khim Tools",
                     LanguageManager.IsEnglish
                         ? "Please select a Source Viewport template first."
-                        : "Vui l├▓ng chß╗ìn mß╗Öt Viewport mß║½u tr╞░ß╗¢c khi c─ân chß╗ënh.");
+                        : "Vui lòng chọn một Viewport mẫu trước khi căn chỉnh.");
                 return;
             }
 
@@ -569,7 +573,7 @@ namespace KhimTools.ViewportAlign.Forms
                 {
                     if (viewNode.Checked && viewNode.Tag is TargetViewItem item)
                     {
-                        // Kh├┤ng c─ân chß╗ënh lß║íi ch├¡nh Viewport mß║½u
+                        // Không căn chỉnh lại chính Viewport mẫu
                         if (item.ViewportOrScheduleId != _sourceViewport.Id)
                         {
                             SelectedTargetViews.Add(item);
@@ -583,7 +587,7 @@ namespace KhimTools.ViewportAlign.Forms
                 TaskDialog.Show("Khim Tools",
                     LanguageManager.IsEnglish
                         ? "Please check at least one view to align."
-                        : "Vui l├▓ng t├¡ch chß╗ìn ├¡t nhß║Ñt mß╗Öt Khung nh├¼n (View) cß║ºn c─ân chß╗ënh.");
+                        : "Vui lòng tích chọn ít nhất một Khung nhìn (View) cần căn chỉnh.");
                 return;
             }
 
