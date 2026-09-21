@@ -45,6 +45,8 @@ namespace KhimTools.RebarTool.Commands
                     if (level == null || floorType == null || barType == null)
                         throw new InvalidOperationException("Thiếu type bắt buộc; hãy nạp Rebar Bar Type trước khi chạy fixture.");
 
+                    RunRectangularColumnStationQa(commandData.Application.ActiveUIDocument, checks);
+
                     Floor floor;
                     using (var tx = new Transaction(doc, "Create temporary QA host"))
                     {
@@ -120,6 +122,135 @@ namespace KhimTools.RebarTool.Commands
         private static void Require(bool condition, string id, string detail, ICollection<FixtureCheck> checks)
         {
             checks.Add(new FixtureCheck { Id = id, Passed = condition, Detail = detail });
+        }
+
+        /// <summary>
+        /// Revit 2025 acceptance fixture for the rectangular-column tie topology.
+        /// The selected structural column is used as the known C1 host, three ties
+        /// are created at base + 500 mm, validated after regeneration, and then
+        /// removed with the enclosing fixture TransactionGroup rollback.
+        /// </summary>
+        private static void RunRectangularColumnStationQa(UIDocument uidoc, ICollection<FixtureCheck> checks)
+        {
+            Document doc = uidoc?.Document;
+            FamilyInstance column = uidoc?.Selection?.GetElementIds()
+                .Select(id => doc.GetElement(id) as FamilyInstance)
+                .FirstOrDefault(x => x != null && x.Category != null &&
+                    x.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralColumns);
+            if (column == null)
+            {
+                Require(false, "COLUMN_FIXTURE_SELECTION", "Chọn một cột chữ nhật C1 trước khi chạy fixture để kiểm tra 3 đai đa ô.", checks);
+                return;
+            }
+            if (CmdColumnRebar.IsCircular(column))
+            {
+                Require(false, "COLUMN_FIXTURE_SELECTION", "Cột đã chọn là cột tròn; chọn cột chữ nhật C1 để chạy fixture.", checks);
+                return;
+            }
+
+            RectangularColumnGeometryHelper.ColumnProfile profile;
+            try
+            {
+                profile = RectangularColumnGeometryHelper.GetRectangularProfile(column);
+            }
+            catch (Exception ex)
+            {
+                Require(false, "COLUMN_FIXTURE_PROFILE", "Không đọc được tiết diện cột đã chọn: " + ex.Message, checks);
+                return;
+            }
+
+            bool profileOk = profile.B > 0 && profile.H > 0 && profile.Height > 0;
+            Require(profileOk, "COLUMN_FIXTURE_PROFILE", "Cột đã chọn có tiết diện chữ nhật và chiều cao hợp lệ.", checks);
+            if (!profileOk) return;
+            double profileBMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters);
+            double profileHMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
+            string mark = column.LookupParameter("Mark")?.AsString();
+            bool knownC1 = string.Equals(mark, "C1", StringComparison.OrdinalIgnoreCase) ||
+                (Math.Abs(profileBMm - 1000.0) <= 2.0 && Math.Abs(profileHMm - 350.0) <= 2.0);
+            Require(knownC1, "COLUMN_FIXTURE_HOST", "Fixture dùng cột C1 (1000 x 350 mm) hoặc cột đang được đánh dấu C1.", checks);
+            if (!knownC1) return;
+
+            RebarBarType mainBar = FindBarType(doc, 32.0);
+            RebarBarType stirrupBar = FindBarType(doc, 12.0);
+            Require(mainBar != null, "COLUMN_FIXTURE_MAIN_BAR", "Đã nạp RebarBarType gần N32 cho fixture C1.", checks);
+            Require(stirrupBar != null, "COLUMN_FIXTURE_STIRRUP_BAR", "Đã nạp RebarBarType gần N12 cho fixture C1.", checks);
+            if (mainBar == null || stirrupBar == null) return;
+
+            var input = new RectangularColumnRebarInput
+            {
+                Column = column,
+                MainBarType = mainBar,
+                StirrupBarType = stirrupBar,
+                BarsAlongB = 7,
+                BarsAlongH = 3,
+                TieLayout = ColumnTieLayoutType.MultiCellClosed,
+                HasInnerDiamondStirrup = false,
+                HasCrossLinks = false
+            };
+            double stationZ = profile.BaseCenter.Z + Mm(500);
+            var report = new RebarGenerationReport();
+            var failurePreprocessor = new RebarGenerationFailurePreprocessor();
+            using (var tx = new Transaction(doc, "K-TOOLS rectangular column tie QA"))
+            {
+                tx.Start();
+                FailureHandlingOptions options = tx.GetFailureHandlingOptions();
+                options.SetFailuresPreprocessor(failurePreprocessor);
+                options.SetClearAfterRollback(true);
+                tx.SetFailureHandlingOptions(options);
+                try
+                {
+                    List<Rebar> ties = new RectangularColumnRebarGenerator(doc)
+                        .CreateSingleTieStation(input, stationZ, report);
+                    doc.Regenerate();
+                    bool countOk = ties != null && ties.Count == 3;
+                    Require(countOk, "COLUMN_FIXTURE_TIE_COUNT",
+                        countOk ? "Đã tạo đúng 3 đai: outer + inner trái + inner phải tại base + 500 mm."
+                            : "Fixture tạo " + (ties == null ? 0 : ties.Count) + " đai thay vì 3.", checks);
+
+                    bool valid = countOk;
+                    if (valid)
+                    {
+                        foreach (Rebar tie in ties)
+                        {
+                            string failure;
+                            if (!RebarShapeCreationHelper.TryValidateCreatedRebar(
+                                doc, tie, column, RebarStyle.StirrupTie, true,
+                                "Column fixture tie", out failure))
+                            {
+                                valid = false;
+                                report.AddError(column, "Column fixture tie", new InvalidOperationException(failure));
+                                break;
+                            }
+                        }
+                    }
+                    Require(valid, "COLUMN_FIXTURE_TIE_VALIDATION",
+                        valid ? "Tất cả 3 đai có host, RebarShape StirrupTie, accessor và containment hợp lệ."
+                            : "Một hoặc nhiều đai không vượt qua kiểm tra shape/host/containment.", checks);
+
+                    TransactionStatus status = tx.Commit();
+                    bool committed = status == TransactionStatus.Committed && !failurePreprocessor.HasUnrecoverableFailure;
+                    Require(committed, "COLUMN_FIXTURE_TRANSACTION",
+                        committed ? "Transaction QA đã commit trước khi TransactionGroup rollback."
+                            : "Transaction QA bị rollback: " + failurePreprocessor.Summary, checks);
+                }
+                catch (Exception ex)
+                {
+                    Require(false, "COLUMN_FIXTURE_EXCEPTION", ex.Message, checks);
+                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                }
+            }
+        }
+
+        private static RebarBarType FindBarType(Document doc, double diameterMm)
+        {
+            RebarBarType candidate = new FilteredElementCollector(doc)
+                .OfClass(typeof(RebarBarType))
+                .Cast<RebarBarType>()
+                .OrderBy(x => Math.Abs(UnitUtils.ConvertFromInternalUnits(x.BarModelDiameter, UnitTypeId.Millimeters) - diameterMm))
+                .FirstOrDefault();
+            if (candidate == null) return null;
+            double actual = UnitUtils.ConvertFromInternalUnits(candidate.BarModelDiameter, UnitTypeId.Millimeters);
+            return Math.Abs(actual - diameterMm) <= 0.5 ? candidate : null;
         }
 
         private static string WriteReport(Document doc, IList<FixtureCheck> checks)

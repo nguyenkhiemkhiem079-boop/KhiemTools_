@@ -43,8 +43,14 @@ namespace KhimTools.RebarTool.Core
         public const string SBar          = "JP_T22";
 
         // ==================== ĐAI STIRRUP ====================
-        /// <summary>Đai kín hình chữ nhật (closed-loop rectangular, rounded corners, 90° hook pair) — thép đai cột vuông.</summary>
+        /// <summary>
+        /// Đai kín hình chữ nhật (closed-loop rectangular, rounded corners, 90°/135° hook pair).
+        /// Column ties must be created from this compatible StirrupTie shape rather than
+        /// from an arbitrary closed four-line curve loop.
+        /// </summary>
         public const string RectangularStirrup = "JP_T51";
+        /// <summary>Preferred shape for outer and inner closed rectangular column ties.</summary>
+        public const string RectangularClosedTie = RectangularStirrup;
         /// <summary>Vòng kín hình tròn (closed-loop circular) — thép đai cột tròn.</summary>
         public const string CircularStirrup    = "JP_T75";
         /// <summary>Đai hình thoi / bát giác — cột tiết diện đa giác.</summary>

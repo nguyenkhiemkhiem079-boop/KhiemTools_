@@ -15,6 +15,22 @@ function Assert-State($condition, $message) {
     $script:checks++
 }
 function Field($form, $name) { $form.GetType().GetField($name, $flags).GetValue($form) }
+$numericRoot = [Windows.Forms.Panel]::new()
+try {
+    $positions = [Windows.Forms.TextBox]::new()
+    $positions.ReadOnly = $true
+    $positions.Text = '0, 3'
+    $length = [Windows.Forms.TextBox]::new()
+    $length.Text = '100'
+    $numericRoot.Controls.AddRange(@($positions, $length))
+    $guardType = $assembly.GetType('KhimTools.RebarTool.Forms.RebarFormGuard', $true)
+    $rule = $guardType.GetMethod('RequireNumericTextBoxes').Invoke($null, @($numericRoot, 'Invalid length'))
+    Assert-State ($rule.IsValid.Invoke()) 'Read-only beam positions block valid numeric inputs.'
+    $length.Text = '-1'
+    Assert-State (!$rule.IsValid.Invoke()) 'Negative editable beam length is accepted.'
+    $length.Text = 'abc'
+    Assert-State (!$rule.IsValid.Invoke()) 'Non-numeric editable beam length is accepted.'
+} finally { $numericRoot.Dispose() }
 foreach ($name in @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam")) {
     $type = $assembly.GetType("KhimTools.RebarTool.Forms.$($name)ReinforcementForm", $true)
     $form = $type.GetMethod("CreateLayoutPreview", [Reflection.BindingFlags]"NonPublic,Static").Invoke($null, @())
@@ -55,5 +71,17 @@ foreach ($name in @("RectangularColumn", "CircularColumn", "Foundation", "Slab",
         }
     } finally { $root.Dispose(); $form.Dispose() }
 }
-Write-Host "PASS: $checks Rebar input-state checks."
+$joinType = $assembly.GetType('KhimTools.SlabJoin.Forms.JoinElementsForm', $true)
+$join = [Activator]::CreateInstance($joinType, [object[]]@($null, $null))
+try {
+    foreach ($size in @([Drawing.Size]::new(800,520), [Drawing.Size]::new(1200,800))) {
+        $join.Size = $size
+        $join.CreateControl()
+        $join.PerformLayout()
+        $split = $join.Controls | Where-Object { $_ -is [Windows.Forms.SplitContainer] } | Select-Object -First 1
+        Assert-State ($split.SplitterDistance -ge $split.Panel1MinSize) 'Join left panel violates minimum size.'
+        Assert-State ($split.SplitterDistance -le ($split.Width - $split.SplitterWidth - $split.Panel2MinSize)) 'Join right panel violates minimum size.'
+    }
+} finally { $join.Dispose() }
+Write-Host "PASS: $checks Rebar and Join input-state checks."
 Write-Host "UI state only: no generation, geometry, Revit selection or model transactions executed."

@@ -34,8 +34,9 @@ namespace KhimTools.RebarTool.Commands
                 // 2. Thu thập toàn bộ sàn trong dự án
                 List<Floor> allFloors = new FilteredElementCollector(doc)
                     .OfCategory(BuiltInCategory.OST_Floors)
+                    .OfClass(typeof(Floor))
                     .WhereElementIsNotElementType()
-                    .Cast<Floor>()
+                    .OfType<Floor>()
                     .OrderBy(f => doc.GetElement(f.LevelId)?.Name ?? "")
                     .ThenBy(f => f.Name)
                     .ToList();

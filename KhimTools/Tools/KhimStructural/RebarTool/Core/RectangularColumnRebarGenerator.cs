@@ -13,7 +13,7 @@ namespace KhimTools.RebarTool.Core
         public RebarBarType StirrupBarType { get; set; }
 
         /// <summary>Số thép chủ dọc theo cạnh B (tính cả 2 thanh góc), tối thiểu 2.</summary>
-        public int BarsAlongB { get; set; } = 3;
+        public int BarsAlongB { get; set; } = 7;
 
         /// <summary>Số thép chủ dọc theo cạnh H (tính cả 2 thanh góc), tối thiểu 2.</summary>
         public int BarsAlongH { get; set; } = 3;
@@ -27,11 +27,14 @@ namespace KhimTools.RebarTool.Core
         /// <summary>Khoảng cách đai vùng thưa A2 (feet) - mặc định 200mm.</summary>
         public double StirrupSpacingA2 { get; set; } = ToFeet(200);
 
-        /// <summary>Bật/Tắt đai thoi / đai lồng JP_T80 khi có từ 3 thanh chủ / cạnh.</summary>
-        public bool HasInnerDiamondStirrup { get; set; } = true;
+        /// <summary>Transverse reinforcement topology; MultiCellClosed is the normal detail.</summary>
+        public ColumnTieLayoutType TieLayout { get; set; } = ColumnTieLayoutType.MultiCellClosed;
 
-        /// <summary>Bật/Tắt đai móc phụ / crosslink JP_T68.</summary>
-        public bool HasCrossLinks { get; set; } = true;
+        /// <summary>Legacy diamond option; never enabled by the normal workflow.</summary>
+        public bool HasInnerDiamondStirrup { get; set; } = false;
+
+        /// <summary>Opt-in cross-tie option for legacy/advanced detailing.</summary>
+        public bool HasCrossLinks { get; set; } = false;
 
         public bool HasDowel { get; set; } = true;
         public bool HasTopAnchor { get; set; } = true;
@@ -108,7 +111,7 @@ namespace KhimTools.RebarTool.Core
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu
             created.AddRange(CreateMainBars(input, profile, mainPoints, report));
-            created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup));
+            created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup, report));
 
             report?.AddSuccess(created.Count);
             return created;
@@ -270,33 +273,31 @@ namespace KhimTools.RebarTool.Core
                     Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(
                         _doc, RebarStyle.Standard, input.MainBarType, null, null, input.Column,
                         worldNorm, curves, RebarHookOrientation.Left, RebarHookOrientation.Right);
-
-                    if (bar != null)
+                    if (bar == null)
                     {
-                        // Gán tham số hình học phân đoạn Shape 11 / Shape 00 / VNDC_L1
-                        var shapeParams = new Dictionary<string, double>
-                        {
-                            { "A", zTop - baseZBottom },
-                            { "VNDC_L1", zTop - baseZBottom }
-                        };
-                        RebarShapeLibrary.ApplyShapeParameters(bar, shapeParams);
+                        string reason = "Không thể khởi tạo thanh thép chủ: " +
+                            (RebarShapeCreationHelper.LastFailureReason ?? "Revit rejected the candidate.");
+                        report?.AddError(input.Column, "Main Bar", new InvalidOperationException(reason));
+                        throw new InvalidOperationException(reason);
+                    }
 
-                        bars.Add(bar);
-                    }
-                    else
+                    // Assign only shape parameters explicitly declared by the solved
+                    // shape, then regenerate and validate the resulting candidate again.
+                    var shapeParams = new Dictionary<string, double>
                     {
-                        XYZ pt1 = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, baseZBottom - profile.BaseCenter.Z, center, rot);
-                        XYZ pt2 = RectangularColumnGeometryHelper.TransformLocalToWorld(input.Column, lx, ly, zTop - profile.BaseCenter.Z, center, rot);
-                        Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Column, input.MainBarType, pt1, pt2);
-                        if (fallbackBar != null)
-                        {
-                            bars.Add(fallbackBar);
-                        }
-                        else
-                        {
-                            report?.AddError(input.Column, "Thép chủ cột chữ nhật (Main Rebar)", new InvalidOperationException("Không thể khởi tạo thanh thép chủ."));
-                        }
+                        { "A", zTop - baseZBottom },
+                        { "VNDC_L1", zTop - baseZBottom }
+                    };
+                    RebarShapeLibrary.ApplyShapeParameters(bar, shapeParams);
+                    string validationFailure;
+                    if (!RebarShapeCreationHelper.TryValidateCreatedRebar(
+                        _doc, bar, input.Column, RebarStyle.Standard, false,
+                        "Main Bar", out validationFailure))
+                    {
+                        report?.AddError(input.Column, "Main Bar", new InvalidOperationException(validationFailure));
+                        throw new InvalidOperationException(validationFailure);
                     }
+                    bars.Add(bar);
                 }
             }
 
@@ -325,147 +326,234 @@ namespace KhimTools.RebarTool.Core
         }
 
         private List<Rebar> CreateStirrups(RectangularColumnRebarInput input,
-            RectangularColumnGeometryHelper.ColumnProfile profile, double halfB, double halfH, RebarGenerationReport report = null)
+            RectangularColumnGeometryHelper.ColumnProfile profile, double halfB, double halfH,
+            RebarGenerationReport report = null)
         {
-            var hoops = new List<Rebar>();
-
-            // Gap 2: Tìm dầm giao vào cột để xác định vùng nút dầm-cột (Joint Core)
             double maxBeamDepthFeet = FindMaxIntersectingBeamDepth(input.Column, profile.TopCenter.Z);
-            double zBeamBot = profile.TopCenter.Z - maxBeamDepthFeet;
+            double zBeamBot = Math.Max(profile.BaseCenter.Z,
+                Math.Min(profile.TopCenter.Z, profile.TopCenter.Z - maxBeamDepthFeet));
+            double clearHeight = zBeamBot - profile.BaseCenter.Z;
+            if (clearHeight <= 0.01)
+            {
+                var error = new InvalidOperationException("Column has no clear height for transverse reinforcement.");
+                report?.AddError(input.Column, "Distribution", error);
+                throw error;
+            }
 
-            double colHeight = profile.Height;
-            double clearHeight = Math.Max(zBeamBot - profile.BaseCenter.Z, 0);
-
-            double l1 = Math.Max(input.ZoneA1Length, Math.Max(clearHeight / 6.0, Math.Max(profile.B, profile.H)));
+            double l1 = input.ZoneA1Length > 0
+                ? input.ZoneA1Length
+                : Math.Max(clearHeight / 6.0, Math.Max(profile.B, profile.H));
+            l1 = Math.Min(l1, clearHeight / 2.0);
             double s1 = input.StirrupSpacingA1 > 0 ? input.StirrupSpacingA1 : ToFeet(100);
             double s2 = input.StirrupSpacingA2 > 0 ? input.StirrupSpacingA2 : ToFeet(200);
-
-            // Tính danh sách cao độ Z bao gồm 3 vùng thông thủy (A1/A2/A1) + Vùng nút dầm-cột (Joint Core) với đai dày s1
-            List<double> zList = CalculateMultiZoneZCoordinates(profile.BaseCenter.Z, zBeamBot, profile.TopCenter.Z, l1, s1, s2);
-
-            int barsB = Math.Max(input.BarsAlongB, 2);
-            int barsH = Math.Max(input.BarsAlongH, 2);
-
-            foreach (double z in zList)
+            List<ColumnTieZone> zones = BuildTieZones(
+                profile.BaseCenter.Z, zBeamBot, profile.TopCenter.Z, l1, s1, s2);
+            if (zones.Count == 0)
             {
-                XYZ center = new XYZ(profile.BaseCenter.X, profile.BaseCenter.Y, z);
+                var error = new InvalidOperationException("No valid A1/A2/A1 tie zones were calculated.");
+                report?.AddError(input.Column, "Distribution", error);
+                throw error;
+            }
 
-                // 1. Đai ngoài chữ nhật kín JP_T51 (Closed Tie với 2x 135° Hook)
-                try
+            var hoops = new List<Rebar>();
+            foreach (ColumnTieZone zone in zones)
+            {
+                using (var stationTransaction = new SubTransaction(_doc))
                 {
-                    Rebar outerHoop = RectangularStirrupHelper.CreateHoop(
-                        _doc, input.Column, input.StirrupBarType, center, halfB, halfH, profile.RotationRad, XYZ.BasisZ);
-                    if (outerHoop != null) hoops.Add(outerHoop);
-                }
-                catch (Exception ex)
-                {
-                    report?.AddError(input.Column, "Đai cột chữ nhật (Outer Hoop)", ex);
-                }
-
-                // 2. Đai thoi / đai lồng JP_T80 (khi cạnh B >= 3 và H >= 3)
-                if (input.HasInnerDiamondStirrup && barsB >= 3 && barsH >= 3)
-                {
+                    stationTransaction.Start();
                     try
                     {
-                        Rebar diamondHoop = RectangularStirrupHelper.CreateDiamondHoop(
-                            _doc, input.Column, input.StirrupBarType, center, halfB, halfH, profile.RotationRad, XYZ.BasisZ);
-                        if (diamondHoop != null) hoops.Add(diamondHoop);
+                        XYZ center = new XYZ(profile.BaseCenter.X, profile.BaseCenter.Y, zone.StartZ);
+                        List<Rebar> stationBars = CreateTieLoopsAtStation(input, profile, halfB, halfH, center, report);
+                        if (stationBars.Count == 0)
+                            throw new InvalidOperationException("No valid tie loop was created.");
+                        foreach (Rebar tie in stationBars)
+                        {
+                            ApplyTieLayout(tie, zone);
+                            string failure;
+                            if (!RebarShapeCreationHelper.TryValidateCreatedRebar(
+                                _doc, tie, input.Column, RebarStyle.StirrupTie, true,
+                                zone.ZoneType + " " + GetTieRole(tie, stationBars), out failure))
+                                throw new InvalidOperationException(failure);
+                        }
+                        TransactionStatus status = stationTransaction.Commit();
+                        if (status != TransactionStatus.Committed)
+                            throw new InvalidOperationException("Revit rolled back the " + zone.ZoneType + " tie set.");
+                        hoops.AddRange(stationBars);
                     }
                     catch (Exception ex)
                     {
-                        report?.AddError(input.Column, "Đai thoi cột (Diamond Hoop)", ex);
-                    }
-                }
-
-                // 3. Thép 02 (C-link / Crosslink với 2x 180° Hook 180) cho các vị trí thép chủ giữa
-                if (input.HasCrossLinks)
-                {
-                    // Các vị trí theo chiều B (nối Y = -halfH đến Y = +halfH)
-                    for (int i = 1; i < barsB - 1; i++)
-                    {
-                        try
-                        {
-                            double t = (double)i / (barsB - 1);
-                            double lx = -halfB + t * 2 * halfB;
-                            Rebar linkH = RectangularStirrupHelper.CreateCrossLink(
-                                _doc, input.Column, input.StirrupBarType, center, lx, -halfH, lx, halfH, profile.RotationRad, XYZ.BasisZ);
-                            if (linkH != null) hoops.Add(linkH);
-                        }
-                        catch (Exception ex)
-                        {
-                            report?.AddError(input.Column, "Móc đai ngang B (Crosslink B)", ex);
-                        }
-                    }
-
-                    // Các vị trí theo chiều H (nối X = -halfB đến X = +halfB)
-                    for (int j = 1; j < barsH - 1; j++)
-                    {
-                        try
-                        {
-                            double t = (double)j / (barsH - 1);
-                            double ly = -halfH + t * 2 * halfH;
-                            Rebar linkB = RectangularStirrupHelper.CreateCrossLink(
-                                _doc, input.Column, input.StirrupBarType, center, -halfB, ly, halfB, ly, profile.RotationRad, XYZ.BasisZ);
-                            if (linkB != null) hoops.Add(linkB);
-                        }
-                        catch (Exception ex)
-                        {
-                            report?.AddError(input.Column, "Móc đai đứng H (Crosslink H)", ex);
-                        }
+                        report?.AddError(input.Column, zone.ZoneType + " Tie Set", ex);
+                        if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                        throw;
                     }
                 }
             }
-
             return hoops;
         }
 
-        private static List<double> CalculateMultiZoneZCoordinates(double zBase, double zBeamBot, double zTop, double l1, double s1, double s2)
+        /// <summary>
+        /// QA/debug path: creates exactly one outer, left-inner and right-inner tie
+        /// at one elevation and commits them as one atomic station.
+        /// </summary>
+        public List<Rebar> CreateSingleTieStation(RectangularColumnRebarInput input, double z,
+            RebarGenerationReport report = null)
         {
-            var zList = new List<double>();
-            double clearHeight = zBeamBot - zBase;
-            if (clearHeight <= 0 || s1 <= 0) return zList;
+            if (input == null || input.Column == null) throw new ArgumentNullException("input");
+            RectangularColumnGeometryHelper.ColumnProfile profile =
+                RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);
+            double cover = input.CustomCoverFeet ?? RebarCoverHelper.GetColumnCover(input.Column, RebarFace.Exterior);
+            double halfB = profile.B / 2.0 - cover - input.StirrupBarType.BarModelDiameter / 2.0;
+            double halfH = profile.H / 2.0 - cover - input.StirrupBarType.BarModelDiameter / 2.0;
+            if (halfB <= 0 || halfH <= 0) throw new InvalidOperationException("Column section is too small for the selected tie bar.");
 
-            double zEndA1Bottom = Math.Min(zBase + l1, zBeamBot);
-            double zStartA1Top = Math.Max(zBeamBot - l1, zBase);
-
-            // Vùng 1: Chân cột A1 (dầy s1)
-            for (double z = zBase; z <= zEndA1Bottom + 0.001; z += s1)
+            using (var stationTransaction = new SubTransaction(_doc))
             {
-                zList.Add(z);
-            }
-
-            // Vùng 2: Thân cột A2 (thưa s2)
-            double lastZ = zList.LastOrDefault();
-            if (lastZ <= 0) lastZ = zBase;
-
-            for (double z = lastZ + s2; z < zStartA1Top - 0.001; z += s2)
-            {
-                zList.Add(z);
-            }
-
-            // Vùng 3: Đỉnh cột thông thủy A1 (dầy s1)
-            for (double z = zStartA1Top; z <= zBeamBot + 0.001; z += s1)
-            {
-                if (!zList.Any(existingZ => Math.Abs(existingZ - z) < 0.01))
+                stationTransaction.Start();
+                try
                 {
-                    zList.Add(z);
+                    var bars = CreateTieLoopsAtStation(input, profile, halfB, halfH,
+                        new XYZ(profile.BaseCenter.X, profile.BaseCenter.Y, z), report);
+                    int expected = input.TieLayout == ColumnTieLayoutType.MultiCellClosed ? 3 : 1;
+                    if (bars.Count != expected)
+                        throw new InvalidOperationException("Expected " + expected + " tie loops but created " + bars.Count + ".");
+                    _doc.Regenerate();
+                    TransactionStatus status = stationTransaction.Commit();
+                    if (status != TransactionStatus.Committed)
+                        throw new InvalidOperationException("Revit rolled back the single-station tie test.");
+                    report?.AddSuccess(bars.Count);
+                    return bars;
+                }
+                catch (Exception ex)
+                {
+                    report?.AddError(input.Column, "Single Tie Station", ex);
+                    if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                    return new List<Rebar>();
                 }
             }
+        }
 
-            // Vùng 4: Vùng nút dầm-cột Joint Core (từ zBeamBot -> zTop) với bước đai s1
-            if (zTop > zBeamBot + 0.001)
+        private List<Rebar> CreateTieLoopsAtStation(RectangularColumnRebarInput input,
+            RectangularColumnGeometryHelper.ColumnProfile profile, double halfB, double halfH,
+            XYZ center, RebarGenerationReport report)
+        {
+            var ties = new List<Rebar>();
+            Rebar outer = RectangularStirrupHelper.CreateHoop(
+                _doc, input.Column, input.StirrupBarType, center, halfB, halfH,
+                profile.RotationRad, XYZ.BasisZ);
+            if (outer == null)
+                throw new InvalidOperationException("OuterTie: " + (RebarShapeCreationHelper.LastFailureReason ?? "creation failed."));
+            ties.Add(outer);
+
+            if (input.TieLayout == ColumnTieLayoutType.MultiCellClosed)
             {
-                for (double z = zBeamBot + s1; z <= zTop + 0.001; z += s1)
+                if (input.BarsAlongB < 5)
+                    throw new InvalidOperationException("MultiCellClosed requires at least five longitudinal bars along B.");
+                double cover = input.CustomCoverFeet ?? RebarCoverHelper.GetColumnCover(input.Column, RebarFace.Exterior);
+                double mainHalfB = profile.B / 2.0 - cover - input.StirrupBarType.BarModelDiameter - input.MainBarType.BarModelDiameter / 2.0;
+                var xLines = BuildLongitudinalXLines(mainHalfB, Math.Max(input.BarsAlongB, 2));
+                int leftBoundary = Math.Max(1, (input.BarsAlongB - 1) / 3);
+                int rightBoundary = Math.Min(input.BarsAlongB - 2, (input.BarsAlongB - 1) - leftBoundary);
+                if (rightBoundary <= leftBoundary)
+                    throw new InvalidOperationException("Longitudinal bar layout cannot define two inner cells.");
+
+                Rebar left = RectangularStirrupHelper.CreateInnerClosedTie(
+                    _doc, input.Column, input.StirrupBarType, center,
+                    -halfB, xLines[leftBoundary], halfH, profile.RotationRad, XYZ.BasisZ, "InnerTieLeft");
+                if (left == null)
+                    throw new InvalidOperationException("InnerTieLeft: " + (RebarShapeCreationHelper.LastFailureReason ?? "creation failed."));
+                ties.Add(left);
+
+                Rebar right = RectangularStirrupHelper.CreateInnerClosedTie(
+                    _doc, input.Column, input.StirrupBarType, center,
+                    xLines[rightBoundary], halfB, halfH, profile.RotationRad, XYZ.BasisZ, "InnerTieRight");
+                if (right == null)
+                    throw new InvalidOperationException("InnerTieRight: " + (RebarShapeCreationHelper.LastFailureReason ?? "creation failed."));
+                ties.Add(right);
+            }
+            else if (input.TieLayout == ColumnTieLayoutType.DiamondLegacy || input.HasInnerDiamondStirrup)
+            {
+                Rebar diamond = RectangularStirrupHelper.CreateDiamondHoop(
+                    _doc, input.Column, input.StirrupBarType, center, halfB, halfH,
+                    profile.RotationRad, XYZ.BasisZ);
+                if (diamond == null)
+                    throw new InvalidOperationException("DiamondLegacy: " + (RebarShapeCreationHelper.LastFailureReason ?? "creation failed."));
+                ties.Add(diamond);
+            }
+            else if (input.TieLayout == ColumnTieLayoutType.CrossTie || input.HasCrossLinks)
+            {
+                int barsB = Math.Max(input.BarsAlongB, 2);
+                for (int i = 1; i < barsB - 1; i++)
                 {
-                    if (!zList.Any(existingZ => Math.Abs(existingZ - z) < 0.01))
-                    {
-                        zList.Add(z);
-                    }
+                    double x = -halfB + (2.0 * halfB * i / (barsB - 1));
+                    Rebar link = RectangularStirrupHelper.CreateCrossLink(
+                        _doc, input.Column, input.StirrupBarType, center, x, -halfH, x, halfH,
+                        profile.RotationRad, XYZ.BasisZ);
+                    if (link == null) throw new InvalidOperationException("CrossTie: " + (RebarShapeCreationHelper.LastFailureReason ?? "creation failed."));
+                    ties.Add(link);
                 }
             }
+            return ties;
+        }
 
-            zList.Sort();
-            return zList;
+        private void ApplyTieLayout(Rebar tie, ColumnTieZone zone)
+        {
+            RebarShapeDrivenAccessor accessor = tie.GetShapeDrivenAccessor();
+            if (accessor == null || !accessor.IsValidObject)
+                throw new InvalidOperationException("Tie has no valid shape-driven accessor.");
+            if (zone.StationCount <= 1)
+                accessor.SetLayoutAsSingle();
+            else
+                accessor.SetLayoutAsNumberWithSpacing(zone.StationCount, zone.Spacing, true, true, true);
+            _doc.Regenerate();
+        }
+
+        private static string GetTieRole(Rebar tie, IList<Rebar> stationBars)
+        {
+            int index = stationBars.IndexOf(tie);
+            return index == 0 ? "OuterTie" : index == 1 ? "InnerTieLeft" : "InnerTieRight";
+        }
+
+        private static List<double> BuildLongitudinalXLines(double halfB, int barsB)
+        {
+            var lines = new List<double>();
+            for (int i = 0; i < barsB; i++)
+                lines.Add(-halfB + (2.0 * halfB * i / (barsB - 1)));
+            return lines;
+        }
+
+        private static List<ColumnTieZone> BuildTieZones(double zBase, double zBeamBot, double zTop,
+            double l1, double s1, double s2)
+        {
+            var zones = new List<ColumnTieZone>();
+            double clearEnd = Math.Max(zBase, Math.Min(zBeamBot, zTop));
+            if (clearEnd - zBase <= 0.01 || s1 <= 0 || s2 <= 0) return zones;
+            var occupied = new List<double>();
+            AddZone(zones, occupied, zBase, Math.Min(zBase + l1, clearEnd), s1, ColumnTieZoneType.BottomA1);
+            AddZone(zones, occupied, Math.Min(zBase + l1, clearEnd), Math.Max(zBase + l1, clearEnd - l1), s2, ColumnTieZoneType.MiddleA2);
+            AddZone(zones, occupied, Math.Max(zBase, clearEnd - l1), clearEnd, s1, ColumnTieZoneType.TopA1);
+            if (zTop > clearEnd + 0.01)
+                AddZone(zones, occupied, clearEnd, zTop, s1, ColumnTieZoneType.JointCore);
+            return zones;
+        }
+
+        private static void AddZone(ICollection<ColumnTieZone> zones, ICollection<double> occupied,
+            double start, double end, double spacing, ColumnTieZoneType type)
+        {
+            if (end < start + 0.01 || spacing <= 0) return;
+            while (occupied.Any(z => Math.Abs(z - start) < 0.001)) start += spacing;
+            if (start > end + 0.001) return;
+            int count = (int)Math.Floor((end - start) / spacing + 1e-9) + 1;
+            double actualEnd = start + (count - 1) * spacing;
+            zones.Add(new ColumnTieZone
+            {
+                StartZ = start,
+                EndZ = actualEnd,
+                Spacing = spacing,
+                ZoneType = type,
+                StationCount = count
+            });
+            for (int i = 0; i < count; i++) occupied.Add(start + i * spacing);
         }
 
         private double FindMaxIntersectingBeamDepth(FamilyInstance column, double topZ)

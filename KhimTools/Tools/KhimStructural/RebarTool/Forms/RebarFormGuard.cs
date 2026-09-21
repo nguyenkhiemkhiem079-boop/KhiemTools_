@@ -98,7 +98,7 @@ namespace KhimTools.RebarTool.Forms
                 () =>
                 {
                     invalid = EnumerateControls(root).OfType<TextBox>()
-                        .FirstOrDefault(box => box.Visible && box.Enabled && !TryParseNonNegative(box.Text));
+                        .FirstOrDefault(box => box.Visible && box.Enabled && !box.ReadOnly && !TryParseNonNegative(box.Text));
                     return invalid == null;
                 },
                 message);

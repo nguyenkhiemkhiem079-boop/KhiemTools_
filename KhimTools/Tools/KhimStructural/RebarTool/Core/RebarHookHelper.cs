@@ -12,6 +12,27 @@ namespace KhimTools.RebarTool.Core
     public static class RebarHookHelper
     {
         /// <summary>
+        /// Resolves a hook by its actual Revit angle and style.  This method deliberately
+        /// does not fall back to a different angle or style: ties must either receive the
+        /// detailing hook requested by the caller or fail before a candidate is created.
+        /// </summary>
+        public static RebarHookType ResolveExactHookType(Document doc, double targetAngleDegrees,
+            RebarStyle style = RebarStyle.StirrupTie)
+        {
+            if (doc == null || targetAngleDegrees <= 0) return null;
+
+            double targetRad = targetAngleDegrees * Math.PI / 180.0;
+            const double angleTolerance = 0.05;
+
+            return new FilteredElementCollector(doc)
+                .OfClass(typeof(RebarHookType))
+                .Cast<RebarHookType>()
+                .Where(h => h != null && h.Style == style)
+                .OrderBy(h => Math.Abs(h.HookAngle - targetRad))
+                .FirstOrDefault(h => Math.Abs(h.HookAngle - targetRad) < angleTolerance);
+        }
+
+        /// <summary>
         /// Tìm RebarHookType phù hợp trong dự án theo góc uốn (90, 135, 180 độ).
         /// </summary>
         public static RebarHookType GetHookType(Document doc, double targetAngleDegrees, RebarStyle style = RebarStyle.StirrupTie)

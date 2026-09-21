@@ -1,8 +1,9 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Text;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -168,7 +169,10 @@ namespace KhimTools.RebarTool.Forms
                 RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
                 new RebarValidationRule(_numStirrupSpacingA1,
                     () => _numStirrupSpacingA1.Value <= _numStirrupSpacingA2.Value,
-                    "Khoảng cách đai vùng A1 phải nhỏ hơn hoặc bằng A2."));
+                    "Khoảng cách đai vùng A1 phải nhỏ hơn hoặc bằng A2."),
+                new RebarValidationRule(_numBarsB,
+                    () => GetSelectedTieLayoutType() != ColumnTieLayoutType.MultiCellClosed || _numBarsB.Value >= 5,
+                    "Bố trí đai đa ô cần ít nhất 5 thanh chủ theo cạnh B."));
         }
 
         private void BuildUi()
@@ -320,7 +324,7 @@ namespace KhimTools.RebarTool.Forms
             layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             layoutMainSec.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
-            _numBarsB = new NumericUpDown { Minimum = 2, Maximum = 20, Value = 3, Width = 80 };
+            _numBarsB = new NumericUpDown { Minimum = 2, Maximum = 20, Value = 7, Width = 80 };
             _numBarsH = new NumericUpDown { Minimum = 2, Maximum = 20, Value = 3, Width = 80 };
             _numBarsB.ValueChanged += (s, e) => _previewPanel?.Invalidate();
             _numBarsH.ValueChanged += (s, e) => _previewPanel?.Invalidate();
@@ -383,7 +387,8 @@ namespace KhimTools.RebarTool.Forms
             // GDI+ Preview Panel 2D Column Elevation Review
             _previewPanel = new Panel { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(252, 252, 254) };
             _previewPanel.Paint += PreviewPanel_Paint;
-            var previewViewport = RebarLayout.ScrollPreview(_previewPanel, new Size(420, 480));
+            var previewViewport = RebarLayout.ScrollPreview(_previewPanel, new Size(560, 420));
+            _previewPanel.Resize += (s, e) => _previewPanel.Invalidate();
             _tabMain.Controls.Add(previewViewport);
             previewViewport.BringToFront();
 
@@ -404,12 +409,20 @@ namespace KhimTools.RebarTool.Forms
             _lblZoneA1Len = AddRowToLayout(layoutStirrupZone, "Chiều dài vùng dầy A1 (mm):", _numZoneA1Length = new NumericUpDown { Minimum = 300, Maximum = 2000, Value = 600, Increment = 50, Width = 90 });
             _grpStirrupZone.Controls.Add(layoutStirrupZone);
 
-            _grpInnerStirrup = new GroupBox { Text = "Cấu tạo Đai Phụ & Móc Đai", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
+            _grpInnerStirrup = new GroupBox { Text = "Tùy chọn đai Legacy / Nâng cao", Dock = DockStyle.Top, Height = 110, Padding = new Padding(10) };
             var pnlInnerStirrup = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
-            _chkInnerDiamond = new CheckBox { Text = "Tạo đai lồng / đai thoi JP_T80 (khi ≥3 thanh/cạnh)", Checked = true, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
-            _chkCrossLinks = new CheckBox { Text = "Tạo đai móc phụ / Crosslink JP_T68", Checked = true, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
-            _chkInnerDiamond.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
-            _chkCrossLinks.CheckedChanged += (s, e) => _previewPanel?.Invalidate();
+            _chkInnerDiamond = new CheckBox { Text = "Legacy — đai lồng / đai thoi JP_T80", Checked = false, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
+            _chkCrossLinks = new CheckBox { Text = "Nâng cao — đai móc phụ / Crosslink JP_T68", Checked = false, AutoSize = true, Margin = new Padding(3, 6, 3, 6) };
+            _chkInnerDiamond.CheckedChanged += (s, e) =>
+            {
+                if (_chkInnerDiamond.Checked && _chkCrossLinks.Checked) _chkCrossLinks.Checked = false;
+                _previewPanel?.Invalidate();
+            };
+            _chkCrossLinks.CheckedChanged += (s, e) =>
+            {
+                if (_chkCrossLinks.Checked && _chkInnerDiamond.Checked) _chkInnerDiamond.Checked = false;
+                _previewPanel?.Invalidate();
+            };
             pnlInnerStirrup.Controls.Add(_chkInnerDiamond);
             pnlInnerStirrup.Controls.Add(_chkCrossLinks);
             _grpInnerStirrup.Controls.Add(pnlInnerStirrup);
@@ -623,29 +636,30 @@ namespace KhimTools.RebarTool.Forms
                 ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
                 : null;
 
-            using var tx = new Transaction(_doc, "Create Rectangular Column Rebar");
-            tx.Start();
-            FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-            failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
-            tx.SetFailureHandlingOptions(failOptions);
+            List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
+            List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
+            var report = new RebarGenerationReport();
+            int committedColumnCount = 0;
+            int rolledBackColumnCount = 0;
+            bool commonShapesPreloaded = false;
+
+            using var transactionGroup = new TransactionGroup(_doc, "K-TOOLS - Create Rectangular Column Rebar");
             try
             {
-                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T21, JP_T51, JP_T80...) vào Document
-                RebarShapeLibrary.PreloadCommonShapes(_doc);
+                if (transactionGroup.Start() != TransactionStatus.Started)
+                {
+                    throw new InvalidOperationException("Không thể bắt đầu TransactionGroup tạo thép cột chữ nhật.");
+                }
 
                 var generator = new RectangularColumnRebarGenerator(_doc);
                 var drawingGen = new ColumnRebarDrawingGenerator(_doc);
                 var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
                 var view3DGen = new ColumnRebar3DViewGenerator(_doc);
+                ColumnTieLayoutType tieLayoutType = GetSelectedTieLayoutType();
 
-                List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
-                List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
-
-                var report = new RebarGenerationReport();
-
-                foreach (var group in axisGroups)
+                foreach (var axisGroup in axisGroups)
                 {
-                    var inputs = group.Select(col => new RectangularColumnRebarInput
+                    var inputs = axisGroup.Select(col => new RectangularColumnRebarInput
                     {
                         Column = col,
                         MainBarType = mainType,
@@ -655,8 +669,9 @@ namespace KhimTools.RebarTool.Forms
                         StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA1.Value, UnitTypeId.Millimeters),
                         StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA2.Value, UnitTypeId.Millimeters),
                         ZoneA1Length = UnitUtils.ConvertToInternalUnits((double)_numZoneA1Length.Value, UnitTypeId.Millimeters),
-                        HasInnerDiamondStirrup = _chkInnerDiamond.Checked,
-                        HasCrossLinks = _chkCrossLinks.Checked,
+                        TieLayout = tieLayoutType,
+                        HasInnerDiamondStirrup = tieLayoutType == ColumnTieLayoutType.DiamondLegacy,
+                        HasCrossLinks = tieLayoutType == ColumnTieLayoutType.CrossTie,
                         HasDowel = !_rdBaseFoundation.Checked,
                         IsFoundationColumn = _rdBaseFoundation.Checked,
                         EnableCrankedSplice = _chkCrankedSplice.Checked,
@@ -669,68 +684,327 @@ namespace KhimTools.RebarTool.Forms
                         StaggeredSplice = _chkStaggeredSplice.Checked
                     }).ToList();
 
-                    var createdRebars = generator.GenerateMultiStory(inputs, report);
+                    ConfigureAdjacentColumns(inputs);
 
-                    foreach (var item in group)
+                    foreach (var input in inputs)
                     {
-                        if (_chkAutoDrawing.Checked)
+                        if (!TryGenerateRectangularColumn(
+                                generator,
+                                input,
+                                report,
+                                ref commonShapesPreloaded))
                         {
-                            try
-                            {
-                                var profile = RectangularColumnGeometryHelper.GetRectangularProfile(item);
-                                double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(item, RebarFace.Exterior);
-
-                                drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
-                                {
-                                    Shape = ColumnShapeType.Rectangular,
-                                    ColumnMark = item.LookupParameter("Mark")?.AsString() ?? item.Id.ToLongValue().ToString(),
-                                    ColumnWidthMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters),
-                                    ColumnHeightMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters),
-                                    BarsAlongB = (int)_numBarsB.Value,
-                                    BarsAlongH = (int)_numBarsH.Value,
-                                    MainBarLabel = _cmbMainDia.Text,
-                                    StirrupLabel = _cmbStirrupDia.Text,
-                                    StirrupSpacingMm = (double)_numStirrupSpacingA1.Value,
-                                    CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
-                                });
-                            }
-                            catch (Exception exDraw)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[ColumnRebarDrawingGenerator] Error: {exDraw.Message}");
-                            }
+                            rolledBackColumnCount++;
+                            continue;
                         }
 
-                        if (_chkAutoSection3D.Checked)
-                        {
-                            try
-                            {
-                                var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, item);
-                                sectionGen.CreateOrUpdate(item, itemRebars);
-                                view3DGen.CreateOrUpdate(item, itemRebars);
-                            }
-                            catch (Exception exView)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[ColumnRebarViewGenerator] Error: {exView.Message}");
-                            }
-                        }
+                        committedColumnCount++;
+                        CreatePostCommitColumnArtifacts(
+                            input,
+                            customCoverFeet,
+                            drawingGen,
+                            sectionGen,
+                            view3DGen,
+                            report);
                     }
                 }
-                tx.Commit();
-                if (report.HasErrors)
+
+                if (transactionGroup.Assimilate() != TransactionStatus.Committed)
                 {
-                    KhimDialogHelper.ShowRebarGenerationReport(report, "Cột Chữ Nhật (Column)", selectedItems.Count);
-                }
-                else
-                {
-                    KhimDialogHelper.ShowColumnRebarSuccess(selectedItems.Count, axisGroups.Count, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
+                    throw new InvalidOperationException("TransactionGroup tạo thép cột chữ nhật không thể hoàn tất.");
                 }
             }
             catch (Exception ex)
             {
-                tx.RollBack();
+                RollBackGroupIfStarted(transactionGroup);
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột";
                 KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
+                return;
             }
+
+            if (rolledBackColumnCount > 0)
+            {
+                ShowRolledBackColumnReport(report, committedColumnCount, rolledBackColumnCount);
+            }
+            else if (report.HasErrors)
+            {
+                KhimDialogHelper.ShowRebarGenerationReport(report, "Cột Chữ Nhật (Column)", selectedItems.Count);
+            }
+            else
+            {
+                KhimDialogHelper.ShowColumnRebarSuccess(committedColumnCount, axisGroups.Count, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
+            }
+        }
+
+        private ColumnTieLayoutType GetSelectedTieLayoutType()
+        {
+            if (_chkInnerDiamond?.Checked == true) return ColumnTieLayoutType.DiamondLegacy;
+            if (_chkCrossLinks?.Checked == true) return ColumnTieLayoutType.CrossTie;
+            return ColumnTieLayoutType.MultiCellClosed;
+        }
+
+        private static void ConfigureAdjacentColumns(IList<RectangularColumnRebarInput> inputs)
+        {
+            for (int i = 0; i < inputs.Count; i++)
+            {
+                RectangularColumnRebarInput input = inputs[i];
+                input.AdjacentColumnBelow = i > 0 &&
+                    RebarLapSpliceHelper.AreConsecutiveColumns(inputs[i - 1].Column, input.Column)
+                    ? inputs[i - 1].Column
+                    : null;
+                input.AdjacentColumnAbove = i < inputs.Count - 1 &&
+                    RebarLapSpliceHelper.AreConsecutiveColumns(input.Column, inputs[i + 1].Column)
+                    ? inputs[i + 1].Column
+                    : null;
+                input.IsTopRoofColumn = input.AdjacentColumnAbove == null;
+            }
+        }
+
+        private bool TryGenerateRectangularColumn(
+            RectangularColumnRebarGenerator generator,
+            RectangularColumnRebarInput input,
+            RebarGenerationReport aggregateReport,
+            ref bool commonShapesPreloaded)
+        {
+            var columnReport = new RebarGenerationReport();
+            var failurePreprocessor = new RebarGenerationFailurePreprocessor();
+
+            using var transaction = new Transaction(
+                _doc,
+                $"K-TOOLS - Rectangular Column Rebar [{GetColumnLabel(input.Column)}]");
+            try
+            {
+                if (transaction.Start() != TransactionStatus.Started)
+                {
+                    throw new InvalidOperationException("Không thể bắt đầu transaction cho cột.");
+                }
+
+                ConfigureFailureHandling(transaction, failurePreprocessor);
+
+                // RebarShape loading is part of the first column transaction. If
+                // that column fails, its type-loading changes roll back with it.
+                if (!commonShapesPreloaded)
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(_doc);
+                }
+
+                List<Rebar> createdRebars = generator.Generate(input, columnReport);
+
+                // Revit can post a shape-solver failure only during regeneration
+                // or commit. Force that validation while the rollback-only failure
+                // preprocessor is attached to this individual column transaction.
+                _doc.Regenerate();
+
+                if (createdRebars == null || createdRebars.Count == 0)
+                {
+                    columnReport.AddError(
+                        input.Column,
+                        "Rectangular column rebar",
+                        new InvalidOperationException("Generator did not create a valid rebar set for this column."));
+                }
+
+                if (columnReport.HasErrors || failurePreprocessor.HasUnrecoverableFailure)
+                {
+                    RollBackTransactionIfStarted(transaction);
+                    AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, null);
+                    return false;
+                }
+
+                TransactionStatus commitStatus = transaction.Commit();
+                if (commitStatus != TransactionStatus.Committed || failurePreprocessor.HasUnrecoverableFailure)
+                {
+                    AddRolledBackColumnDiagnostic(
+                        aggregateReport,
+                        input,
+                        columnReport,
+                        failurePreprocessor,
+                        new InvalidOperationException($"Column transaction ended with status {commitStatus}."));
+                    return false;
+                }
+
+                commonShapesPreloaded = true;
+                aggregateReport.Merge(columnReport);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                RollBackTransactionIfStarted(transaction);
+                AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, ex);
+                return false;
+            }
+        }
+
+        private void CreatePostCommitColumnArtifacts(
+            RectangularColumnRebarInput input,
+            double? customCoverFeet,
+            ColumnRebarDrawingGenerator drawingGen,
+            ColumnRebarSectionViewGenerator sectionGen,
+            ColumnRebar3DViewGenerator view3DGen,
+            RebarGenerationReport report)
+        {
+            if (!_chkAutoDrawing.Checked && !_chkAutoSection3D.Checked) return;
+
+            var failurePreprocessor = new RebarGenerationFailurePreprocessor();
+            using var transaction = new Transaction(
+                _doc,
+                $"K-TOOLS - Rectangular Column Rebar Artifacts [{GetColumnLabel(input.Column)}]");
+            try
+            {
+                if (transaction.Start() != TransactionStatus.Started)
+                {
+                    throw new InvalidOperationException("Không thể bắt đầu transaction tạo bản vẽ và view thép cột.");
+                }
+
+                ConfigureFailureHandling(transaction, failurePreprocessor);
+
+                if (_chkAutoDrawing.Checked)
+                {
+                    var profile = RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);
+                    double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(input.Column, RebarFace.Exterior);
+
+                    drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                    {
+                        Shape = ColumnShapeType.Rectangular,
+                        ColumnMark = input.Column.LookupParameter("Mark")?.AsString() ?? input.Column.Id.ToString(),
+                        ColumnWidthMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters),
+                        ColumnHeightMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters),
+                        BarsAlongB = input.BarsAlongB,
+                        BarsAlongH = input.BarsAlongH,
+                        MainBarLabel = input.MainBarType?.Name,
+                        StirrupLabel = input.StirrupBarType?.Name,
+                        StirrupSpacingMm = UnitUtils.ConvertFromInternalUnits(input.StirrupSpacingA1, UnitTypeId.Millimeters),
+                        CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
+                    });
+                }
+
+                if (_chkAutoSection3D.Checked)
+                {
+                    var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, input.Column);
+                    sectionGen.CreateOrUpdate(input.Column, itemRebars);
+                    view3DGen.CreateOrUpdate(input.Column, itemRebars);
+                }
+
+                TransactionStatus commitStatus = transaction.Commit();
+                if (commitStatus != TransactionStatus.Committed || failurePreprocessor.HasUnrecoverableFailure)
+                {
+                    report.AddError(
+                        input.Column,
+                        "Column rebar drawing / view",
+                        new InvalidOperationException("Drawing/view transaction rolled back after a Revit failure."));
+                }
+            }
+            catch (Exception ex)
+            {
+                RollBackTransactionIfStarted(transaction);
+                report.AddError(input.Column, "Column rebar drawing / view", ex);
+            }
+        }
+
+        private static void ConfigureFailureHandling(
+            Transaction transaction,
+            RebarGenerationFailurePreprocessor failurePreprocessor)
+        {
+            FailureHandlingOptions options = transaction.GetFailureHandlingOptions();
+            options.SetClearAfterRollback(true);
+            options.SetFailuresPreprocessor(failurePreprocessor);
+            transaction.SetFailureHandlingOptions(options);
+        }
+
+        private static void RollBackTransactionIfStarted(Transaction transaction)
+        {
+            if (transaction != null && transaction.GetStatus() == TransactionStatus.Started)
+            {
+                transaction.RollBack();
+            }
+        }
+
+        private static void RollBackGroupIfStarted(TransactionGroup transactionGroup)
+        {
+            if (transactionGroup != null && transactionGroup.GetStatus() == TransactionStatus.Started)
+            {
+                transactionGroup.RollBack();
+            }
+        }
+
+        private static string GetColumnLabel(FamilyInstance column)
+        {
+            if (column == null) return "Unknown";
+            string mark = column.LookupParameter("Mark")?.AsString();
+            return string.IsNullOrWhiteSpace(mark) ? column.Id.ToString() : mark;
+        }
+
+        private static void AddRolledBackColumnDiagnostic(
+            RebarGenerationReport aggregateReport,
+            RectangularColumnRebarInput input,
+            RebarGenerationReport columnReport,
+            RebarGenerationFailurePreprocessor failurePreprocessor,
+            Exception exception)
+        {
+            var failureDetails = new List<string>();
+
+            if (columnReport != null)
+            {
+                failureDetails.AddRange(columnReport.Errors
+                    .Select(error => $"{error.RebarCategory}: {error.ErrorReason}"));
+            }
+
+            if (failurePreprocessor != null)
+            {
+                failureDetails.AddRange(failurePreprocessor.Records
+                    .Where(record => record.RequiresRollback)
+                    .Select(record =>
+                        $"[{record.Severity}] {record.Description} " +
+                        $"(FailureDefinitionId: {record.FailureDefinitionId}; " +
+                        $"Failing ElementIds: {record.GetFailingElementIdsText()})"));
+            }
+
+            if (exception != null && !string.IsNullOrWhiteSpace(exception.Message))
+            {
+                failureDetails.Add(exception.Message);
+            }
+
+            string conciseFailures = string.Join(
+                Environment.NewLine + "• ",
+                failureDetails.Where(detail => !string.IsNullOrWhiteSpace(detail)).Distinct().Take(3));
+            if (string.IsNullOrWhiteSpace(conciseFailures))
+            {
+                conciseFailures = "Revit rejected the candidate rebar during validation.";
+            }
+
+            string message = new StringBuilder()
+                .AppendLine("COLUMN REBAR FAILED")
+                .AppendLine($"Column: {GetColumnLabel(input.Column)}")
+                .AppendLine($"ElementId: {input.Column?.Id}")
+                .AppendLine("Stage: Rebar generation / regeneration / transaction commit")
+                .AppendLine($"Rebar Type: Main {input.MainBarType?.Name ?? "Unknown"}; Tie {input.StirrupBarType?.Name ?? "Unknown"}")
+                .AppendLine("Shape: Candidate shape was not accepted by Revit before commit.")
+                .AppendLine($"Failure: • {conciseFailures}")
+                .Append("Action: Column transaction rolled back. No partial reinforcement was kept.")
+                .ToString();
+
+            aggregateReport.AddError(
+                input.Column,
+                "Column transaction rolled back",
+                new InvalidOperationException(message));
+        }
+
+        private static void ShowRolledBackColumnReport(
+            RebarGenerationReport report,
+            int committedColumnCount,
+            int rolledBackColumnCount)
+        {
+            bool isEnglish = LanguageManager.IsEnglish;
+            string content = isEnglish
+                ? $"Completed columns: {committedColumnCount}\nRolled back columns: {rolledBackColumnCount}\n\nNo partial reinforcement was kept for a failed column. Open the details for Revit failure records."
+                : $"Cột hoàn tất: {committedColumnCount}\nCột đã rollback: {rolledBackColumnCount}\n\nKhông giữ lại thép dở dang cho cột lỗi. Mở chi tiết để xem bản ghi lỗi Revit.";
+            string details = string.Join(
+                Environment.NewLine + Environment.NewLine,
+                report.Errors.Select(error => error.ErrorReason));
+
+            KhimDialogHelper.ShowError(
+                isEnglish ? "COLUMN REBAR FAILED" : "TẠO THÉP CỘT THẤT BẠI",
+                content,
+                details);
         }
 
         private RebarBarType FindBarType(string label) =>
@@ -861,6 +1135,21 @@ namespace KhimTools.RebarTool.Forms
                 int iX = sX + cv, iY = sY + cv, iW = sW - 2 * cv, iH = sH - 2 * cv;
 
                 using (var tp = new Pen(cTie, 2f)) g.DrawRectangle(tp, iX, iY, iW, iH);
+                // Local rebar safety default: show the two closed inner cells for MultiCellClosed.
+                // Legacy diamond and advanced cross-link options remain opt-in below.
+                if (nB >= 3 && nH >= 3)
+                {
+                    int cellInset = Math.Max(3, Math.Min(iW, iH) / 16);
+                    int cellWidth = Math.Max(8, iW / 4);
+                    int cellHeight = Math.Max(8, iH - cellInset * 2);
+                    int leftCellX = iX + Math.Max(cellInset, iW / 10);
+                    int rightCellX = iX + iW - Math.Max(cellInset, iW / 10) - cellWidth;
+                    int cellY = iY + cellInset;
+
+                    using var innerCellPen = new Pen(Color.OrangeRed, 1.5f);
+                    g.DrawRectangle(innerCellPen, leftCellX, cellY, cellWidth, cellHeight);
+                    g.DrawRectangle(innerCellPen, rightCellX, cellY, cellWidth, cellHeight);
+                }
 
                 if (diamond)
                 {
@@ -1144,7 +1433,6 @@ namespace KhimTools.RebarTool.Forms
                     new RectangleF(0, botY + 18, lblW, 12), sfCen);
             }
         }
-
         private void ApplyLanguage()
         {
             bool isEn = LanguageManager.IsEnglish;
@@ -1181,9 +1469,9 @@ namespace KhimTools.RebarTool.Forms
             if (_lblStirrupA2 != null) _lblStirrupA2.Text = isEn ? "Sparse A2 stirrup spacing (mm):" : "Khoảng cách đai thưa A2 (mm):";
             if (_lblZoneA1Len != null) _lblZoneA1Len.Text = isEn ? "Dense A1 zone length (mm):" : "Chiều dài vùng đai dày A1 (mm):";
 
-            if (_grpInnerStirrup != null) _grpInnerStirrup.Text = isEn ? "Inner Tie & Crosslink Options" : "Cấu tạo Đai Phụ & Móc Đai";
-            if (_chkInnerDiamond != null) _chkInnerDiamond.Text = isEn ? "Create inner diamond stirrup (when ≥3 bars/side)" : "Tạo đai lồng / đai thoi (khi ≥3 thanh/cạnh)";
-            if (_chkCrossLinks != null) _chkCrossLinks.Text = isEn ? "Create crosslinks / C-links" : "Tạo đai móc phụ / Đai C";
+            if (_grpInnerStirrup != null) _grpInnerStirrup.Text = isEn ? "Legacy / Advanced Tie Options" : "Tùy chọn đai Legacy / Nâng cao";
+            if (_chkInnerDiamond != null) _chkInnerDiamond.Text = isEn ? "Legacy — diamond tie JP_T80" : "Legacy — đai lồng / đai thoi JP_T80";
+            if (_chkCrossLinks != null) _chkCrossLinks.Text = isEn ? "Advanced — crosslinks / C-links JP_T68" : "Nâng cao — đai móc phụ / Crosslink JP_T68";
 
             // Tab 3 General Settings
             if (_grpHook != null) _grpHook.Text = isEn ? "REBAR HOOK BENDING SECTION" : "CẤU TẠO UỐN MÓC THÉP";
@@ -1269,6 +1557,7 @@ namespace KhimTools.RebarTool.Forms
                 IsFoundationColumn = _rdBaseFoundation.Checked,
                 HasDowel = !_rdBaseFoundation.Checked,
                 StaggeredSplice = _chkStaggeredSplice.Checked,
+                TieLayout = GetSelectedTieLayoutType(),
                 HasInnerDiamondStirrup = _chkInnerDiamond.Checked,
                 HasCrossLinks = _chkCrossLinks.Checked
             };
@@ -1311,8 +1600,13 @@ namespace KhimTools.RebarTool.Forms
             }
 
             _chkStaggeredSplice.Checked = settings.StaggeredSplice;
-            _chkInnerDiamond.Checked = settings.HasInnerDiamondStirrup;
-            _chkCrossLinks.Checked = settings.HasCrossLinks;
+            ColumnTieLayoutType layout = settings.TieLayout;
+            // Old templates have no TieLayout field. Their old flags remain an
+            // explicit legacy request; otherwise the new default is MultiCellClosed.
+            if (settings.HasInnerDiamondStirrup) layout = ColumnTieLayoutType.DiamondLegacy;
+            else if (settings.HasCrossLinks) layout = ColumnTieLayoutType.CrossTie;
+            _chkInnerDiamond.Checked = layout == ColumnTieLayoutType.DiamondLegacy;
+            _chkCrossLinks.Checked = layout == ColumnTieLayoutType.CrossTie;
 
             _previewPanel?.Invalidate();
         }
