@@ -73,6 +73,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new FilterManagerRuntimeFixture());
             registry.RegisterFixture(new ParameterManagerRuntimeFixture());
             registry.RegisterFixture(new ModifyObjectsRuntimeFixture());
+            registry.RegisterFixture(new DimensionToolsRuntimeFixture());
             registry.RegisterFixture(new RebarCoreRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnFullCageRuntimeFixture());
