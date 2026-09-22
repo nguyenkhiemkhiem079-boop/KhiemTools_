@@ -519,6 +519,10 @@ namespace KhimTools.Core
                 rebarTools.AddPushButton(shapesData);
                 rebarTools.AddSeparator();
                 rebarTools.AddPushButton(qaData);
+                rebarTools.AddSeparator();
+                AddPulldownItem(rebarTools, "CmdRuntimeQa", "Runtime QA",
+                    "KhimTools.RuntimeQa.Commands.CmdRuntimeQa", assemblyPath,
+                    "rebar_qa_16.png");
             }
         }
 

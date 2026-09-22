@@ -1,6 +1,6 @@
 # =====================================================================
 # K-TOOLS (KhimTools) Master Verification & Quality Assurance Suite
-# Runs all 79 Automated Tests across Security, MSI, Engineering & QA
+# Runs all static audits across Security, MSI, Engineering & QA
 # =====================================================================
 
 $ErrorActionPreference = "Stop"
@@ -9,7 +9,7 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
 Write-Host "`n=================================================================" -ForegroundColor Cyan
 Write-Host "           K-TOOLS MASTER QUALITY ASSURANCE DASHBOARD            " -ForegroundColor Cyan
-Write-Host "                 Running All 79 Verification Audits              " -ForegroundColor Cyan
+Write-Host "                 Running All Verification Audits                 " -ForegroundColor Cyan
 Write-Host "=================================================================`n" -ForegroundColor Cyan
 
 $suites = @(
@@ -32,6 +32,11 @@ $suites = @(
         Name = "Revit Runtime QA & Manifest Verification Suite (Phase 9)"
         Script = Join-Path $scriptDir "Installer\Verify-RevitRuntimeQA.ps1"
         ExpectedCount = 9
+    },
+    @{
+        Name = "Stage 2 Runtime QA Harness Structural Audit"
+        Script = Join-Path $scriptDir "Tools\Verify-RuntimeQaHarness.ps1"
+        ExpectedCount = 14
     }
 )
 
