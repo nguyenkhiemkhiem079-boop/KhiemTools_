@@ -70,6 +70,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new SheetCopyRuntimeFixture());
             registry.RegisterFixture(new ScheduleSplitRuntimeFixture());
             registry.RegisterFixture(new TitleBlockSyncRuntimeFixture());
+            registry.RegisterFixture(new FilterManagerRuntimeFixture());
             registry.RegisterFixture(new RebarCoreRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnFullCageRuntimeFixture());
