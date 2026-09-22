@@ -192,6 +192,7 @@ namespace KhimTools.Core
                 AddPulldownItem(layoutPulldown, "CmdTitleBlockSync", "Title Block Sync", "KhimTools.TitleBlockSync.Commands.CmdTitleBlockSync", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdFilterManager", "Filter Manager", "KhimTools.FilterManager.Commands.CmdFilterManager", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdParameterManager", "Parameter Manager", "KhimTools.ParameterManager.Commands.CmdParameterManager", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdModifyObjects", "Modify Objects", "KhimTools.ModifyObjects.Commands.CmdModifyObjects", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
                 AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
                 

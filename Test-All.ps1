@@ -62,6 +62,11 @@ $suites = @(
         Name = "Stage 3.5 Parameter Manager Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-ParameterManagerStage35.ps1"
         ExpectedCount = 173
+    },
+    @{
+        Name = "Stage 3.6 Modify Objects Structural Audit"
+        Script = Join-Path $scriptDir "Tools\Verify-ModifyObjectsStage36.ps1"
+        ExpectedCount = 144
     }
 )
 
