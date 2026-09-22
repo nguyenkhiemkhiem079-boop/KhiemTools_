@@ -10,7 +10,7 @@ namespace KhimTools.DimensionTools.Models
         public ElementId ViewId { get; set; }
         public ElementId DimensionTypeId { get; set; }
         public Line Curve { get; set; }
-        public IList<DimensionReferenceInfo> References { get; private set; }
+        public List<DimensionReferenceInfo> References { get; private set; }
         public IList<string> StableReferences { get; private set; }
         public IList<double> SegmentValues { get; private set; }
         public IList<XYZ> TextPositions { get; private set; }

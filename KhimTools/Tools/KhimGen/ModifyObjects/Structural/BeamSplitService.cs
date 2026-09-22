@@ -1,4 +1,5 @@
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Structure;
 using KhimTools.ModifyObjects.Core;
 using KhimTools.ModifyObjects.Services;
 
