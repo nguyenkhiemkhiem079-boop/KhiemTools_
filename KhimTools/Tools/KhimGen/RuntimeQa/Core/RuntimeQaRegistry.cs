@@ -68,6 +68,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new ElementTagsRuntimeFixture());
             registry.RegisterFixture(new SheetExportRuntimeFixture());
             registry.RegisterFixture(new SheetCopyRuntimeFixture());
+            registry.RegisterFixture(new ScheduleSplitRuntimeFixture());
             registry.RegisterFixture(new RebarCoreRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnFullCageRuntimeFixture());

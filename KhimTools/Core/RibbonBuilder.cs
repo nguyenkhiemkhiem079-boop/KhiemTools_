@@ -188,6 +188,7 @@ namespace KhimTools.Core
             {
                 AddPulldownItem(layoutPulldown, "CmdSheetGen", "Create Sheets (CSV)", "KhimTools.SheetGen.Commands.CmdSheetGen", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdSheetCopy", "Sheet Copy", "KhimTools.SheetCopy.Commands.CmdSheetCopy", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdSplitSchedule", "Split Schedule", "KhimTools.ScheduleSplit.Commands.CmdSplitSchedule", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
                 AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
                 

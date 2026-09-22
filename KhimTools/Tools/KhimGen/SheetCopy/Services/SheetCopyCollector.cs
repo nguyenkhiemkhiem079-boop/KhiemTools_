@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.SheetCopy.Models;
 using KhimTools.DetailNumberUpdater.Services;
+using KhimTools.ScheduleSplit.Services;
 
 namespace KhimTools.SheetCopy.Services
 {
@@ -91,7 +92,8 @@ namespace KhimTools.SheetCopy.Services
                     SourceViewId = schedule.ScheduleId, ContentKind = revision ? SheetCopyContentKind.REVISION_RELATED : SheetCopyContentKind.SCHEDULE,
                     Action = revision ? SheetCopyAction.SKIP : SheetCopyAction.REUSE,
                     BoxCenter = TryGetPoint(schedule), IsRequired = !revision,
-                    IsSegmented = IsSegmentedSchedule(schedule)
+                    IsSegmented = IsSegmentedSchedule(schedule),
+                    SegmentIndex = IsSegmentedSchedule(schedule) ? ScheduleSplitApiAdapter.GetSegmentIndex(schedule) : -1
                 };
                 item.Contents.Add(content);
                 if (revision) item.Message = AppendMessage(item.Message, "SYSTEM_REVISION_SCHEDULE");
@@ -158,11 +160,8 @@ namespace KhimTools.SheetCopy.Services
         {
             try
             {
-                var split = typeof(ScheduleSheetInstance).GetProperty("IsSplit");
-                if (split != null && split.PropertyType == typeof(bool)) return (bool)split.GetValue(schedule, null);
                 ViewSchedule view = schedule.Document.GetElement(schedule.ScheduleId) as ViewSchedule;
-                var segmentMethod = typeof(ViewSchedule).GetMethod("GetSegmentCount", Type.EmptyTypes);
-                if (view != null && segmentMethod != null) return Convert.ToInt32(segmentMethod.Invoke(view, null)) > 1;
+                if (view != null && ScheduleSplitApiAdapter.IsSplit(view)) return ScheduleSplitApiAdapter.GetSegmentIndex(schedule) >= 0;
                 return false;
             }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[SheetCopy] segmented schedule probe: " + ex.Message); return false; }

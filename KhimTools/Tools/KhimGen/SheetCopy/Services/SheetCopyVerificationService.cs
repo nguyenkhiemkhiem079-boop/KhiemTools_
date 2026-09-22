@@ -22,7 +22,7 @@ namespace KhimTools.SheetCopy.Services
             int expectedViewports = item.Contents.Count(c => (c.ContentKind == SheetCopyContentKind.NORMAL_VIEWPORT || c.ContentKind == SheetCopyContentKind.LEGEND_VIEWPORT) && c.Action != SheetCopyAction.SKIP);
             int actualViewports = new FilteredElementCollector(doc, target.Id).OfClass(typeof(Viewport)).GetElementCount();
             if (actualViewports < expectedViewports) { message = SheetCopyStatusCode.POST_VERIFY_FAILED + ": required Viewports are missing."; return false; }
-            int expectedSchedules = item.Contents.Count(c => c.ContentKind == SheetCopyContentKind.SCHEDULE && c.Action == SheetCopyAction.REUSE && !c.IsSegmented);
+            int expectedSchedules = item.Contents.Count(c => c.ContentKind == SheetCopyContentKind.SCHEDULE && c.Action == SheetCopyAction.REUSE);
             int actualSchedules = new FilteredElementCollector(doc, target.Id).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>().Count(s => !SafeRevision(s));
             if (actualSchedules < expectedSchedules) { message = SheetCopyStatusCode.POST_VERIFY_FAILED + ": required Schedules are missing."; return false; }
             SheetCopyItem currentSource = SheetCopyCollector.AnalyzeSheet(doc, source);

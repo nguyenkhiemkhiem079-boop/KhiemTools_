@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Autodesk.Revit.DB;
 using KhimTools.SheetCopy.Models;
+using KhimTools.ScheduleSplit.Services;
 
 namespace KhimTools.SheetCopy.Services
 {
@@ -90,7 +91,12 @@ namespace KhimTools.SheetCopy.Services
                     }
                     foreach (SheetCopyContentItem schedule in item.Contents.Where(c => c.ContentKind == SheetCopyContentKind.SCHEDULE && c.Action == SheetCopyAction.REUSE).OrderBy(c => c.SourceElementId.IntegerValue))
                     {
-                        if (schedule.IsSegmented) { result.Messages.Add("SEGMENTED_SCHEDULE_DEFERRED: " + schedule.SourceName); continue; }
+                        if (schedule.IsSegmented)
+                        {
+                            if (schedule.BoxCenter == null || schedule.SegmentIndex < 0) { result.Messages.Add("SEGMENTED_SCHEDULE_DEFERRED: " + schedule.SourceName); continue; }
+                            ScheduleSheetInstance segmented = ScheduleSegmentPlacementService.PlaceSegment(doc, target.Id, schedule.SourceViewId, schedule.BoxCenter, schedule.SegmentIndex);
+                            result.CreatedScheduleInstanceIds.Add(segmented.Id); schedule.TargetElementId = segmented.Id; continue;
+                        }
                         if (schedule.BoxCenter == null) { result.Messages.Add("Schedule position unavailable: " + schedule.SourceName); continue; }
                         ScheduleSheetInstance instance = ScheduleSheetInstance.Create(doc, target.Id, schedule.SourceViewId, schedule.BoxCenter);
                         result.CreatedScheduleInstanceIds.Add(instance.Id); schedule.TargetElementId = instance.Id;
