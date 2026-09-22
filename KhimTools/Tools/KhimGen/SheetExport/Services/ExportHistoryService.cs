@@ -12,24 +12,28 @@ namespace KhimTools.SheetExport.Services
             if (sheets == null || sheets.Count == 0 || options == null || !options.PreservePreviousExports)
                 return "";
 
-            string archiveRoot = Path.Combine(
-                options.OutputDirectory,
-                string.IsNullOrWhiteSpace(options.PreviousExportsFolderName) ? "Previous Exports" : options.PreviousExportsFolderName,
-                DateTime.Now.ToString("yyyy-MM-dd_HHmmss"));
+            var normalized = ExportJobOptions.Normalize(options);
+            return ArchiveExistingOutputs(sheets, normalized, new ExportPathResolver(normalized, DateTime.Now.ToString("yyyyMMddHHmmss")));
+        }
+
+        public static string ArchiveExistingOutputs(IList<SheetExportItem> sheets, ExportJobOptions options, ExportPathResolver paths)
+        {
+            if (sheets == null || sheets.Count == 0 || options == null || !options.PreservePreviousExports) return "";
+            string archiveRoot = paths == null ? Path.Combine(options.OutputDirectory, options.PreviousExportsFolderName ?? "Previous Exports", DateTime.Now.ToString("yyyy-MM-dd_HHmmss")) : paths.ArchiveRoot;
 
             var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var sheet in sheets)
             {
                 if (options.ExportPdf && !options.CombinePdf)
-                    candidates.Add(Path.Combine(options.OutputDirectory, sheet.ComputedFileName + ".pdf"));
+                    candidates.Add(paths == null ? Path.Combine(options.OutputDirectory, sheet.ComputedFileName + ".pdf") : paths.ResolveSheetPath(sheet, ExportFormat.PDF));
                 if (options.ExportDwg)
-                    candidates.Add(Path.Combine(options.OutputDirectory, sheet.ComputedFileName + ".dwg"));
+                    candidates.Add(paths == null ? Path.Combine(options.OutputDirectory, sheet.ComputedFileName + ".dwg") : paths.ResolveSheetPath(sheet, ExportFormat.DWG));
             }
 
             if (options.ExportPdf && options.CombinePdf)
             {
                 string combinedName = Path.GetFileNameWithoutExtension(options.CombinedPdfFileName);
-                candidates.Add(Path.Combine(options.OutputDirectory, combinedName + ".pdf"));
+                candidates.Add(paths == null ? Path.Combine(options.OutputDirectory, combinedName + ".pdf") : paths.ResolveCombinedPdfPath());
             }
 
             bool archivedAny = false;

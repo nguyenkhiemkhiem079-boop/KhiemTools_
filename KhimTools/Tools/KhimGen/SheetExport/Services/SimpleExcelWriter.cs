@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
@@ -43,7 +44,8 @@ namespace KhimTools.SheetExport.Services
         {
             if (File.Exists(filePath))
             {
-                try { File.Delete(filePath); } catch { }
+                try { File.Delete(filePath); }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] existing report cleanup failed: " + ex); }
             }
 
             using (var zipStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using PdfSharp.Drawing;
@@ -33,8 +34,9 @@ namespace KhimTools.SheetExport.Services
                 doc.Save(pdfFilePath);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] bookmark post-process failed: " + ex);
                 return false;
             }
         }
@@ -71,8 +73,9 @@ namespace KhimTools.SheetExport.Services
                 doc.Save(pdfFilePath);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] watermark post-process failed: " + ex);
                 return false;
             }
         }
@@ -143,8 +146,9 @@ namespace KhimTools.SheetExport.Services
                 doc.Save(pdfFilePath);
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] cover post-process failed: " + ex);
                 return false;
             }
         }

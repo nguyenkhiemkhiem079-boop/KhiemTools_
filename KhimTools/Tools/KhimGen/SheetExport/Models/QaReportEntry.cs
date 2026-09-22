@@ -13,6 +13,7 @@ namespace KhimTools.SheetExport.Models
         public bool Success { get; set; }
         public bool IsLocked { get; set; }
         public int Retries { get; set; }
+        public string Status { get; set; } = "";
         public string Message { get; set; } = "";
     }
 }

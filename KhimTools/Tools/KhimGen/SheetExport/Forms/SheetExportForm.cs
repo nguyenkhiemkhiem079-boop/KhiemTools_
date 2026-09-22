@@ -1310,7 +1310,7 @@ namespace KhimTools.SheetExport.Forms
                     }
                     _cmbDwgSetup.SelectedIndex = 0;
                 }
-                catch { }
+                catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] preview cleanup failed: " + ex); }
 
                 // Populate Project Code for Naming
                 string projName = _doc.ProjectInformation?.Name ?? _doc.Title ?? "PROJECT";
@@ -1603,7 +1603,7 @@ namespace KhimTools.SheetExport.Forms
                 string json = Newtonsoft.Json.JsonConvert.SerializeObject(settings);
                 File.WriteAllText(configFile, json, System.Text.Encoding.UTF8);
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] export summary cleanup failed: " + ex); }
         }
 
         private string GetLastSelectionPath()
@@ -1618,7 +1618,7 @@ namespace KhimTools.SheetExport.Forms
                     return settings?.LastSelectionFilePath ?? "";
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] export summary state cleanup failed: " + ex); }
             return "";
         }
         #endregion
@@ -1757,12 +1757,17 @@ namespace KhimTools.SheetExport.Forms
             _options.ExportPdf = _rbFormatPdf.Checked || _rbFormatBoth.Checked;
             _options.ExportDwg = _rbFormatDwg.Checked || _rbFormatBoth.Checked;
             _options.DwgExportSetupName = _cmbDwgSetup?.Text?.Trim() ?? "";
+            _options.DwgMergedViews = _chkDwgMergedViews?.Checked ?? true;
+            _options.DwgTargetVersion = _cmbAutoCadVersion?.SelectedItem?.ToString() ?? "AutoCAD 2018 format";
             _options.OutputDirectory = outDir;
-            _options.SplitFoldersByFormat = false;
+            _options.SplitFoldersByFormat = true;
             _options.CombinePdf = _rbCombineFiles.Checked;
             _options.CombinedPdfFileName = _txtFileCombineName.Text.Trim();
             _options.IssueSetName = _txtIssueSetName?.Text?.Trim() ?? "Official Release";
             _options.IssueDate = _dtpIssueDate?.Value.Date ?? DateTime.Today;
+            _options.ProjectCode = _txtNaming2?.Text?.Trim() ?? _doc?.ProjectInformation?.Name ?? "PROJECT";
+            _options.NamingExpression = _chkUseNamingConvention?.Checked == true ? (_txtNamingPattern?.Text ?? "{SheetNumber} - {SheetName}") : "{SheetNumber} - {SheetName}";
+            _options.NamingRegexPattern = "^[^<>:\"/\\|?*]+$";
             _options.PreservePreviousExports = _chkPreservePrevious?.Checked ?? true;
             _options.PdfExportDpi = GetSelectedPdfDpi();
 
@@ -1786,6 +1791,7 @@ namespace KhimTools.SheetExport.Forms
             _options.ReplaceHalftoneWithThinLines = _chkReplaceHalftone?.Checked ?? true;
             _options.MaskCoincidentLines = _chkMaskCoincidentLines?.Checked ?? false;
             _options.AutoDisableTemporaryViewProperties = _chkAutoDisableTempViewModes?.Checked ?? true;
+            _options.GenerateTransmittal = _chkCreateTransmittal?.Checked ?? true;
 
             // Compute exact filename for each selected sheet
             foreach (var item in selectedItems)
@@ -1807,58 +1813,8 @@ namespace KhimTools.SheetExport.Forms
                 if (decision != DialogResult.Yes) return;
             }
 
-            string archivedFolder;
-            try
-            {
-                archivedFolder = ExportHistoryService.ArchiveExistingOutputs(selectedItems, _options);
-            }
-            catch (Exception ex)
-            {
-                KhimDialogHelper.ShowError("Không thể lưu bản xuất trước", ex.Message);
-                return;
-            }
-
-            // Tự động kiểm tra và tắt Temporary View Properties trước khi in
+            string archivedFolder = "";
             var disabledTempViews = new List<string>();
-            if (_options.AutoDisableTemporaryViewProperties)
-            {
-                try
-                {
-                    using (var tx = new Transaction(_doc, "K-TOOLS: Tắt Temporary View Properties"))
-                    {
-                        tx.Start();
-                        foreach (var item in selectedItems)
-                        {
-                            var sheet = item.Sheet;
-                            if (sheet == null) continue;
-
-                            if (sheet.IsTemporaryViewPropertiesModeEnabled())
-                            {
-                                sheet.DisableTemporaryViewMode(TemporaryViewMode.TemporaryViewProperties);
-                                disabledTempViews.Add($"Sheet [{sheet.SheetNumber}] {sheet.Name}");
-                            }
-
-                            var viewportIds = sheet.GetAllViewports();
-                            foreach (var vpId in viewportIds)
-                            {
-                                var vp = _doc.GetElement(vpId) as Viewport;
-                                if (vp == null) continue;
-                                var childView = _doc.GetElement(vp.ViewId) as Autodesk.Revit.DB.View;
-                                if (childView != null && childView.IsTemporaryViewPropertiesModeEnabled())
-                                {
-                                    childView.DisableTemporaryViewMode(TemporaryViewMode.TemporaryViewProperties);
-                                    disabledTempViews.Add($"View '{childView.Name}' (trên Sheet {sheet.SheetNumber})");
-                                }
-                            }
-                        }
-                        tx.Commit();
-                    }
-                }
-                catch
-                {
-                    // Tránh chặn tiến trình xuất nếu document đang ở trạng thái read-only
-                }
-            }
 
             _btnPrint.Enabled = false;
             _btnPrint.Text = "Đang xuất...";
@@ -1876,12 +1832,6 @@ namespace KhimTools.SheetExport.Forms
                     RefreshGridRows();
                     Application.DoEvents();
                 });
-
-                // Generate Transmittal Excel only if requested
-                if (_chkCreateTransmittal.Checked)
-                {
-                    TransmittalGeneratorService.GenerateExcelTransmittal(outDir, "Official Release", _txtNaming2.Text, selectedItems);
-                }
 
                 int successCount = selectedItems.Count(item =>
                 {
@@ -1966,25 +1916,15 @@ namespace KhimTools.SheetExport.Forms
 
         private string ComputeSheetFileName(SheetExportItem item)
         {
-            string cleanNum = SanitizeFileName(item.SheetNumber);
-            string cleanName = SanitizeFileName(item.SheetName);
-
-            if (_chkUseNamingConvention.Checked && _txtNamingPattern != null)
+            var options = new ExportJobOptions
             {
-                string project = _doc?.ProjectInformation?.Name ?? _doc?.Title ?? "Project";
-                string revision = item.CurrentRevisionNumber ?? "";
-                string result = _txtNamingPattern.Text
-                    .Replace("{SheetNumber}", cleanNum)
-                    .Replace("{SheetName}", cleanName)
-                    .Replace("{Project}", SanitizeFileName(project))
-                    .Replace("{Revision}", SanitizeFileName(revision))
-                    .Replace("{Date}", DateTime.Now.ToString("yyyyMMdd"));
-                return SanitizeFileName(result);
-            }
-            else
-            {
-                return $"{cleanNum} - {cleanName}";
-            }
+                ProjectCode = _txtNaming2?.Text?.Trim() ?? _doc?.ProjectInformation?.Name ?? "PROJECT",
+                IssueDate = _dtpIssueDate?.Value.Date ?? DateTime.Today,
+                NamingExpression = _chkUseNamingConvention?.Checked == true ? (_txtNamingPattern?.Text ?? "{SheetNumber} - {SheetName}") : "{SheetNumber} - {SheetName}",
+                NamingRegexPattern = ""
+            };
+            try { return NamingPlanService.Expand(item, new NamingTemplate { Expression = options.NamingExpression }, options); }
+            catch (NamingPlanException ex) { item.ErrorMessage = ex.Message; item.IsRegexValid = false; return ""; }
         }
 
         private int GetSelectedPdfDpi()

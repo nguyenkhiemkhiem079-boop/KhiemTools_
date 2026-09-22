@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Reflection;
@@ -29,7 +30,7 @@ namespace KhimTools.SheetExport.Services
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] sheet preview failed: " + ex); }
 
             // Fallback placeholder bitmap
             return CreatePlaceholderBitmap(sheet.SheetNumber, sheet.Name, pixelSize.Width, pixelSize.Height);

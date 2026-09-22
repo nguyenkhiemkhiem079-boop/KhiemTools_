@@ -37,6 +37,10 @@ namespace KhimTools.SheetExport.Models
         public string RevisionSequence { get; set; } = "";
         public string PaperSize { get; set; } = "A1";
         public string Orientation { get; set; } = "Landscape";
+        public string PaperMetadataStatus { get; set; } = "READY";
+        public int TitleBlockCount { get; set; }
+        public string RevisionFingerprint { get; set; } = "";
+        public bool CanExport { get; set; } = true;
         public SheetIssueStatus IssueStatus { get; set; } = SheetIssueStatus.New;
         public string StatusBadgeText => IssueStatus switch
         {

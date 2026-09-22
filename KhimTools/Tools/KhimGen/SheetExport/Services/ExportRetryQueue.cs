@@ -1,256 +1,35 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using Autodesk.Revit.DB;
 using KhimTools.SheetExport.Models;
+using Autodesk.Revit.DB;
 
 namespace KhimTools.SheetExport.Services
 {
+    /// <summary>Compatibility adapter for the existing form; retry and result logic live in the workflow.</summary>
     public class ExportRetryQueue
     {
         private readonly int _maxRetries;
-        public ExportRetryQueue(int maxRetries = 2)
+        public ExportRetryQueue(int maxRetries = 2) { _maxRetries = Math.Max(0, maxRetries); }
+
+        public List<QaReportEntry> ProcessBatch(Document doc, List<SheetExportItem> items, ExportOptions options, Action<string> logProgress)
         {
-            _maxRetries = Math.Max(1, maxRetries);
+            if (options != null) options.MaxRetryCount = _maxRetries;
+            ExportBatchResult batch = SheetExportWorkflowService.Execute(doc, items, options,
+                progress => logProgress?.Invoke(progress?.Message ?? ""));
+            return ToQaEntries(batch);
         }
 
-        public List<QaReportEntry> ProcessBatch(
-            Document doc,
-            List<SheetExportItem> items,
-            ExportOptions options,
-            Action<string> logProgress)
+        public static List<QaReportEntry> ToQaEntries(ExportBatchResult batch)
         {
-            var results = new List<QaReportEntry>();
-            var failedQueue = new Queue<SheetExportItem>();
-
-            // Handle Combine PDF mode
-            if (options.ExportPdf && options.CombinePdf && items.Any())
+            var entries = new List<QaReportEntry>();
+            foreach (ExportItemResult result in batch?.Results ?? new List<ExportItemResult>())
             {
-                string pdfFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "PDF") : options.OutputDirectory;
-                string combinedName = !string.IsNullOrWhiteSpace(options.CombinedPdfFileName)
-                    ? Path.GetFileNameWithoutExtension(options.CombinedPdfFileName)
-                    : "Combined_Sheets";
-                logProgress?.Invoke($"Đang xuất PDF Gộp ({items.Count} sheets)...");
-
-                try
-                {
-                    var sheets = items.Select(i => i.Sheet).ToList();
-                    string combinedPath = PdfExportEngine.ExportCombinedSheets(doc, sheets, pdfFolder, combinedName, options);
-
-                    foreach (var item in items)
-                    {
-                        item.ExportStatusText = "✔ Hoàn tất (PDF Gộp)";
-                        item.IsFailed = false;
-                        results.Add(new QaReportEntry
-                        {
-                            SheetNumber = item.SheetNumber,
-                            SheetName = item.SheetName,
-                            Format = "PDF (Combined)",
-                            OutputFilePath = combinedPath,
-                            Success = true,
-                            Message = "Thành công trong file PDF gộp"
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    foreach (var item in items)
-                    {
-                        item.ExportStatusText = "✘ Lỗi PDF Gộp";
-                        item.IsFailed = true;
-                        item.ErrorMessage = ex.Message;
-                        results.Add(new QaReportEntry
-                        {
-                            SheetNumber = item.SheetNumber,
-                            SheetName = item.SheetName,
-                            Format = "PDF (Combined)",
-                            Success = false,
-                            Message = ex.Message
-                        });
-                    }
-                }
-
-                // If DWG is also requested along with Combined PDF, continue for DWG
-                if (!options.ExportDwg) return FinalizeResults(items, results);
+                entries.Add(new QaReportEntry { SheetNumber = result.SheetNumber, Format = result.Format.ToString(), OutputFilePath = result.FinalPath,
+                    FileSizeBytes = result.FileSizeBytes, DurationSeconds = result.DurationSeconds, Success = result.Success,
+                    IsLocked = result.Status == ExportItemStatus.LOCKED, Retries = result.RetryCount, Status = result.Status.ToString(), Message = result.Message });
             }
-
-            int total = items.Count;
-            int current = 1;
-
-            // Primary Pass
-            foreach (var item in items)
-            {
-                logProgress?.Invoke($"({current}/{total}) [{item.SheetNumber}]");
-                var entry = ExecuteSingleExport(doc, item, options, logProgress, includePdf: !options.CombinePdf);
-                results.Add(entry);
-
-                if (!entry.Success && !entry.IsLocked)
-                {
-                    item.IsFailed = true;
-                    item.ErrorMessage = entry.Message;
-                    failedQueue.Enqueue(item);
-                }
-
-                current++;
-                System.Windows.Forms.Application.DoEvents();
-            }
-
-            // Retry Pass
-            int currentRetry = 1;
-            while (failedQueue.Any() && currentRetry <= _maxRetries)
-            {
-                int count = failedQueue.Count;
-                logProgress?.Invoke($"🔄 Retry {currentRetry}/{_maxRetries} ({count} sheets)...");
-
-                for (int i = 0; i < count; i++)
-                {
-                    var item = failedQueue.Dequeue();
-                    item.RetryCount++;
-
-                    logProgress?.Invoke($"Retry [{item.SheetNumber}] (Lần {currentRetry})...");
-                    var entry = ExecuteSingleExport(doc, item, options, logProgress, includePdf: !options.CombinePdf);
-
-                    var existingEntry = results.FirstOrDefault(r => r.SheetNumber == item.SheetNumber);
-                    if (existingEntry != null)
-                    {
-                        results.Remove(existingEntry);
-                    }
-                    results.Add(entry);
-
-                    if (entry.Success)
-                    {
-                        item.IsFailed = false;
-                        item.ExportStatusText = "✔ Thành công (Retry)";
-                        item.ErrorMessage = "";
-                    }
-                    else if (!entry.IsLocked)
-                    {
-                        item.IsFailed = true;
-                        item.ErrorMessage = entry.Message;
-                        if (currentRetry < _maxRetries)
-                        {
-                            failedQueue.Enqueue(item);
-                        }
-                    }
-
-                    System.Windows.Forms.Application.DoEvents();
-                }
-
-                currentRetry++;
-            }
-
-            return FinalizeResults(items, results);
-        }
-
-        private static List<QaReportEntry> FinalizeResults(List<SheetExportItem> items, List<QaReportEntry> results)
-        {
-            foreach (var item in items)
-            {
-                var sheetResults = results.Where(r => string.Equals(r.SheetNumber, item.SheetNumber, StringComparison.OrdinalIgnoreCase)).ToList();
-                if (sheetResults.Any() && sheetResults.Any(r => !r.Success))
-                {
-                    item.IsFailed = true;
-                    item.ExportStatusText = sheetResults.Any(r => r.Success) ? "Lỗi một phần" : "Không thể xuất";
-                    item.ErrorMessage = string.Join("; ", sheetResults.Where(r => !r.Success).Select(r => r.Message).Distinct());
-                }
-            }
-            return results;
-        }
-
-        private QaReportEntry ExecuteSingleExport(
-            Document doc,
-            SheetExportItem item,
-            ExportOptions options,
-            Action<string> logProgress,
-            bool includePdf)
-        {
-            var entry = new QaReportEntry
-            {
-                SheetNumber = item.SheetNumber,
-                SheetName = item.SheetName,
-                Format = includePdf && options.ExportPdf && options.ExportDwg ? "PDF / DWG" : (includePdf && options.ExportPdf ? "PDF" : "DWG"),
-                Retries = item.RetryCount
-            };
-
-            var sw = System.Diagnostics.Stopwatch.StartNew();
-
-            try
-            {
-                logProgress?.Invoke($"Đang xử lý [{item.SheetNumber}] - {item.SheetName}...");
-                item.ExportStatusText = "Đang xuất...";
-
-                string outPath = "";
-                string pdfFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "PDF") : options.OutputDirectory;
-                string dwgFolder = options.SplitFoldersByFormat ? Path.Combine(options.OutputDirectory, "DWG") : options.OutputDirectory;
-
-                if (options.ExportPdf && includePdf)
-                {
-                    outPath = PdfExportEngine.ExportSingleSheet(doc, item.Sheet, pdfFolder, item.ComputedFileName, options);
-
-                    if (options.ApplyWatermark && !string.IsNullOrWhiteSpace(options.WatermarkText))
-                    {
-                        PdfPostProcessService.ApplyWatermark(outPath, options.WatermarkText);
-                    }
-                }
-
-                if (options.ExportDwg)
-                {
-                    string dwgPath = DwgExportEngine.ExportSingleSheet(doc, item.Sheet, dwgFolder, item.ComputedFileName, options.DwgExportSetupName);
-                    if (string.IsNullOrEmpty(outPath)) outPath = dwgPath;
-                }
-
-                sw.Stop();
-                entry.DurationSeconds = sw.Elapsed.TotalSeconds;
-                entry.OutputFilePath = outPath;
-                entry.Success = true;
-                entry.IsLocked = false;
-                entry.Message = "Thành công";
-
-                if (System.IO.File.Exists(outPath))
-                {
-                    var fi = new System.IO.FileInfo(outPath);
-                    entry.FileSizeBytes = fi.Length;
-                    item.FileSizeBytes = fi.Length;
-                }
-
-                item.DurationSeconds = entry.DurationSeconds;
-                item.ExportStatusText = "✔ Hoàn tất";
-                item.IsFailed = false;
-                item.IsLocked = false;
-
-                logProgress?.Invoke($"  ✓ Hoàn tất [{item.SheetNumber}] ({Math.Round(entry.DurationSeconds, 1)}s)");
-            }
-            catch (FileLockedException flex)
-            {
-                sw.Stop();
-                entry.DurationSeconds = sw.Elapsed.TotalSeconds;
-                entry.Success = false;
-                entry.IsLocked = true;
-                entry.Message = flex.Message;
-                entry.OutputFilePath = flex.LockedFilePath;
-                item.ExportStatusText = "⚠️ File đang mở (Bị khóa)";
-                item.IsFailed = false;
-                item.IsLocked = true;
-                item.LockedFilePath = flex.LockedFilePath;
-                item.ErrorMessage = flex.Message;
-
-                logProgress?.Invoke($"  ⚠️ Bỏ qua [{item.SheetNumber}]: File đang mở bởi chương trình khác (Locked)");
-            }
-            catch (Exception ex)
-            {
-                sw.Stop();
-                entry.DurationSeconds = sw.Elapsed.TotalSeconds;
-                entry.Success = false;
-                entry.IsLocked = false;
-                entry.Message = ex.Message;
-                item.ExportStatusText = "✘ Lỗi";
-                item.IsFailed = true;
-
-                logProgress?.Invoke($"  ✘ Lỗi [{item.SheetNumber}]: {ex.Message}");
-            }
-
-            return entry;
+            return entries;
         }
     }
 }

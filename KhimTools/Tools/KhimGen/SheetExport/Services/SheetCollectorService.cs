@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.SheetExport.Models;
@@ -26,14 +27,14 @@ namespace KhimTools.SheetExport.Services
                 .ToElements()
                 .Where(e => e.OwnerViewId != null && e.OwnerViewId != ElementId.InvalidElementId)
                 .GroupBy(e => e.OwnerViewId)
-                .ToDictionary(g => g.Key, g => g.First());
+                .ToDictionary(g => g.Key, g => g.OrderBy(e => e.UniqueId, StringComparer.Ordinal).ToList());
 
             var list = new List<SheetExportItem>(sheets.Count);
 
             foreach (var sheet in sheets)
             {
-                titleBlocksBySheetId.TryGetValue(sheet.Id, out var titleBlock);
-                GetPaperInfo(titleBlock, out string paperSize, out string orientation);
+                titleBlocksBySheetId.TryGetValue(sheet.Id, out var titleBlocks);
+                GetPaperInfo(titleBlocks, out string paperSize, out string orientation, out string paperStatus);
                 GetCurrentRevisionInfo(sheet, doc, out string revisionNumber,
                     out string revisionDate, out string revisionSequence);
 
@@ -48,7 +49,10 @@ namespace KhimTools.SheetExport.Services
                     RevisionSequence = revisionSequence,
                     PaperSize = paperSize,
                     Orientation = orientation
+                    ,TitleBlockCount = titleBlocks == null ? 0 : titleBlocks.Count
+                    ,PaperMetadataStatus = paperStatus
                 };
+                item.RevisionFingerprint = new SheetIssueFingerprint { SheetUniqueId = item.SheetUniqueId, SheetNumber = item.SheetNumber, SheetName = item.SheetName, RevisionNumber = item.CurrentRevisionNumber, RevisionDate = item.CurrentRevisionDate }.Value;
 
                 list.Add(item);
             }
@@ -68,8 +72,9 @@ namespace KhimTools.SheetExport.Services
                 revisionSequence = revIds?.Count.ToString() ?? "0";
                 if (revIds != null && revIds.Any())
                 {
-                    var lastRevId = revIds.Last();
-                    if (doc.GetElement(lastRevId) is Revision rev)
+                    var revisions = revIds.Select(id => doc.GetElement(id) as Revision).Where(rev => rev != null).ToList();
+                    Revision rev = revisions.OrderByDescending(item => ReadSequence(item)).ThenByDescending(item => item.RevisionDate ?? "", StringComparer.Ordinal).ThenBy(item => item.UniqueId, StringComparer.Ordinal).FirstOrDefault();
+                    if (rev != null)
                     {
                         revisionNumber = rev.RevisionNumber ?? "";
                         revisionDate = rev.RevisionDate ?? "";
@@ -80,18 +85,22 @@ namespace KhimTools.SheetExport.Services
                     ?? sheet.LookupParameter("Sheet Revision")?.AsString() ?? "";
                 revisionDate = sheet.LookupParameter("Current Revision Date")?.AsString() ?? "";
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] revision API read failed: " + ex);
                 revisionNumber = sheet.LookupParameter("Current Revision")?.AsString() ?? "";
             }
         }
 
-        private static void GetPaperInfo(Element titleBlock, out string paperSize, out string orientation)
+        private static void GetPaperInfo(List<Element> titleBlocks, out string paperSize, out string orientation, out string status)
         {
-            paperSize = "A1";
-            orientation = "Landscape";
+            paperSize = "Unknown";
+            orientation = "Unknown";
+            status = "UNKNOWN";
             try
             {
+                if (titleBlocks == null || titleBlocks.Count == 0) return;
+                Element titleBlock = titleBlocks.OrderBy(e => e.UniqueId, StringComparer.Ordinal).First();
                 if (titleBlock != null)
                 {
                     var wParam = titleBlock.get_Parameter(BuiltInParameter.SHEET_WIDTH);
@@ -112,10 +121,22 @@ namespace KhimTools.SheetExport.Services
                         else if (Math.Abs(maxDim - 420) < 50 && Math.Abs(minDim - 297) < 50) paperSize = "A3";
                         else if (Math.Abs(maxDim - 297) < 50 && Math.Abs(minDim - 210) < 50) paperSize = "A4";
                         else paperSize = $"{Math.Round(maxDim)}x{Math.Round(minDim)}mm";
+                        status = titleBlocks.Count > 1 ? "AMBIGUOUS" : "READY";
                     }
                 }
             }
-            catch { }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] paper metadata read failed: " + ex); paperSize = "Unknown"; orientation = "Unknown"; status = "UNKNOWN"; }
+        }
+
+        private static int ReadSequence(Revision revision)
+        {
+            try
+            {
+                var property = revision.GetType().GetProperty("SequenceNumber");
+                if (property != null) return Convert.ToInt32(property.GetValue(revision, null));
+            }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] revision sequence read failed: " + ex); }
+            return 0;
         }
     }
 }

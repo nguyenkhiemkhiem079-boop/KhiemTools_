@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -9,262 +10,118 @@ namespace KhimTools.SheetExport.Services
 {
     public class FileLockedException : IOException
     {
-        public string LockedFilePath { get; }
-        public FileLockedException(string filePath, string message) : base(message)
-        {
-            LockedFilePath = filePath;
-        }
+        public string LockedFilePath { get; private set; }
+        public FileLockedException(string filePath, string message) : base(message) { LockedFilePath = filePath; }
     }
 
-    /// <summary>
-    /// Engine xuất PDF tận dụng trực tiếp bộ xuất PDF native của Revit (Revit 2022+),
-    /// tự động nhận diện khổ giấy từng Sheet, đảm bảo chất lượng Vector DPI cao nhất
-    /// và định danh tên file chính xác 100%.
-    /// </summary>
+    public class ExportOutputMissingException : IOException { public ExportOutputMissingException(string message) : base(message) { } }
+    public class AmbiguousExportOutputException : IOException { public AmbiguousExportOutputException(string message) : base(message) { } }
+
     public static class PdfExportEngine
     {
         public static bool IsFileLocked(string filePath)
         {
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return false;
-            try
-            {
-                using var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                return false;
-            }
-            catch (IOException)
-            {
-                return true;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            try { using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) return false; }
+            catch (IOException) { return true; }
+            catch (UnauthorizedAccessException) { return true; }
+            catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] lock probe failed: " + ex); return false; }
         }
 
         public static string ExportSingleSheet(Document doc, ViewSheet sheet, string outputFolder, string fileNameWithoutExt, ExportOptions options = null)
         {
-            if (doc == null || sheet == null) throw new ArgumentNullException(nameof(doc));
-            if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
-
-            if (string.IsNullOrWhiteSpace(fileNameWithoutExt))
-            {
-                fileNameWithoutExt = $"{sheet.SheetNumber} - {sheet.Name}";
-            }
-            fileNameWithoutExt = Sanitize(fileNameWithoutExt);
-
-            string targetPath = Path.Combine(outputFolder, fileNameWithoutExt + ".pdf");
-
-            // Pre-check: Kiểm tra trước xem file PDF đích có đang bị khóa bởi app khác không
-            if (IsFileLocked(targetPath))
-            {
-                throw new FileLockedException(targetPath, $"File '{Path.GetFileName(targetPath)}' đang được mở trong ứng dụng khác và bị khóa.");
-            }
-
-            var pdfOpt = CreateStandardPdfOptions(fileNameWithoutExt, false, options);
-            var viewIds = new List<ElementId> { sheet.Id };
-
-            var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
-
-            try
-            {
-                doc.Export(outputFolder, viewIds, pdfOpt);
-            }
-            catch (Exception ex)
-            {
-                if (IsFileLocked(targetPath) || ex.Message.IndexOf("being used", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("close the following", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    throw new FileLockedException(targetPath, $"File '{Path.GetFileName(targetPath)}' đang bị khóa: {ex.Message}");
-                }
-                throw new InvalidOperationException($"Lỗi Revit Export PDF cho sheet [{sheet.SheetNumber}]: {ex.Message}", ex);
-            }
-
-            if (File.Exists(targetPath)) return targetPath;
-
-            // Tìm file PDF mới sinh ra trong thư mục output
-            var afterFiles = Directory.GetFiles(outputFolder, "*.pdf");
-            var newFiles = afterFiles.Where(f => !beforeFiles.Contains(f)).ToList();
-            if (newFiles.Any())
-            {
-                string exportedFile = newFiles.First();
-                if (!string.Equals(exportedFile, targetPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(targetPath)) File.Delete(targetPath);
-                    File.Move(exportedFile, targetPath);
-                }
-                return targetPath;
-            }
-
-            // Fallback: Tìm file PDF có thời gian ghi gần nhất (trong vòng 30s)
-            var recentFiles = afterFiles
-                .Where(f => (DateTime.Now - File.GetLastWriteTime(f)).TotalSeconds < 30)
-                .OrderByDescending(f => File.GetLastWriteTime(f))
-                .ToList();
-
-            if (recentFiles.Any())
-            {
-                string recentFile = recentFiles.First();
-                if (!string.Equals(recentFile, targetPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(targetPath)) File.Delete(targetPath);
-                    File.Move(recentFile, targetPath);
-                }
-                return targetPath;
-            }
-
-            return targetPath;
+            if (doc == null || sheet == null) throw new ArgumentNullException("doc");
+            string baseName = Sanitize(string.IsNullOrWhiteSpace(fileNameWithoutExt) ? sheet.SheetNumber + " - " + sheet.Name : fileNameWithoutExt);
+            string expected = Path.Combine(outputFolder, baseName + ".pdf");
+            PrepareFolder(outputFolder, expected);
+            Export(doc, new List<ElementId> { sheet.Id }, outputFolder, baseName, options, false, sheet.SheetNumber);
+            return VerifyOutput(outputFolder, expected, "PDF");
         }
 
         public static string ExportCombinedSheets(Document doc, List<ViewSheet> sheets, string outputFolder, string combinedFileNameWithoutExt, ExportOptions options = null)
         {
-            if (doc == null || sheets == null || !sheets.Any()) throw new ArgumentNullException(nameof(sheets));
-            if (!Directory.Exists(outputFolder)) Directory.CreateDirectory(outputFolder);
+            if (doc == null || sheets == null || !sheets.Any()) throw new ArgumentNullException("sheets");
+            string baseName = Sanitize(string.IsNullOrWhiteSpace(combinedFileNameWithoutExt) ? "Combined_Sheets" : combinedFileNameWithoutExt);
+            string expected = Path.Combine(outputFolder, baseName + ".pdf");
+            PrepareFolder(outputFolder, expected);
+            Export(doc, sheets.Select(sheet => sheet.Id).ToList(), outputFolder, baseName, options, true, "combined");
+            return VerifyOutput(outputFolder, expected, "combined PDF");
+        }
 
-            string targetPath = Path.Combine(outputFolder, combinedFileNameWithoutExt + ".pdf");
-
-            // Pre-check: Kiểm tra trước xem file PDF gộp đích có đang bị khóa không
-            if (IsFileLocked(targetPath))
-            {
-                throw new FileLockedException(targetPath, $"File PDF gộp '{Path.GetFileName(targetPath)}' đang được mở trong ứng dụng khác và bị khóa.");
-            }
-
-            var pdfOpt = CreateStandardPdfOptions(combinedFileNameWithoutExt, true, options);
-            var viewIds = sheets.Select(s => s.Id).ToList();
-
-            var beforeFiles = new HashSet<string>(Directory.GetFiles(outputFolder, "*.pdf"), StringComparer.OrdinalIgnoreCase);
-
-            try
-            {
-                doc.Export(outputFolder, viewIds, pdfOpt);
-            }
+        private static void Export(Document doc, IList<ElementId> viewIds, string folder, string baseName, ExportOptions options, bool combine, string subject)
+        {
+            PDFExportOptions pdfOpt = CreateStandardPdfOptions(baseName, combine, options);
+            try { doc.Export(folder, viewIds, pdfOpt); }
             catch (Exception ex)
             {
-                if (IsFileLocked(targetPath) || ex.Message.IndexOf("being used", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("close the following", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    throw new FileLockedException(targetPath, $"File PDF gộp '{Path.GetFileName(targetPath)}' đang bị khóa: {ex.Message}");
-                }
-                throw new InvalidOperationException($"Lỗi Revit Export PDF Gộp: {ex.Message}", ex);
+                string expected = Path.Combine(folder, baseName + ".pdf");
+                if (IsFileLocked(expected) || ex.Message.IndexOf("being used", StringComparison.OrdinalIgnoreCase) >= 0 || ex.Message.IndexOf("close the following", StringComparison.OrdinalIgnoreCase) >= 0)
+                    throw new FileLockedException(expected, "PDF output is locked: " + ex.Message);
+                throw new InvalidOperationException("Lỗi Revit Export PDF (" + subject + "): " + ex.Message, ex);
             }
+            string expectedPath = Path.Combine(folder, baseName + ".pdf");
+            if (File.Exists(expectedPath)) return;
+            string[] candidates = Directory.GetFiles(folder, "*.pdf", SearchOption.TopDirectoryOnly);
+            if (candidates.Length == 0) throw new ExportOutputMissingException("OUTPUT_MISSING: PDF export produced no file.");
+            // A non-matching file is never accepted as the primary output, even
+            // when it is the only file. Revit must honor PDFExportOptions.FileName.
+            if (candidates.Length > 1)
+                throw new AmbiguousExportOutputException("AMBIGUOUS_EXPORT_OUTPUT: multiple PDF files in isolated staging folder.");
+            throw new ExportOutputMissingException("OUTPUT_MISSING: expected PDF name was not produced; unrelated staging file ignored.");
+        }
 
-            if (File.Exists(targetPath)) return targetPath;
+        public static string VerifyOutput(string folder, string expectedPath, string format)
+        {
+            if (!File.Exists(expectedPath)) throw new ExportOutputMissingException("OUTPUT_MISSING: " + format + " expected output does not exist.");
+            FileInfo info = new FileInfo(expectedPath);
+            if (info.Length <= 0) throw new ExportOutputMissingException("OUTPUT_EMPTY: " + format + " output is empty.");
+            return expectedPath;
+        }
 
-            var afterFiles = Directory.GetFiles(outputFolder, "*.pdf");
-            var newFiles = afterFiles.Where(f => !beforeFiles.Contains(f)).ToList();
-            if (newFiles.Any())
-            {
-                string exportedFile = newFiles.First();
-                if (!string.Equals(exportedFile, targetPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(targetPath)) File.Delete(targetPath);
-                    File.Move(exportedFile, targetPath);
-                }
-                return targetPath;
-            }
-
-            var recentFiles = afterFiles
-                .Where(f => (DateTime.Now - File.GetLastWriteTime(f)).TotalSeconds < 30)
-                .OrderByDescending(f => File.GetLastWriteTime(f))
-                .ToList();
-
-            if (recentFiles.Any())
-            {
-                string recentFile = recentFiles.First();
-                if (!string.Equals(recentFile, targetPath, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (File.Exists(targetPath)) File.Delete(targetPath);
-                    File.Move(recentFile, targetPath);
-                }
-                return targetPath;
-            }
-
-            return targetPath;
+        private static void PrepareFolder(string folder, string expected)
+        {
+            if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+            if (IsFileLocked(expected)) throw new FileLockedException(expected, "LOCKED_OUTPUT: " + Path.GetFileName(expected));
+            foreach (string file in Directory.GetFiles(folder, "*.pdf", SearchOption.TopDirectoryOnly))
+                try { File.Delete(file); } catch (Exception ex) { throw new IOException("Staging folder is not clean: " + ex.Message, ex); }
         }
 
         private static PDFExportOptions CreateStandardPdfOptions(string fileName, bool combine, ExportOptions options)
         {
-            var opt = new PDFExportOptions
+            var opt = new PDFExportOptions { FileName = fileName, Combine = combine, PaperFormat = ExportPaperFormat.Default,
+                ExportQuality = GetExportQuality(options?.PdfExportDpi ?? 300), StopOnError = false };
+            if (options == null)
             {
-                FileName = fileName,
-                Combine = combine,
-                PaperFormat = ExportPaperFormat.Default,
-                ExportQuality = GetExportQuality(options?.PdfExportDpi ?? 300),
-                StopOnError = false
-            };
-
-            if (options != null)
-            {
-                opt.ColorDepth = options.ColorMode switch
-                {
-                    "Grayscale" => ColorDepthType.GrayScale,
-                    "Black & White" => ColorDepthType.BlackLine,
-                    _ => ColorDepthType.Color
-                };
-
-                opt.RasterQuality = options.RasterQuality switch
-                {
-                    "Presentation" => RasterQualityType.Presentation,
-                    "Medium" => RasterQualityType.Medium,
-                    "Low" => RasterQualityType.Low,
-                    _ => RasterQualityType.High
-                };
-                opt.AlwaysUseRaster = !options.VectorProcessing;
-                opt.PaperOrientation = PageOrientationType.Auto;
-
-                opt.HideUnreferencedViewTags = options.HideUnreferencedViewTags;
-                opt.HideScopeBoxes = options.HideScopeBoxes;
-                opt.HideCropBoundaries = options.HideCropBoundaries;
-                opt.HideReferencePlane = options.HideRefPlanes;
-                opt.MaskCoincidentLines = options.MaskCoincidentLines;
-                opt.ReplaceHalftoneWithThinLines = options.ReplaceHalftoneWithThinLines;
-                opt.ViewLinksInBlue = options.ViewLinksInBlue;
-
-                opt.ZoomType = options.ZoomFitToPage ? ZoomType.FitToPage : ZoomType.Zoom;
-                opt.ZoomPercentage = options.ZoomPercentage > 0 ? options.ZoomPercentage : 100;
-                opt.PaperPlacement = options.PaperPlacementCenter ? PaperPlacementType.Center : PaperPlacementType.LowerLeft;
-
-                if (options.MarginOffsetX != 0) opt.OriginOffsetX = options.MarginOffsetX / 304.8;
-                if (options.MarginOffsetY != 0) opt.OriginOffsetY = options.MarginOffsetY / 304.8;
+                opt.ColorDepth = ColorDepthType.Color; opt.RasterQuality = RasterQualityType.High; opt.HideUnreferencedViewTags = true;
+                opt.HideScopeBoxes = true; opt.HideCropBoundaries = true; opt.HideReferencePlane = true;
+                opt.MaskCoincidentLines = true; opt.ZoomType = ZoomType.Zoom; opt.ZoomPercentage = 100; opt.PaperPlacement = PaperPlacementType.LowerLeft;
+                return opt;
             }
-            else
-            {
-                opt.ColorDepth = ColorDepthType.Color;
-                opt.RasterQuality = RasterQualityType.High;
-                opt.HideUnreferencedViewTags = true;
-                opt.HideScopeBoxes = true;
-                opt.HideCropBoundaries = true;
-                opt.HideReferencePlane = true;
-                opt.MaskCoincidentLines = true;
-                opt.ZoomType = ZoomType.Zoom;
-                opt.ZoomPercentage = 100;
-                opt.PaperPlacement = PaperPlacementType.LowerLeft;
-            }
-
+            opt.ColorDepth = options.ColorMode switch { "Grayscale" => ColorDepthType.GrayScale, "Black & White" => ColorDepthType.BlackLine, _ => ColorDepthType.Color };
+            opt.RasterQuality = options.RasterQuality switch { "Presentation" => RasterQualityType.Presentation, "Medium" => RasterQualityType.Medium, "Low" => RasterQualityType.Low, _ => RasterQualityType.High };
+            opt.AlwaysUseRaster = !options.VectorProcessing;
+            opt.PaperOrientation = PageOrientationType.Auto;
+            opt.HideUnreferencedViewTags = options.HideUnreferencedViewTags;
+            opt.HideScopeBoxes = options.HideScopeBoxes; opt.HideCropBoundaries = options.HideCropBoundaries;
+            opt.HideReferencePlane = options.HideRefPlanes; opt.MaskCoincidentLines = options.MaskCoincidentLines;
+            opt.ReplaceHalftoneWithThinLines = options.ReplaceHalftoneWithThinLines; opt.ViewLinksInBlue = options.ViewLinksInBlue;
+            opt.ZoomType = options.ZoomFitToPage ? ZoomType.FitToPage : ZoomType.Zoom;
+            opt.ZoomPercentage = options.ZoomPercentage > 0 ? options.ZoomPercentage : 100;
+            opt.PaperPlacement = options.PaperPlacementCenter ? PaperPlacementType.Center : PaperPlacementType.LowerLeft;
+            if (options.MarginOffsetX != 0) opt.OriginOffsetX = options.MarginOffsetX / 304.8;
+            if (options.MarginOffsetY != 0) opt.OriginOffsetY = options.MarginOffsetY / 304.8;
             return opt;
         }
 
         private static PDFExportQualityType GetExportQuality(int dpi)
         {
-            switch (dpi)
-            {
-                case 72: return PDFExportQualityType.DPI72;
-                case 144: return PDFExportQualityType.DPI144;
-                case 600: return PDFExportQualityType.DPI600;
-                default: return PDFExportQualityType.DPI300;
-            }
+            switch (dpi) { case 72: return PDFExportQualityType.DPI72; case 144: return PDFExportQualityType.DPI144; case 600: return PDFExportQualityType.DPI600; default: return PDFExportQualityType.DPI300; }
         }
 
         private static string Sanitize(string name)
         {
-            if (string.IsNullOrWhiteSpace(name)) return "Sheet";
-            var invalid = Path.GetInvalidFileNameChars();
-            foreach (char c in invalid)
-            {
-                name = name.Replace(c, '_');
-            }
-            return name.Trim();
+            string value = NamingPlanService.Sanitize(name);
+            return string.IsNullOrWhiteSpace(value) ? "Sheet" : value;
         }
     }
 }

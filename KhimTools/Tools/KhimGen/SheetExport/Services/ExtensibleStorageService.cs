@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Newtonsoft.Json;
@@ -34,8 +35,9 @@ namespace KhimTools.SheetExport.Services
 
                 return JsonConvert.DeserializeObject<List<RevisionSnapshot>>(json) ?? new List<RevisionSnapshot>();
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] revision snapshot load failed: " + ex);
                 return new List<RevisionSnapshot>();
             }
         }
@@ -67,8 +69,9 @@ namespace KhimTools.SheetExport.Services
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] revision snapshot save failed: " + ex);
                 return false;
             }
         }
@@ -93,8 +96,9 @@ namespace KhimTools.SheetExport.Services
                 var templates = JsonConvert.DeserializeObject<List<NamingTemplate>>(json);
                 return (templates != null && templates.Count > 0) ? templates : NamingTemplate.GetBuiltInTemplates();
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] naming template load failed: " + ex);
                 return NamingTemplate.GetBuiltInTemplates();
             }
         }
@@ -126,8 +130,9 @@ namespace KhimTools.SheetExport.Services
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                Debug.WriteLine("[K-TOOLS][SheetExport] naming template save failed: " + ex);
                 return false;
             }
         }

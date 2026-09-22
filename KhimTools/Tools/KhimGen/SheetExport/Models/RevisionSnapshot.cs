@@ -19,6 +19,7 @@ namespace KhimTools.SheetExport.Models
         public string SheetName { get; set; } = "";
         public string RevisionNumber { get; set; } = "";
         public string RevisionDate { get; set; } = "";
+        public string Fingerprint { get; set; } = "";
         public string Format { get; set; } = "PDF";
         public string ExportFileName { get; set; } = "";
     }

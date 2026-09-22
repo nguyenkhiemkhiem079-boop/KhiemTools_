@@ -8,11 +8,15 @@ namespace KhimTools.SheetExport.Models
         public bool ExportPdf { get; set; } = true;
         public bool ExportDwg { get; set; } = false;
         public string DwgExportSetupName { get; set; } = "In-Session Setup";
+        public bool DwgMergedViews { get; set; } = true;
+        public string DwgTargetVersion { get; set; } = "AutoCAD 2018 format";
 
         // General Destination
         public string OutputDirectory { get; set; } = "";
         public string ProjectCode { get; set; } = "PROJ";
         public string SelectedNamingTemplateName { get; set; } = "Mặc định (SheetNumber - SheetName)";
+        public string NamingExpression { get; set; } = "";
+        public string NamingRegexPattern { get; set; } = "";
         public bool SplitFoldersByFormat { get; set; } = true;
         public int PrintTimeoutSeconds { get; set; } = 120;
         public string IssueSetName { get; set; } = "Official Release";
@@ -60,5 +64,7 @@ namespace KhimTools.SheetExport.Models
         public int MaxRetryCount { get; set; } = 2;
         public bool WarnPageSizeMismatch { get; set; } = true;
         public bool AutoDisableTemporaryViewProperties { get; set; } = true;
+        public bool PreserveStagingOnFailure { get; set; } = false;
+        public int MaxPathLength { get; set; } = 240;
     }
 }
