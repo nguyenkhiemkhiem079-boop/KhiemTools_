@@ -48,6 +48,11 @@ $suites = @(
         Script = Join-Path $scriptDir "Tools\Verify-ScheduleSplitStage32.ps1"
         ExpectedCount = 49
     }
+    @{
+        Name = "Stage 3.3 Title Block Sync Structural Audit"
+        Script = Join-Path $scriptDir "Tools\Verify-TitleBlockSyncStage33.ps1"
+        ExpectedCount = 56
+    }
 )
 
 $allPassed = $true
