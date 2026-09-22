@@ -33,7 +33,11 @@ namespace KhimTools.DimensionTools.Commands
                 case DimensionOperation.ELEVATION: return ElevationDimensionService.CreateLevelChain(doc, plan);
                 case DimensionOperation.QUICK: return QuickDimensionService.Create(doc, plan);
                 case DimensionOperation.GENERAL: return GeneralDimensionService.Create(doc, plan);
-                default: return new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "Choose an automatic dimension operation for creation; edit operations require a selected Dimension." };
+                case DimensionOperation.CUT: return plan.Context.DimensionIds.Count == 1 ? CutDimensionService.Cut(doc, plan.Context.View, plan.Context.DimensionIds[0], plan.Context.Options.BoundaryIndex) : new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "CUT requires one selected Dimension." };
+                case DimensionOperation.JOIN: return plan.Context.DimensionIds.Count == 2 ? JoinDimensionService.Join(doc, plan.Context.View, plan.Context.DimensionIds[0], plan.Context.DimensionIds[1]) : new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "JOIN requires two selected Dimensions." };
+                case DimensionOperation.REMOVE_ZERO: return plan.Context.DimensionIds.Count == 1 ? ZeroDimensionService.RemoveZero(doc, plan.Context.View, plan.Context.DimensionIds[0], plan.Context.Options.ToleranceMillimeters) : new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "REMOVE_ZERO requires one selected Dimension." };
+                case DimensionOperation.MOVE_TEXT: if (plan.Context.DimensionIds.Count != 1) return new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "MOVE_TEXT requires one selected Dimension." }; double horizontal = plan.Context.Options.Axis == DimensionAxis.VERTICAL_IN_VIEW ? 0 : plan.Context.Options.OffsetMillimeters; double vertical = plan.Context.Options.Axis == DimensionAxis.VERTICAL_IN_VIEW ? plan.Context.Options.OffsetMillimeters : 0; return DimensionTextService.MoveText(doc, plan.Context.View, plan.Context.DimensionIds[0], horizontal, vertical);
+                default: return new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "Select a supported operation and valid references." };
             }
         }
     }
