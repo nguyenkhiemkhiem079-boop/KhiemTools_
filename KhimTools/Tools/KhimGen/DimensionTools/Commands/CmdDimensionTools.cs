@@ -31,6 +31,7 @@ namespace KhimTools.DimensionTools.Commands
                 case DimensionOperation.FOUNDATION: return FoundationDimensionService.Create(doc, plan);
                 case DimensionOperation.OPENING: return OpeningDimensionService.Create(doc, plan);
                 case DimensionOperation.ELEVATION: return ElevationDimensionService.CreateLevelChain(doc, plan);
+                case DimensionOperation.SPOT_ELEVATION: return CreateSpot(doc, plan);
                 case DimensionOperation.QUICK: return QuickDimensionService.Create(doc, plan);
                 case DimensionOperation.GENERAL: return GeneralDimensionService.Create(doc, plan);
                 case DimensionOperation.CUT: return plan.Context.DimensionIds.Count == 1 ? CutDimensionService.Cut(doc, plan.Context.View, plan.Context.DimensionIds[0], plan.Context.Options.BoundaryIndex) : new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "CUT requires one selected Dimension." };
@@ -39,6 +40,11 @@ namespace KhimTools.DimensionTools.Commands
                 case DimensionOperation.MOVE_TEXT: if (plan.Context.DimensionIds.Count != 1) return new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "MOVE_TEXT requires one selected Dimension." }; double horizontal = plan.Context.Options.Axis == DimensionAxis.VERTICAL_IN_VIEW ? 0 : plan.Context.Options.OffsetMillimeters; double vertical = plan.Context.Options.Axis == DimensionAxis.VERTICAL_IN_VIEW ? plan.Context.Options.OffsetMillimeters : 0; return DimensionTextService.MoveText(doc, plan.Context.View, plan.Context.DimensionIds[0], horizontal, vertical);
                 default: return new DimensionResult { Operation = plan.Operation, Status = DimensionStatus.INVALID_SELECTION, Message = "Select a supported operation and valid references." };
             }
+        }
+        private static DimensionResult CreateSpot(Document doc, DimensionPlan plan)
+        {
+            if (plan.Context.References.Count != 1) return new DimensionResult { Operation = DimensionOperation.SPOT_ELEVATION, Status = DimensionStatus.REFERENCE_NOT_FOUND, Message = "Spot Elevation requires one valid face Reference." };
+            DimensionReferenceInfo info = plan.Context.References[0]; ViewPlane plane = ViewPlane.FromView(plan.Context.View); XYZ target = info.WorldPoint ?? XYZ.Zero; double offset = DimensionGeometryService.Mm(Math.Abs(plan.Context.Options.OffsetMillimeters) < 0.1 ? 100 : plan.Context.Options.OffsetMillimeters); XYZ origin = target + plane.RightDirection * offset; XYZ bend = origin + plane.UpDirection * DimensionGeometryService.Mm(20); XYZ end = bend + plane.RightDirection * DimensionGeometryService.Mm(20); return ElevationDimensionService.CreateSpotElevation(doc, plan.Context.View, info.Reference, origin, bend, end, target, ElementId.InvalidElementId);
         }
     }
 }

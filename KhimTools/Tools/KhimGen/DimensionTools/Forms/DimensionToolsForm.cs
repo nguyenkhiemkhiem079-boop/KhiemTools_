@@ -39,6 +39,7 @@ namespace KhimTools.DimensionTools.Forms
                 case DimensionOperation.FOUNDATION: return FoundationDimensionService.BuildPlan(_doc, _view, _selection, "FACE_CHAIN", options);
                 case DimensionOperation.OPENING: return OpeningDimensionService.BuildPlan(_doc, _view, _selection, options);
                 case DimensionOperation.ELEVATION: return ElevationDimensionService.BuildLevelPlan(_doc, _view, _selection, options);
+                case DimensionOperation.SPOT_ELEVATION: return BuildSpotPlan(options);
                 case DimensionOperation.QUICK: return QuickDimensionService.BuildPlan(_doc, _view, _selection, options.ReferenceStrategy, options);
                 case DimensionOperation.GENERAL: return GeneralDimensionService.BuildPlan(_doc, _view, new List<DimensionReferenceInfo>(), null, options);
                 case DimensionOperation.CUT:
@@ -55,6 +56,15 @@ namespace KhimTools.DimensionTools.Forms
             var plan = new DimensionPlan { Context = context, ViewId = _view.Id, Operation = operation, Status = DimensionStatus.READY, Fingerprint = operation + "|" + string.Join(",", context.DimensionIds.Select(id => id.IntegerValue.ToString())) };
             int minimum = operation == DimensionOperation.JOIN ? 2 : 1;
             if (context.DimensionIds.Count < minimum) { plan.Status = DimensionStatus.INVALID_SELECTION; plan.Errors.Add(operation == DimensionOperation.JOIN ? "JOIN requires two selected Dimensions." : operation + " requires one selected Dimension."); }
+            return plan;
+        }
+        private DimensionPlan BuildSpotPlan(DimensionOptions options)
+        {
+            var context = new DimensionContext { Document = _doc, View = _view, Operation = DimensionOperation.SPOT_ELEVATION, Options = options ?? new DimensionOptions() };
+            IEnumerable<Element> elements = (_selection ?? new List<ElementId>()).Select(id => _doc.GetElement(id)).Where(element => element != null);
+            foreach (DimensionReferenceInfo info in DimensionReferenceService.FromElements(_doc, _view, elements, DimensionReferenceRole.GENERIC_FACE, context.Options.Axis).Take(1)) context.References.Add(info);
+            var plan = new DimensionPlan { Context = context, ViewId = _view.Id, Operation = DimensionOperation.SPOT_ELEVATION, Status = DimensionStatus.READY, DimensionTypeId = ElementId.InvalidElementId, Fingerprint = "SPOT_ELEVATION|" + (context.References.Count == 0 ? string.Empty : context.References[0].StableRepresentation) };
+            if (context.References.Count != 1) { plan.Status = DimensionStatus.REFERENCE_NOT_FOUND; plan.Errors.Add("Select one element exposing a valid planar face Reference for Spot Elevation."); }
             return plan;
         }
         private void ApplyClicked(object sender, EventArgs e) { if (Plan == null || !Plan.CanExecute) { _status.Text = "Preflight blocked this operation."; return; } DialogResult = DialogResult.OK; Close(); }
