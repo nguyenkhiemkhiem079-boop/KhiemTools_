@@ -18,9 +18,31 @@ namespace KhimTools.FilterManager.Services
             ElementId mutationId = target == null || target.MutationViewId == ElementId.InvalidElementId ? (target == null ? ElementId.InvalidElementId : target.TargetViewId) : target.MutationViewId;
             View view = doc == null || target == null ? null : doc.GetElement(mutationId) as View;
             if (view == null) return false;
+            ICollection<ElementId> appliedIds = ViewFilterApiAdapter.GetAppliedFilters(view);
             var expected = new HashSet<ElementId>(plan.SourceFilters.Select(x => x.FilterId));
-            if (!expected.IsSubsetOf(new HashSet<ElementId>(ViewFilterApiAdapter.GetAppliedFilters(view)))) return false;
-            return plan.Options.Mode != FilterCopyMode.EXACT_SYNC || new HashSet<ElementId>(ViewFilterApiAdapter.GetAppliedFilters(view)).SetEquals(expected);
+            if (!expected.IsSubsetOf(new HashSet<ElementId>(appliedIds))) return false;
+            if (plan.Options.Mode == FilterCopyMode.EXACT_SYNC && !new HashSet<ElementId>(appliedIds).SetEquals(expected)) return false;
+            foreach (AppliedFilterState source in plan.SourceFilters)
+            {
+                AppliedFilterState actual = FilterStateService.CaptureOne(view, source.FilterId);
+                if (actual == null) return false;
+                if (plan.Options.CopyVisibility && actual.Visible != source.Visible) return false;
+                if (plan.Options.CopyEnabled && source.EnabledStateSupported && (!actual.EnabledStateSupported || actual.Enabled != source.Enabled)) return false;
+                if (plan.Options.ClearOverrides)
+                {
+                    var emptyOverrides = GraphicOverrideSnapshotService.Capture(new Autodesk.Revit.DB.OverrideGraphicSettings());
+                    if (!GraphicOverrideSnapshotService.Equivalent(actual.Overrides, emptyOverrides)) return false;
+                }
+                else if (plan.Options.CopyGraphicOverrides && !GraphicOverrideSnapshotService.Equivalent(actual.Overrides, source.Overrides)) return false;
+            }
+            if (plan.Options.CopyOrder)
+            {
+                IList<ElementId> sourceOrder = plan.SourceFilters.OrderBy(item => item.OrderIndex).Select(item => item.FilterId).ToList();
+                IList<ElementId> targetOrder = ViewFilterApiAdapter.GetOrderedFilters(view).ToList();
+                for (int index = 0; index < sourceOrder.Count; index++)
+                    if (index >= targetOrder.Count || targetOrder[index] != sourceOrder[index]) return false;
+            }
+            return true;
         }
         public static bool IsPlanCurrent(Document doc, FilterCopyPlan plan)
         {

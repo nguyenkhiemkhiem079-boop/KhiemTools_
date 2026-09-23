@@ -6,6 +6,7 @@ using Autodesk.Revit.DB;
 using KhimTools.ParameterTransfer.Models;
 using KhimTools.ParameterTransfer.Services;
 using KhimTools.TitleBlockSync.Models;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.TitleBlockSync.Services
 {
@@ -15,9 +16,10 @@ namespace KhimTools.TitleBlockSync.Services
         {
             var batch = new TitleBlockSyncBatchResult { Requested = plan == null ? 0 : plan.Targets.Count };
             if (doc == null || plan == null) { batch.Failed++; return batch; }
+            Stopwatch batchTimer = Stopwatch.StartNew();
             IList<TitleBlockSyncPreflightResult> checks = TitleBlockSyncPreflightService.Validate(doc, plan);
-            if (plan.IsStale || checks.Any(x => x.Status == TitleBlockSyncStatusCode.STALE_SYNC_PLAN)) { batch.Blocked = plan.Targets.Count; foreach (TitleBlockTargetPlan t in plan.Targets) batch.Results.Add(FailedResult(plan, t, TitleBlockSyncStatusCode.STALE_SYNC_PLAN, "Plan is stale.")); return batch; }
-            TransactionGroup group = null; bool groupStarted = false;
+            if (plan.IsStale || checks.Any(x => x.Status == TitleBlockSyncStatusCode.STALE_SYNC_PLAN)) { batchTimer.Stop(); batch.Blocked = plan.Targets.Count; foreach (TitleBlockTargetPlan t in plan.Targets) batch.Results.Add(FailedResult(plan, t, TitleBlockSyncStatusCode.STALE_SYNC_PLAN, "Plan is stale.")); batch.ExecutionDiagnostics = WorkflowExecutionRecord.RecordNonMutation("CmdTitleBlockSync", "SYNC_TITLE_BLOCKS", "targets=" + batch.Requested, WorkflowExecutionState.VALIDATION_FAILURE, batch.Outcome, batch.Requested, batch.Blocked, "TITLE_BLOCK_SYNC_STALE_PLAN", DocumentIdentity.From(doc).StableKey, batchTimer.Elapsed); return batch; }
+            TransactionGroup group = null; bool groupStarted = false; TransactionStatus? groupStatus = null;
             try
             {
                 group = new TransactionGroup(doc, "K-TOOLS Title Block Sync 3.3"); KhimTools.Core.Revit.TransactionBoundary.Start(group, "TitleBlockSync batch"); groupStarted = true;
@@ -64,14 +66,44 @@ namespace KhimTools.TitleBlockSync.Services
                         result.Status = TitleBlockSyncStatusCode.FAILED; result.Messages.Add(ex.Message); timer.Stop(); result.Duration = timer.Elapsed; batch.Failed++; batch.Results.Add(result);
                     }
                 }
-                string sourceMessage; if (!TitleBlockSyncVerificationService.VerifySourceUnchanged(doc, plan, out sourceMessage)) { batch.Failed++; }
-                if (groupStarted && group.GetStatus() == TransactionStatus.Started) KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "TitleBlockSync batch");
+                string sourceMessage;
+                if (!TitleBlockSyncVerificationService.VerifySourceUnchanged(doc, plan, out sourceMessage))
+                    throw new InvalidOperationException("POST_VERIFY_FAILED: " + sourceMessage);
+                if (groupStarted && group.GetStatus() == TransactionStatus.Started)
+                {
+                    if (batch.Synced == 0 && batch.NoChange == 0)
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TitleBlockSync empty batch");
+                    else KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "TitleBlockSync batch");
+                }
             }
             catch (Exception ex)
             {
-                if (groupStarted && group.GetStatus() == TransactionStatus.Started) KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TitleBlockSync batch"); batch.Failed++; batch.Results.Add(FailedResult(plan, null, TitleBlockSyncStatusCode.FAILED, ex.Message));
+                bool rolledBack = false;
+                if (groupStarted && group.GetStatus() == TransactionStatus.Started)
+                {
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TitleBlockSync batch");
+                    rolledBack = group.GetStatus() == TransactionStatus.RolledBack;
+                }
+                if (rolledBack)
+                {
+                    batch.Failed = Math.Max(1, batch.Failed);
+                    batch.Synced = 0; batch.NoChange = 0; batch.Partial = 0; batch.TypeChanges = 0;
+                    foreach (TitleBlockSyncExecutionResult item in batch.Results.Where(x => x.Status == TitleBlockSyncStatusCode.SYNCED || x.Status == TitleBlockSyncStatusCode.PARTIAL))
+                    { item.Status = TitleBlockSyncStatusCode.FAILED; item.Messages.Add("Batch rollback restored the pre-execution state."); }
+                }
+                else batch.Failed++;
+                batch.Results.Add(FailedResult(plan, null, TitleBlockSyncStatusCode.FAILED, ex.Message));
             }
-            finally { if (group != null) group.Dispose(); }
+            finally { if (group != null) { groupStatus = group.GetStatus(); group.Dispose(); } }
+            batchTimer.Stop();
+            if (groupStatus == TransactionStatus.Committed && (batch.Outcome == WorkflowOutcome.Succeeded || batch.Outcome == WorkflowOutcome.Partial))
+                batch.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdTitleBlockSync", "SYNC_TITLE_BLOCKS", "targets=" + batch.Requested, WorkflowExecutionState.SUCCESS, batch.Outcome, groupStatus, WorkflowPostconditionState.PASSED, "target values and source fingerprint", batch.Requested, batch.Synced, 0, batch.Failed + batch.Blocked, batchTimer.Elapsed, true, false, batch.Synced == 0, null, DocumentIdentity.From(doc).StableKey);
+            else if (groupStatus == TransactionStatus.Committed && batch.Outcome == WorkflowOutcome.NoChange)
+                batch.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdTitleBlockSync", "SYNC_TITLE_BLOCKS", "targets=" + batch.Requested, WorkflowExecutionState.NO_CHANGE, WorkflowOutcome.NoChange, groupStatus, WorkflowPostconditionState.NOT_APPLICABLE, "No target required synchronization.", batch.Requested, 0, 0, 0, batchTimer.Elapsed, true, false, true, null, DocumentIdentity.From(doc).StableKey);
+            else if (groupStatus == TransactionStatus.RolledBack)
+                batch.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdTitleBlockSync", "SYNC_TITLE_BLOCKS", "targets=" + batch.Requested, WorkflowExecutionState.KTOOL_FAILURE, WorkflowOutcome.RolledBack, groupStatus, WorkflowPostconditionState.FAILED, "batch rollback", batch.Requested, 0, 0, Math.Max(1, batch.Failed), batchTimer.Elapsed, true, true, true, null, DocumentIdentity.From(doc).StableKey);
+            else if (groupStatus.HasValue)
+                batch.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdTitleBlockSync", "SYNC_TITLE_BLOCKS", "targets=" + batch.Requested, WorkflowExecutionState.KTOOL_FAILURE, WorkflowOutcome.Failed, groupStatus, WorkflowPostconditionState.FAILED, "transaction group did not reach a successful terminal state", batch.Requested, 0, 0, Math.Max(1, batch.Failed), batchTimer.Elapsed, groupStarted, false, !groupStarted, null, DocumentIdentity.From(doc).StableKey);
             return batch;
         }
 

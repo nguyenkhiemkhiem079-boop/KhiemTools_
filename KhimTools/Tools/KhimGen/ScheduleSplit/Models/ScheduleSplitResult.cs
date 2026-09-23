@@ -37,11 +37,18 @@ namespace KhimTools.ScheduleSplit.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public ElementId SourceScheduleId { get; set; } = ElementId.InvalidElementId;
         public ElementId WorkingScheduleId { get; set; } = ElementId.InvalidElementId;
         public ScheduleSplitStatusCode Status { get; set; }
         public int SegmentCount { get; set; }
         public TimeSpan Duration { get; set; }
+        public TransactionStatus? TransactionResult { get; set; }
+        public bool TransactionStarted { get; set; }
+        public bool VerificationPassed { get; set; }
+        public bool VerificationAttempted { get; set; }
+        public bool RollbackVerified { get; set; }
+        public string ExceptionType { get; set; } = string.Empty;
         public List<ScheduleSegmentResult> SegmentResults { get; } = new List<ScheduleSegmentResult>();
         public List<ElementId> CreatedInstanceIds { get; } = new List<ElementId>();
         public List<string> Messages { get; } = new List<string>();
@@ -60,6 +67,7 @@ namespace KhimTools.ScheduleSplit.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Created { get; set; }

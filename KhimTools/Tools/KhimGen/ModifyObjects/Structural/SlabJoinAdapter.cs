@@ -20,7 +20,7 @@ namespace KhimTools.ModifyObjects.Structural
             return ModifyObjectExecutionService.Execute(doc, plan, () =>
             {
                 var result = new ModifyObjectResult(); var pairs = new List<SlabPair> { new SlabPair(plan.Context.PrimaryElementId, plan.Context.SecondaryElementId) };
-                using (var tx = new Transaction(doc, "K-TOOLS Slab Join")) { tx.Start(); IList<JoinPairResult> joined = new SlabJoinService().JoinSlabs(doc, pairs); TransactionStatus status = tx.Commit(); if (status != TransactionStatus.Committed || joined.Count == 0 || !joined[0].Success) { result.Status = ModifyObjectStatus.FAILED; result.Message = status != TransactionStatus.Committed ? "Transaction did not commit: " + status : joined.Count == 0 ? "No join result." : joined[0].Message; return result; } }
+                using (var tx = new Transaction(doc, "K-TOOLS Slab Join")) { KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ModifyObjects.SlabJoin"); IList<JoinPairResult> joined = new SlabJoinService().JoinSlabs(doc, pairs); TransactionStatus status = tx.Commit(); if (status != TransactionStatus.Committed || joined.Count == 0 || !joined[0].Success) { result.Status = ModifyObjectStatus.FAILED; result.Message = status != TransactionStatus.Committed ? "Transaction did not commit: " + status : joined.Count == 0 ? "No join result." : joined[0].Message; return result; } }
                 result.Status = ModifyObjectStatus.MODIFIED; result.ModifiedElementIds.Add(plan.Context.PrimaryElementId); result.ModifiedElementIds.Add(plan.Context.SecondaryElementId); result.Summary = "Existing SlabJoinService joined the floor pair."; return result;
             });
         }

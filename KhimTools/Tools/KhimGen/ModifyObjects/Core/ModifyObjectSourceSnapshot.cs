@@ -11,6 +11,12 @@ namespace KhimTools.ModifyObjects.Core
         public ElementId CategoryId { get; set; }
         public ElementId TypeId { get; set; }
         public ElementId LevelId { get; set; }
+        public ElementId TopLevelId { get; set; }
+        public ModifyObjectPointSnapshot LocationPoint { get; set; }
+        public ModifyObjectPointSnapshot BoundingBoxCenter { get; set; }
+        public ModifyObjectPointSnapshot CurveStart { get; set; }
+        public ModifyObjectPointSnapshot CurveEnd { get; set; }
+        public double CurveLength { get; set; }
         public double BaseOffset { get; set; }
         public double TopOffset { get; set; }
         public string GeometryFingerprint { get; set; }

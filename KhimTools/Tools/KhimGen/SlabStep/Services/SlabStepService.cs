@@ -6,6 +6,7 @@ using System.Diagnostics;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Core.Logging;
+using KhimTools.Core;
 using KhimTools.Core.Revit;
 using KhimTools.Core.Workflow;
 using KhimTools.SlabStep.Models;
@@ -231,6 +232,8 @@ namespace KhimTools.SlabStep.Services
         public static SlabStepExecutionResult GenerateSlabStepWithResult(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm, Floor floorLow = null)
         {
             var result = new SlabStepExecutionResult();
+            result.Timer = Stopwatch.StartNew();
+            result.DocumentKey = doc == null ? string.Empty : DocumentIdentity.From(doc).StableKey;
             if (doc == null || doc.IsReadOnly || boundaryCurve == null || symbol == null || settings == null || symbol.Document != doc)
                 return ValidationFailure(result, "SLAB_STEP_INVALID_INPUT", "Document, curve, symbol, or settings are unavailable or belong to another document.");
             if (!IsFinite(heightMm) || heightMm <= 0 || !IsFinite(highThickMm) || highThickMm < 0 || !IsFinite(lowThickMm) || lowThickMm < 0)
@@ -251,7 +254,7 @@ namespace KhimTools.SlabStep.Services
                     .OfClass(typeof(Level))
                     .Cast<Level>()
                     .OrderBy(candidate => candidate.Elevation)
-                    .ThenBy(candidate => candidate.Id.IntegerValue)
+                    .ThenBy(candidate => candidate.Id.ToLongValue())
                     .FirstOrDefault();
             }
             if (level == null) return ValidationFailure(result, "SLAB_STEP_LEVEL_MISSING", "No valid placement Level is available.");
@@ -283,6 +286,8 @@ namespace KhimTools.SlabStep.Services
             using (var tx = new Transaction(doc, "K-TOOLS - Create Slab Step"))
             {
                 if (tx.Start() != TransactionStatus.Started) return RevitFailure(result, "SLAB_STEP_TRANSACTION_START", "Creation transaction did not start.");
+                result.TransactionStarted = true;
+                ElementId createdId = ElementId.InvalidElementId;
                 try
                 {
                 if (!symbol.IsActive) symbol.Activate();
@@ -308,8 +313,10 @@ namespace KhimTools.SlabStep.Services
                     result.Status = result.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
                     result.DiagnosticCode = "SLAB_STEP_CREATION_RETURNED_NULL";
                     result.Message = "Revit did not create a Slab Step instance.";
+                    AttachExecutionDiagnostics(result, 1);
                     return result;
                 }
+                createdId = instance.Id;
 
                 // Gán tham số chiều cao giật cấp h
                 if (!string.IsNullOrEmpty(settings.HeightParameterName))
@@ -332,10 +339,20 @@ namespace KhimTools.SlabStep.Services
                     SetLengthParameter(pThickLow, thickLow, settings.LowSlabThicknessParameter);
                 }
 
+                doc.Regenerate();
+                if (doc.GetElement(instance.Id) == null || instance.Symbol == null || instance.Symbol.Id != symbol.Id ||
+                    !VerifyLengthParameter(instance, settings.HeightParameterName, heightDiff) ||
+                    (highThickMm > 0 && !VerifyLengthParameter(instance, settings.HighSlabThicknessParameter, thickHigh)) ||
+                    (lowThickMm > 0 && !VerifyLengthParameter(instance, settings.LowSlabThicknessParameter, thickLow)))
+                    throw new InvalidOperationException("POST_VERIFY_FAILED: created Slab Step instance or mapped length values do not match the request.");
+                result.VerificationPassed = true;
+
                 result.TransactionResult = tx.Commit();
                 if (result.TransactionResult != TransactionStatus.Committed)
                 {
                     if (tx.GetStatus() == TransactionStatus.Started) { result.RollbackResult = tx.RollBack(); result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack; }
+                    else if (tx.GetStatus() == TransactionStatus.RolledBack) { result.RollbackResult = TransactionStatus.RolledBack; result.RollbackVerified = doc.GetElement(instance.Id) == null; }
+                    result.RollbackVerified = result.RollbackVerified && doc.GetElement(instance.Id) == null;
                     return RevitFailure(result, "SLAB_STEP_TRANSACTION_COMMIT", "Creation transaction did not commit: " + result.TransactionResult);
                 }
                 result.CreatedElementIds.Add(instance.Id);
@@ -348,11 +365,12 @@ namespace KhimTools.SlabStep.Services
                     if (tx.GetStatus() == TransactionStatus.Started)
                     {
                         result.RollbackResult = tx.RollBack();
-                        result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack;
+                        result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack && (createdId == ElementId.InvalidElementId || doc.GetElement(createdId) == null);
                     }
                     return RevitFailure(result, "SLAB_STEP_CREATE_FAILED", ex);
                 }
             }
+            AttachExecutionDiagnostics(result, 1);
             return result;
         }
 
@@ -363,7 +381,9 @@ namespace KhimTools.SlabStep.Services
             var batch = new SlabStepExecutionResult
             {
                 Operation = "SlabStep.GenerateBatch",
-                InputSummary = "boundaries=" + curves.Count + ";heightMm=" + heightMm.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                InputSummary = "boundaries=" + curves.Count + ";heightMm=" + heightMm.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                DocumentKey = doc == null ? string.Empty : DocumentIdentity.From(doc).StableKey,
+                Timer = Stopwatch.StartNew()
             };
             if (doc == null || doc.IsReadOnly || curves.Count == 0 || symbol == null || settings == null)
                 return ValidationFailure(batch, "SLAB_STEP_BATCH_INVALID_INPUT", "A writable project, at least one boundary, a symbol, and settings are required.");
@@ -376,6 +396,7 @@ namespace KhimTools.SlabStep.Services
                     if (group.Start() != TransactionStatus.Started)
                         return RevitFailure(batch, "SLAB_STEP_BATCH_GROUP_START", "Slab Step batch TransactionGroup did not start.");
                     started = true;
+                    batch.TransactionStarted = true;
                     foreach (Curve curve in curves)
                     {
                         SlabStepExecutionResult one = GenerateSlabStepWithResult(doc, curve, symbol, settings, heightMm, highThickMm, lowThickMm, floorLow);
@@ -388,19 +409,25 @@ namespace KhimTools.SlabStep.Services
                             batch.FailureCount++;
                             batch.TransactionResult = one.TransactionResult;
                             batch.RollbackResult = group.RollBack();
-                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                            batch.TransactionResult = batch.RollbackResult;
+                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack && batch.CreatedElementIds.All(id => doc.GetElement(id) == null);
+                            if (batch.RollbackVerified) batch.CreatedElementIds.Clear();
                             batch.Status = batch.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
                             timer.Stop(); batch.Duration = timer.Elapsed;
+                            AttachExecutionDiagnostics(batch, curves.Count);
                             return batch;
                         }
                     }
+                    batch.VerificationPassed = batch.CreatedElementIds.Count == curves.Count && batch.CreatedElementIds.All(id => doc.GetElement(id) is FamilyInstance);
+                    if (!batch.VerificationPassed) throw new InvalidOperationException("POST_VERIFY_FAILED: one or more Slab Step instances were missing before batch commit.");
                     batch.TransactionResult = group.Assimilate();
                     if (batch.TransactionResult != TransactionStatus.Committed)
                     {
                         if (group.GetStatus() == TransactionStatus.Started)
                         {
                             batch.RollbackResult = group.RollBack();
-                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack && batch.CreatedElementIds.All(id => doc.GetElement(id) == null);
+                            if (batch.RollbackVerified) batch.CreatedElementIds.Clear();
                         }
                         batch.Status = SlabStepExecutionStatus.REVIT_FAILURE;
                         batch.DiagnosticCode = "SLAB_STEP_BATCH_GROUP_COMMIT";
@@ -424,12 +451,15 @@ namespace KhimTools.SlabStep.Services
                     if (started && group.GetStatus() == TransactionStatus.Started)
                     {
                         batch.RollbackResult = group.RollBack();
-                        batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                        batch.TransactionResult = batch.RollbackResult;
+                        batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack && batch.CreatedElementIds.All(id => doc.GetElement(id) == null);
+                        if (batch.RollbackVerified) batch.CreatedElementIds.Clear();
                     }
                     batch.Status = batch.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
                 }
             }
             timer.Stop(); batch.Duration = timer.Elapsed;
+            AttachExecutionDiagnostics(batch, curves.Count);
             return batch;
         }
 
@@ -442,10 +472,35 @@ namespace KhimTools.SlabStep.Services
         }
 
         private static bool IsFinite(double value) { return !double.IsNaN(value) && !double.IsInfinity(value); }
+        private static bool VerifyLengthParameter(FamilyInstance instance, string parameterName, double expected)
+        {
+            if (string.IsNullOrWhiteSpace(parameterName)) return true;
+            Parameter parameter = instance == null ? null : instance.LookupParameter(parameterName);
+            return parameter != null && parameter.StorageType == StorageType.Double && Math.Abs(parameter.AsDouble() - expected) <= 1e-9;
+        }
+        private static void AttachExecutionDiagnostics(SlabStepExecutionResult result, int requestedCount)
+        {
+            if (result.Timer != null) { result.Timer.Stop(); result.Duration = result.Timer.Elapsed; }
+            if (result.Status == SlabStepExecutionStatus.VALIDATION_FAILURE)
+            {
+                result.ExecutionDiagnostics = WorkflowExecutionRecord.RecordNonMutation("CmdSlabStep", result.Operation, result.InputSummary, WorkflowExecutionState.VALIDATION_FAILURE, WorkflowOutcome.Blocked, requestedCount, Math.Max(1, result.FailureCount), result.DiagnosticCode, result.DocumentKey);
+                return;
+            }
+            bool success = result.Status == SlabStepExecutionStatus.CREATED && result.TransactionResult == TransactionStatus.Committed && result.VerificationPassed;
+            bool rolledBack = result.RollbackResult == TransactionStatus.RolledBack && result.RollbackVerified;
+            WorkflowExecutionState state = success ? WorkflowExecutionState.SUCCESS : WorkflowExecutionState.REVIT_FAILURE;
+            WorkflowOutcome outcome = success ? WorkflowOutcome.Succeeded : rolledBack ? WorkflowOutcome.RolledBack : WorkflowOutcome.Failed;
+            TransactionStatus? transactionStatus = rolledBack ? result.RollbackResult : result.TransactionResult;
+            result.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdSlabStep", result.Operation, result.InputSummary, state, outcome, transactionStatus,
+                success ? WorkflowPostconditionState.PASSED : rolledBack ? WorkflowPostconditionState.FAILED : WorkflowPostconditionState.NOT_RUN,
+                success ? "created instances and mapped length values verified" : result.DiagnosticCode,
+                requestedCount, success ? result.CreatedElementIds.Count : 0, result.WarningCount, result.FailureCount,
+                result.Duration, result.TransactionStarted, rolledBack, !result.TransactionStarted || rolledBack, null, result.DocumentKey);
+        }
         private static SlabStepExecutionResult ValidationFailure(SlabStepExecutionResult result, string code, string message)
-        { result.Status = SlabStepExecutionStatus.VALIDATION_FAILURE; result.DiagnosticCode = code; result.Message = message; return result; }
+        { result.Status = SlabStepExecutionStatus.VALIDATION_FAILURE; result.DiagnosticCode = code; result.Message = message; AttachExecutionDiagnostics(result, 1); return result; }
         private static SlabStepExecutionResult RevitFailure(SlabStepExecutionResult result, string code, string message)
-        { result.Status = SlabStepExecutionStatus.REVIT_FAILURE; result.DiagnosticCode = code; result.Message = message; return result; }
+        { result.Status = SlabStepExecutionStatus.REVIT_FAILURE; result.DiagnosticCode = code; result.Message = message; AttachExecutionDiagnostics(result, 1); return result; }
         private static SlabStepExecutionResult RevitFailure(SlabStepExecutionResult result, string code, Exception exception)
         { result.ExceptionType = exception == null ? string.Empty : exception.GetType().FullName; result.Message = exception == null ? "Unknown Revit failure." : exception.Message; KToolsLog.Current.Exception("SlabStep", exception, code); return RevitFailure(result, code, result.Message); }
 

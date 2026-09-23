@@ -22,19 +22,18 @@
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
 
-  <!-- Duong dan RevitAPI theo tung TFM -->
+  <!-- Deterministic API defaults for the supported acceptance targets. Override
+       RevitVersionForReference explicitly when building another supported year. -->
   <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll')">2024</RevitVersionForReference>
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll')">2023</RevitVersionForReference>
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2022\RevitAPI.dll')">2022</RevitVersionForReference>
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2023</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2024</RevitVersionForReference>
     <VersionFolder>Legacy</VersionFolder>
   </PropertyGroup>
   <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll')">2026</RevitVersionForReference>
-    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll')">2025</RevitVersionForReference>
     <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2025</RevitVersionForReference>
     <VersionFolder>Modern</VersionFolder>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RevitRequestedVersion Condition="'$(RevitRequestedVersion)'==''">$(RevitVersionForReference)</RevitRequestedVersion>
   </PropertyGroup>
 
   <!-- Reference local DLL neu co tren may -->
@@ -54,6 +53,17 @@
     <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
     <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
   </ItemGroup>
+
+  <Target Name="ValidateRevitApiReference" BeforeTargets="ResolveReferences">
+    <Error Condition="'$(RevitRequestedVersion)' != '$(RevitVersionForReference)'"
+           Text="Revit API reference mismatch: requested $(RevitRequestedVersion), resolved $(RevitVersionForReference). Set both versions to the same Revit year." />
+    <Error Condition="'$(TargetFramework)'=='net48' and '$(RevitVersionForReference)'!='2022' and '$(RevitVersionForReference)'!='2023' and '$(RevitVersionForReference)'!='2024'"
+           Text="Revit $(RevitVersionForReference) requires the net48-compatible target (Revit 2022-2024)." />
+    <Error Condition="'$(TargetFramework)'=='net8.0-windows' and '$(RevitVersionForReference)'!='2025' and '$(RevitVersionForReference)'!='2026'"
+           Text="Revit $(RevitVersionForReference) is not a supported net8 target (Revit 2025-2026)." />
+    <Error Condition="!Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll') and !(('$(TargetFramework)'=='net8.0-windows') and '$(RevitVersionForReference)'=='2025')"
+           Text="Revit API references for requested year $(RevitVersionForReference) are unavailable; no matching package fallback exists." />
+  </Target>
 
   <!-- Loai tru App va IconGen khoi KhimTools Revit plugin dll -->
   <ItemGroup>

@@ -44,12 +44,19 @@ namespace KhimTools.SheetCopy.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public ElementId SourceSheetId { get; set; } = ElementId.InvalidElementId;
         public string SourceSheetNumber { get; set; } = string.Empty;
         public ElementId TargetSheetId { get; set; } = ElementId.InvalidElementId;
         public string TargetSheetNumber { get; set; } = string.Empty;
         public SheetCopyStatusCode Status { get; set; }
         public TimeSpan Duration { get; set; }
+        public TransactionStatus? TransactionResult { get; set; }
+        public bool TransactionStarted { get; set; }
+        public bool VerificationPassed { get; set; }
+        public bool VerificationAttempted { get; set; }
+        public bool RollbackVerified { get; set; }
+        public string ExceptionType { get; set; } = string.Empty;
         public List<ElementId> CreatedViewIds { get; } = new List<ElementId>();
         public List<ElementId> CreatedViewportIds { get; } = new List<ElementId>();
         public List<ElementId> CreatedScheduleInstanceIds { get; } = new List<ElementId>();
@@ -72,6 +79,7 @@ namespace KhimTools.SheetCopy.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Ready { get; set; }

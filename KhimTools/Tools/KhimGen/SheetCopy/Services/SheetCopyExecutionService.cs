@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
+using KhimTools.Core.Workflow;
 using KhimTools.SheetCopy.Models;
 using KhimTools.ScheduleSplit.Services;
 
@@ -50,11 +52,12 @@ namespace KhimTools.SheetCopy.Services
         {
             var result = new SheetCopyExecutionResult { SourceSheetId = item.SourceSheetId, SourceSheetNumber = item.SourceSheetNumber, TargetSheetNumber = item.TargetSheetNumber };
             Stopwatch timer = Stopwatch.StartNew();
+            Exception failureException = null;
             using (var transaction = new Transaction(doc, "Copy Sheet " + item.TargetSheetNumber))
             {
                 try
                 {
-                    KhimTools.Core.Revit.TransactionBoundary.Start(transaction, "SheetCopy target " + item.TargetSheetNumber);
+                    KhimTools.Core.Revit.TransactionBoundary.Start(transaction, "SheetCopy target " + item.TargetSheetNumber); result.TransactionStarted = true;
                     ViewSheet source = doc.GetElement(item.SourceSheetId) as ViewSheet;
                     if (source == null) throw new InvalidOperationException("Source Sheet no longer exists.");
                     ElementId titleBlockTypeId = item.SourceHasTitleBlock ? item.SourceTitleBlockTypeId : ElementId.InvalidElementId;
@@ -66,7 +69,7 @@ namespace KhimTools.SheetCopy.Services
                     CopyTitleBlockParameters(doc, source, target, options, result);
                     var viewMap = new Dictionary<ElementId, ElementId>();
                     foreach (SheetCopyContentItem content in item.Contents.Where(c => c.ContentKind == SheetCopyContentKind.NORMAL_VIEWPORT || c.ContentKind == SheetCopyContentKind.LEGEND_VIEWPORT)
-                        .OrderBy(c => c.BoxCenter == null ? double.MaxValue : c.BoxCenter.Y).ThenBy(c => c.BoxCenter == null ? double.MaxValue : c.BoxCenter.X).ThenBy(c => c.SourceElementId.IntegerValue))
+                        .OrderBy(c => c.BoxCenter == null ? double.MaxValue : c.BoxCenter.Y).ThenBy(c => c.BoxCenter == null ? double.MaxValue : c.BoxCenter.X).ThenBy(c => c.SourceElementId.ToLongValue()))
                     {
                         if (content.Action == SheetCopyAction.SKIP) continue;
                         View sourceView = doc.GetElement(content.SourceViewId) as View;
@@ -89,7 +92,7 @@ namespace KhimTools.SheetCopy.Services
                         RestoreDetailNumber(targetViewport, content, result);
                         try { targetViewport.Pinned = content.IsPinned; } catch (Exception ex) { result.Messages.Add("Viewport pin state not preserved: " + ex.Message); }
                     }
-                    foreach (SheetCopyContentItem schedule in item.Contents.Where(c => c.ContentKind == SheetCopyContentKind.SCHEDULE && c.Action == SheetCopyAction.REUSE).OrderBy(c => c.SourceElementId.IntegerValue))
+                    foreach (SheetCopyContentItem schedule in item.Contents.Where(c => c.ContentKind == SheetCopyContentKind.SCHEDULE && c.Action == SheetCopyAction.REUSE).OrderBy(c => c.SourceElementId.ToLongValue()))
                     {
                         if (schedule.IsSegmented)
                         {
@@ -110,20 +113,30 @@ namespace KhimTools.SheetCopy.Services
                             result.CopiedAnnotationIds.AddRange(copied);
                         }
                     }
+                    result.VerificationAttempted = true;
                     if (!SheetCopyVerificationService.Verify(doc, source, target, item, result, out string verifyMessage))
                         throw new InvalidOperationException(verifyMessage);
                     KhimTools.Core.Revit.TransactionBoundary.Commit(transaction, "SheetCopy target " + item.TargetSheetNumber);
+                    result.TransactionResult = transaction.GetStatus();
+                    result.VerificationPassed = true;
                     result.Status = result.Messages.Any(m => m.IndexOf("deferred", StringComparison.OrdinalIgnoreCase) >= 0 || m.IndexOf("not preserved", StringComparison.OrdinalIgnoreCase) >= 0)
                         ? SheetCopyStatusCode.PARTIAL : SheetCopyStatusCode.CREATED;
                 }
                 catch (Exception ex)
                 {
+                    failureException = ex;
                     KhimTools.Core.Revit.TransactionBoundary.RollBack(transaction, "SheetCopy target " + item.TargetSheetNumber);
+                    result.TransactionResult = transaction.GetStatus();
+                    result.RollbackVerified = result.TransactionResult == TransactionStatus.RolledBack;
                     result.Status = SheetCopyStatusCode.FAILED;
+                    result.ExceptionType = ex.GetType().FullName;
                     result.Messages.Add(ex.Message);
                 }
             }
             timer.Stop(); result.Duration = timer.Elapsed;
+            int affected = result.TransactionResult == TransactionStatus.Committed ? result.CreatedViewIds.Concat(result.CreatedViewportIds).Concat(result.CreatedScheduleInstanceIds).Concat(result.CopiedAnnotationIds).Distinct().Count() + (result.TargetSheetId == ElementId.InvalidElementId ? 0 : 1) : 0;
+            WorkflowExecutionState state = result.Outcome == WorkflowOutcome.Succeeded || result.Outcome == WorkflowOutcome.Partial ? WorkflowExecutionState.SUCCESS : failureException != null ? WorkflowExecutionRecord.Classify(failureException) : WorkflowExecutionState.VALIDATION_FAILURE;
+            result.ExecutionDiagnostics = WorkflowExecutionRecord.Create("CmdSheetCopy", "COPY_SHEET", "source=" + item.SourceSheetNumber + ";target=" + item.TargetSheetNumber + ";contents=" + item.Contents.Count, state, result.Outcome, result.TransactionResult, result.VerificationAttempted ? (result.VerificationPassed ? WorkflowPostconditionState.PASSED : WorkflowPostconditionState.FAILED) : WorkflowPostconditionState.NOT_RUN, result.VerificationPassed ? "Sheet, content and source-preservation verification passed." : string.Join(";", result.Messages), item.Contents.Count, affected, result.Messages.Count, result.Status == SheetCopyStatusCode.FAILED ? 1 : 0, result.Duration, result.TransactionStarted, result.RollbackVerified, result.TransactionResult == TransactionStatus.RolledBack || !result.TransactionStarted, failureException, DocumentIdentity.From(doc).StableKey);
             Debug.WriteLine("[K-TOOLS][SheetCopy] source=" + item.SourceSheetNumber + ", target=" + item.TargetSheetNumber + ", status=" + result.Status + ", views=" + result.CreatedViewIds.Count + ", legends=" + item.LegendCount + ", schedules=" + result.CreatedScheduleInstanceIds.Count + ", annotations=" + result.CopiedAnnotationIds.Count + ", duration=" + result.Duration);
             return result;
         }

@@ -26,6 +26,7 @@ namespace KhimTools.ParameterManager.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public OperationMetrics Metrics { get; } = new OperationMetrics();
         public ParameterManagerStatus Status { get; set; }
         public int RequestedTargets { get; set; }

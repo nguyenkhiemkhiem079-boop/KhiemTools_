@@ -1,10 +1,11 @@
-param([string]$AssemblyPath = (Join-Path $PSScriptRoot '../KhimTools/bin/Release/net48/KhimTools.dll'))
+param(
+    [string]$AssemblyPath = (Join-Path $PSScriptRoot '../KhimTools/bin/Release/net48/KhimTools.dll'),
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} 'Autodesk/Revit 2024')
+)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
-foreach ($name in @('RevitAPI.dll','RevitAPIUI.dll')) {
-    [Reflection.Assembly]::LoadFrom("C:/Program Files/Autodesk/Revit 2023/$name") | Out-Null
-}
+[Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory 'RevitAPI.dll')) | Out-Null
 $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $AssemblyPath))
 $kindType = $assembly.GetType('KhimTools.RebarTool.Forms.RebarReferenceKind')
 $factory = $assembly.GetType('KhimTools.RebarTool.Forms.RebarReferenceViews').GetMethod('Create',[Reflection.BindingFlags]'NonPublic,Static')

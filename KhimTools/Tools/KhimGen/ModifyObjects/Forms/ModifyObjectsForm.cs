@@ -51,6 +51,14 @@ namespace KhimTools.ModifyObjects.Forms
                 case ModifyObjectOperation.SLAB_SPLIT: return SlabSplitService.CapabilityAudit(_doc, first);
                 case ModifyObjectOperation.WALL_SPLIT: return WallSplitService.Analyze(_doc, first, Midpoint(first));
                 case ModifyObjectOperation.WALL_TRIM: return WallTrimService.Analyze(_doc, first, Midpoint(first));
+                case ModifyObjectOperation.WALL_OPENING:
+                case ModifyObjectOperation.COLUMN_BASE_ELEVATION:
+                    var unsupportedContext = new ModifyObjectContext { Document = _doc, Operation = operation };
+                    foreach (ElementId id in ids ?? new List<ElementId>()) unsupportedContext.ElementIds.Add(id);
+                    ModifyObjectPlan blockedPlan = ModifyObjectPlanBuilder.Build(unsupportedContext);
+                    blockedPlan.Status = ModifyObjectStatus.UNSUPPORTED_ELEMENT;
+                    blockedPlan.Errors.Add(operation + " is not executable from this UI: required explicit geometry/level input is not collected.");
+                    return blockedPlan;
                 default: var context = new ModifyObjectContext { Document = _doc, Operation = operation }; foreach (ElementId id in ids ?? new List<ElementId>()) context.ElementIds.Add(id); return ModifyObjectPlanBuilder.Build(context);
             }
         }

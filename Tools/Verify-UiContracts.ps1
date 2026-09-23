@@ -1,8 +1,10 @@
 param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
-    [string]$RevitApiDirectory = "C:/Program Files/Autodesk/Revit 2023"
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2023")
 )
 $ErrorActionPreference = "Stop"
+# This is a metadata-only standalone reflection check; newer RevitAPIUI builds require a live
+# Revit UI process, so the supported net48 reflection harness uses the installed Revit 2023 API.
 $root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 foreach ($name in @("RevitAPI.dll", "RevitAPIUI.dll")) {
     [Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory $name)) | Out-Null

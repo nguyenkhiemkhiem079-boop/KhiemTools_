@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
@@ -8,6 +9,8 @@ using KhimTools.DimensionTools.Core;
 using KhimTools.DimensionTools.Forms;
 using KhimTools.DimensionTools.Models;
 using KhimTools.DimensionTools.Services;
+using KhimTools.Core.Workflow;
+using KhimTools.Core.Logging;
 
 namespace KhimTools.DimensionTools.Commands
 {
@@ -22,6 +25,22 @@ namespace KhimTools.DimensionTools.Commands
             return Result.Succeeded;
         }
         private static DimensionResult ExecutePlan(Document doc, DimensionPlan plan)
+        {
+            Stopwatch timer = Stopwatch.StartNew();
+            DimensionResult result = ExecutePlanCore(doc, plan);
+            timer.Stop(); result.Duration = timer.Elapsed;
+            bool success = result.Outcome == WorkflowOutcome.Succeeded || result.Outcome == WorkflowOutcome.Partial;
+            string documentKey = doc == null ? string.Empty : DocumentIdentity.From(doc).StableKey;
+            int affected = result.CreatedDimensionIds.Count + result.DeletedDimensionIds.Count + (result.Status == DimensionStatus.UPDATED ? result.SourceDimensionIds.Count : 0);
+            WorkflowDiagnostic diagnostic = success
+                ? WorkflowDiagnostic.Info("DIMENSION_WORKFLOW_COMPLETED", result.Message ?? result.Status.ToString(), "document=" + documentKey + ";operation=" + result.Operation + ";requested=" + result.SourceElementIds.Count + ";affected=" + affected + ";durationMs=" + timer.Elapsed.TotalMilliseconds.ToString("F0", System.Globalization.CultureInfo.InvariantCulture))
+                : WorkflowDiagnostic.Error("DIMENSION_WORKFLOW_FAILED", result.Message ?? result.Status.ToString(), false, context: "document=" + documentKey + ";operation=" + result.Operation + ";requested=" + result.SourceElementIds.Count + ";affected=" + affected + ";durationMs=" + timer.Elapsed.TotalMilliseconds.ToString("F0", System.Globalization.CultureInfo.InvariantCulture));
+            result.Diagnostics.Add(diagnostic);
+            KToolsLog.Current.Log(success ? WorkflowSeverity.Info : WorkflowSeverity.Error, "CmdDimensionTools." + result.Operation, diagnostic.ToString(), result.Status.ToString());
+            return result;
+        }
+
+        private static DimensionResult ExecutePlanCore(Document doc, DimensionPlan plan)
         {
             if (doc == null || plan == null || plan.Context == null || !string.Equals(plan.DocumentIdentityKey, KhimTools.Core.Workflow.DocumentIdentity.From(doc).StableKey, StringComparison.Ordinal)) return new DimensionResult { Operation = plan == null ? DimensionOperation.GENERAL : plan.Operation, Status = DimensionStatus.STALE_DIMENSION_PLAN, Message = "Plan belongs to another or unavailable document." };
             View view = doc.GetElement(plan.ViewId) as View;

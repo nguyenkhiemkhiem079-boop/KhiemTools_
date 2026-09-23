@@ -8,6 +8,7 @@ namespace KhimTools.FilterManager.Models
     {
         public WorkflowOutcome Outcome { get { return FilterOutcome(Status); } }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public ElementId TargetViewId { get; set; } = ElementId.InvalidElementId;
         public FilterManagerStatusCode Status { get; set; }
         public int AppliedCount { get; set; }
@@ -36,6 +37,7 @@ namespace KhimTools.FilterManager.Models
     {
         public WorkflowOutcome Outcome { get { return FilterTargetResult.FilterOutcome(Status); } }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public OperationMetrics Metrics { get; } = new OperationMetrics();
         public FilterManagerStatusCode Status { get; set; }
         public int RequestedTargets { get; set; }

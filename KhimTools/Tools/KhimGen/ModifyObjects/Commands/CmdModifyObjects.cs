@@ -9,6 +9,8 @@ using KhimTools.ModifyObjects.Forms;
 using KhimTools.ModifyObjects.General;
 using KhimTools.ModifyObjects.Structural;
 using KhimTools.ModifyObjects.Wall;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.ModifyObjects.Commands
 {
@@ -18,19 +20,19 @@ namespace KhimTools.ModifyObjects.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
-            UIDocument uidoc = commandData == null || commandData.Application == null ? null : commandData.Application.ActiveUIDocument; if (uidoc == null || uidoc.Document == null) return Result.Cancelled; IList<ElementId> selected = uidoc.Selection.GetElementIds().ToList();
+            UIDocument uidoc = commandData == null || commandData.Application == null ? null : commandData.Application.ActiveUIDocument; if (uidoc == null || uidoc.Document == null) { KToolsLog.Current.Log(WorkflowSeverity.Info, "ModifyObjects", "Command cancelled: active document unavailable.", "USER_CANCEL"); return Result.Cancelled; } IList<ElementId> selected = uidoc.Selection.GetElementIds().ToList();
             using (var form = new ModifyObjectsForm(uidoc.Document, selected))
             {
-                if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK || form.Plan == null) return Result.Cancelled;
-                if (form.Plan.Context.PreviewOnly) return Result.Cancelled; // Preview never writes model state.
-                ModifyObjectResult result = ExecutePlan(uidoc.Document, form.Plan); TaskDialog.Show("Modify Objects 2.0", result.Summary ?? result.Status.ToString() + Environment.NewLine + (result.Message ?? string.Empty));
+                if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK || form.Plan == null) { KToolsLog.Current.Log(WorkflowSeverity.Info, "ModifyObjects", "User closed or cancelled before Apply; no transaction started.", "USER_CANCEL"); return Result.Cancelled; }
+                if (form.Plan.Context.PreviewOnly) { KToolsLog.Current.Log(WorkflowSeverity.Info, "ModifyObjects", "Preview-only request exited before mutation.", "USER_CANCEL"); return Result.Cancelled; }
+                ModifyObjectResult result = ExecutePlan(uidoc.Document, form.Plan);
+                TaskDialog.Show("Modify Objects 2.0", result.Summary ?? result.Status.ToString() + Environment.NewLine + (result.Message ?? string.Empty));
+                if (result.Outcome == WorkflowOutcome.Failed || result.Outcome == WorkflowOutcome.Blocked) { message = result.Message ?? result.Status.ToString(); return Result.Failed; }
             }
             return Result.Succeeded;
         }
         private static ModifyObjectResult ExecutePlan(Document doc, ModifyObjectPlan plan)
         {
-            ModifyObjectPreflightResult preflight = ModifyObjectPreflightService.Validate(doc, plan);
-            if (!preflight.IsValid) return new ModifyObjectResult { Status = preflight.Statuses.Count == 0 ? ModifyObjectStatus.FAILED : preflight.Statuses[0], Message = string.Join(Environment.NewLine, preflight.Errors) };
             switch (plan.Context.Operation)
             {
                 case ModifyObjectOperation.MOVE_3D: return Move3DService.Execute(doc, plan);

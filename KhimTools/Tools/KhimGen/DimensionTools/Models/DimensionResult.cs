@@ -27,6 +27,7 @@ namespace KhimTools.DimensionTools.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; private set; }
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public DimensionOperation Operation { get; set; }
         public IList<ElementId> SourceElementIds { get; private set; }
         public IList<ElementId> SourceDimensionIds { get; private set; }

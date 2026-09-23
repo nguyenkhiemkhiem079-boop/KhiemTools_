@@ -38,6 +38,7 @@ namespace KhimTools.TitleBlockSync.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public ElementId SourceSheetId { get; set; } = ElementId.InvalidElementId;
         public ElementId TargetSheetId { get; set; } = ElementId.InvalidElementId;
         public string TargetSheetNumber { get; set; } = string.Empty;
@@ -62,6 +63,7 @@ namespace KhimTools.TitleBlockSync.Models
             }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Synced { get; set; }

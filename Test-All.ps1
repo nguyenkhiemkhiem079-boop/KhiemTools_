@@ -14,6 +14,11 @@ Write-Host "=================================================================`n"
 
 $suites = @(
     @{
+        Name = "Deterministic Revit API Reference Selection"
+        Script = Join-Path $scriptDir "Tools\Verify-RevitReferenceSelection.ps1"
+        ExpectedCount = 5
+    },
+    @{
         Name = "Deployment Security & Rebar Engineering Suite (Phase 0, 4, 5, 6, 7, 8)"
         Script = Join-Path $scriptDir "KhimTools\Tests\RunTests.ps1"
         ExpectedCount = 44
@@ -66,7 +71,7 @@ $suites = @(
     @{
         Name = "Stage 3.6 Modify Objects Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-ModifyObjectsStage36.ps1"
-        ExpectedCount = 146
+        ExpectedCount = 168
     },
     @{
         Name = "Stage 3.7 Dimension Tools Structural Audit"
@@ -78,6 +83,16 @@ $suites = @(
         Script = Join-Path $scriptDir "Tools\Verify-BackendConsolidationStage4.ps1"
         ExpectedCount = 61
     }
+    @{
+        Name = "Stage 4 Diagnostic Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-Stage4DiagnosticAcceptance.ps1"
+        ExpectedCount = 8
+    },
+    @{
+        Name = "Stage 4 Transaction Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-Stage4TransactionAcceptance.ps1"
+        ExpectedCount = 17
+    },
     @{
         Name = "Stage 4.2 Slab Step Current Workflow Acceptance Audit"
         Script = Join-Path $scriptDir "Tools\Verify-SlabStep.ps1"

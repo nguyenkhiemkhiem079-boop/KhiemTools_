@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -40,8 +41,8 @@ namespace KhimTools.ModifyObjects.Core
                     case ModifyObjectStatus.NO_CHANGE: return WorkflowOutcome.NoChange;
                     case ModifyObjectStatus.CREATED:
                     case ModifyObjectStatus.MODIFIED:
-                    case ModifyObjectStatus.DELETED_SOURCE: return VerificationPassed ? WorkflowOutcome.Succeeded : WorkflowOutcome.Failed;
-                    case ModifyObjectStatus.PARTIAL: return VerificationPassed ? WorkflowOutcome.Partial : WorkflowOutcome.Failed;
+                    case ModifyObjectStatus.DELETED_SOURCE: return VerificationPassed && TransactionResult == TransactionStatus.Committed && PostconditionPassed ? WorkflowOutcome.Succeeded : WorkflowOutcome.Failed;
+                    case ModifyObjectStatus.PARTIAL: return VerificationPassed && TransactionResult == TransactionStatus.Committed && PostconditionPassed ? WorkflowOutcome.Partial : WorkflowOutcome.Failed;
                     case ModifyObjectStatus.FAILED:
                     case ModifyObjectStatus.POST_VERIFY_FAILED: return WorkflowOutcome.Failed;
                     default: return WorkflowOutcome.Blocked;
@@ -55,8 +56,24 @@ namespace KhimTools.ModifyObjects.Core
         public IList<ElementId> CreatedElementIds { get; private set; }
         public IList<ElementId> ModifiedElementIds { get; private set; }
         public IList<ElementId> DeletedSourceIds { get; private set; }
+        public IList<ElementId> CreatedSupportElementIds { get; private set; }
         public bool VerificationPassed { get; set; }
+        public bool PostconditionPassed { get; set; }
+        public bool HostVerificationRequired { get; set; }
+        public TransactionStatus? TransactionResult { get; set; }
+        public TransactionStatus? RollbackResult { get; set; }
+        public bool RollbackVerified { get; set; }
+        public string Operation { get; set; }
+        public string DocumentIdentityKey { get; set; }
+        public int AffectedElementCount { get; set; }
+        public int WarningCount { get; set; }
+        public int FailureCount { get; set; }
+        public TimeSpan Duration { get; set; }
+        public string FailureKind { get; set; }
+        public string ExceptionType { get; set; }
+        public string Postcondition { get; set; }
+        public WorkflowExecutionRecord ExecutionDiagnostics { get; set; }
         public bool PreviewOnly { get; set; }
-        public ModifyObjectResult() { CreatedElementIds = new List<ElementId>(); ModifiedElementIds = new List<ElementId>(); DeletedSourceIds = new List<ElementId>(); Diagnostics = new List<WorkflowDiagnostic>(); Status = ModifyObjectStatus.READY; }
+        public ModifyObjectResult() { CreatedElementIds = new List<ElementId>(); ModifiedElementIds = new List<ElementId>(); DeletedSourceIds = new List<ElementId>(); CreatedSupportElementIds = new List<ElementId>(); Diagnostics = new List<WorkflowDiagnostic>(); Status = ModifyObjectStatus.READY; }
     }
 }

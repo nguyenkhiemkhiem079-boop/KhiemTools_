@@ -1,6 +1,6 @@
 param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
-    [string]$RevitApiDirectory = "C:/Program Files/Autodesk/Revit 2023",
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024"),
     [double[]]$Scales = @(1, 1.5, 2),
     [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "ProjectCoverSetup", "SlabEdgePicker")
 )
@@ -8,9 +8,7 @@ $ErrorActionPreference = "Stop"
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") { throw "Run with Windows PowerShell -STA." }
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
-foreach ($name in @("RevitAPI.dll", "RevitAPIUI.dll")) {
-    [Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory $name)) | Out-Null
-}
+[Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory "RevitAPI.dll")) | Out-Null
 $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $AssemblyPath))
 $flags = [Reflection.BindingFlags]"NonPublic,Instance"
 $output = [IO.Directory]::CreateDirectory((Join-Path $PSScriptRoot "../artifacts/ui-qa/rebar")).FullName
