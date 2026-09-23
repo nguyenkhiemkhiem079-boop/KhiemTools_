@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
+using KhimTools.Core.Revit;
 using KhimTools.Structural.QuickStructure.Models;
 
 namespace KhimTools.Structural.QuickStructure.Services
@@ -84,8 +85,8 @@ namespace KhimTools.Structural.QuickStructure.Services
                 }
             }
 
-            double baseOffsetFt = baseOffsetMm / 304.8;
-            double topOffsetFt = topOffsetMm / 304.8;
+            double baseOffsetFt = RevitUnitService.MillimetresToFeet(baseOffsetMm);
+            double topOffsetFt = RevitUnitService.MillimetresToFeet(topOffsetMm);
 
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Structure Columns"))
             {
@@ -157,7 +158,7 @@ namespace KhimTools.Structural.QuickStructure.Services
                 }
             }
 
-            double zOffsetFt = zOffsetMm / 304.8;
+            double zOffsetFt = RevitUnitService.MillimetresToFeet(zOffsetMm);
 
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Structure Beams"))
             {
@@ -232,7 +233,7 @@ namespace KhimTools.Structural.QuickStructure.Services
                 }
             }
 
-            double offsetFt = offsetMm / 304.8;
+            double offsetFt = RevitUnitService.MillimetresToFeet(offsetMm);
 
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Structure Footings"))
             {

@@ -4,6 +4,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.Architectural.QuickArchi.Services
 {
@@ -72,8 +73,8 @@ namespace KhimTools.Architectural.QuickArchi.Services
             if (doc == null || curves == null || wallType == null || level == null)
                 return createdWalls;
 
-            double heightFt = heightMm / 304.8;
-            double offsetFt = offsetMm / 304.8;
+            double heightFt = RevitUnitService.MillimetresToFeet(heightMm);
+            double offsetFt = RevitUnitService.MillimetresToFeet(offsetMm);
 
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Archi Walls"))
             {

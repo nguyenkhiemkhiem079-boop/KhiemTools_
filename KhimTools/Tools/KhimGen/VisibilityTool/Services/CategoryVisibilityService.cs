@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Logging;
 
 namespace KhimTools.VisibilityTool.Services
 {
@@ -27,7 +28,7 @@ namespace KhimTools.VisibilityTool.Services
                         validCatIds.Add(cat.Id);
                     }
                 }
-                catch { }
+                catch (Exception ex) { KToolsLog.Current.Exception("Visibility.Category", ex, "CATEGORY_READ"); }
             }
 
             if (!validCatIds.Any())

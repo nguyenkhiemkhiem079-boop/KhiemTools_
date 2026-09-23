@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.ScheduleSplit.Models
 {
@@ -18,6 +19,8 @@ namespace KhimTools.ScheduleSplit.Models
 
     public sealed class ScheduleSplitExecutionResult
     {
+        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString()); } }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public ElementId SourceScheduleId { get; set; } = ElementId.InvalidElementId;
         public ElementId WorkingScheduleId { get; set; } = ElementId.InvalidElementId;
         public ScheduleSplitStatusCode Status { get; set; }
@@ -30,6 +33,12 @@ namespace KhimTools.ScheduleSplit.Models
 
     public sealed class ScheduleSplitBatchResult
     {
+        public WorkflowOutcome Outcome
+        {
+            get { return Failed > 0 ? (Created == 0 ? WorkflowOutcome.Failed : WorkflowOutcome.Partial) : (Created == 0 ? WorkflowOutcome.NoChange : WorkflowOutcome.Succeeded); }
+        }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Created { get; set; }
         public int Partial { get; set; }

@@ -5,6 +5,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.QuantityTakeoff.Models;
+using KhimTools.Core.Logging;
 
 namespace KhimTools.QuantityTakeoff.Services
 {
@@ -255,7 +256,10 @@ namespace KhimTools.QuantityTakeoff.Services
                 ElementId id = element.LevelId;
                 if (id != null && id != ElementId.InvalidElementId && doc.GetElement(id) is Level level) return level.Name;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("QTO.GetLevelName", ex, "LEVEL_READ");
+            }
             return "(No level)";
         }
 

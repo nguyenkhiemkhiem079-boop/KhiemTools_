@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using KhimTools.ParameterTransfer.Models;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.TitleBlockSync.Models
 {
@@ -18,6 +19,8 @@ namespace KhimTools.TitleBlockSync.Models
     }
     public sealed class TitleBlockSyncExecutionResult
     {
+        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString()); } }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public ElementId SourceSheetId { get; set; } = ElementId.InvalidElementId;
         public ElementId TargetSheetId { get; set; } = ElementId.InvalidElementId;
         public string TargetSheetNumber { get; set; } = string.Empty;
@@ -31,6 +34,12 @@ namespace KhimTools.TitleBlockSync.Models
     }
     public sealed class TitleBlockSyncBatchResult
     {
+        public WorkflowOutcome Outcome
+        {
+            get { return Failed > 0 ? (Synced == 0 ? WorkflowOutcome.Failed : WorkflowOutcome.Partial) : (Synced == 0 && NoChange > 0 ? WorkflowOutcome.NoChange : WorkflowOutcome.Succeeded); }
+        }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Synced { get; set; }
         public int NoChange { get; set; }

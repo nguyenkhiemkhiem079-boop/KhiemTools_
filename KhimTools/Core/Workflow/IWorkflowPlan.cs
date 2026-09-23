@@ -9,6 +9,6 @@ namespace KhimTools.Core.Workflow
     public interface IWorkflowPlan
     {
         string Fingerprint { get; }
-        IReadOnlyList<WorkflowDiagnostic> Diagnostics { get; }
+        IList<WorkflowDiagnostic> Diagnostics { get; }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using KhimTools.QuantityTakeoff.Models;
+using KhimTools.Core.Logging;
 using Newtonsoft.Json;
 
 namespace KhimTools.QuantityTakeoff.Services
@@ -18,7 +19,10 @@ namespace KhimTools.QuantityTakeoff.Services
                 if (File.Exists(path))
                     profile = JsonConvert.DeserializeObject<QtoRuleProfile>(File.ReadAllText(path));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("QTO.RuleProfile.Load", ex, "RULE_PROFILE_LOAD");
+            }
 
             profile = profile ?? CreateDefault();
             MergeMissingDefaults(profile);

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.SheetCopy.Models
 {
@@ -23,6 +24,8 @@ namespace KhimTools.SheetCopy.Models
 
     public sealed class SheetCopyExecutionResult
     {
+        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString()); } }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public ElementId SourceSheetId { get; set; } = ElementId.InvalidElementId;
         public string SourceSheetNumber { get; set; } = string.Empty;
         public ElementId TargetSheetId { get; set; } = ElementId.InvalidElementId;
@@ -40,6 +43,12 @@ namespace KhimTools.SheetCopy.Models
 
     public sealed class SheetCopyBatchResult
     {
+        public WorkflowOutcome Outcome
+        {
+            get { return Failed > 0 ? (Created == 0 ? WorkflowOutcome.Failed : WorkflowOutcome.Partial) : (Created == 0 ? WorkflowOutcome.NoChange : WorkflowOutcome.Succeeded); }
+        }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public OperationMetrics Metrics { get; } = new OperationMetrics();
         public int Requested { get; set; }
         public int Ready { get; set; }
         public int Created { get; set; }

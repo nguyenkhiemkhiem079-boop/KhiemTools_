@@ -71,7 +71,7 @@ namespace KhimTools.SectionCutTool.Core
             {
                 tx.Start();
                 var failOptions = tx.GetFailureHandlingOptions();
-                failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+                failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
                 tx.SetFailureHandlingOptions(failOptions);
 
                 try
@@ -122,8 +122,9 @@ namespace KhimTools.SectionCutTool.Core
                                     {
                                         view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
                                     }
-                                    catch
+                                    catch (Exception exSection)
                                     {
+                                        System.Diagnostics.Debug.WriteLine("[SectionCut] primary section type failed: " + exSection.Message);
                                         // Thử các ViewFamilyType Section khác trong dự án
                                         var otherSectionVft = new FilteredElementCollector(_doc)
                                             .OfClass(typeof(ViewFamilyType))
@@ -156,17 +157,20 @@ namespace KhimTools.SectionCutTool.Core
                                     // Detail Level
                                     if (settings.SetFineDetailLevel)
                                     {
-                                        try { view.DetailLevel = ViewDetailLevel.Fine; } catch { }
+                                        try { view.DetailLevel = ViewDetailLevel.Fine; }
+                                        catch (Exception exDetail) { System.Diagnostics.Debug.WriteLine("[SectionCut] detail level: " + exDetail.Message); }
                                     }
 
                                     // Discipline
-                                    try { view.Discipline = ViewDiscipline.Structural; } catch { }
+                                    try { view.Discipline = ViewDiscipline.Structural; }
+                                    catch (Exception exDiscipline) { System.Diagnostics.Debug.WriteLine("[SectionCut] discipline: " + exDiscipline.Message); }
 
                                     // View Template
                                     View targetTemplate = placement.IsLongitudinal ? longTemplate : crossTemplate;
                                     if (targetTemplate != null)
                                     {
-                                        try { view.ViewTemplateId = targetTemplate.Id; } catch { }
+                                        try { view.ViewTemplateId = targetTemplate.Id; }
+                                        catch (Exception exTemplate) { System.Diagnostics.Debug.WriteLine("[SectionCut] template: " + exTemplate.Message); }
                                     }
 
                                     // Crop Box settings
@@ -175,7 +179,7 @@ namespace KhimTools.SectionCutTool.Core
                                         view.CropBoxActive = true;
                                         view.CropBoxVisible = !settings.HideCropRegionAfterCreation;
                                     }
-                                    catch { }
+                                    catch (Exception exCrop) { System.Diagnostics.Debug.WriteLine("[SectionCut] crop settings: " + exCrop.Message); }
 
                                     report.AddSuccess(item.Element, view, placement.IsLongitudinal);
 

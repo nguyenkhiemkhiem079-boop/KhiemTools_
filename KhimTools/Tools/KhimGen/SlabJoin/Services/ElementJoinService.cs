@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit.Failures;
 using KhimTools.SlabJoin.Models;
 using KhimTools.SlabJoin.Utilities;
 
@@ -41,7 +43,7 @@ namespace KhimTools.SlabJoin.Services
                     {
                         tx.Start();
                         var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
+                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
                         tx.SetFailureHandlingOptions(failOpts);
 
                         foreach (var pair in chunk)
@@ -82,7 +84,7 @@ namespace KhimTools.SlabJoin.Services
                     {
                         tx.Start();
                         var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
+                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
                         tx.SetFailureHandlingOptions(failOpts);
 
                         foreach (var pair in chunk)
@@ -120,7 +122,7 @@ namespace KhimTools.SlabJoin.Services
                     {
                         tx.Start();
                         var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
+                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
                         tx.SetFailureHandlingOptions(failOpts);
 
                         foreach (var pair in chunk)
@@ -227,7 +229,8 @@ namespace KhimTools.SlabJoin.Services
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { sub.RollBack(); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementJoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -255,7 +258,8 @@ namespace KhimTools.SlabJoin.Services
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { sub.RollBack(); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementUnjoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -283,7 +287,8 @@ namespace KhimTools.SlabJoin.Services
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { sub.RollBack(); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementSwitch.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -292,7 +297,11 @@ namespace KhimTools.SlabJoin.Services
         private static bool TryJoinOrder(Document doc, Element a, Element b)
         {
             try { JoinGeometryUtils.JoinGeometry(doc, a, b); return true; }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("ElementJoin.JoinOrder", ex, "JOIN_ORDER");
+                return false;
+            }
         }
 
         // ─── HELPERS ────────────────────────────────────────────────────

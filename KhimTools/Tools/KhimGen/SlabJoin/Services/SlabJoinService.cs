@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
 using KhimTools.SlabJoin.Interfaces;
 using KhimTools.SlabJoin.Models;
 
@@ -93,7 +94,8 @@ namespace KhimTools.SlabJoin.Services
                 }
                 catch (Exception ex)
                 {
-                    try { subTx.RollBack(); } catch { }
+                    try { subTx.RollBack(); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("SlabJoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(pair.FloorIdA, pair.FloorIdB, false, true,
                         $"Failed: {ex.Message}");
                 }
@@ -107,7 +109,11 @@ namespace KhimTools.SlabJoin.Services
                 JoinGeometryUtils.JoinGeometry(doc, a, b);
                 return true;
             }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("SlabJoin.JoinOrder", ex, "JOIN_ORDER");
+                return false;
+            }
         }
 
         // ─── UNJOIN ──────────────────────────────────────────────────────────
@@ -173,8 +179,9 @@ namespace KhimTools.SlabJoin.Services
                        (bb1.Max.Y + tol >= bb2.Min.Y && bb1.Min.Y - tol <= bb2.Max.Y) &&
                        (bb1.Max.Z + tol >= bb2.Min.Z && bb1.Min.Z - tol <= bb2.Max.Z);
             }
-            catch
+            catch (Exception ex)
             {
+                KToolsLog.Current.Exception("SlabJoin.BoundingBox", ex, "BOUNDING_BOX");
                 return false;
             }
         }

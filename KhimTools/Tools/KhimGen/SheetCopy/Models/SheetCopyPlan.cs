@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.SheetCopy.Models
 {
-    public sealed class SheetCopyPlan
+    public sealed class SheetCopyPlan : IWorkflowPlan
     {
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public string Fingerprint { get; set; } = string.Empty;
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public string PlanVersion { get; set; } = "3.1";
         public SheetCopyOptions Options { get; set; } = new SheetCopyOptions();
         public IReadOnlyList<SheetCopyItem> Items { get; set; } = new List<SheetCopyItem>();

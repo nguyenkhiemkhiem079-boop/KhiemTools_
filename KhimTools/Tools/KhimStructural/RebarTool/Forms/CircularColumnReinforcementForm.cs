@@ -560,7 +560,7 @@ namespace KhimTools.RebarTool.Forms
             using var tx = new Transaction(_doc, "Create Circular Column Rebar");
             tx.Start();
             FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-            failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+            failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
             tx.SetFailureHandlingOptions(failOptions);
             try
             {

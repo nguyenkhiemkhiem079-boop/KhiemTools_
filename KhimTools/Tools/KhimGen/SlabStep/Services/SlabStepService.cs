@@ -4,14 +4,16 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit;
 using KhimTools.SlabStep.Models;
 
 namespace KhimTools.SlabStep.Services
 {
     public static class SlabStepService
     {
-        public static double InternalToMillimetres(double value) => value * 304.8;
-        public static double MillimetresToInternal(double value) => value / 304.8;
+        public static double InternalToMillimetres(double value) => RevitUnitService.FeetToMillimetres(value);
+        public static double MillimetresToInternal(double value) => RevitUnitService.MillimetresToFeet(value);
 
         /// <summary>
         /// Nạp Family từ file RFA bên ngoài vào dự án
@@ -90,7 +92,7 @@ namespace KhimTools.SlabStep.Services
                     if (list.Any()) return list;
                 }
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("SlabStep.FloorSketch", ex, "SKETCH_READ"); }
 
             // 2. Fallback: Lấy qua Geometry Solid
             var opt = new Options { DetailLevel = ViewDetailLevel.Fine };
@@ -160,7 +162,7 @@ namespace KhimTools.SlabStep.Services
             var curvesHigh = GetFloorBoundaryCurves(doc, floorHigh);
             var curvesLow = GetFloorBoundaryCurves(doc, floorLow);
 
-            double toleranceFeet = toleranceMm / 304.8;
+            double toleranceFeet = RevitUnitService.MillimetresToFeet(toleranceMm);
 
             foreach (var ch in curvesHigh)
             {
@@ -222,9 +224,9 @@ namespace KhimTools.SlabStep.Services
             }
 
             // Quy đổi đơn vị mm sang feet (internal Revit units)
-            double heightDiff = heightMm / 304.8;
-            double thickHigh = highThickMm / 304.8;
-            double thickLow = lowThickMm / 304.8;
+            double heightDiff = RevitUnitService.MillimetresToFeet(heightMm);
+            double thickHigh = RevitUnitService.MillimetresToFeet(highThickMm);
+            double thickLow = RevitUnitService.MillimetresToFeet(lowThickMm);
 
             // Lấy điểm đầu cuối của cạnh ranh giới
             XYZ p1 = boundaryCurve.GetEndPoint(0);

@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.TitleBlockSync.Models
 {
-    public sealed class TitleBlockSyncPlan
+    public sealed class TitleBlockSyncPlan : IWorkflowPlan
     {
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public string PlanVersion { get; set; } = "3.3";
@@ -19,6 +20,7 @@ namespace KhimTools.TitleBlockSync.Models
         public List<string> Warnings { get; } = new List<string>();
         public List<string> BlockedConditions { get; } = new List<string>();
         public string Fingerprint { get; set; } = string.Empty;
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public bool IsStale { get; set; }
         public TitleBlockSyncStatusCode Status { get; set; } = TitleBlockSyncStatusCode.READY;
         public string Message { get; set; } = string.Empty;

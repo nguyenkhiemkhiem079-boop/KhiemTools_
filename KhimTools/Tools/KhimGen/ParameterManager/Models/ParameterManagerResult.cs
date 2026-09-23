@@ -1,9 +1,13 @@
 using System.Collections.Generic;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.ParameterManager.Models
 {
     public sealed class ParameterManagerResult
     {
+        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString(), VerificationPassed, RolledBack); } }
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
+        public OperationMetrics Metrics { get; } = new OperationMetrics();
         public ParameterManagerStatus Status { get; set; }
         public int RequestedTargets { get; set; }
         public int ReadyTargets { get; set; }

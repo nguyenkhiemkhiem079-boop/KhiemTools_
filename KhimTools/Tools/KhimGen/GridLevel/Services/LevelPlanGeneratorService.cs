@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
 using KhimTools.GridLevel.Models;
 
 namespace KhimTools.GridLevel.Services
@@ -73,7 +74,7 @@ namespace KhimTools.GridLevel.Services
                             viewsCount++;
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.StructuralPlan", ex, "VIEW_PLAN_CREATE"); }
                 }
 
                 // 2. Tạo Mặt Bằng Kiến Trúc (Floor Plan)
@@ -88,7 +89,7 @@ namespace KhimTools.GridLevel.Services
                             viewsCount++;
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.FloorPlan", ex, "VIEW_PLAN_CREATE"); }
                 }
 
                 // 3. Tạo Mặt Bằng Trần (Ceiling Plan)
@@ -103,7 +104,7 @@ namespace KhimTools.GridLevel.Services
                             viewsCount++;
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.CeilingPlan", ex, "VIEW_PLAN_CREATE"); }
                 }
             }
 
@@ -125,7 +126,7 @@ namespace KhimTools.GridLevel.Services
             {
                 level.Name = finalName;
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.LevelName", ex, "LEVEL_NAME"); }
         }
 
         private static bool IsLevelNameExists(Document doc, string name, ElementId excludeId)
@@ -151,7 +152,7 @@ namespace KhimTools.GridLevel.Services
             {
                 view.Name = finalName;
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.ViewName", ex, "VIEW_NAME"); }
         }
 
         private static bool IsViewNameExists(Document doc, string name, ElementId excludeId)

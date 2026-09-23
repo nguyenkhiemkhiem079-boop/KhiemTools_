@@ -1,14 +1,16 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.ScheduleSplit.Models
 {
-    public sealed class ScheduleSplitPlan
+    public sealed class ScheduleSplitPlan : IWorkflowPlan
     {
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public string PlanVersion { get; set; } = "3.2";
         public string Fingerprint { get; set; } = string.Empty;
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public string SourceFingerprint { get; set; } = string.Empty;
         public ElementId SourceScheduleId { get; set; } = ElementId.InvalidElementId;
         public string SourceScheduleUniqueId { get; set; } = string.Empty;

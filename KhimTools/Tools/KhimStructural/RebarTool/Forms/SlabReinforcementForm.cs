@@ -786,7 +786,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 trans.Start();
                 FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
-                failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+                failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
                 trans.SetFailureHandlingOptions(failOptions);
                 try
                 {

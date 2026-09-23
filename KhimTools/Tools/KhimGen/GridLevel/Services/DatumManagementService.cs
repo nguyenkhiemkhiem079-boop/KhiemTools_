@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.GridLevel.Services
 {
@@ -45,7 +48,7 @@ namespace KhimTools.GridLevel.Services
                         datum.SetDatumExtentType(DatumEnds.End1, view, targetExt);
                         count++;
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.SetDatumExtent", ex, "DATUM_EXTENT"); }
                 }
                 tx.Commit();
             }
@@ -109,7 +112,7 @@ namespace KhimTools.GridLevel.Services
                         }
                         count++;
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.ToggleBubble", ex, "DATUM_BUBBLE"); }
                 }
                 tx.Commit();
             }
@@ -149,7 +152,7 @@ namespace KhimTools.GridLevel.Services
                 return SetDatumExtent(doc, view, BuiltInCategory.OST_Grids, true, selIds);
             }
 
-            double offsetFeet = 1500.0 / 304.8; // 1500mm offset
+            double offsetFeet = RevitUnitService.MillimetresToFeet(1500.0); // 1500mm offset
             double minX = modelBounds.Min.X - offsetFeet;
             double maxX = modelBounds.Max.X + offsetFeet;
             double minY = modelBounds.Min.Y - offsetFeet;
@@ -209,7 +212,7 @@ namespace KhimTools.GridLevel.Services
                         }
                         count++;
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.TrimGrid", ex, "GRID_TRIM"); }
                 }
                 tx.Commit();
             }
@@ -248,7 +251,7 @@ namespace KhimTools.GridLevel.Services
                         }
                         count++;
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.CutGrid", ex, "GRID_CUT"); }
                 }
                 tx.Commit();
             }
@@ -281,7 +284,7 @@ namespace KhimTools.GridLevel.Services
                 modelBounds = view.CropBox;
             }
 
-            double offsetFeet = 2000.0 / 304.8; // 2000mm offset
+            double offsetFeet = RevitUnitService.MillimetresToFeet(2000.0); // 2000mm offset
             double minX = (modelBounds != null) ? modelBounds.Min.X - offsetFeet : -50.0;
             double maxX = (modelBounds != null) ? modelBounds.Max.X + offsetFeet : 50.0;
 
@@ -309,7 +312,7 @@ namespace KhimTools.GridLevel.Services
                         }
                         count++;
                     }
-                    catch { }
+                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.CutLevel", ex, "LEVEL_CUT"); }
                 }
                 tx.Commit();
             }

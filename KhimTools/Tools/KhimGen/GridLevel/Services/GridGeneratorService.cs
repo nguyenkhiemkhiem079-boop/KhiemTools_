@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
 using KhimTools.GridLevel.Models;
 
 namespace KhimTools.GridLevel.Services
@@ -173,7 +174,7 @@ namespace KhimTools.GridLevel.Services
                     else grid.HideBubbleInView(DatumEnds.End1, view);
                 }
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.BubbleVisibility", ex, "BUBBLE_VISIBILITY"); }
         }
 
         private static void CreateGridDimensions(Document doc, View view, List<Grid> xGrids, List<Grid> yGrids, GridSettings settings, double totalW, double totalH, double xExt, double yExt)
@@ -229,7 +230,7 @@ namespace KhimTools.GridLevel.Services
                     doc.Create.NewDimension(view, dimLine, refArray);
                 }
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.CreateDimensions", ex, "DIMENSION_CREATE"); }
         }
 
         public static string GetNextName(string currentName)
@@ -279,7 +280,7 @@ namespace KhimTools.GridLevel.Services
             {
                 grid.Name = finalName;
             }
-            catch { }
+            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.GridName", ex, "GRID_NAME"); }
         }
 
         private static bool IsGridNameExists(Document doc, string name, ElementId excludeId)

@@ -1845,7 +1845,7 @@ namespace KhimTools.RebarTool.Forms
                     using var tx = new Transaction(_doc, $"Create Rebar for Beam {beam.Id.ToLongValue()}");
                     tx.Start();
                     var failOpt = tx.GetFailureHandlingOptions();
-                    failOpt.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+                    failOpt.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
                     tx.SetFailureHandlingOptions(failOpt);
 
                     var input = CreateGenerationInput(beam);

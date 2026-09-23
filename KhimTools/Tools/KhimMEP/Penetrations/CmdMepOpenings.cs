@@ -5,6 +5,7 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.MEP.Penetrations
 {
@@ -99,11 +100,11 @@ namespace KhimTools.MEP.Penetrations
 
                             if (paramDiam != null && paramDiam.HasValue)
                             {
-                                diameterOrWidth = paramDiam.AsDouble() + (50.0 / 304.8); // cộng thêm 50mm khe hở
+                                diameterOrWidth = paramDiam.AsDouble() + RevitUnitService.MillimetresToFeet(50.0); // cộng thêm 50mm khe hở
                             }
 
                             clashCount++;
-                            string info = $"{mep.Category?.Name} ID:{mep.Id} ➔ {host.Category?.Name} ID:{host.Id} (Clearance: {Math.Round(diameterOrWidth * 304.8)}mm)";
+                            string info = $"{mep.Category?.Name} ID:{mep.Id} ➔ {host.Category?.Name} ID:{host.Id} (Clearance: {Math.Round(RevitUnitService.FeetToMillimetres(diameterOrWidth))}mm)";
                             if (clashLog.Count < 10) clashLog.Add(info);
                         }
                     }

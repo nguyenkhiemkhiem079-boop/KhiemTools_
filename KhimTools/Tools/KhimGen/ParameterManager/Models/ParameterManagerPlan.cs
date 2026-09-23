@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Workflow;
 using KhimTools.ParameterTransfer.Models;
 
 namespace KhimTools.ParameterManager.Models
 {
-    public sealed class ParameterManagerPlan
+    public sealed class ParameterManagerPlan : IWorkflowPlan
     {
         public Document Document { get; set; }
         public ParameterManagerRequest Request { get; set; }
@@ -13,6 +14,7 @@ namespace KhimTools.ParameterManager.Models
         public string ParameterDisplayName { get; set; } = string.Empty;
         public string SourceScopeFingerprint { get; set; } = string.Empty;
         public string Fingerprint { get; set; } = string.Empty;
+        public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
         public bool IsPreview { get; set; } = true;
         public bool IsStale { get; set; }
