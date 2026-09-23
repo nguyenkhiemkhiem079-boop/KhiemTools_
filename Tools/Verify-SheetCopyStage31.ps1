@@ -53,7 +53,7 @@ Assert-Text $services 'ElementTransformUtils.CopyElements' 'sheet annotation cop
 Assert-Text $services 'SourceFingerprint' 'source unchanged fingerprint'
 Assert-Text $services 'TransactionGroup' 'batch transaction boundary'
 Assert-Text $services 'new Transaction(doc, "Copy Sheet' 'per-sheet transaction isolation'
-Assert-Text $services 'transaction.RollBack' 'target rollback on failure'
+Assert-Text $services 'TransactionBoundary.RollBack(transaction' 'target rollback on failure is checked and explicit'
 Assert-Text $services 'SourceViewId' 'source to target view mapping'
 Assert-Text $services 'DetailNumber' 'detail number restoration'
 Assert-Text $services 'DetailNumberService' 'Detail Number service integration'

@@ -29,9 +29,13 @@ $required = @(
     "KhimTools\Core\Logging\IKToolsLogger.cs",
     "KhimTools\Core\Logging\KToolsLogger.cs",
     "KhimTools\Core\Revit\RevitUnitService.cs",
+    "KhimTools\Core\Revit\TransactionBoundary.cs",
     "KhimTools\Core\Revit\Failures\KnownWarningFailurePreprocessor.cs"
 )
 foreach ($path in $required) { Check "required:$path" (Test-Path (Join-Path $repoRoot $path)) }
+
+$transactionBoundary = Get-Content -Raw (Join-Path $productionRoot 'Core\Revit\TransactionBoundary.cs')
+Check 'transaction-boundary-checks-start-commit-rollback-group-and-subtransaction' ($transactionBoundary -match 'SUBTRANSACTION_START' -and $transactionBoundary -match 'SUBTRANSACTION_COMMIT' -and $transactionBoundary -match 'SUBTRANSACTION_ROLLBACK' -and $transactionBoundary -match 'GROUP_COMMIT' -and $transactionBoundary -match 'GROUP_ROLLBACK')
 
 $modernPlans = @(
     "Tools\KhimGen\SheetCopy\Models\SheetCopyPlan.cs",

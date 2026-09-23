@@ -61,22 +61,27 @@ $suites = @(
     @{
         Name = "Stage 3.5 Parameter Manager Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-ParameterManagerStage35.ps1"
-        ExpectedCount = 173
+        ExpectedCount = 174
     },
     @{
         Name = "Stage 3.6 Modify Objects Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-ModifyObjectsStage36.ps1"
-        ExpectedCount = 144
+        ExpectedCount = 146
     },
     @{
         Name = "Stage 3.7 Dimension Tools Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-DimensionToolsStage37.ps1"
-        ExpectedCount = 266
+        ExpectedCount = 271
     },
     @{
         Name = "Stage 4 Backend Consolidation Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-BackendConsolidationStage4.ps1"
-        ExpectedCount = 59
+        ExpectedCount = 61
+    }
+    @{
+        Name = "Stage 4.2 Slab Step Current Workflow Acceptance Audit"
+        Script = Join-Path $scriptDir "Tools\Verify-SlabStep.ps1"
+        ExpectedCount = 40
     }
 )
 
