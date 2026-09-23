@@ -620,7 +620,7 @@ namespace KhimTools.Core
                 assemblyPath,
                 "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
-                ToolTip = "Tự động kiểm tra xung đột ống MEP với Dầm/Sàn/Vách và đục lỗ mở (Openings).",
+                ToolTip = "Read-only exact-solid clash review between visible ducts/pipes/cable trays and structural framing/floors/walls; recommends clearance sizes but does not create openings.",
                 LargeImage = LoadImage("icon_mep_openings_32.png"),
                 Image = LoadImage("icon_mep_openings_16.png")
             };
@@ -629,11 +629,11 @@ namespace KhimTools.Core
             // 2. MEP Elevation Tags
             var tagData = new PushButtonData(
                 "CmdMepElevationTags",
-                "Elevation Tags",
+                "Elevation Notes",
                 assemblyPath,
                 "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
-                ToolTip = "Tự động gán nhãn cao độ đáy (BOP/Invert Elevation) cho ống gió và ống nước.",
+                ToolTip = "Create BOP/invert and top elevation notes for supported ducts, pipes, and cable trays in the active view.",
                 LargeImage = LoadImage("icon_mep_tags_32.png"),
                 Image = LoadImage("icon_mep_tags_16.png")
             };
