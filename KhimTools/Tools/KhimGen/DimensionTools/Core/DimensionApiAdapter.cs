@@ -22,7 +22,13 @@ namespace KhimTools.DimensionTools.Core
         public Dimension CreateLinearDimension(Document doc, View view, Line line, ReferenceArray references, ElementId dimensionTypeId)
         {
             if (doc == null || view == null || line == null || references == null || references.Size < 2) return null;
-            Dimension dimension = doc.Create.NewDimension(view, line, references); if (dimension != null && dimensionTypeId != null && dimensionTypeId != ElementId.InvalidElementId) dimension.ChangeTypeId(dimensionTypeId); return dimension;
+            if (dimensionTypeId != null && dimensionTypeId != ElementId.InvalidElementId)
+            {
+                DimensionType type = doc.GetElement(dimensionTypeId) as DimensionType;
+                if (type == null) return null;
+                return doc.Create.NewDimension(view, line, references, type);
+            }
+            return doc.Create.NewDimension(view, line, references);
         }
         public SpotDimension CreateSpotElevation(Document doc, View view, Reference reference, XYZ origin, XYZ bend, XYZ end, XYZ refPoint)
         {

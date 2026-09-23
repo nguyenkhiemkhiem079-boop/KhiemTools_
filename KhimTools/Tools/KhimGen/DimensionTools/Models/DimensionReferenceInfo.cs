@@ -11,8 +11,10 @@ namespace KhimTools.DimensionTools.Models
         public string ReferenceKind { get; set; }
         public XYZ WorldPoint { get; set; }
         public XYZ ViewCoordinate { get; set; }
+        public XYZ ReferenceDirection { get; set; }
         public DimensionReferenceRole SourceRole { get; set; }
         public double ProjectedPosition { get; set; }
+        public string GeometryFingerprint { get; set; }
         public bool IsValid { get; set; }
         public string Diagnostic { get; set; }
     }

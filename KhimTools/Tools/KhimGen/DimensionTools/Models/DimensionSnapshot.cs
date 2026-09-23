@@ -16,6 +16,7 @@ namespace KhimTools.DimensionTools.Models
         public IList<XYZ> TextPositions { get; private set; }
         public bool Pinned { get; set; }
         public bool Locked { get; set; }
+        public bool HasEqualityConstraint { get; set; }
         public bool HasManualOverride { get; set; }
         public DimensionSnapshot() { References = new List<DimensionReferenceInfo>(); StableReferences = new List<string>(); SegmentValues = new List<double>(); TextPositions = new List<XYZ>(); }
     }
