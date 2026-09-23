@@ -156,4 +156,7 @@
     <Copy SourceFiles="@(PackageManifest)" DestinationFolder="$(BundleRoot)" SkipUnchangedFiles="true" Retries="3" RetryDelayMilliseconds="500" ContinueOnError="WarnAndContinue" />
   </Target>
 
+  <ItemGroup>
+    <ProjectReference Include="..\src\KhimTools.Domain\KhimTools.Domain.csproj" />
+  </ItemGroup>
 </Project>
