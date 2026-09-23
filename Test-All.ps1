@@ -97,6 +97,16 @@ $suites = @(
         Name = "Stage 4.2 Slab Step Current Workflow Acceptance Audit"
         Script = Join-Path $scriptDir "Tools\Verify-SlabStep.ps1"
         ExpectedCount = 40
+    },
+    @{
+        Name = "K-Architectural Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-KArchitecturalAcceptance.ps1"
+        ExpectedCount = 39
+    },
+    @{
+        Name = "K-Architectural Domain QA"
+        Script = Join-Path $scriptDir "Tools\Verify-KArchitecturalDomain.ps1"
+        ExpectedCount = 14
     }
 )
 

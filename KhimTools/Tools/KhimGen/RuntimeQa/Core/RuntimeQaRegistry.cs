@@ -44,6 +44,7 @@ namespace KhimTools.RuntimeQa.Core
                 new QaSuiteDefinition { Id = "DOCUMENTATION", Name = "Documentation", Description = "SheetGen, viewport, detail number, text, tag, sheet export, Sheet Copy, Split Schedule, Title Block Sync, Filter Manager, Parameter Manager and Modify Objects fixtures." },
                 new QaSuiteDefinition { Id = "REBAR", Name = "Rebar", Description = "Production Rebar generation and rollback fixtures." },
                 new QaSuiteDefinition { Id = "CORE", Name = "Core", Description = "Runtime and model safety smoke fixtures." },
+                new QaSuiteDefinition { Id = "ARCHITECTURAL", Name = "K-Architectural", Description = "Production architectural workflow host fixtures; currently Room 3D view creation and transaction-group rollback." },
                 new QaSuiteDefinition { Id = "FULL", Name = "Full", Description = "All registered runtime fixtures." }
             };
             foreach (QaSuiteDefinition suite in suites)
@@ -75,6 +76,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new ModifyObjectsRuntimeFixture());
             registry.RegisterFixture(new DimensionToolsRuntimeFixture());
             registry.RegisterFixture(new SlabStepRuntimeFixture());
+            registry.RegisterFixture(new KArchitecturalRuntimeFixture());
             registry.RegisterFixture(new RebarCoreRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnFullCageRuntimeFixture());
