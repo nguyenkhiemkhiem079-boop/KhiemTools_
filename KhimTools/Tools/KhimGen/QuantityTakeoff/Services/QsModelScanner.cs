@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.Core.Logging;
@@ -8,13 +9,37 @@ namespace KhimTools.QuantityTakeoff.Services
 {
     public static class QsModelScanner
     {
-        public static QsScanResult Scan(Document doc, View view, QsScanScope scope = QsScanScope.ActiveView)
+        public static QsScanResult Scan(Document doc, View view, QsScanScope scope = QsScanScope.ActiveView,
+            IEnumerable<ElementId> selectionIds = null)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
             var result = new QsScanResult { StartedAt = DateTime.Now, Scope = scope };
-            FilteredElementCollector collector = scope == QsScanScope.ActiveView && view != null
-                ? new FilteredElementCollector(doc, view.Id).WhereElementIsNotElementType()
-                : new FilteredElementCollector(doc).WhereElementIsNotElementType();
+            FilteredElementCollector collector;
+            switch (scope)
+            {
+                case QsScanScope.ActiveView:
+                    if (view == null || view.Document != doc || view.IsTemplate)
+                        throw new ArgumentException("An active, non-template view from the scanned document is required.", nameof(view));
+                    collector = new FilteredElementCollector(doc, view.Id).WhereElementIsNotElementType();
+                    break;
+                case QsScanScope.Selection:
+                    if (selectionIds == null)
+                        throw new ArgumentNullException(nameof(selectionIds), "Selection scope requires explicit selected element IDs.");
+                    var ids = selectionIds.Where(id => id != null && id != ElementId.InvalidElementId).Distinct().ToList();
+                    if (ids.Count == 0)
+                    {
+                        result.CompletedAt = DateTime.Now;
+                        return result;
+                    }
+                    collector = new FilteredElementCollector(doc, ids);
+                    collector = collector.WhereElementIsNotElementType();
+                    break;
+                case QsScanScope.EntireModel:
+                    collector = new FilteredElementCollector(doc).WhereElementIsNotElementType();
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(scope), scope, "Unsupported QS scan scope.");
+            }
             foreach (var e in collector)
             {
                 if (e.Category == null) continue;

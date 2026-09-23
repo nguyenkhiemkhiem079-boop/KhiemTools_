@@ -9,9 +9,13 @@ namespace KhimTools.QuantityTakeoff.Models
         public string Code { get; set; } = "";
         public string Description { get; set; } = "";
         public string Category { get; set; } = "";
+        public int CategoryId { get; set; }
         public string Material { get; set; } = "";
+        public string FamilyName { get; set; } = "";
         public string TypeName { get; set; } = "";
+        public string TypeUniqueId { get; set; } = "";
         public string Level { get; set; } = "";
+        public string LevelUniqueId { get; set; } = "";
         public string Unit { get; set; } = "";
         public double RawQuantity { get; set; }
         public double WastePercent { get; set; }
@@ -40,7 +44,12 @@ namespace KhimTools.QuantityTakeoff.Models
     {
         public DateTime CalculatedAt { get; set; } = DateTime.Now;
         public string DocumentTitle { get; set; } = "";
+        public string DocumentKey { get; set; } = "";
         public int ScannedElementCount { get; set; }
+        public int EligibleElementCount { get; set; }
+        public int ExcludedElementCount { get; set; }
+        public int MeasuredGroupCount { get; set; }
+        public TimeSpan Duration { get; set; }
         public List<QtoLine> Lines { get; } = new List<QtoLine>();
         public List<QtoFinding> Findings { get; } = new List<QtoFinding>();
     }
@@ -64,6 +73,7 @@ namespace KhimTools.QuantityTakeoff.Models
 
     public sealed class QtoSnapshot
     {
+        public int SchemaVersion { get; set; } = 1;
         public string SnapshotId { get; set; } = "";
         public string DocumentTitle { get; set; } = "";
         public DateTime CreatedAt { get; set; }
@@ -77,6 +87,13 @@ namespace KhimTools.QuantityTakeoff.Models
         public string Key { get; set; } = "";
         public string Code { get; set; } = "";
         public string Description { get; set; } = "";
+        public string Category { get; set; } = "";
+        public int CategoryId { get; set; }
+        public string Material { get; set; } = "";
+        public string FamilyName { get; set; } = "";
+        public string TypeUniqueId { get; set; } = "";
+        public string Level { get; set; } = "";
+        public string LevelUniqueId { get; set; } = "";
         public string Unit { get; set; } = "";
         public double Quantity { get; set; }
         public List<string> ElementUniqueIds { get; set; } = new List<string>();

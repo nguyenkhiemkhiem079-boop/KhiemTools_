@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.QuantityTakeoff.Models;
 using KhimTools.Core.Logging;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.QuantityTakeoff.Services
 {
@@ -25,21 +28,23 @@ namespace KhimTools.QuantityTakeoff.Services
         public static QtoResult Collect(Document doc)
         {
             if (doc == null) throw new ArgumentNullException(nameof(doc));
+            var timer = Stopwatch.StartNew();
             var result = new QtoResult { DocumentTitle = doc.Title };
             var accumulator = new Dictionary<string, QtoLine>(StringComparer.OrdinalIgnoreCase);
             var noMaterial = new List<ElementId>();
             var unclassified = new List<ElementId>();
             var missingTypeMark = new List<ElementId>();
 
-            var physical = new FilteredElementCollector(doc)
-                .WherePasses(new ElementMulticategoryFilter(PhysicalCategories))
-                .WhereElementIsNotElementType()
-                .ToElements();
+            // Materialize the host-model instance set once. Individual measurement passes below
+            // filter this cached list instead of issuing a new full-document collector per category.
+            IList<Element> allModelElements = new FilteredElementCollector(doc)
+                .WhereElementIsNotElementType().ToElements();
+            result.ScannedElementCount = allModelElements.Count;
+            var physicalCategoryIds = new HashSet<ElementId>(PhysicalCategories.Select(x => new ElementId(x)));
 
-            foreach (Element element in physical)
+            foreach (Element element in allModelElements.Where(x => x.Category != null && physicalCategoryIds.Contains(x.Category.Id)))
             {
-                result.ScannedElementCount++;
-                bool classified = CollectMaterials(doc, element, accumulator);
+                bool classified = CollectMaterials(doc, result, element, accumulator);
                 if (element.GetMaterialIds(false).Count == 0) noMaterial.Add(element.Id);
                 if (!classified) unclassified.Add(element.Id);
                 ElementType type = doc.GetElement(element.GetTypeId()) as ElementType;
@@ -47,10 +52,10 @@ namespace KhimTools.QuantityTakeoff.Services
                     missingTypeMark.Add(element.Id);
             }
 
-            CollectRebar(doc, result, accumulator);
-            CollectCounts(doc, result, accumulator);
-            CollectMepLengths(doc, result, accumulator);
-            CollectRooms(doc, result, accumulator);
+            CollectRebar(doc, allModelElements, result, accumulator);
+            CollectCounts(allModelElements, result, accumulator);
+            CollectMepLengths(allModelElements, result, accumulator);
+            CollectRooms(doc, allModelElements, result, accumulator);
 
             if (noMaterial.Count > 0)
                 AddFinding(result, "Warning", "Missing material",
@@ -65,11 +70,34 @@ namespace KhimTools.QuantityTakeoff.Services
             result.Lines.AddRange(accumulator.Values
                 .Where(x => x.RawQuantity > 1e-9)
                 .OrderBy(x => x.Code).ThenBy(x => x.Description)
-                .ThenBy(x => x.Material).ThenBy(x => x.Level));
+                .ThenBy(x => x.CategoryId).ThenBy(x => x.Material, StringComparer.Ordinal)
+                .ThenBy(x => x.FamilyName, StringComparer.Ordinal).ThenBy(x => x.TypeUniqueId, StringComparer.Ordinal)
+                .ThenBy(x => x.TypeName, StringComparer.Ordinal).ThenBy(x => x.LevelUniqueId, StringComparer.Ordinal)
+                .ThenBy(x => x.Level, StringComparer.Ordinal));
+            result.EligibleElementCount = result.Lines.SelectMany(x => x.ElementUniqueIds)
+                .Distinct(StringComparer.Ordinal).Count();
+            result.ExcludedElementCount = Math.Max(0, result.ScannedElementCount - result.EligibleElementCount);
+            result.MeasuredGroupCount = result.Lines.Count;
+            string documentIdentity = doc.ProjectInformation?.UniqueId;
+            if (string.IsNullOrWhiteSpace(documentIdentity)) documentIdentity = doc.PathName;
+            if (string.IsNullOrWhiteSpace(documentIdentity)) documentIdentity = doc.Title;
+            result.DocumentKey = KhimTools.Core.Workflow.WorkflowFingerprint.Compute("KQS", documentIdentity);
+            timer.Stop();
+            result.Duration = timer.Elapsed;
+            KToolsLog.Current.Log(KhimTools.Core.Workflow.WorkflowSeverity.Info,
+                new WorkflowLogContext
+                {
+                    Module = "K-QS", Operation = "QTO.Collect", DocumentFingerprint = result.DocumentKey,
+                    TargetCount = result.ScannedElementCount, Duration = result.Duration,
+                    Outcome = WorkflowOutcome.Succeeded
+                },
+                "eligible=" + result.EligibleElementCount + ";excluded=" + result.ExcludedElementCount +
+                ";groups=" + result.MeasuredGroupCount + ";findings=" + result.Findings.Count,
+                "QTO_COLLECTED");
             return result;
         }
 
-        private static bool CollectMaterials(Document doc, Element element,
+        private static bool CollectMaterials(Document doc, QtoResult result, Element element,
             IDictionary<string, QtoLine> output)
         {
             bool classified = false;
@@ -87,37 +115,37 @@ namespace KhimTools.QuantityTakeoff.Services
 
                 if (HasAny(name, "concrete", "beton", "bê tông", "be tong"))
                 {
-                    Add(output, element, "QS-CONCRETE", "Bê tông", name, "m³",
+                    Add(result, output, element, "QS-CONCRETE", "Bê tông", name, "m³",
                         CubicFeetToCubicMetres(volume), 0, "MaterialVolume", "Native");
                     classified = true;
                 }
-                else if (HasAny(name, "steel", "thép", "thep", "acier", "metal"))
+                else if (HasAny(name, "steel", "thép", "thep", "acier"))
                 {
-                    Add(output, element, "QS-STEEL", "Thép kết cấu", name, "kg",
+                    Add(result, output, element, "QS-STEEL", "Thép kết cấu", name, "kg",
                         CubicFeetToCubicMetres(volume) * SteelDensityKgPerM3, 0, "MaterialVolume × 7850 kg/m³", "Derived");
                     classified = true;
                 }
                 else if (HasAny(name, "brick", "block", "masonry", "gạch xây", "tuong xay"))
                 {
-                    Add(output, element, "QS-MASONRY", "Tường xây", name, "m³",
+                    Add(result, output, element, "QS-MASONRY", "Tường xây", name, "m³",
                         CubicFeetToCubicMetres(volume), 0, "MaterialVolume", "Native");
                     classified = true;
                 }
                 else if (HasAny(name, "paint", "sơn", "son ", "coating"))
                 {
-                    Add(output, element, "QS-PAINT", "Sơn hoàn thiện", name, "m²",
+                    Add(result, output, element, "QS-PAINT", "Sơn hoàn thiện", name, "m²",
                         SquareFeetToSquareMetres(area), 0, "MaterialArea", "Native");
                     classified = true;
                 }
                 else if (HasAny(name, "plaster", "render", "vữa", "vua ", "mortar"))
                 {
-                    Add(output, element, "QS-PLASTER", "Vữa trát", name, "m²",
+                    Add(result, output, element, "QS-PLASTER", "Vữa trát", name, "m²",
                         SquareFeetToSquareMetres(area), 0, "MaterialArea", "Native");
                     classified = true;
                 }
                 else if (IsFinishCategory(element) && HasAny(name, "finish", "tile", "gạch", "gach", "wood", "vinyl", "carpet"))
                 {
-                    Add(output, element, "QS-FINISH", "Hoàn thiện", name, "m²",
+                    Add(result, output, element, "QS-FINISH", "Hoàn thiện", name, "m²",
                         SquareFeetToSquareMetres(area), 0, "MaterialArea", "Native");
                     classified = true;
                 }
@@ -130,27 +158,25 @@ namespace KhimTools.QuantityTakeoff.Services
             {
                 Material material = doc.GetElement(materialId) as Material;
                 double area = SafeMaterialArea(element, materialId, true);
-                Add(output, element, "QS-PAINT", "Sơn trên bề mặt", material?.Name ?? "Paint", "m²",
+                Add(result, output, element, "QS-PAINT", "Sơn trên bề mặt", material?.Name ?? "Paint", "m²",
                     SquareFeetToSquareMetres(area), 0, "PaintedMaterialArea", "Native");
                 classified = true;
             }
             return classified;
         }
 
-        private static void CollectRebar(Document doc, QtoResult result,
+        private static void CollectRebar(Document doc, IEnumerable<Element> modelElements, QtoResult result,
             IDictionary<string, QtoLine> output)
         {
             var invalid = new List<ElementId>();
-            foreach (Rebar rebar in new FilteredElementCollector(doc)
-                .OfClass(typeof(Rebar)).WhereElementIsNotElementType().Cast<Rebar>())
+            foreach (Rebar rebar in modelElements.OfType<Rebar>())
             {
-                result.ScannedElementCount++;
                 double volume;
                 try { volume = rebar.Volume; } catch { volume = 0; }
                 double mass = CubicFeetToCubicMetres(volume) * SteelDensityKgPerM3;
                 if (mass <= 1e-9) { invalid.Add(rebar.Id); continue; }
                 string diameter = GetParameterText(rebar, BuiltInParameter.REBAR_BAR_DIAMETER);
-                Add(output, rebar, "QS-REBAR", "Cốt thép", diameter, "kg", mass, 0,
+                Add(result, output, rebar, "QS-REBAR", "Cốt thép", diameter, "kg", mass, 0,
                     "Rebar.Volume × 7850 kg/m³", "Derived");
             }
             if (invalid.Count > 0)
@@ -158,7 +184,7 @@ namespace KhimTools.QuantityTakeoff.Services
                     "Thanh thép có thể tích bằng 0 hoặc không đọc được.", invalid);
         }
 
-        private static void CollectCounts(Document doc, QtoResult result,
+        private static void CollectCounts(IEnumerable<Element> modelElements, QtoResult result,
             IDictionary<string, QtoLine> output)
         {
             var definitions = new[]
@@ -171,16 +197,15 @@ namespace KhimTools.QuantityTakeoff.Services
             };
             foreach (var definition in definitions)
             {
-                foreach (Element element in new FilteredElementCollector(doc)
-                    .OfCategory(definition.Item1).WhereElementIsNotElementType())
+                ElementId categoryId = new ElementId(definition.Item1);
+                foreach (Element element in modelElements.Where(x => x.Category != null && x.Category.Id == categoryId))
                 {
-                    result.ScannedElementCount++;
-                    Add(output, element, definition.Item2, definition.Item3, "", "ea", 1, 0, "InstanceCount", "Authoritative");
+                    Add(result, output, element, definition.Item2, definition.Item3, "", "ea", 1, 0, "InstanceCount", "Authoritative");
                 }
             }
         }
 
-        private static void CollectMepLengths(Document doc, QtoResult result,
+        private static void CollectMepLengths(IEnumerable<Element> modelElements, QtoResult result,
             IDictionary<string, QtoLine> output)
         {
             var definitions = new[]
@@ -192,27 +217,24 @@ namespace KhimTools.QuantityTakeoff.Services
             };
             foreach (var definition in definitions)
             {
-                foreach (Element element in new FilteredElementCollector(doc)
-                    .OfCategory(definition.Item1).WhereElementIsNotElementType())
+                ElementId categoryId = new ElementId(definition.Item1);
+                foreach (Element element in modelElements.Where(x => x.Category != null && x.Category.Id == categoryId))
                 {
-                    result.ScannedElementCount++;
                     double length = element.get_Parameter(BuiltInParameter.CURVE_ELEM_LENGTH)?.AsDouble() ?? 0;
-                    Add(output, element, definition.Item2, definition.Item3, "", "m",
+                    Add(result, output, element, definition.Item2, definition.Item3, "", "m",
                         UnitUtils.ConvertFromInternalUnits(length, UnitTypeId.Meters), 0, "CenterlineLength", "Native");
                 }
             }
         }
 
-        private static void CollectRooms(Document doc, QtoResult result,
+        private static void CollectRooms(Document doc, IEnumerable<Element> modelElements, QtoResult result,
             IDictionary<string, QtoLine> output)
         {
             var invalid = new List<ElementId>();
-            foreach (Room room in new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Rooms)
-                .WhereElementIsNotElementType().OfType<Room>())
+            foreach (Room room in modelElements.OfType<Room>())
             {
-                result.ScannedElementCount++;
                 if (room.Area <= 1e-9) { invalid.Add(room.Id); continue; }
-                Add(output, room, "QS-ROOM", "Diện tích phòng", room.Name, "m²",
+                Add(result, output, room, "QS-ROOM", "Diện tích phòng", room.Name, "m²",
                     SquareFeetToSquareMetres(room.Area), 0, "Room.Area", "Native");
             }
             if (invalid.Count > 0)
@@ -220,32 +242,68 @@ namespace KhimTools.QuantityTakeoff.Services
                     "Room chưa đặt hoặc chưa khép kín nên không có diện tích.", invalid);
         }
 
-        private static void Add(IDictionary<string, QtoLine> output, Element element,
+        private static void Add(QtoResult result, IDictionary<string, QtoLine> output, Element element,
             string code, string description, string material, string unit, double quantity,
             double wastePercent, string source, string confidence)
         {
+            if (double.IsNaN(quantity) || double.IsInfinity(quantity) || quantity < -1e-9)
+            {
+                AddFinding(result, "Warning", "Invalid quantity measurement",
+                    "Quantity source returned a negative or non-finite value; the source element was excluded.",
+                    new List<ElementId> { element.Id });
+                return;
+            }
             if (quantity <= 1e-9) return;
             Document doc = element.Document;
             string category = element.Category?.Name ?? "";
-            string typeName = (doc.GetElement(element.GetTypeId()) as ElementType)?.Name ?? "";
+            int categoryId = element.Category?.Id.IntegerValue ?? 0;
+            ElementType type = doc.GetElement(element.GetTypeId()) as ElementType;
+            string typeName = type?.Name ?? "";
+            string familyName = (type as FamilySymbol)?.FamilyName ?? "";
+            string typeUniqueId = type?.UniqueId ?? "";
             string level = GetLevelName(doc, element);
-            string key = string.Join("|", code, material, typeName, level, unit);
+            string levelUniqueId = GetLevelUniqueId(doc, element);
+            string key = WorkflowFingerprint.Compute(code, categoryId.ToString(CultureInfo.InvariantCulture),
+                material, familyName, typeUniqueId, typeName, levelUniqueId, level, unit);
             if (!output.TryGetValue(key, out QtoLine line))
             {
                 line = new QtoLine
                 {
-                    Code = code, Description = description, Category = category,
-                    Material = material, TypeName = typeName, Level = level, Unit = unit,
+                    Code = code, Description = description, Category = category, CategoryId = categoryId,
+                    Material = material, FamilyName = familyName, TypeName = typeName,
+                    TypeUniqueId = typeUniqueId, Level = level, LevelUniqueId = levelUniqueId, Unit = unit,
                     WastePercent = wastePercent, Source = source, Confidence = confidence
                 };
                 output.Add(key, line);
             }
-            line.RawQuantity += quantity;
+            double aggregate = line.RawQuantity + quantity;
+            if (double.IsNaN(aggregate) || double.IsInfinity(aggregate))
+            {
+                AddFinding(result, "Warning", "Quantity aggregation overflow",
+                    "The grouped quantity exceeded the supported numeric range; this source contribution was excluded.",
+                    new List<ElementId> { element.Id });
+                return;
+            }
+            line.RawQuantity = aggregate;
             line.PayQuantity = line.RawQuantity * (1.0 + line.WastePercent / 100.0);
             if (!line.ElementIds.Contains(element.Id))
             {
                 line.ElementIds.Add(element.Id);
                 line.ElementUniqueIds.Add(element.UniqueId);
+            }
+        }
+
+        private static string GetLevelUniqueId(Document doc, Element element)
+        {
+            try
+            {
+                ElementId id = element.LevelId;
+                return id != null && id != ElementId.InvalidElementId ? doc.GetElement(id)?.UniqueId ?? "" : "";
+            }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("QTO.GetLevelUniqueId", ex, "LEVEL_READ");
+                return "";
             }
         }
 

@@ -34,8 +34,25 @@ namespace KhimTools.QuantityTakeoff.Services
             if (profile == null) throw new ArgumentNullException(nameof(profile));
             string path = GetRulesPath(documentTitle);
             Directory.CreateDirectory(Path.GetDirectoryName(path));
+            int priorVersion = profile.Version;
             profile.Version = Math.Max(1, profile.Version + 1);
-            File.WriteAllText(path, JsonConvert.SerializeObject(profile, Formatting.Indented));
+            string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            string backupPath = path + ".bak-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N");
+            try
+            {
+                File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(profile, Formatting.Indented));
+                if (File.Exists(path)) File.Replace(temporaryPath, path, backupPath);
+                else File.Move(temporaryPath, path);
+            }
+            catch
+            {
+                profile.Version = priorVersion;
+                throw;
+            }
+            finally
+            {
+                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            }
         }
 
         public static string GetProjectFolder(string documentTitle)

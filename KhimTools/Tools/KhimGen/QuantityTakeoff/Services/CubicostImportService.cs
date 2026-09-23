@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Xml.Linq;
+using KhimTools.Domain.Models.Qs;
 using KhimTools.QuantityTakeoff.Models;
 
 namespace KhimTools.QuantityTakeoff.Services
@@ -15,18 +16,21 @@ namespace KhimTools.QuantityTakeoff.Services
         public static CubicostImportResult Import(string path)
         {
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) throw new FileNotFoundException("Không tìm thấy file Cubicost.", path);
+            string extension = Path.GetExtension(path);
+            bool isCsv = string.Equals(extension, ".csv", StringComparison.OrdinalIgnoreCase);
+            if (!isCsv && !string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+                throw new NotSupportedException("Chỉ hỗ trợ file Cubicost CSV hoặc XLSX.");
             string sheetName = "";
-            List<List<string>> rows = string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase)
-                ? ReadCsv(path)
-                : ReadFirstWorksheet(path, out sheetName);
-            var result = Parse(rows);
+            char csvSeparator = '\0';
+            List<List<string>> rows = isCsv ? ReadCsv(path, out csvSeparator) : ReadFirstWorksheet(path, out sheetName);
+            var result = Parse(rows, isCsv && csvSeparator == ';');
             result.FilePath = path;
-            if (!string.Equals(Path.GetExtension(path), ".csv", StringComparison.OrdinalIgnoreCase)) result.SheetName = sheetName;
+            if (!isCsv) result.SheetName = sheetName;
             else result.SheetName = "CSV";
             return result;
         }
 
-        private static CubicostImportResult Parse(List<List<string>> rows)
+        private static CubicostImportResult Parse(List<List<string>> rows, bool decimalCommaCsv)
         {
             var result = new CubicostImportResult();
             int headerRow = -1, codeCol = -1, descriptionCol = -1, unitCol = -1, quantityCol = -1, locationCol = -1;
@@ -44,12 +48,17 @@ namespace KhimTools.QuantityTakeoff.Services
             }
             if (headerRow < 0) throw new InvalidDataException("Không nhận diện được cột Quantity và Unit trong file Cubicost. Hãy xuất bảng có tiêu đề Code/Description/Unit/Quantity.");
 
+            int invalidRows = 0;
             for (int r = headerRow + 1; r < rows.Count; r++)
             {
                 string rawQuantity = Cell(rows[r], quantityCol);
-                if (!TryNumber(rawQuantity, out double quantity)) continue;
+                if (!QsQuantityMath.TryParseQuantity(rawQuantity, decimalCommaCsv, out double quantity) || quantity < 0)
+                {
+                    invalidRows++;
+                    continue;
+                }
                 string unit = NormalizeUnit(Cell(rows[r], unitCol));
-                if (string.IsNullOrWhiteSpace(unit)) continue;
+                if (string.IsNullOrWhiteSpace(unit)) { invalidRows++; continue; }
                 string cubicostCode = Cell(rows[r], codeCol).Trim();
                 result.Lines.Add(new CubicostQtoLine
                 {
@@ -61,6 +70,7 @@ namespace KhimTools.QuantityTakeoff.Services
             if (codeCol < 0) result.Warnings.Add("Không tìm thấy cột Code; cần ánh xạ Revit Code thủ công.");
             if (descriptionCol < 0) result.Warnings.Add("Không tìm thấy cột Description.");
             if (result.Lines.Count == 0) result.Warnings.Add("Không có dòng khối lượng hợp lệ sau khi đọc file.");
+            if (invalidRows > 0) result.Warnings.Add($"Đã bỏ qua {invalidRows} dòng có khối lượng âm/không hợp lệ hoặc thiếu đơn vị.");
             return result;
         }
 
@@ -103,11 +113,12 @@ namespace KhimTools.QuantityTakeoff.Services
             return output;
         }
 
-        private static List<List<string>> ReadCsv(string path)
+        private static List<List<string>> ReadCsv(string path, out char separator)
         {
             string[] lines = File.ReadAllLines(path, Encoding.UTF8);
-            char separator = lines.FirstOrDefault()?.Count(c => c == ';') > lines.FirstOrDefault()?.Count(c => c == ',') ? ';' : ',';
-            return lines.Select(line => ParseCsvLine(line, separator)).ToList();
+            char detectedSeparator = lines.FirstOrDefault()?.Count(c => c == ';') > lines.FirstOrDefault()?.Count(c => c == ',') ? ';' : ',';
+            separator = detectedSeparator;
+            return lines.Select(line => ParseCsvLine(line, detectedSeparator)).ToList();
         }
 
         private static List<string> ParseCsvLine(string line, char separator)
@@ -151,12 +162,6 @@ namespace KhimTools.QuantityTakeoff.Services
             if (unit == "kg" || unit == "kilogram") return "kg";
             if (unit == "ea" || unit == "each" || unit == "no" || unit == "pcs" || unit == "cai" || unit == "bo") return "ea";
             return value.Trim();
-        }
-        private static bool TryNumber(string value, out double number)
-        {
-            value = (value ?? "").Trim().Replace(" ", "");
-            if (double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out number)) return true;
-            return double.TryParse(value, NumberStyles.Any, CultureInfo.CurrentCulture, out number);
         }
     }
 }
