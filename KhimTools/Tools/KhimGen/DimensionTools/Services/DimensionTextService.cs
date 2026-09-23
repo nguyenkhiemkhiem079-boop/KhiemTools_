@@ -23,18 +23,18 @@ namespace KhimTools.DimensionTools.Services
             if (before.Any(x => x == null)) { result.Status = DimensionStatus.REFERENCE_INVALID; result.Message = "TextPosition is unavailable for this dimension style."; return result; }
             using (var tx = new Transaction(doc, "K-TOOLS Move Dimension Text"))
             {
-                tx.Start(); string error;
+                KhimTools.Core.Revit.TransactionBoundary.Start(tx, "DimensionTools.MoveText"); string error;
                 if (dimension.NumberOfSegments > 0)
                 {
                     int index = 0;
-                    foreach (DimensionSegment segment in dimension.Segments) { if (!adapter.TrySetSegmentTextPosition(segment, before[index++] + delta, out error)) { tx.RollBack(); result.Status = DimensionStatus.FAILED; result.Message = error; return result; } }
+                    foreach (DimensionSegment segment in dimension.Segments) { if (!adapter.TrySetSegmentTextPosition(segment, before[index++] + delta, out error)) { KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "DimensionTools.MoveText"); result.Status = DimensionStatus.FAILED; result.Message = error; return result; } }
                 }
-                else if (!adapter.TrySetTextPosition(dimension, before[0] + delta, out error)) { tx.RollBack(); result.Status = DimensionStatus.FAILED; result.Message = error; return result; }
+                else if (!adapter.TrySetTextPosition(dimension, before[0] + delta, out error)) { KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "DimensionTools.MoveText"); result.Status = DimensionStatus.FAILED; result.Message = error; return result; }
                 doc.Regenerate();
                 var after = dimension.NumberOfSegments > 0 ? dimension.Segments.Cast<DimensionSegment>().Select(x => x.TextPosition).ToList() : new List<XYZ> { dimension.TextPosition };
                 bool verified = after.Count == before.Count && after.Select((position, index) => position != null && position.IsAlmostEqualTo(before[index] + delta)).All(x => x);
-                if (!verified) { tx.RollBack(); result.Status = DimensionStatus.POST_VERIFY_FAILED; result.Message = "Actual TextPosition does not match the requested View-local displacement."; return result; }
-                tx.Commit();
+                if (!verified) { KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "DimensionTools.MoveText"); result.Status = DimensionStatus.POST_VERIFY_FAILED; result.Message = "Actual TextPosition does not match the requested View-local displacement."; return result; }
+                KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "DimensionTools.MoveText");
             }
             result.Status = DimensionStatus.UPDATED; result.VerificationPassed = true; result.SourceDimensionIds.Add(dimension.Id); result.Message = "Text moved and verified in ViewPlane coordinates."; return result;
         }

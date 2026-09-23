@@ -21,7 +21,7 @@ namespace KhimTools.ModifyObjects.Structural
         {
             FamilyInstance first = doc.GetElement(plan.Context.PrimaryElementId) as FamilyInstance; FamilyInstance second = doc.GetElement(plan.Context.SecondaryElementId) as FamilyInstance; if (first == null || second == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_JOIN_PAIR };
             FamilyInstance survivor = plan.Context.ConflictPolicy == ModifyObjectConflictPolicy.KEEP_UPPER ? second : first; FamilyInstance removed = survivor.Id == first.Id ? second : first; Parameter top = survivor.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM); Parameter removedTop = removed.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM); if (top == null || removedTop == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_JOIN_PAIR, Message = "Column level constraints are unavailable." };
-            using (var tx = new Transaction(doc, "K-TOOLS Join Columns")) { tx.Start(); if (!top.IsReadOnly) top.Set(removedTop.AsElementId()); doc.Regenerate(); doc.Delete(removed.Id); tx.Commit(); }
+            using (var tx = new Transaction(doc, "K-TOOLS Join Columns")) { KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ModifyObjects.ColumnJoinService"); if (!top.IsReadOnly) top.Set(removedTop.AsElementId()); doc.Regenerate(); doc.Delete(removed.Id); KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "ModifyObjects.ColumnJoinService"); }
             return new ModifyObjectResult { Status = ModifyObjectStatus.DELETED_SOURCE, Summary = "Column pair joined with explicit conflict policy." };
         }
     }

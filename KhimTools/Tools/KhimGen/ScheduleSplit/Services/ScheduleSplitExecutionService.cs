@@ -26,7 +26,7 @@ namespace KhimTools.ScheduleSplit.Services
             }
             using (var group = new TransactionGroup(doc, "K-TOOLS Split Schedule 2.0"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "ScheduleSplit batch");
                 try
                 {
                     ViewSchedule source = doc.GetElement(plan.SourceScheduleId) as ViewSchedule;
@@ -36,26 +36,26 @@ namespace KhimTools.ScheduleSplit.Services
                         if (!source.CanViewBeDuplicated(ViewDuplicateOption.Duplicate)) throw new InvalidOperationException(ScheduleSplitStatusCode.SCHEDULE_DUPLICATION_UNSUPPORTED + ": schedule cannot be duplicated.");
                         using (var duplicateTransaction = new Transaction(doc, "Duplicate schedule for split"))
                         {
-                            duplicateTransaction.Start();
+                            KhimTools.Core.Revit.TransactionBoundary.Start(duplicateTransaction, "ScheduleSplit working-copy duplication");
                             ElementId id = source.Duplicate(ViewDuplicateOption.Duplicate);
                             working = doc.GetElement(id) as ViewSchedule;
                             if (working == null) throw new InvalidOperationException("Working copy could not be resolved.");
                             working.Name = UniqueName(doc, source.Name + " - Split");
-                            duplicateTransaction.Commit();
+                            KhimTools.Core.Revit.TransactionBoundary.Commit(duplicateTransaction, "ScheduleSplit working-copy duplication");
                         }
                         plan.WorkingScheduleId = working.Id;
                         result.WorkingScheduleId = working.Id;
                     }
                     using (var splitTransaction = new Transaction(doc, "Split schedule segments"))
                     {
-                        splitTransaction.Start();
+                        KhimTools.Core.Revit.TransactionBoundary.Start(splitTransaction, "ScheduleSplit schedule split");
                         if (!ScheduleSplitApiAdapter.IsSplit(working)) ScheduleSplitApiAdapter.Split(working, plan.SegmentHeightsInternal);
                         else if (!options.ReLayoutExistingSegments) throw new InvalidOperationException(ScheduleSplitStatusCode.ALREADY_SPLIT + ": existing split requires relayout mode.");
-                        splitTransaction.Commit();
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(splitTransaction, "ScheduleSplit schedule split");
                     }
                     using (var placeTransaction = new Transaction(doc, "Place schedule segments"))
                     {
-                        placeTransaction.Start();
+                        KhimTools.Core.Revit.TransactionBoundary.Start(placeTransaction, "ScheduleSplit sheet placement");
                         foreach (ScheduleSegmentPlan segment in plan.Segments.OrderBy(s => s.SegmentIndex))
                         {
                             ScheduleSheetInstance instance = null;
@@ -77,16 +77,16 @@ namespace KhimTools.ScheduleSplit.Services
                             result.CreatedInstanceIds.Add(instance.Id);
                             result.SegmentResults.Add(new ScheduleSegmentResult { SegmentIndex = segment.SegmentIndex, TargetSheetId = segment.TargetSheetId, TargetSheetNumber = segment.TargetSheetNumber, InstanceId = instance.Id, PlannedPosition = segment.PlannedPosition, ActualPosition = segment.ActualPosition, Status = ScheduleSplitStatusCode.CREATED, Message = "Placed" });
                         }
-                        placeTransaction.Commit();
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(placeTransaction, "ScheduleSplit sheet placement");
                     }
                     result.SegmentCount = result.SegmentResults.Count;
                     if (!ScheduleSplitVerificationService.Verify(doc, plan, result, out string verifyMessage)) throw new InvalidOperationException(verifyMessage);
-                    group.Assimilate();
+                    KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "ScheduleSplit batch");
                     result.Status = ScheduleSplitStatusCode.CREATED;
                 }
                 catch (Exception ex)
                 {
-                    if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "ScheduleSplit batch");
                     result.Status = Classify(ex);
                     result.Messages.Add(ex.Message);
                 }

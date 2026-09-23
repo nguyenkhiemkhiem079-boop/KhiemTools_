@@ -19,7 +19,7 @@ namespace KhimTools.ParameterManager.Services
             if (options.AllOrNothing) return ExecuteStrict(doc, plan, result, options);
             using (var group = new TransactionGroup(doc, "K-TOOLS Parameter Manager 3.5"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "ParameterManager per-item batch");
                 foreach (ParameterEditItem item in plan.Items)
                 {
                     result.Items.Add(item);
@@ -32,14 +32,14 @@ namespace KhimTools.ParameterManager.Services
                     {
                         using (var tx = new Transaction(doc, "Parameter Manager item " + item.ElementId.IntegerValue))
                         {
-                            tx.Start(); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(parameter, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters });
-                            if (applied.Status == ParameterTransferStatus.COPIED) { tx.Commit(); item.Status = ParameterManagerStatus.UPDATED; item.Action = ParameterManagerAction.UPDATE; result.UpdatedTargets++; }
-                            else { tx.RollBack(); item.Status = MapStatus(applied.Status); item.Action = ParameterEditItemAction(item.Status); result.BlockedTargets++; item.Message = applied.Message; }
+                            KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ParameterManager target " + item.ElementId.IntegerValue); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(parameter, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters });
+                            if (applied.Status == ParameterTransferStatus.COPIED) { KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "ParameterManager target " + item.ElementId.IntegerValue); item.Status = ParameterManagerStatus.UPDATED; item.Action = ParameterManagerAction.UPDATE; result.UpdatedTargets++; }
+                            else { KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "ParameterManager target " + item.ElementId.IntegerValue); item.Status = MapStatus(applied.Status); item.Action = ParameterEditItemAction(item.Status); result.BlockedTargets++; item.Message = applied.Message; }
                         }
                     }
                     catch (Exception ex) { item.Status = ParameterManagerStatus.FAILED; item.Action = ParameterManagerAction.FAILED; item.Message = ex.Message; result.FailedTargets++; }
                 }
-                group.Assimilate();
+                KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "ParameterManager per-item batch");
             }
             result.VerificationPassed = ParameterManagerVerificationService.Verify(doc, plan, result);
             result.Status = result.FailedTargets > 0 ? ParameterManagerStatus.PARTIAL : ParameterManagerStatus.UPDATED; return result;
@@ -48,10 +48,10 @@ namespace KhimTools.ParameterManager.Services
         {
             using (var group = new TransactionGroup(doc, "K-TOOLS Parameter Manager strict"))
             {
-                group.Start(); using (var tx = new Transaction(doc, "K-TOOLS Parameter Manager all-or-nothing"))
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "ParameterManager all-or-nothing group"); using (var tx = new Transaction(doc, "K-TOOLS Parameter Manager all-or-nothing"))
                 {
-                    try { tx.Start(); foreach (ParameterEditItem item in plan.Items.Where(i => i.IsSelected && i.Action == ParameterManagerAction.UPDATE)) { Element target = doc.GetElement(plan.Request.ParameterScope == ParameterScopeMode.TYPE ? item.TypeId : item.ElementId); Parameter p = ParameterTransferService.FindMatchingParameter(target, plan.SelectedParameterKey); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(p, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters }); if (applied.Status != ParameterTransferStatus.COPIED) throw new InvalidOperationException(applied.Status.ToString()); item.Status = ParameterManagerStatus.UPDATED; result.UpdatedTargets++; } tx.Commit(); group.Assimilate(); result.Status = ParameterManagerStatus.UPDATED; }
-                    catch (Exception ex) { if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack(); group.RollBack(); result.RolledBack = true; result.Status = ParameterManagerStatus.ALL_OR_NOTHING_ROLLED_BACK; result.Messages.Add(ex.Message); }
+                    try { KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ParameterManager all-or-nothing transaction"); foreach (ParameterEditItem item in plan.Items.Where(i => i.IsSelected && i.Action == ParameterManagerAction.UPDATE)) { Element target = doc.GetElement(plan.Request.ParameterScope == ParameterScopeMode.TYPE ? item.TypeId : item.ElementId); Parameter p = ParameterTransferService.FindMatchingParameter(target, plan.SelectedParameterKey); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(p, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters }); if (applied.Status != ParameterTransferStatus.COPIED) throw new InvalidOperationException(applied.Status.ToString()); item.Status = ParameterManagerStatus.UPDATED; result.UpdatedTargets++; } KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "ParameterManager all-or-nothing transaction"); KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "ParameterManager all-or-nothing group"); result.Status = ParameterManagerStatus.UPDATED; }
+                    catch (Exception ex) { KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "ParameterManager all-or-nothing transaction"); KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "ParameterManager all-or-nothing group"); result.RolledBack = true; result.Status = ParameterManagerStatus.ALL_OR_NOTHING_ROLLED_BACK; result.Messages.Add(ex.Message); }
                 }
             }
             result.VerificationPassed = !result.RolledBack && ParameterManagerVerificationService.Verify(doc, plan, result); return result;

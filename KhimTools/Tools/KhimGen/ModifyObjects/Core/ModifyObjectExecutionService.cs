@@ -16,7 +16,7 @@ namespace KhimTools.ModifyObjects.Core
             if (!preflight.IsValid) { result.Status = preflight.Statuses.Count == 0 ? ModifyObjectStatus.FAILED : preflight.Statuses[0]; result.Message = string.Join("; ", preflight.Errors); return result; }
             using (var group = new TransactionGroup(doc, "K-TOOLS Modify Objects"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "ModifyObjects.Batch");
                 try
                 {
                     result = operation == null ? new ModifyObjectResult { Status = ModifyObjectStatus.FAILED, Message = "No operation delegate." } : operation();
@@ -24,11 +24,11 @@ namespace KhimTools.ModifyObjects.Core
                     doc.Regenerate();
                     result.VerificationPassed = Verify(doc, plan);
                     if (!result.VerificationPassed) result.Status = ModifyObjectStatus.POST_VERIFY_FAILED;
-                    if (result.Status == ModifyObjectStatus.FAILED || result.Status == ModifyObjectStatus.POST_VERIFY_FAILED) group.RollBack(); else group.Assimilate();
+                    if (result.Status == ModifyObjectStatus.FAILED || result.Status == ModifyObjectStatus.POST_VERIFY_FAILED) KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "ModifyObjects.Batch"); else KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "ModifyObjects.Batch");
                 }
                 catch (Exception ex)
                 {
-                    if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
+                    if (group.GetStatus() == TransactionStatus.Started) KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "ModifyObjects.Batch");
                     result.Status = ModifyObjectStatus.FAILED; result.Message = ex.Message;
                 }
             }

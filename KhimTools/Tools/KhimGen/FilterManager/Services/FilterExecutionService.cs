@@ -26,7 +26,7 @@ namespace KhimTools.FilterManager.Services
                 try
                 {
                     transaction = new Transaction(doc, "K-TOOLS Filter Manager - " + target.Name);
-                    transaction.Start();
+                    KhimTools.Core.Revit.TransactionBoundary.Start(transaction, "FilterManager target " + target.Name);
                     foreach (ElementId removeId in targetPlan.RemoveFilterIds) if (ViewFilterApiAdapter.IsApplied(target, removeId)) { ViewFilterApiAdapter.RemoveFilter(target, removeId); targetResult.RemovedCount++; }
                     foreach (AppliedFilterState source in plan.SourceFilters)
                     {
@@ -50,11 +50,11 @@ namespace KhimTools.FilterManager.Services
                         foreach (ElementId id in ViewFilterApiAdapter.GetAppliedFilters(target)) if (!ordered.Contains(id)) ordered.Add(id);
                         if (!ViewFilterApiAdapter.SetOrder(target, ordered)) targetResult.Message += "FILTER_ORDER_WRITE_UNSUPPORTED; ";
                     }
-                    transaction.Commit(); targetResult.Status = FilterManagerStatusCode.APPLIED; result.AppliedTargets++;
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(transaction, "FilterManager target " + target.Name); targetResult.Status = FilterManagerStatusCode.APPLIED; result.AppliedTargets++;
                 }
                 catch (Exception ex)
                 {
-                    if (transaction != null && transaction.GetStatus() == TransactionStatus.Started) transaction.RollBack();
+                    if (transaction != null) KhimTools.Core.Revit.TransactionBoundary.RollBack(transaction, "FilterManager target " + target.Name);
                     targetResult.Status = FilterManagerStatusCode.FAILED; targetResult.Message = ex.Message; result.FailedTargets++;
                 }
                 finally { if (transaction != null) transaction.Dispose(); }

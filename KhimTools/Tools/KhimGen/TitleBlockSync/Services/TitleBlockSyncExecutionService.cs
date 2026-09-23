@@ -20,7 +20,7 @@ namespace KhimTools.TitleBlockSync.Services
             TransactionGroup group = null; bool groupStarted = false;
             try
             {
-                group = new TransactionGroup(doc, "K-TOOLS Title Block Sync 3.3"); group.Start(); groupStarted = true;
+                group = new TransactionGroup(doc, "K-TOOLS Title Block Sync 3.3"); KhimTools.Core.Revit.TransactionBoundary.Start(group, "TitleBlockSync batch"); groupStarted = true;
                 foreach (TitleBlockTargetPlan target in plan.Targets)
                 {
                     Stopwatch timer = Stopwatch.StartNew();
@@ -32,7 +32,7 @@ namespace KhimTools.TitleBlockSync.Services
                     Transaction transaction = new Transaction(doc, "Title Block Sync - " + target.TargetSheetNumber);
                     try
                     {
-                        transaction.Start();
+                        KhimTools.Core.Revit.TransactionBoundary.Start(transaction, "TitleBlockSync target " + target.TargetSheetNumber);
                         ViewSheet sheet = doc.GetElement(target.TargetSheetId) as ViewSheet;
                         var blocks = TitleBlockCollector.CollectTitleBlocks(doc, sheet);
                         if (blocks.Count != 1) throw new InvalidOperationException("Target must have exactly one title block at execution time.");
@@ -54,22 +54,22 @@ namespace KhimTools.TitleBlockSync.Services
                         ApplyParameters(doc, plan, target, block, sheet, result);
                         doc.Regenerate();
                         string verifyMessage; if (!TitleBlockSyncVerificationService.VerifyTarget(doc, target, plan, out verifyMessage)) throw new InvalidOperationException("POST_VERIFY_FAILED: " + verifyMessage);
-                        transaction.Commit();
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(transaction, "TitleBlockSync target " + target.TargetSheetNumber);
                         result.Status = result.TypeChanged || result.ParameterResults.Any(p => p.Changed) ? TitleBlockSyncStatusCode.SYNCED : TitleBlockSyncStatusCode.NO_CHANGE;
                         result.Messages.Add(verifyMessage); timer.Stop(); result.Duration = timer.Elapsed; batch.Results.Add(result); if (result.Status == TitleBlockSyncStatusCode.SYNCED) batch.Synced++; else batch.NoChange++;
                     }
                     catch (Exception ex)
                     {
-                        if (transaction.GetStatus() == TransactionStatus.Started) transaction.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(transaction, "TitleBlockSync target " + target.TargetSheetNumber);
                         result.Status = TitleBlockSyncStatusCode.FAILED; result.Messages.Add(ex.Message); timer.Stop(); result.Duration = timer.Elapsed; batch.Failed++; batch.Results.Add(result);
                     }
                 }
                 string sourceMessage; if (!TitleBlockSyncVerificationService.VerifySourceUnchanged(doc, plan, out sourceMessage)) { batch.Failed++; }
-                if (groupStarted && group.GetStatus() == TransactionStatus.Started) group.Assimilate();
+                if (groupStarted && group.GetStatus() == TransactionStatus.Started) KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "TitleBlockSync batch");
             }
             catch (Exception ex)
             {
-                if (groupStarted && group.GetStatus() == TransactionStatus.Started) group.RollBack(); batch.Failed++; batch.Results.Add(FailedResult(plan, null, TitleBlockSyncStatusCode.FAILED, ex.Message));
+                if (groupStarted && group.GetStatus() == TransactionStatus.Started) KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TitleBlockSync batch"); batch.Failed++; batch.Results.Add(FailedResult(plan, null, TitleBlockSyncStatusCode.FAILED, ex.Message));
             }
             finally { if (group != null) group.Dispose(); }
             return batch;

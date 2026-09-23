@@ -26,7 +26,7 @@ namespace KhimTools.SheetCopy.Services
             batch.Ready = plan.Items.Count(i => i.Status == SheetCopyStatusCode.READY);
             using (var group = new TransactionGroup(doc, "K-TOOLS Sheet Copy batch"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "SheetCopy batch");
                 foreach (SheetCopyItem item in plan.Items.OrderBy(i => i.SourceSheetNumber, StringComparer.OrdinalIgnoreCase))
                 {
                     if (item.Status != SheetCopyStatusCode.READY)
@@ -41,7 +41,7 @@ namespace KhimTools.SheetCopy.Services
                     else if (result.Status == SheetCopyStatusCode.PARTIAL) batch.Partial++;
                     else batch.Failed++;
                 }
-                group.Assimilate();
+                KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "SheetCopy batch");
             }
             return batch;
         }
@@ -54,7 +54,7 @@ namespace KhimTools.SheetCopy.Services
             {
                 try
                 {
-                    transaction.Start();
+                    KhimTools.Core.Revit.TransactionBoundary.Start(transaction, "SheetCopy target " + item.TargetSheetNumber);
                     ViewSheet source = doc.GetElement(item.SourceSheetId) as ViewSheet;
                     if (source == null) throw new InvalidOperationException("Source Sheet no longer exists.");
                     ElementId titleBlockTypeId = item.SourceHasTitleBlock ? item.SourceTitleBlockTypeId : ElementId.InvalidElementId;
@@ -112,13 +112,13 @@ namespace KhimTools.SheetCopy.Services
                     }
                     if (!SheetCopyVerificationService.Verify(doc, source, target, item, result, out string verifyMessage))
                         throw new InvalidOperationException(verifyMessage);
-                    transaction.Commit();
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(transaction, "SheetCopy target " + item.TargetSheetNumber);
                     result.Status = result.Messages.Any(m => m.IndexOf("deferred", StringComparison.OrdinalIgnoreCase) >= 0 || m.IndexOf("not preserved", StringComparison.OrdinalIgnoreCase) >= 0)
                         ? SheetCopyStatusCode.PARTIAL : SheetCopyStatusCode.CREATED;
                 }
                 catch (Exception ex)
                 {
-                    if (transaction.GetStatus() == TransactionStatus.Started) transaction.RollBack();
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(transaction, "SheetCopy target " + item.TargetSheetNumber);
                     result.Status = SheetCopyStatusCode.FAILED;
                     result.Messages.Add(ex.Message);
                 }

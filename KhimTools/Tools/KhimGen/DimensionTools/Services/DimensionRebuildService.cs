@@ -37,12 +37,12 @@ namespace KhimTools.DimensionTools.Services
 
             using (var group = new TransactionGroup(doc, "K-TOOLS Rebuild Dimension"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "DimensionTools.Rebuild");
                 try
                 {
                     using (var tx = new Transaction(doc, "Create and Verify Replacement Dimensions"))
                     {
-                        tx.Start();
+                        KhimTools.Core.Revit.TransactionBoundary.Start(tx, "DimensionTools.Rebuild");
                         var replacements = new List<Dimension>();
                         for (int i = 0; i < chains.Length; i++)
                         {
@@ -73,13 +73,13 @@ namespace KhimTools.DimensionTools.Services
                         result.VerificationPassed = true;
                         result.Status = DimensionStatus.REPLACED;
                         result.Message = "Replacement(s) verified before and after source deletion.";
-                        tx.Commit();
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "DimensionTools.Rebuild");
                     }
-                    group.Assimilate();
+                    KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "DimensionTools.Rebuild");
                 }
                 catch (Exception ex)
                 {
-                    if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "DimensionTools.Rebuild");
                     result.Status = DimensionStatus.FAILED;
                     result.Message = ex.Message;
                 }
@@ -123,8 +123,8 @@ namespace KhimTools.DimensionTools.Services
 
         private static DimensionResult Rollback(Transaction tx, TransactionGroup group, DimensionResult result, DimensionStatus status, string message)
         {
-            if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-            if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
+            KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "DimensionTools.Rebuild");
+            KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "DimensionTools.Rebuild");
             result.Status = status; result.Message = message; return result;
         }
 

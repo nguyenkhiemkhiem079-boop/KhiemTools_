@@ -32,6 +32,11 @@ namespace KhimTools.SlabStep.Forms
         private Floor _floorLow;
         private Floor _floorHigh;
         private List<Curve> _sharedBoundaryCurves = new List<Curve>();
+        private ElementId _floorLowId = ElementId.InvalidElementId;
+        private ElementId _floorHighId = ElementId.InvalidElementId;
+        private string _floorLowUniqueId = string.Empty;
+        private string _floorHighUniqueId = string.Empty;
+        private string _boundaryPreviewFingerprint = string.Empty;
         private SlabScanResult _scanResult;
         private SlabStepSettings _settings = new SlabStepSettings();
         
@@ -502,6 +507,7 @@ namespace KhimTools.SlabStep.Forms
             _floorHigh = a > b ? first : second; _floorLow = a > b ? second : first;
             _sharedBoundaryCurves = SlabStepService.FindSharedBoundaries(_floorHigh, _floorLow, new SharedBoundaryOptions { GeometryToleranceMm = 2, MinimumLengthMm = 10 }).Select(x => x.Curve).ToList();
             if (_sharedBoundaryCurves.Count == 0) throw new InvalidOperationException("Không tìm thấy cạnh chung hợp lệ giữa hai sàn.");
+            CapturePreviewIdentity();
             UpdateFloorValues();
             _lblLowFloorInfo.Text = $"Cao: ID {_floorHigh.Id} · Thấp: ID {_floorLow.Id} · h={_txtHeight.Text} mm";
             _lblBoundaryInfo.Text = $"Đã phát hiện {_sharedBoundaryCurves.Count} đoạn cạnh chung.";
@@ -511,6 +517,7 @@ namespace KhimTools.SlabStep.Forms
         {
             if (_floorHigh == null || _floorLow == null) { TaskDialog.Show("Cạnh chung", "Chọn hai sàn hoặc quét panel trước."); return; }
             _sharedBoundaryCurves = SlabStepService.FindSharedBoundaries(_floorHigh, _floorLow, new SharedBoundaryOptions { GeometryToleranceMm = 2, MinimumLengthMm = 10 }).Select(x => x.Curve).ToList();
+            CapturePreviewIdentity();
             _lblBoundaryInfo.Text = $"Đang dùng {_sharedBoundaryCurves.Count} cạnh chung.";
         }
 
@@ -523,7 +530,7 @@ namespace KhimTools.SlabStep.Forms
                 if (_scanResult.Candidates.Count == 0) { TaskDialog.Show("SLAB STEP DETECTOR", text + "Không tìm thấy chuyển tiếp sàn."); return; }
                 text += string.Join("\n", _scanResult.Candidates.Select((x, i) => $"{i + 1}. High {x.High.FloorId} → Low {x.Low.FloorId} | ΔH {SlabStepService.InternalToMillimetres(x.StepHeight):0.#} mm | Shared {SlabStepService.InternalToMillimetres(x.TotalBoundaryLength):0.#} mm"));
                 TaskDialog.Show("SLAB STEP DETECTOR", text);
-                var candidate = _scanResult.Candidates[0]; _floorHigh = candidate.High.Floor; _floorLow = candidate.Low.Floor; _sharedBoundaryCurves = candidate.Boundaries.Select(x => x.Curve).ToList(); UpdateFloorValues();
+                var candidate = _scanResult.Candidates.OrderBy(x => x.High.FloorId.IntegerValue).ThenBy(x => x.Low.FloorId.IntegerValue).First(); _floorHigh = candidate.High.Floor; _floorLow = candidate.Low.Floor; _sharedBoundaryCurves = candidate.Boundaries.Select(x => x.Curve).ToList(); CapturePreviewIdentity(); UpdateFloorValues();
                 _lblLowFloorInfo.Text = $"Cao: ID {_floorHigh.Id} · Thấp: ID {_floorLow.Id} · h={_txtHeight.Text} mm";
                 _lblBoundaryInfo.Text = $"Scanner: {_scanResult.Candidates.Count} candidates · candidate đầu tiên.";
             }
@@ -543,6 +550,20 @@ namespace KhimTools.SlabStep.Forms
             if (!_sharedBoundaryCurves.Any())
             {
                 TaskDialog.Show("Lỗi", "Vui lòng chọn các Sàn ranh giới giật cấp (Pick Floors) trước.");
+                return;
+            }
+
+            Floor currentHigh = _doc.GetElement(_floorHighId) as Floor;
+            Floor currentLow = _doc.GetElement(_floorLowId) as Floor;
+            if (currentHigh == null || currentLow == null || !string.Equals(currentHigh.UniqueId, _floorHighUniqueId, StringComparison.Ordinal) || !string.Equals(currentLow.UniqueId, _floorLowUniqueId, StringComparison.Ordinal))
+            {
+                TaskDialog.Show("Preview không còn hợp lệ", "Sàn nguồn đã thay đổi hoặc bị xóa. Hãy quét/chọn lại trước khi tạo.");
+                return;
+            }
+            List<Curve> currentBoundaries = SlabStepService.FindSharedBoundaries(currentHigh, currentLow, new SharedBoundaryOptions { GeometryToleranceMm = 2, MinimumLengthMm = 10 }).Select(x => x.Curve).ToList();
+            if (currentBoundaries.Count == 0 || !string.Equals(SlabStepService.BoundaryFingerprint(currentBoundaries), _boundaryPreviewFingerprint, StringComparison.Ordinal))
+            {
+                TaskDialog.Show("Preview không còn hợp lệ", "Hình học cạnh chung đã thay đổi. Hãy tạo preview mới trước khi tiếp tục.");
                 return;
             }
             
@@ -587,33 +608,34 @@ namespace KhimTools.SlabStep.Forms
             
             _settings.ReverseOrientation = _chkReverse.Checked;
             
-            int successCount = 0;
             try
             {
-                foreach (var curve in _sharedBoundaryCurves)
+                SlabStepExecutionResult result = SlabStepService.GenerateSlabSteps(
+                    _doc, currentBoundaries, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm, currentLow);
+
+                if (result.Status == SlabStepExecutionStatus.CREATED)
                 {
-                    FamilyInstance instance = SlabStepService.GenerateSlabStep(
-                        _doc, curve, selectedItem.Symbol, _settings, heightMm, thickHighMm, thickLowMm, _floorLow);
-                    if (instance != null)
-                    {
-                        successCount++;
-                    }
-                }
-                
-                if (successCount > 0)
-                {
-                    TaskDialog.Show("Thành công", $"Đã tạo thành công {successCount} / {_sharedBoundaryCurves.Count} giật cấp sàn dọc theo các ranh giới!");
+                    TaskDialog.Show("Thành công", $"Đã tạo thành công {result.CreatedElementIds.Count} / {_sharedBoundaryCurves.Count} giật cấp sàn dọc theo các ranh giới!\nTransaction: {result.TransactionResult}");
                     this.Close();
                 }
                 else
                 {
-                    TaskDialog.Show("Thất bại", "Không thể chèn nách sàn giật cấp. Vui lòng kiểm tra lại thiết lập Family.");
+                    TaskDialog.Show("Thất bại", result.DiagnosticCode + "\n" + result.Message + "\nTransaction: " + result.TransactionResult + "\nRollback verified: " + result.RollbackVerified);
                 }
             }
             catch (Exception ex)
             {
                 TaskDialog.Show("Lỗi thực thi", ex.Message);
             }
+        }
+
+        private void CapturePreviewIdentity()
+        {
+            _floorHighId = _floorHigh == null ? ElementId.InvalidElementId : _floorHigh.Id;
+            _floorLowId = _floorLow == null ? ElementId.InvalidElementId : _floorLow.Id;
+            _floorHighUniqueId = _floorHigh == null ? string.Empty : _floorHigh.UniqueId;
+            _floorLowUniqueId = _floorLow == null ? string.Empty : _floorLow.UniqueId;
+            _boundaryPreviewFingerprint = SlabStepService.BoundaryFingerprint(_sharedBoundaryCurves);
         }
         
         // Helper classes for Floor Selection Filter

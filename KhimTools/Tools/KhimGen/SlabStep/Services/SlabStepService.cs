@@ -2,10 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Core.Logging;
 using KhimTools.Core.Revit;
+using KhimTools.Core.Workflow;
 using KhimTools.SlabStep.Models;
 
 namespace KhimTools.SlabStep.Services
@@ -148,7 +150,29 @@ namespace KhimTools.SlabStep.Services
                 var p0 = a + hv*start; var p1 = a + hv*end;
                 result.Add(new SharedBoundarySegment { Curve = Line.CreateBound(p0,p1) });
             }
-            return result;
+            return result.GroupBy(segment => BoundaryKey(segment.Curve), StringComparer.Ordinal).Select(group => group.First())
+                .OrderBy(segment => BoundaryKey(segment.Curve), StringComparer.Ordinal).ToList();
+        }
+
+        public static string BoundaryFingerprint(IEnumerable<Curve> curves)
+        {
+            return WorkflowFingerprint.Compute((curves ?? Enumerable.Empty<Curve>()).Where(curve => curve != null)
+                .Select(BoundaryKey).Distinct(StringComparer.Ordinal).OrderBy(key => key, StringComparer.Ordinal));
+        }
+
+        private static string BoundaryKey(Curve curve)
+        {
+            XYZ first = curve.GetEndPoint(0), second = curve.GetEndPoint(1);
+            string a = PointKey(first), b = PointKey(second);
+            if (string.CompareOrdinal(a, b) > 0) { string swap = a; a = b; b = swap; }
+            return a + "/" + b + "/" + curve.Length.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static string PointKey(XYZ point)
+        {
+            return point.X.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "," +
+                   point.Y.ToString("R", System.Globalization.CultureInfo.InvariantCulture) + "," +
+                   point.Z.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         /// <summary>
@@ -198,30 +222,39 @@ namespace KhimTools.SlabStep.Services
         /// </summary>
         public static FamilyInstance GenerateSlabStep(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm, Floor floorLow = null)
         {
-            if (doc == null || boundaryCurve == null || symbol == null || settings == null)
-                return null;
+            SlabStepExecutionResult result = GenerateSlabStepWithResult(doc, boundaryCurve, symbol, settings, heightMm, highThickMm, lowThickMm, floorLow);
+            return result.Status == SlabStepExecutionStatus.CREATED && result.CreatedElementIds.Count == 1
+                ? doc.GetElement(result.CreatedElementIds[0]) as FamilyInstance
+                : null;
+        }
+
+        public static SlabStepExecutionResult GenerateSlabStepWithResult(Document doc, Curve boundaryCurve, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm, Floor floorLow = null)
+        {
+            var result = new SlabStepExecutionResult();
+            if (doc == null || doc.IsReadOnly || boundaryCurve == null || symbol == null || settings == null || symbol.Document != doc)
+                return ValidationFailure(result, "SLAB_STEP_INVALID_INPUT", "Document, curve, symbol, or settings are unavailable or belong to another document.");
+            if (!IsFinite(heightMm) || heightMm <= 0 || !IsFinite(highThickMm) || highThickMm < 0 || !IsFinite(lowThickMm) || lowThickMm < 0)
+                return ValidationFailure(result, "SLAB_STEP_INVALID_DIMENSIONS", "Height must be positive; optional slab thicknesses must be finite and non-negative.");
+
+            XYZ p1;
+            XYZ p2;
+            try { p1 = boundaryCurve.GetEndPoint(0); p2 = boundaryCurve.GetEndPoint(1); }
+            catch (Exception ex) { return RevitFailure(result, "SLAB_STEP_INVALID_BOUNDARY", ex); }
+            if (p1 == null || p2 == null || p1.DistanceTo(p2) <= 1e-9)
+                return ValidationFailure(result, "SLAB_STEP_INVALID_BOUNDARY", "Boundary curve must have two distinct endpoints.");
 
             // Lấy Level của View hiện hành để làm Host chính
-            Level level = doc.ActiveView.GenLevel;
+            Level level = doc.ActiveView == null ? null : doc.ActiveView.GenLevel;
             if (level == null)
             {
                 level = new FilteredElementCollector(doc)
                     .OfClass(typeof(Level))
                     .Cast<Level>()
+                    .OrderBy(candidate => candidate.Elevation)
+                    .ThenBy(candidate => candidate.Id.IntegerValue)
                     .FirstOrDefault();
             }
-            if (level == null) return null;
-
-            // Kích hoạt Symbol trước khi tạo
-            if (!symbol.IsActive)
-            {
-                using (var t = new Transaction(doc, "K-TOOLS - Activate Symbol"))
-                {
-                    t.Start();
-                    symbol.Activate();
-                    t.Commit();
-                }
-            }
+            if (level == null) return ValidationFailure(result, "SLAB_STEP_LEVEL_MISSING", "No valid placement Level is available.");
 
             // Quy đổi đơn vị mm sang feet (internal Revit units)
             double heightDiff = RevitUnitService.MillimetresToFeet(heightMm);
@@ -229,9 +262,6 @@ namespace KhimTools.SlabStep.Services
             double thickLow = RevitUnitService.MillimetresToFeet(lowThickMm);
 
             // Lấy điểm đầu cuối của cạnh ranh giới
-            XYZ p1 = boundaryCurve.GetEndPoint(0);
-            XYZ p2 = boundaryCurve.GetEndPoint(1);
-
             // Đưa cao độ điểm chèn về đúng cao độ của Level
             p1 = new XYZ(p1.X, p1.Y, level.Elevation);
             p2 = new XYZ(p2.X, p2.Y, level.Elevation);
@@ -250,74 +280,174 @@ namespace KhimTools.SlabStep.Services
             XYZ startPt = shouldSwap ? p2 : p1;
             XYZ endPt = shouldSwap ? p1 : p2;
 
-            FamilyInstance instance = null;
-
             using (var tx = new Transaction(doc, "K-TOOLS - Create Slab Step"))
             {
-                tx.Start();
+                if (tx.Start() != TransactionStatus.Started) return RevitFailure(result, "SLAB_STEP_TRANSACTION_START", "Creation transaction did not start.");
+                try
+                {
+                if (!symbol.IsActive) symbol.Activate();
 
                 // Tạo Line đặt family — bắt buộc dùng overload NewFamilyInstance(Line, ...)
                 // cho line-based family. Dùng point-based insert rồi đổi LocationCurve sau
                 // là anti-pattern không hoạt động với line-based families trong Revit 2022+.
                 Line placementLine = Line.CreateBound(startPt, endPt);
 
-                try
-                {
-                    // Thử tạo dạng line-based trước (đúng với family nách sàn giật cấp)
-                    instance = doc.Create.NewFamilyInstance(
-                        placementLine, symbol, level,
-                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                }
-                catch
-                {
-                    // Fallback: nếu symbol không phải line-based, insert bằng điểm giữa
-                    XYZ midPt = (startPt + endPt) / 2.0;
-                    instance = doc.Create.NewFamilyInstance(
-                        midPt, symbol, level,
-                        Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
-                }
+                FamilyInstance instance;
+                FamilyPlacementType placementType = symbol.Family.FamilyPlacementType;
+                if (placementType == FamilyPlacementType.CurveBased)
+                    instance = doc.Create.NewFamilyInstance(placementLine, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                else if (placementType == FamilyPlacementType.OneLevelBased)
+                    instance = doc.Create.NewFamilyInstance((startPt + endPt) / 2.0, symbol, level, Autodesk.Revit.DB.Structure.StructuralType.NonStructural);
+                else
+                    throw new InvalidOperationException("UNSUPPORTED_FAMILY_PLACEMENT: " + placementType);
 
                 if (instance == null)
                 {
-                    tx.RollBack();
-                    return null;
+                    result.RollbackResult = tx.RollBack();
+                    result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack;
+                    result.Status = result.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
+                    result.DiagnosticCode = "SLAB_STEP_CREATION_RETURNED_NULL";
+                    result.Message = "Revit did not create a Slab Step instance.";
+                    return result;
                 }
 
                 // Gán tham số chiều cao giật cấp h
                 if (!string.IsNullOrEmpty(settings.HeightParameterName))
                 {
                     var pHeight = instance.LookupParameter(settings.HeightParameterName);
-                    if (pHeight != null && !pHeight.IsReadOnly)
-                    {
-                        pHeight.Set(heightDiff);
-                    }
+                    SetLengthParameter(pHeight, heightDiff, settings.HeightParameterName);
                 }
 
                 // Gán tham số dày sàn cao (nếu có)
                 if (!string.IsNullOrEmpty(settings.HighSlabThicknessParameter) && highThickMm > 0)
                 {
                     var pThickHigh = instance.LookupParameter(settings.HighSlabThicknessParameter);
-                    if (pThickHigh != null && !pThickHigh.IsReadOnly)
-                    {
-                        pThickHigh.Set(thickHigh);
-                    }
+                    SetLengthParameter(pThickHigh, thickHigh, settings.HighSlabThicknessParameter);
                 }
 
                 // Gán tham số dày sàn thấp (nếu có)
                 if (!string.IsNullOrEmpty(settings.LowSlabThicknessParameter) && lowThickMm > 0)
                 {
                     var pThickLow = instance.LookupParameter(settings.LowSlabThicknessParameter);
-                    if (pThickLow != null && !pThickLow.IsReadOnly)
-                    {
-                        pThickLow.Set(thickLow);
-                    }
+                    SetLengthParameter(pThickLow, thickLow, settings.LowSlabThicknessParameter);
                 }
 
-                tx.Commit();
+                result.TransactionResult = tx.Commit();
+                if (result.TransactionResult != TransactionStatus.Committed)
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started) { result.RollbackResult = tx.RollBack(); result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack; }
+                    return RevitFailure(result, "SLAB_STEP_TRANSACTION_COMMIT", "Creation transaction did not commit: " + result.TransactionResult);
+                }
+                result.CreatedElementIds.Add(instance.Id);
+                result.Status = SlabStepExecutionStatus.CREATED;
+                result.DiagnosticCode = "SLAB_STEP_CREATED";
+                result.Message = "Slab Step was created and its transaction committed.";
+                }
+                catch (Exception ex)
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started)
+                    {
+                        result.RollbackResult = tx.RollBack();
+                        result.RollbackVerified = result.RollbackResult == TransactionStatus.RolledBack;
+                    }
+                    return RevitFailure(result, "SLAB_STEP_CREATE_FAILED", ex);
+                }
             }
-
-            return instance;
+            return result;
         }
+
+        public static SlabStepExecutionResult GenerateSlabSteps(Document doc, IEnumerable<Curve> boundaries, FamilySymbol symbol, SlabStepSettings settings, double heightMm, double highThickMm, double lowThickMm, Floor floorLow = null)
+        {
+            Stopwatch timer = Stopwatch.StartNew();
+            IList<Curve> curves = (boundaries ?? Enumerable.Empty<Curve>()).ToList();
+            var batch = new SlabStepExecutionResult
+            {
+                Operation = "SlabStep.GenerateBatch",
+                InputSummary = "boundaries=" + curves.Count + ";heightMm=" + heightMm.ToString(System.Globalization.CultureInfo.InvariantCulture)
+            };
+            if (doc == null || doc.IsReadOnly || curves.Count == 0 || symbol == null || settings == null)
+                return ValidationFailure(batch, "SLAB_STEP_BATCH_INVALID_INPUT", "A writable project, at least one boundary, a symbol, and settings are required.");
+
+            using (var group = new TransactionGroup(doc, "K-TOOLS - Create Slab Steps"))
+            {
+                bool started = false;
+                try
+                {
+                    if (group.Start() != TransactionStatus.Started)
+                        return RevitFailure(batch, "SLAB_STEP_BATCH_GROUP_START", "Slab Step batch TransactionGroup did not start.");
+                    started = true;
+                    foreach (Curve curve in curves)
+                    {
+                        SlabStepExecutionResult one = GenerateSlabStepWithResult(doc, curve, symbol, settings, heightMm, highThickMm, lowThickMm, floorLow);
+                        foreach (ElementId id in one.CreatedElementIds) if (!batch.CreatedElementIds.Contains(id)) batch.CreatedElementIds.Add(id);
+                        if (one.Status != SlabStepExecutionStatus.CREATED)
+                        {
+                            batch.DiagnosticCode = one.DiagnosticCode;
+                            batch.Message = one.Message;
+                            batch.ExceptionType = one.ExceptionType;
+                            batch.FailureCount++;
+                            batch.TransactionResult = one.TransactionResult;
+                            batch.RollbackResult = group.RollBack();
+                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                            batch.Status = batch.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
+                            timer.Stop(); batch.Duration = timer.Elapsed;
+                            return batch;
+                        }
+                    }
+                    batch.TransactionResult = group.Assimilate();
+                    if (batch.TransactionResult != TransactionStatus.Committed)
+                    {
+                        if (group.GetStatus() == TransactionStatus.Started)
+                        {
+                            batch.RollbackResult = group.RollBack();
+                            batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                        }
+                        batch.Status = SlabStepExecutionStatus.REVIT_FAILURE;
+                        batch.DiagnosticCode = "SLAB_STEP_BATCH_GROUP_COMMIT";
+                        batch.Message = "Slab Step batch did not commit: " + batch.TransactionResult;
+                        batch.FailureCount++;
+                        started = false;
+                        return batch;
+                    }
+                    started = false;
+                    batch.Status = SlabStepExecutionStatus.CREATED;
+                    batch.DiagnosticCode = "SLAB_STEP_BATCH_CREATED";
+                    batch.Message = "Created " + batch.CreatedElementIds.Count + " Slab Step instance(s).";
+                }
+                catch (Exception ex)
+                {
+                    batch.ExceptionType = ex.GetType().FullName;
+                    batch.DiagnosticCode = "SLAB_STEP_BATCH_FAILED";
+                    batch.Message = ex.Message;
+                    batch.FailureCount++;
+                    KToolsLog.Current.Exception("SlabStep.GenerateBatch", ex, batch.DiagnosticCode);
+                    if (started && group.GetStatus() == TransactionStatus.Started)
+                    {
+                        batch.RollbackResult = group.RollBack();
+                        batch.RollbackVerified = batch.RollbackResult == TransactionStatus.RolledBack;
+                    }
+                    batch.Status = batch.RollbackVerified ? SlabStepExecutionStatus.ROLLED_BACK : SlabStepExecutionStatus.REVIT_FAILURE;
+                }
+            }
+            timer.Stop(); batch.Duration = timer.Elapsed;
+            return batch;
+        }
+
+        private static void SetLengthParameter(Parameter parameter, double value, string name)
+        {
+            if (parameter == null) throw new InvalidOperationException("SLAB_STEP_PARAMETER_MISSING: " + name);
+            if (parameter.IsReadOnly) throw new InvalidOperationException("SLAB_STEP_PARAMETER_READ_ONLY: " + name);
+            if (parameter.StorageType != StorageType.Double) throw new InvalidOperationException("SLAB_STEP_PARAMETER_STORAGE_UNSUPPORTED: " + name);
+            parameter.Set(value);
+        }
+
+        private static bool IsFinite(double value) { return !double.IsNaN(value) && !double.IsInfinity(value); }
+        private static SlabStepExecutionResult ValidationFailure(SlabStepExecutionResult result, string code, string message)
+        { result.Status = SlabStepExecutionStatus.VALIDATION_FAILURE; result.DiagnosticCode = code; result.Message = message; return result; }
+        private static SlabStepExecutionResult RevitFailure(SlabStepExecutionResult result, string code, string message)
+        { result.Status = SlabStepExecutionStatus.REVIT_FAILURE; result.DiagnosticCode = code; result.Message = message; return result; }
+        private static SlabStepExecutionResult RevitFailure(SlabStepExecutionResult result, string code, Exception exception)
+        { result.ExceptionType = exception == null ? string.Empty : exception.GetType().FullName; result.Message = exception == null ? "Unknown Revit failure." : exception.Message; KToolsLog.Current.Exception("SlabStep", exception, code); return RevitFailure(result, code, result.Message); }
 
         #region PRIVATE GEOMETRIC HELPERS
 
