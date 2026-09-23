@@ -19,7 +19,23 @@ namespace KhimTools.ScheduleSplit.Models
 
     public sealed class ScheduleSplitExecutionResult
     {
-        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString()); } }
+        public WorkflowOutcome Outcome
+        {
+            get
+            {
+                switch (Status)
+                {
+                    case ScheduleSplitStatusCode.READY: return WorkflowOutcome.Ready;
+                    case ScheduleSplitStatusCode.CREATED: return WorkflowOutcome.Succeeded;
+                    case ScheduleSplitStatusCode.PARTIAL: return WorkflowOutcome.Partial;
+                    case ScheduleSplitStatusCode.FAILED:
+                    case ScheduleSplitStatusCode.POST_VERIFY_FAILED:
+                    case ScheduleSplitStatusCode.SEGMENT_CREATE_FAILED:
+                    case ScheduleSplitStatusCode.SEGMENT_PLACEMENT_FAILED: return WorkflowOutcome.Failed;
+                    default: return WorkflowOutcome.Blocked;
+                }
+            }
+        }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public ElementId SourceScheduleId { get; set; } = ElementId.InvalidElementId;
         public ElementId WorkingScheduleId { get; set; } = ElementId.InvalidElementId;
@@ -35,7 +51,13 @@ namespace KhimTools.ScheduleSplit.Models
     {
         public WorkflowOutcome Outcome
         {
-            get { return Failed > 0 ? (Created == 0 ? WorkflowOutcome.Failed : WorkflowOutcome.Partial) : (Created == 0 ? WorkflowOutcome.NoChange : WorkflowOutcome.Succeeded); }
+            get
+            {
+                if (Failed > 0) return Created > 0 ? WorkflowOutcome.Partial : WorkflowOutcome.Failed;
+                if (Partial > 0) return WorkflowOutcome.Partial;
+                if (Blocked > 0) return Created > 0 ? WorkflowOutcome.Partial : WorkflowOutcome.Blocked;
+                return Created > 0 ? WorkflowOutcome.Succeeded : WorkflowOutcome.NoChange;
+            }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public OperationMetrics Metrics { get; } = new OperationMetrics();

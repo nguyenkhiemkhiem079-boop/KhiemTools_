@@ -34,7 +34,6 @@ namespace KhimTools.TitleBlockSync.Models
         public ElementId OldTypeId { get; set; } = ElementId.InvalidElementId;
         public ElementId NewTypeId { get; set; } = ElementId.InvalidElementId;
         public bool TypeChange { get; set; }
-        public XYZ OriginalPosition { get; set; }
         public List<ParameterSyncTargetPlan> InstanceParameters { get; } = new List<ParameterSyncTargetPlan>();
         public List<ParameterSyncTargetPlan> SheetParameters { get; } = new List<ParameterSyncTargetPlan>();
         public TitleBlockSyncStatusCode Status { get; set; } = TitleBlockSyncStatusCode.READY;

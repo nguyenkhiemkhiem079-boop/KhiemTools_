@@ -21,7 +21,7 @@ namespace KhimTools.DimensionTools.Services
                 DimensionReferenceRole role = string.Equals(mode, "END_TO_END", System.StringComparison.OrdinalIgnoreCase) || string.Equals(mode, "LENGTH", System.StringComparison.OrdinalIgnoreCase) ? DimensionReferenceRole.BEAM_END : DimensionReferenceRole.BEAM_FACE;
                 context.References.AddRange(DimensionReferenceService.FromElements(doc, view, new[] { beam }, role, context.Options.Axis));
             }
-            if (context.References.Count == 0 && curved > 0) { var blocked = new DimensionPlan { Context = context, ViewId = view.Id, Operation = DimensionOperation.BEAM, Status = DimensionStatus.CURVED_BEAM_UNSUPPORTED }; blocked.Errors.Add("CURVED_BEAM_UNSUPPORTED"); return blocked; }
+            if (context.References.Count == 0 && curved > 0) { var blocked = DimensionPlanBuilder.CreateBasePlan(context); blocked.Status = DimensionStatus.CURVED_BEAM_UNSUPPORTED; blocked.Errors.Add("CURVED_BEAM_UNSUPPORTED"); return blocked; }
             DimensionPlan plan = DimensionPlanBuilder.Build(context); if (curved > 0) plan.Warnings.Add("CURVED_BEAM_UNSUPPORTED: " + curved + " curved beam(s) skipped."); return plan;
         }
         public static DimensionResult Create(Document doc, DimensionPlan plan) { return DimensionExecutionService.Execute(doc, plan); }

@@ -13,7 +13,6 @@ namespace KhimTools.ModifyObjects.Core
         public ElementId LevelId { get; set; }
         public double BaseOffset { get; set; }
         public double TopOffset { get; set; }
-        public XYZ Location { get; set; }
         public string GeometryFingerprint { get; set; }
         public string ParameterFingerprint { get; set; }
         public ElementId GroupId { get; set; }

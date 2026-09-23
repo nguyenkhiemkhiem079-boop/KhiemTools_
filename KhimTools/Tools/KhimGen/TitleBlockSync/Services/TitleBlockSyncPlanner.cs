@@ -43,7 +43,6 @@ namespace KhimTools.TitleBlockSync.Services
                 var targetInfo = TitleBlockCollector.Analyze(doc, sheet, targetBlock); targetInfos.Add(targetInfo);
                 targetPlan.TargetTitleBlockId = targetBlock.Id; targetPlan.OldTypeId = targetBlock.GetTypeId(); targetPlan.NewTypeId = plan.SourceTitleBlockTypeId;
                 targetPlan.TypeChange = plan.Options.SyncTitleBlockType && targetPlan.OldTypeId != targetPlan.NewTypeId;
-                var location = targetBlock.Location as LocationPoint; targetPlan.OriginalPosition = location == null ? null : location.Point;
                 BuildTargetParameters(plan, targetPlan, targetBlock, sheet);
                 plan.Targets.Add(targetPlan);
             }

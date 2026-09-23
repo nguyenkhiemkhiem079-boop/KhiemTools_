@@ -48,6 +48,24 @@ foreach ($path in $modernPlans) {
     Check ("modern-plan:{0}:diagnostics" -f $path) ($text -match 'WorkflowDiagnostic')
 }
 
+# Plans retain detached value snapshots and stable IDs, never live Revit API objects.
+$parameterPlan = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ParameterManager\Models\ParameterManagerPlan.cs')
+$parameterRequest = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ParameterManager\Models\ParameterManagerPlanRequest.cs')
+$modifyPlan = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ModifyObjects\Core\ModifyObjectPlan.cs')
+$modifyContext = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ModifyObjects\Core\ModifyObjectPlanContext.cs')
+$modifyPoint = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ModifyObjects\Core\ModifyObjectPointSnapshot.cs')
+$dimensionPlan = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\DimensionTools\Core\DimensionPlan.cs')
+$dimensionContext = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\DimensionTools\Core\DimensionPlanContext.cs')
+$dimensionExecution = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\DimensionTools\Core\DimensionExecutionService.cs')
+Check 'parameter-plan-uses-detached-request' ($parameterPlan -match 'ParameterManagerPlanRequest\s+Request' -and $parameterPlan -notmatch 'public\s+Document\s+')
+Check 'parameter-request-excludes-live-document-and-delegate' ($parameterRequest -notmatch 'public\s+Document\s+|public\s+Func\s*<')
+Check 'modify-plan-uses-detached-context' ($modifyPlan -match 'ModifyObjectPlanContext\s+Context')
+Check 'modify-context-excludes-live-document-and-xyz-fields' ($modifyContext -notmatch 'public\s+Document\s+|public\s+XYZ\s+')
+Check 'modify-point-is-primitive-snapshot' ($modifyPoint -match 'double\s+X' -and $modifyPoint -match 'double\s+Y' -and $modifyPoint -match 'double\s+Z' -and $modifyPoint -notmatch 'public\s+XYZ\s+\w+\s*\{')
+Check 'dimension-plan-uses-detached-context-and-snapshots' ($dimensionPlan -match 'DimensionPlanContext\s+Context' -and $dimensionPlan -match 'IList<DimensionReferenceSnapshot>' -and $dimensionPlan -match 'DimensionLineSnapshot\s+DimensionLine')
+Check 'dimension-context-excludes-live-api-object-fields' ($dimensionContext -notmatch 'public\s+(Document|View|Reference|Line|XYZ)\s+')
+Check 'dimension-commit-status-is-verified' ($dimensionExecution -match 'TransactionStatus\s+commitStatus\s*=\s*tx\.Commit\(\)' -and $dimensionExecution -match 'commitStatus\s*!=\s*TransactionStatus\.Committed')
+
 $modernResults = @(
     "Tools\KhimGen\SheetCopy\Models\SheetCopyResult.cs",
     "Tools\KhimGen\ScheduleSplit\Models\ScheduleSplitResult.cs",

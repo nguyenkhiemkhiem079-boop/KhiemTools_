@@ -317,6 +317,7 @@ namespace KhimTools.RebarTool.Forms
             int newlyLoaded = 0;
             int alreadyLoaded = 0;
             int failed = 0;
+            var newlyLoadedItems = new List<RebarShapeItemViewModel>();
 
             PrgProgress.Visibility = System.Windows.Visibility.Visible;
             TxtStatus.Text = "Đang nạp " + itemsToLoad.Count + " Rebar Shapes vào dự án...";
@@ -339,8 +340,7 @@ namespace KhimTools.RebarTool.Forms
                         if (shape != null)
                         {
                             newlyLoaded++;
-                            item.IsLoaded = true;
-                            item.IsSelected = false;
+                            newlyLoadedItems.Add(item);
                         }
                         else
                         {
@@ -348,7 +348,18 @@ namespace KhimTools.RebarTool.Forms
                         }
                     }
 
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không thể commit Rebar Shapes đã nạp. Trạng thái transaction: {commitStatus}.");
+                    }
+                }
+
+                foreach (var item in newlyLoadedItems)
+                {
+                    item.IsLoaded = true;
+                    item.IsSelected = false;
                 }
 
                 UpdateSummary();

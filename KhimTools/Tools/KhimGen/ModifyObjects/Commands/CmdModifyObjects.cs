@@ -23,29 +23,29 @@ namespace KhimTools.ModifyObjects.Commands
             {
                 if (form.ShowDialog() != System.Windows.Forms.DialogResult.OK || form.Plan == null) return Result.Cancelled;
                 if (form.Plan.Context.PreviewOnly) return Result.Cancelled; // Preview never writes model state.
-                ModifyObjectResult result = ExecutePlan(form.Plan); TaskDialog.Show("Modify Objects 2.0", result.Summary ?? result.Status.ToString() + Environment.NewLine + (result.Message ?? string.Empty));
+                ModifyObjectResult result = ExecutePlan(uidoc.Document, form.Plan); TaskDialog.Show("Modify Objects 2.0", result.Summary ?? result.Status.ToString() + Environment.NewLine + (result.Message ?? string.Empty));
             }
             return Result.Succeeded;
         }
-        private static ModifyObjectResult ExecutePlan(ModifyObjectPlan plan)
+        private static ModifyObjectResult ExecutePlan(Document doc, ModifyObjectPlan plan)
         {
-            ModifyObjectPreflightResult preflight = ModifyObjectPreflightService.Validate(plan.Context.Document, plan);
+            ModifyObjectPreflightResult preflight = ModifyObjectPreflightService.Validate(doc, plan);
             if (!preflight.IsValid) return new ModifyObjectResult { Status = preflight.Statuses.Count == 0 ? ModifyObjectStatus.FAILED : preflight.Statuses[0], Message = string.Join(Environment.NewLine, preflight.Errors) };
             switch (plan.Context.Operation)
             {
-                case ModifyObjectOperation.MOVE_3D: return Move3DService.Execute(plan);
-                case ModifyObjectOperation.ARRAY_3D: return Array3DService.Execute(plan);
-                case ModifyObjectOperation.CREATE_PARTS: return PartsService.Execute(plan);
-                case ModifyObjectOperation.COLUMN_SPLIT: return ColumnSplitService.Execute(plan);
-                case ModifyObjectOperation.COLUMN_JOIN: return ColumnJoinService.Execute(plan);
-                case ModifyObjectOperation.BEAM_SPLIT: return BeamSplitService.Execute(plan);
-                case ModifyObjectOperation.BEAM_JOIN: return BeamJoinService.Execute(plan);
-                case ModifyObjectOperation.SLAB_JOIN: return SlabJoinAdapter.Execute(plan);
-                case ModifyObjectOperation.SLAB_SPLIT: return SlabSplitService.Execute(plan);
-                case ModifyObjectOperation.WALL_SPLIT: return WallSplitService.Execute(plan);
-                case ModifyObjectOperation.WALL_TRIM: return WallTrimService.Execute(plan);
-                case ModifyObjectOperation.WALL_OPENING: return WallOpeningService.Execute(plan);
-                case ModifyObjectOperation.COLUMN_BASE_ELEVATION: return ColumnBaseElevationService.Execute(plan);
+                case ModifyObjectOperation.MOVE_3D: return Move3DService.Execute(doc, plan);
+                case ModifyObjectOperation.ARRAY_3D: return Array3DService.Execute(doc, plan);
+                case ModifyObjectOperation.CREATE_PARTS: return PartsService.Execute(doc, plan);
+                case ModifyObjectOperation.COLUMN_SPLIT: return ColumnSplitService.Execute(doc, plan);
+                case ModifyObjectOperation.COLUMN_JOIN: return ColumnJoinService.Execute(doc, plan);
+                case ModifyObjectOperation.BEAM_SPLIT: return BeamSplitService.Execute(doc, plan);
+                case ModifyObjectOperation.BEAM_JOIN: return BeamJoinService.Execute(doc, plan);
+                case ModifyObjectOperation.SLAB_JOIN: return SlabJoinAdapter.Execute(doc, plan);
+                case ModifyObjectOperation.SLAB_SPLIT: return SlabSplitService.Execute(doc, plan);
+                case ModifyObjectOperation.WALL_SPLIT: return WallSplitService.Execute(doc, plan);
+                case ModifyObjectOperation.WALL_TRIM: return WallTrimService.Execute(doc, plan);
+                case ModifyObjectOperation.WALL_OPENING: return WallOpeningService.Execute(doc, plan);
+                case ModifyObjectOperation.COLUMN_BASE_ELEVATION: return ColumnBaseElevationService.Execute(doc, plan);
                 default: return new ModifyObjectResult { Status = ModifyObjectStatus.UNSUPPORTED_ELEMENT, Message = "Operation is not implemented." };
             }
         }

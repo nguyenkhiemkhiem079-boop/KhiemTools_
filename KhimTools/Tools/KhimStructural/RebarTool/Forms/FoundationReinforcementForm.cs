@@ -611,7 +611,12 @@ namespace KhimTools.RebarTool.Forms
 
                         generator.Generate(profile, _settings, report);
                     }
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không thể commit thép móng. Trạng thái transaction: {commitStatus}.");
+                    }
                 }
                 catch (Exception ex)
                 {

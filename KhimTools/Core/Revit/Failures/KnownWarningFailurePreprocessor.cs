@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
 
 namespace KhimTools.Core.Revit.Failures
 {
@@ -51,7 +53,9 @@ namespace KhimTools.Core.Revit.Failures
                 FailureDefinitionId definition = message.GetFailureDefinitionId();
                 string id = definition == null || definition.Guid == Guid.Empty ? string.Empty : definition.Guid.ToString("D");
                 FailureSeverity severity = message.GetSeverity();
-                _records.Add(new FailureRecord(id, message.GetDescriptionText(), severity));
+                IReadOnlyList<long> failingIds = (message.GetFailingElementIds() ?? new List<ElementId>())
+                    .Select(elementId => elementId.ToLongValue()).ToArray();
+                _records.Add(new FailureRecord(id, message.GetDescriptionText(), severity, failingIds));
 
                 if (severity == FailureSeverity.Warning && _approvedWarningIds.Contains(id))
                 {
@@ -72,12 +76,14 @@ namespace KhimTools.Core.Revit.Failures
         public string DefinitionId { get; }
         public string Description { get; }
         public FailureSeverity Severity { get; }
+        public IReadOnlyList<long> FailingElementIds { get; }
 
-        public FailureRecord(string definitionId, string description, FailureSeverity severity)
+        public FailureRecord(string definitionId, string description, FailureSeverity severity, IReadOnlyList<long> failingElementIds)
         {
             DefinitionId = definitionId ?? string.Empty;
             Description = description ?? string.Empty;
             Severity = severity;
+            FailingElementIds = failingElementIds ?? new long[0];
         }
     }
 }

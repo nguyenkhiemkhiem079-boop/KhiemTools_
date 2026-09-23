@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
 using KhimTools.DimensionTools.Models;
 
 namespace KhimTools.DimensionTools.Core
@@ -94,6 +95,16 @@ namespace KhimTools.DimensionTools.Core
             return resolved;
         }
 
+        public static Reference ResolveStableReference(Document doc, DimensionReferenceSnapshot info)
+        {
+            if (doc == null || info == null || string.IsNullOrWhiteSpace(info.StableRepresentation)) return null;
+            Reference resolved = new DimensionApiAdapter().ResolveStableReference(doc, info.StableRepresentation);
+            if (resolved == null) return null;
+            Element source = doc.GetElement(resolved.ElementId);
+            if (source == null || (!string.IsNullOrWhiteSpace(info.ElementUniqueId) && !string.Equals(source.UniqueId, info.ElementUniqueId, StringComparison.Ordinal))) return null;
+            return resolved;
+        }
+
         public static DimensionSnapshot CaptureSnapshot(Document doc, View view, Dimension dimension)
         {
             var snapshot = new DimensionSnapshot
@@ -143,6 +154,40 @@ namespace KhimTools.DimensionTools.Core
             XYZ point; XYZ direction;
             ResolveReferenceGeometry(doc, resolved, source, out point, out direction);
             return GeometryFingerprint(source, point ?? LocationPointOf(source), direction);
+        }
+
+        public static string ComputeLiveGeometryFingerprint(Document doc, DimensionReferenceSnapshot info, Reference resolved)
+        {
+            if (doc == null || info == null || resolved == null) return string.Empty;
+            Element source = doc.GetElement(resolved.ElementId);
+            XYZ point; XYZ direction;
+            ResolveReferenceGeometry(doc, resolved, source, out point, out direction);
+            return GeometryFingerprint(source, point ?? LocationPointOf(source), direction);
+        }
+
+        public static DimensionReferenceInfo ToTransientInfo(DimensionReferenceSnapshot snapshot)
+        {
+            if (snapshot == null) return null;
+            return new DimensionReferenceInfo
+            {
+                ElementId = snapshot.ElementId,
+                ElementUniqueId = snapshot.ElementUniqueId,
+                StableRepresentation = snapshot.StableRepresentation,
+                ReferenceKind = snapshot.ReferenceKind,
+                WorldPoint = Point(snapshot.WorldPoint),
+                ViewCoordinate = Point(snapshot.ViewCoordinate),
+                ReferenceDirection = Point(snapshot.ReferenceDirection),
+                SourceRole = snapshot.SourceRole,
+                ProjectedPosition = snapshot.ProjectedPosition,
+                GeometryFingerprint = snapshot.GeometryFingerprint,
+                IsValid = snapshot.IsValid,
+                Diagnostic = snapshot.Diagnostic
+            };
+        }
+
+        private static XYZ Point(DimensionPointSnapshot point)
+        {
+            return point == null ? null : new XYZ(point.X, point.Y, point.Z);
         }
 
         public static void RefreshResolvedGeometry(Document doc, View view, DimensionReferenceInfo info, Reference resolved)
@@ -279,7 +324,7 @@ namespace KhimTools.DimensionTools.Core
         private static XYZ LocationPointOf(Element element) { LocationPoint point = element == null ? null : element.Location as LocationPoint; if (point != null) return point.Point; LocationCurve curve = element == null ? null : element.Location as LocationCurve; return curve == null ? XYZ.Zero : Midpoint(curve.Curve); }
         private static string PointToken(XYZ point) { return point == null ? string.Empty : string.Join(",", Round(point.X), Round(point.Y), Round(point.Z)); }
         private static string Round(double value) { return (Math.Round(value * FingerprintPrecision) / FingerprintPrecision).ToString("R", CultureInfo.InvariantCulture); }
-        private static long ElementIdValue(ElementId id) { return id == null ? -1 : id.Value; }
+        private static long ElementIdValue(ElementId id) { return id.ToLongValue(); }
         private static XYZ Midpoint(Curve curve) { return curve == null ? XYZ.Zero : curve.Evaluate(0.5, true); }
     }
 }

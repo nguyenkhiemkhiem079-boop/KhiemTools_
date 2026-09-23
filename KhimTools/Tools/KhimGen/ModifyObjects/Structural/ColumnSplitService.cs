@@ -17,13 +17,13 @@ namespace KhimTools.ModifyObjects.Structural
             if (column.GroupId != null && column.GroupId != ElementId.InvalidElementId) { plan.Status = ModifyObjectStatus.GROUP_CONSTRAINED; plan.Errors.Add("Grouped columns cannot be split safely."); }
             return plan;
         }
-        public static ModifyObjectResult Execute(ModifyObjectPlan plan)
+        public static ModifyObjectResult Execute(Document doc, ModifyObjectPlan plan)
         {
-            return ModifyObjectExecutionService.Execute(plan, () => ExecuteIsolated(plan));
+            return ModifyObjectExecutionService.Execute(doc, plan, () => ExecuteIsolated(doc, plan));
         }
-        private static ModifyObjectResult ExecuteIsolated(ModifyObjectPlan plan)
+        private static ModifyObjectResult ExecuteIsolated(Document doc, ModifyObjectPlan plan)
         {
-            var result = new ModifyObjectResult(); Document doc = plan.Context.Document; FamilyInstance source = doc.GetElement(plan.Context.PrimaryElementId) as FamilyInstance; Level splitLevel = doc.GetElement(plan.Context.TargetLevelId) as Level;
+            var result = new ModifyObjectResult(); FamilyInstance source = doc.GetElement(plan.Context.PrimaryElementId) as FamilyInstance; Level splitLevel = doc.GetElement(plan.Context.TargetLevelId) as Level;
             if (source == null || splitLevel == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_SPLIT_POINT, Message = "Source column or split level is unavailable." };
             Parameter baseParameter = source.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_PARAM); Parameter topParameter = source.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM); Level baseLevel = baseParameter == null ? null : doc.GetElement(baseParameter.AsElementId()) as Level; Level topLevel = topParameter == null ? null : doc.GetElement(topParameter.AsElementId()) as Level;
             if (baseLevel == null || topLevel == null || splitLevel.Elevation <= baseLevel.Elevation || splitLevel.Elevation >= topLevel.Elevation) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_SPLIT_POINT, Message = "Split level must be strictly inside the column span." };

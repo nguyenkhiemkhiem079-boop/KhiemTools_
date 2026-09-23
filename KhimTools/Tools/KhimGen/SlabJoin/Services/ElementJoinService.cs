@@ -39,20 +39,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Join Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TryJoin(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Join Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TryJoin, results, log);
                 }
                 int ok = results.Count(r => r.Success);
                 log?.Invoke($"  → Joined: {ok}, Skipped/Failed: {results.Count - ok}");
@@ -80,20 +68,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Unjoin Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TryUnjoin(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Unjoin Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TryUnjoin, results, log);
                 }
             }
             return results;
@@ -118,20 +94,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Switch Join Order ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new KnownWarningFailurePreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TrySwitchOrder(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Switch Join Order ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TrySwitchOrder, results, log);
                 }
             }
             return results;
@@ -204,6 +168,91 @@ namespace KhimTools.SlabJoin.Services
                 default:
                     return new FilteredElementCollector(doc).OfCategory(category).WhereElementIsNotElementType().ToList();
             }
+        }
+
+        private void ExecuteChunk(
+            Document doc,
+            string transactionName,
+            IList<Tuple<ElementId, ElementId>> chunk,
+            Func<Document, ElementId, ElementId, JoinPairResult> operation,
+            List<JoinPairResult> results,
+            LogCallback log)
+        {
+            var attempted = new List<JoinPairResult>();
+            var failurePolicy = new KnownWarningFailurePreprocessor();
+
+            using (var tx = new Transaction(doc, transactionName))
+            {
+                try
+                {
+                    tx.Start();
+                    var failOpts = tx.GetFailureHandlingOptions();
+                    failOpts.SetFailuresPreprocessor(failurePolicy);
+                    tx.SetFailureHandlingOptions(failOpts);
+
+                    foreach (var pair in chunk)
+                    {
+                        attempted.Add(operation(doc, pair.Item1, pair.Item2));
+                    }
+
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus == TransactionStatus.Committed)
+                    {
+                        results.AddRange(attempted);
+                        return;
+                    }
+
+                    string reason = DescribeTransactionFailure(commitStatus, failurePolicy.Records);
+                    log?.Invoke($"  → {transactionName} did not commit: {reason}");
+                    AddRolledBackResults(attempted, results, reason);
+                }
+                catch (Exception ex)
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started)
+                    {
+                        tx.RollBack();
+                    }
+
+                    string reason = "Transaction exception: " + ex.Message;
+                    KToolsLog.Current.Exception("ElementJoin.ExecuteChunk", ex, "TRANSACTION");
+                    log?.Invoke($"  → {transactionName} failed: {reason}");
+                    AddRolledBackResults(attempted, results, reason);
+
+                    for (int index = attempted.Count; index < chunk.Count; index++)
+                    {
+                        var pair = chunk[index];
+                        results.Add(new JoinPairResult(pair.Item1, pair.Item2, false, true,
+                            "Not attempted because the batch transaction failed."));
+                    }
+                }
+            }
+        }
+
+        private static void AddRolledBackResults(
+            IEnumerable<JoinPairResult> attempted,
+            ICollection<JoinPairResult> results,
+            string reason)
+        {
+            foreach (JoinPairResult result in attempted)
+            {
+                results.Add(result.Success
+                    ? new JoinPairResult(result.FloorIdA, result.FloorIdB, false, true,
+                        $"{result.Message} Transaction rolled back: {reason}")
+                    : result);
+            }
+        }
+
+        private static string DescribeTransactionFailure(
+            TransactionStatus status,
+            IReadOnlyList<FailureRecord> records)
+        {
+            if (records == null || records.Count == 0)
+            {
+                return "Transaction status: " + status;
+            }
+
+            return string.Join("; ", records.Select(record =>
+                $"{record.Severity} {record.DefinitionId}: {record.Description}"));
         }
 
         // ─── JOIN/UNJOIN/SWITCH LOGIC ───────────────────────────────────

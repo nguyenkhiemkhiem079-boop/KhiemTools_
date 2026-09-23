@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
 using KhimTools.ParameterManager.Models;
 using KhimTools.ParameterTransfer.Models;
 using KhimTools.ParameterTransfer.Services;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.ParameterManager.Services
 {
@@ -12,12 +14,12 @@ namespace KhimTools.ParameterManager.Services
     {
         public static ParameterManagerPlan BuildPlan(Document doc, ParameterManagerRequest request)
         {
-            var plan = new ParameterManagerPlan { Document = doc, Request = request, SelectedParameterKey = request == null ? null : request.SelectedParameterKey, IsPreview = request == null || request.PreviewOnly };
+            var plan = new ParameterManagerPlan { DocumentIdentityKey = DocumentIdentity.From(doc).StableKey, Request = ParameterManagerPlanRequest.From(request), SelectedParameterKey = request == null ? null : ParameterManagerPlanRequest.CloneKey(request.SelectedParameterKey), IsPreview = request == null || request.PreviewOnly };
             if (doc == null || request == null || request.SelectedParameterKey == null) { plan.Warnings.Add("Select a parameter before preview."); return plan; }
             IList<Element> collected = ParameterElementCollector.Collect(doc, request);
             IList<Element> targets = request.ParameterScope == ParameterScopeMode.TYPE ? DeduplicateTypes(doc, collected, plan) : collected;
             if (request.Scope == ElementScopeMode.WHOLE_PROJECT && (request.Options == null || !request.Options.ConfirmWholeProject)) plan.Warnings.Add("WHOLE_PROJECT requires explicit confirmation.");
-            plan.SourceScopeFingerprint = (doc.PathName ?? doc.Title ?? string.Empty) + "|" + string.Join(",", collected.OrderBy(x => x.Id.IntegerValue).Select(x => x.UniqueId ?? x.Id.IntegerValue.ToString()));
+            plan.SourceScopeFingerprint = WorkflowFingerprint.Compute(new[] { plan.DocumentIdentityKey }.Concat(collected.OrderBy(x => x.Id.ToLongValue()).Select(x => x.UniqueId ?? x.Id.ToLongValue().ToString())));
             plan.ParameterDisplayName = request.SelectedParameterKey.ToString();
             ParameterRule regexRule = request.Rules == null ? null : request.Rules.FirstOrDefault(r => r != null && r.RuleType == ParameterRuleType.REGEX_REPLACE);
             if (regexRule != null) { string regexError; if (!ParameterRuleEngine.TryCompileRegex(regexRule, out regexError)) { plan.Warnings.Add("INVALID_REGEX: " + regexError); plan.Blocked.Add("INVALID_REGEX"); } }
@@ -45,8 +47,9 @@ namespace KhimTools.ParameterManager.Services
         public static string ComputeFingerprint(ParameterManagerPlan plan)
         {
             if (plan == null) return string.Empty;
-            string documentIdentity = plan.Document == null ? string.Empty : (plan.Document.PathName ?? plan.Document.Title ?? string.Empty);
-            return documentIdentity + "|" + string.Join("|", plan.Items.OrderBy(i => i.ElementId.IntegerValue).Select(i => i.ElementId.IntegerValue + ":" + i.TypeId.IntegerValue + ":" + (i.CurrentDisplay ?? string.Empty) + ":" + (i.ParameterKey == null ? string.Empty : i.ParameterKey.ToString())));
+            var tokens = new List<string> { plan.DocumentIdentityKey ?? string.Empty };
+            tokens.AddRange(plan.Items.OrderBy(i => i.UniqueId, StringComparer.Ordinal).Select(i => string.Join(":", i.UniqueId ?? string.Empty, i.TypeId == null ? string.Empty : i.TypeId.ToLongValue().ToString(), i.CurrentDisplay ?? string.Empty, i.ParameterKey == null ? string.Empty : i.ParameterKey.ToString())));
+            return WorkflowFingerprint.Compute(tokens);
         }
         private static IList<Element> DeduplicateTypes(Document doc, IList<Element> source, ParameterManagerPlan plan)
         {

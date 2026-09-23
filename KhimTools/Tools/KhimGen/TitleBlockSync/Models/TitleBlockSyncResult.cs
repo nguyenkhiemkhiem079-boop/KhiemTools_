@@ -19,7 +19,24 @@ namespace KhimTools.TitleBlockSync.Models
     }
     public sealed class TitleBlockSyncExecutionResult
     {
-        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString()); } }
+        public WorkflowOutcome Outcome
+        {
+            get
+            {
+                switch (Status)
+                {
+                    case TitleBlockSyncStatusCode.READY: return WorkflowOutcome.Ready;
+                    case TitleBlockSyncStatusCode.NO_CHANGE: return WorkflowOutcome.NoChange;
+                    case TitleBlockSyncStatusCode.SYNCED: return WorkflowOutcome.Succeeded;
+                    case TitleBlockSyncStatusCode.PARTIAL: return WorkflowOutcome.Partial;
+                    case TitleBlockSyncStatusCode.SKIPPED:
+                    case TitleBlockSyncStatusCode.BLANK_SOURCE_SKIPPED: return WorkflowOutcome.Skipped;
+                    case TitleBlockSyncStatusCode.FAILED:
+                    case TitleBlockSyncStatusCode.POST_VERIFY_FAILED: return WorkflowOutcome.Failed;
+                    default: return WorkflowOutcome.Blocked;
+                }
+            }
+        }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public ElementId SourceSheetId { get; set; } = ElementId.InvalidElementId;
         public ElementId TargetSheetId { get; set; } = ElementId.InvalidElementId;
@@ -36,7 +53,13 @@ namespace KhimTools.TitleBlockSync.Models
     {
         public WorkflowOutcome Outcome
         {
-            get { return Failed > 0 ? (Synced == 0 ? WorkflowOutcome.Failed : WorkflowOutcome.Partial) : (Synced == 0 && NoChange > 0 ? WorkflowOutcome.NoChange : WorkflowOutcome.Succeeded); }
+            get
+            {
+                if (Failed > 0) return Synced > 0 ? WorkflowOutcome.Partial : WorkflowOutcome.Failed;
+                if (Partial > 0) return WorkflowOutcome.Partial;
+                if (Blocked > 0) return Synced > 0 ? WorkflowOutcome.Partial : WorkflowOutcome.Blocked;
+                return Synced > 0 ? WorkflowOutcome.Succeeded : WorkflowOutcome.NoChange;
+            }
         }
         public IList<WorkflowDiagnostic> Diagnostics { get; } = new List<WorkflowDiagnostic>();
         public OperationMetrics Metrics { get; } = new OperationMetrics();

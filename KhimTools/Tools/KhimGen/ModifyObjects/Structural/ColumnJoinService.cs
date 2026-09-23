@@ -16,10 +16,10 @@ namespace KhimTools.ModifyObjects.Structural
             if (lower.GetTypeId() != upper.GetTypeId() || System.Math.Abs(a.Rotation - b.Rotation) > 0.001) { plan.Status = ModifyObjectStatus.INVALID_JOIN_PAIR; plan.Errors.Add("Columns must share type and rotation."); }
             return plan;
         }
-        public static ModifyObjectResult Execute(ModifyObjectPlan plan) { return ModifyObjectExecutionService.Execute(plan, () => ExecuteIsolated(plan)); }
-        private static ModifyObjectResult ExecuteIsolated(ModifyObjectPlan plan)
+        public static ModifyObjectResult Execute(Document doc, ModifyObjectPlan plan) { return ModifyObjectExecutionService.Execute(doc, plan, () => ExecuteIsolated(doc, plan)); }
+        private static ModifyObjectResult ExecuteIsolated(Document doc, ModifyObjectPlan plan)
         {
-            Document doc = plan.Context.Document; FamilyInstance first = doc.GetElement(plan.Context.PrimaryElementId) as FamilyInstance; FamilyInstance second = doc.GetElement(plan.Context.SecondaryElementId) as FamilyInstance; if (first == null || second == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_JOIN_PAIR };
+            FamilyInstance first = doc.GetElement(plan.Context.PrimaryElementId) as FamilyInstance; FamilyInstance second = doc.GetElement(plan.Context.SecondaryElementId) as FamilyInstance; if (first == null || second == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_JOIN_PAIR };
             FamilyInstance survivor = plan.Context.ConflictPolicy == ModifyObjectConflictPolicy.KEEP_UPPER ? second : first; FamilyInstance removed = survivor.Id == first.Id ? second : first; Parameter top = survivor.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM); Parameter removedTop = removed.get_Parameter(BuiltInParameter.FAMILY_TOP_LEVEL_PARAM); if (top == null || removedTop == null) return new ModifyObjectResult { Status = ModifyObjectStatus.INVALID_JOIN_PAIR, Message = "Column level constraints are unavailable." };
             using (var tx = new Transaction(doc, "K-TOOLS Join Columns")) { tx.Start(); if (!top.IsReadOnly) top.Set(removedTop.AsElementId()); doc.Regenerate(); doc.Delete(removed.Id); tx.Commit(); }
             return new ModifyObjectResult { Status = ModifyObjectStatus.DELETED_SOURCE, Summary = "Column pair joined with explicit conflict policy." };

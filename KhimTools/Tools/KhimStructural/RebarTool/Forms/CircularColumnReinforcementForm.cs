@@ -575,6 +575,7 @@ namespace KhimTools.RebarTool.Forms
                 List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
                 List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
 
+                // Results are displayed only after the containing Revit transaction commits.
                 var report = new RebarGenerationReport();
 
                 foreach (var group in axisGroups)
@@ -642,7 +643,13 @@ namespace KhimTools.RebarTool.Forms
                         }
                     }
                 }
-                tx.Commit();
+                TransactionStatus commitStatus = tx.Commit();
+                if (commitStatus != TransactionStatus.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"Không thể commit thép cột tròn. Trạng thái transaction: {commitStatus}.");
+                }
+
                 if (report.HasErrors)
                 {
                     KhimDialogHelper.ShowRebarGenerationReport(report, "Cột Tròn (Circular Column)", selectedItems.Count);
@@ -654,7 +661,7 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                tx.RollBack();
+                if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
                 KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
             }

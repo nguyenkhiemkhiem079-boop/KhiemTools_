@@ -20,7 +20,7 @@ namespace KhimTools.DimensionTools.Services
                 if (instance == null) { unsupported++; continue; }
                 context.References.AddRange(DimensionReferenceService.FromElements(doc, view, new[] { instance }, DimensionReferenceRole.FOUNDATION_FACE, context.Options.Axis));
             }
-            if (context.References.Count == 0 && unsupported > 0) { var blocked = new DimensionPlan { Context = context, ViewId = view.Id, Operation = DimensionOperation.FOUNDATION, Status = DimensionStatus.FOUNDATION_TYPE_UNSUPPORTED }; blocked.Errors.Add("FOUNDATION_TYPE_UNSUPPORTED: strip/wall foundations are not reconstructed as pad dimensions."); return blocked; }
+            if (context.References.Count == 0 && unsupported > 0) { var blocked = DimensionPlanBuilder.CreateBasePlan(context); blocked.Status = DimensionStatus.FOUNDATION_TYPE_UNSUPPORTED; blocked.Errors.Add("FOUNDATION_TYPE_UNSUPPORTED: strip/wall foundations are not reconstructed as pad dimensions."); return blocked; }
             DimensionPlan plan = DimensionPlanBuilder.Build(context); if (unsupported > 0) plan.Warnings.Add("FOUNDATION_TYPE_UNSUPPORTED: " + unsupported + " non-pad foundation(s) skipped."); return plan;
         }
         public static DimensionResult Create(Document doc, DimensionPlan plan) { return DimensionExecutionService.Execute(doc, plan); }

@@ -1852,12 +1852,22 @@ namespace KhimTools.RebarTool.Forms
 
                     var generator = new BeamRebarGenerator(_doc);
                     var rebars = generator.Generate(input);
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không thể commit thép dầm {beam.Id.ToLongValue()}. Trạng thái transaction: {commitStatus}.");
+                    }
 
                     if (rebars != null && rebars.Any()) successCount++;
                 }
 
-                transGroup.Assimilate();
+                TransactionStatus groupStatus = transGroup.Assimilate();
+                if (groupStatus != TransactionStatus.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"Không thể hoàn tất nhóm transaction bố trí thép dầm. Trạng thái: {groupStatus}.");
+                }
 
                 KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
                 Close();

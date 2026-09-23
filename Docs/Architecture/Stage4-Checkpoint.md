@@ -1,6 +1,6 @@
-# Stage 4 Backend Consolidation Checkpoint
+# Stage 4 Backend Consolidation Checkpoint (Historical; Superseded by Current Hardening Pass)
 
-Recorded on 2026-09-23 after local verification. No remote push or master merge was made.
+Recorded on 2026-09-23 after an earlier local verification. This is historical evidence only; the current hardening pass has changed production source, and its latest QA run found one stale Stage 3.5 verifier expectation. Do not treat the results below as current acceptance. No remote push or master merge was made.
 
 ## Git state
 
@@ -12,7 +12,7 @@ STAGE4_BRANCH = stage4/backend-consolidation
 LOCAL_HEAD = (see final git rev-parse; this file is committed on the same branch)
 ```
 
-Stage 4 is a clean descendant of `origin/stage3/dimension-tools`. The four consolidation
+Stage 4 is a clean descendant of `origin/stage3/dimension-tools`. The five consolidation
 commits before this checkpoint are:
 
 1. `f8bc1da` docs: inventory backend architecture for stage 4
@@ -58,7 +58,7 @@ specialized Rebar error capture; PARTIAL = Rebar overall, GridLevel, SectionCut,
 and legacy SlabJoin; LEGACY = Wave 1.1–1.6, MEP, and Architectural helpers; CRITICAL = no
 remaining production generic failure call site (P0 risk closed; deferred debt is documented).
 
-## QA evidence
+## QA evidence from the superseded checkpoint
 
 | Check | Result |
 | --- | --- |
@@ -85,6 +85,31 @@ SAFE_TO_PUSH_FEATURE_BRANCH = YES (not pushed by instruction)
 READY_FOR_NEXT_STAGE = YES (review gate; do not start automatically)
 ```
 
-Remaining debt is explicit in `Technical-Debt-Register.md`: legacy form-owned mutation,
-deferred Wave 1 adapter seams, four plan-like files retaining live API state, remaining
-empty catches in UI/runtime paths, and the missing Revit-host runtime session.
+The debt summary above reflects the superseded checkpoint and must not be interpreted as a
+current inventory. Refresh it after completing and verifying the active hardening changes.
+
+## Current hardening-pass verification (2026-09-23)
+
+This addendum supersedes the earlier QA table where results differ. No push or master merge
+was made.
+
+| Check | Current result |
+| --- | --- |
+| Stage 4 architecture verifier | PASS, 59 checks |
+| Architecture plan-field audit | 0 direct live Revit API fields across 7 modern plan models |
+| `Test-All.ps1` | PASS, 1011/1011 |
+| Wave 1.1–1.6 regression | PASS (64, 52, 56, 67, 133 plus SheetGen checks) |
+| Stage 3.1–3.7 regression | PASS (57, 49, 56, 174, 146, 271) |
+| Rebar configuration/input/layout/reference/column QA | PASS (36, 60, 9,235 control checks + 252 renders, 40 renders, 20) |
+| UI contract/layout QA | PASS (92 contracts; 100 icons / 43 renders) |
+| Deployment QA | PASS (44 tests; MSI audits 14 + 12) |
+| K-QS Domain build | PASS, 0 warnings / 0 errors |
+| Runtime QA | DEFERRED; no Revit host fixture run |
+| Revit 2025 / net8 build | PASS, 0 errors, 204 warnings |
+| Revit 2024 / net48 build | PASS, 0 errors, 206 warnings |
+| Extra Slab Step layout probe | NOT_RUN successfully: its script expects a missing `CreateLayoutPreview` method; Revit 2024 API loading also is not supported by its default Revit 2023 harness |
+
+The current API-readiness classifications remain conservative (`PARTIAL` for Stage 3.1–3.7).
+Remaining commit-status checks and Revit-host/runtime evidence are tracked in the debt
+register; therefore this checkpoint does not claim that every workflow is ready for external
+reuse.

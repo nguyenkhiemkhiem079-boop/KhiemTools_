@@ -6,13 +6,13 @@ verification against the same document identity. `READY` does not imply runtime 
 
 | Surface | Readiness | Boundary | Conditions before reuse |
 | --- | --- | --- | --- |
-| Stage 3.1 SheetCopy | READY | request/plan/executor/verify services | use shared diagnostics and transaction policy |
-| Stage 3.2 ScheduleSplit | READY | request/plan/executor/verify services | stale-plan and failure policy wiring |
-| Stage 3.3 TitleBlockSync | READY | request/plan/executor/verify services | map result statuses to shared outcomes |
-| Stage 3.4 FilterManager | READY | request/plan/preflight/executor/verify | keep template-controlled views blocked |
-| Stage 3.5 ParameterManager | READY | request/plan/preflight/executor/verify | keep writable/type/instance checks in preflight |
-| Stage 3.6 ModifyObjects | READY | snapshot/plan/preflight/executor/result | preserve per-operation transaction semantics |
-| Stage 3.7 DimensionTools | READY | plan/preflight/executor/verify/adapters | move live context resolution behind adapter |
+| Stage 3.1 SheetCopy | PARTIAL | request/plan/executor/verify services | verify diagnostics and transaction failure outcomes before reusable API exposure |
+| Stage 3.2 ScheduleSplit | PARTIAL | request/plan/executor/verify services | verify stale-plan and failure-policy wiring under runtime model cases |
+| Stage 3.3 TitleBlockSync | PARTIAL | request/plan/executor/verify services | verify shared outcome mapping and transaction failure cases |
+| Stage 3.4 FilterManager | PARTIAL | request/plan/preflight/executor/verify | verify template-controlled view blocks and mutation outcome reporting |
+| Stage 3.5 ParameterManager | PARTIAL | detached request snapshot/plan/preflight/executor/verify | runtime verification and diagnostics wiring remain incomplete |
+| Stage 3.6 ModifyObjects | PARTIAL | detached value-snapshot plan/preflight/executor/result | check commit status consistently across operation services |
+| Stage 3.7 DimensionTools | PARTIAL | detached plan/reference snapshots/preflight/executor/verify | edit and spot-elevation paths need consistent commit-status verification |
 | RebarTool | PARTIAL | specialized failure records exist | migrate legacy form-owned transactions |
 | GridLevel / Grid Generator | PARTIAL | services and QA exist | unify outcomes, units, and failure reporting |
 | SectionCut | PARTIAL | generator/preflight seams exist | remove empty catches and generic failure handling |

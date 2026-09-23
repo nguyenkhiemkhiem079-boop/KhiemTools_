@@ -4,7 +4,7 @@ Status: working checkpoint on `stage4/backend-consolidation`
 Baseline: Stage 3.7 (`eba9339825eb1a7d26505c646e7dc90f8c9948c3`)  
 Scope: consolidation and hardening only; no new user-facing feature behavior.
 
-## Operating rules
+## Target operating rules
 
 - Plans are built from stable request data and are fingerprinted before model mutation.
 - Preflight is allowed to block an operation; execution must not silently downgrade a failed mutation.
@@ -50,13 +50,13 @@ internal API is exposed.
 | Wave 1.4 TextAlign | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | LEGACY | HIGH | NOT_READY | P1 |
 | Wave 1.5 ElementTags | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | LEGACY | HIGH | NOT_READY | P1 |
 | Wave 1.6 SheetExport | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | LEGACY | HIGH | NOT_READY | P1 |
-| Stage 3.1 SheetCopy | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P2 |
-| Stage 3.2 ScheduleSplit | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P2 |
-| Stage 3.3 TitleBlockSync | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P2 |
-| Stage 3.4 FilterManager | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P2 |
-| Stage 3.5 ParameterManager | GOOD | PARTIAL | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P1 |
-| Stage 3.6 ModifyObjects | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P1 |
-| Stage 3.7 DimensionTools | GOOD | PARTIAL | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P1 |
+| Stage 3.1 SheetCopy | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | PARTIAL | P2 |
+| Stage 3.2 ScheduleSplit | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | PARTIAL | P2 |
+| Stage 3.3 TitleBlockSync | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | PARTIAL | P2 |
+| Stage 3.4 FilterManager | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | PARTIAL | P2 |
+| Stage 3.5 ParameterManager | GOOD | GOOD | GOOD | GOOD | PARTIAL | GOOD | PARTIAL | LOW | PARTIAL | P1 |
+| Stage 3.6 ModifyObjects | PARTIAL | GOOD | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | MEDIUM | PARTIAL | P1 |
+| Stage 3.7 DimensionTools | GOOD | GOOD | PARTIAL | GOOD | PARTIAL | GOOD | PARTIAL | LOW | PARTIAL | P1 |
 | RebarTool | PARTIAL | PARTIAL | PARTIAL | PARTIAL | GOOD | GOOD | GOOD for errors / PARTIAL for warnings | HIGH in legacy forms | PARTIAL | P0 |
 | SlabJoin | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | GOOD for unknown errors / PARTIAL for legacy batching | HIGH | NOT_READY | P1 |
 | GridLevel / Grid Generator | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | MEDIUM | PARTIAL | P1 |
@@ -65,18 +65,15 @@ internal API is exposed.
 | MEP openings | LEGACY | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | LEGACY | HIGH | NOT_READY | P1 |
 | Architectural tools | LEGACY | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | LEGACY | HIGH | NOT_READY | P1 |
 
-The matrix is deliberately conservative. A `READY` Stage 3 entry means its existing
-request/plan/preflight/execute/verify seams are suitable for an adapter, not that it is
-already a public SDK or that runtime acceptance has been completed.
+The matrix is deliberately conservative. `PARTIAL` means at least one API-readiness gate
+is incomplete. No row is classified READY until the complete typed contract, detached plan,
+preflight, diagnostics, transaction ownership, verification, and stale-plan requirements are
+demonstrated together.
 
-The Stage 4 audit after hardening reports 340 KhimGen C# files, 37 command/application
-entrypoints, 79 files containing transaction calls, 10 forms containing transactions, 4
-heavy command files over 200 lines, 13 plan-like files (4 retaining live API tokens), 10
-runtime-QA fixture files, 14 failure-preprocessor files, and zero God workflow managers.
-The KhimGen exact empty-catch count is now 9 files / 18 occurrences; remaining catches are
-classified as UI, cleanup, or capability-probe debt. The full production tree still has 33
-files / 60 exact empty-catch occurrences because legacy UI/runtime paths are intentionally
-deferred.
+The previous static audit used token-presence checks and regex heuristics; those counts do not
+prove plan portability or transaction safety. The current focused audit checks detached
+ParameterManager, ModifyObjects, and DimensionTools plan shapes, while runtime validation and
+consistent commit-status checking remain open as listed in the debt register.
 
 ## Modern Stage 3 chain
 

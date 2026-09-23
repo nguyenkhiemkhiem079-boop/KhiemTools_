@@ -12,6 +12,6 @@ namespace KhimTools.ModifyObjects.Structural
             if (!(floor is Floor)) { plan.Status = ModifyObjectStatus.UNSUPPORTED_ELEMENT; plan.Errors.Add("Slab Split requires a Floor."); return plan; }
             plan.Status = ModifyObjectStatus.SLAB_SPLIT_CAPABILITY_UNSUPPORTED; plan.Errors.Add("No public Floor.Split API; profile reconstruction is intentionally unsupported in this MVP."); return plan;
         }
-        public static ModifyObjectResult Execute(ModifyObjectPlan plan) { return new ModifyObjectResult { Status = ModifyObjectStatus.SLAB_SPLIT_CAPABILITY_UNSUPPORTED, Message = "Floor.Split capability audit only; no invented API call was made." }; }
+        public static ModifyObjectResult Execute(Document doc, ModifyObjectPlan plan) { return new ModifyObjectResult { Status = ModifyObjectStatus.SLAB_SPLIT_CAPABILITY_UNSUPPORTED, Message = "Floor.Split capability audit only; no invented API call was made." }; }
     }
 }

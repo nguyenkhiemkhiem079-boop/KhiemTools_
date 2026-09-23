@@ -2,6 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit.Failures;
+using KhimTools.Core.Workflow;
 using KhimTools.SectionCutTool.Models;
 
 namespace KhimTools.SectionCutTool.Core
@@ -71,7 +74,8 @@ namespace KhimTools.SectionCutTool.Core
             {
                 tx.Start();
                 var failOptions = tx.GetFailureHandlingOptions();
-                failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                var failurePolicy = new KnownWarningFailurePreprocessor();
+                failOptions.SetFailuresPreprocessor(failurePolicy);
                 tx.SetFailureHandlingOptions(failOptions);
 
                 try
@@ -194,16 +198,41 @@ namespace KhimTools.SectionCutTool.Core
                         }
                     }
 
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        string failureReason = DescribeTransactionFailure(commitStatus, failurePolicy.Records);
+                        report.MarkRolledBack(failureReason);
+                        KToolsLog.Current.Log(WorkflowSeverity.Error, "SectionCut.GenerateSections",
+                            failureReason, "TRANSACTION_ROLLED_BACK");
+                    }
                 }
                 catch (Exception exTx)
                 {
-                    tx.RollBack();
+                    if (tx.GetStatus() == TransactionStatus.Started)
+                    {
+                        tx.RollBack();
+                    }
+                    report.MarkRolledBack("Transaction exception: " + exTx.Message);
+                    KToolsLog.Current.Exception("SectionCut.GenerateSections", exTx, "TRANSACTION");
                     throw new InvalidOperationException($"Lỗi Transaction khi tạo mặt cắt: {exTx.Message}", exTx);
                 }
             }
 
             return report;
+        }
+
+        private static string DescribeTransactionFailure(
+            TransactionStatus status,
+            IReadOnlyList<FailureRecord> records)
+        {
+            if (records == null || records.Count == 0)
+            {
+                return "Section creation transaction did not commit: " + status;
+            }
+
+            return "Section creation transaction rolled back: " + string.Join("; ", records.Select(record =>
+                $"{record.Severity} {record.DefinitionId}: {record.Description}"));
         }
 
         public List<string> GetAvailableSectionViewTypes()

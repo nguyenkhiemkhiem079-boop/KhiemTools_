@@ -796,11 +796,16 @@ namespace KhimTools.RebarTool.Forms
                         generator.GeneratePanel(panel, report);
                     }
 
-                    trans.Commit();
+                    TransactionStatus commitStatus = trans.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không thể commit thép sàn. Trạng thái transaction: {commitStatus}.");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    trans.RollBack();
+                    if (trans.GetStatus() == TransactionStatus.Started) trans.RollBack();
                     KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
                     return;
                 }

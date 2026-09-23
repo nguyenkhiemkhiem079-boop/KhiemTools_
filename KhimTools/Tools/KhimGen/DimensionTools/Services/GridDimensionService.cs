@@ -18,7 +18,7 @@ namespace KhimTools.DimensionTools.Services
             IList<Grid> straight = grids.Where(x => x.Curve is Line).ToList();
             if (straight.Count == 0)
             {
-                var blocked = new DimensionPlan { Context = context, ViewId = view == null ? ElementId.InvalidElementId : view.Id, Operation = DimensionOperation.GRID, Status = curved.Count > 0 ? DimensionStatus.CURVED_GRID_UNSUPPORTED : DimensionStatus.INSUFFICIENT_REFERENCES };
+                var blocked = DimensionPlanBuilder.CreateBasePlan(context); blocked.Status = curved.Count > 0 ? DimensionStatus.CURVED_GRID_UNSUPPORTED : DimensionStatus.INSUFFICIENT_REFERENCES;
                 blocked.Errors.Add(curved.Count > 0 ? "CURVED_GRID_UNSUPPORTED" : "No straight visible Grids were found.");
                 return blocked;
             }

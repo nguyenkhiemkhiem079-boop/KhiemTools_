@@ -139,7 +139,9 @@ namespace KhimTools.DimensionTools.Forms
             options.HorizontalMoveMillimeters = (double)_horizontalMove.Value; options.VerticalMoveMillimeters = (double)_verticalMove.Value;
             var context = new DimensionContext { Document = _doc, View = _view, Operation = operation, Options = options };
             foreach (ElementId id in _selection) if (_doc.GetElement(id) is Dimension) context.DimensionIds.Add(id);
-            var plan = new DimensionPlan { Context = context, ViewId = _view.Id, Operation = operation, Status = DimensionStatus.READY, Fingerprint = operation + "|" + string.Join(",", context.DimensionIds.Select(id => id.Value.ToString()).ToArray()) };
+            var plan = DimensionPlanBuilder.CreateBasePlan(context);
+            plan.Status = DimensionStatus.READY;
+            plan.Fingerprint = DimensionPlanBuilder.BuildFingerprint(plan);
             int required = operation == DimensionOperation.JOIN ? 2 : 1;
             if (context.DimensionIds.Count != required) { plan.Status = DimensionStatus.INVALID_SELECTION; plan.Errors.Add(operation + " requires exactly " + required + " selected Dimension" + (required == 1 ? "." : "s.")); }
             return plan;
@@ -150,7 +152,11 @@ namespace KhimTools.DimensionTools.Forms
             var context = new DimensionContext { Document = _doc, View = _view, Operation = DimensionOperation.SPOT_ELEVATION, Options = options };
             IEnumerable<Element> elements = _selection.Select(id => _doc.GetElement(id)).Where(element => element != null);
             foreach (DimensionReferenceInfo info in DimensionReferenceService.FromElements(_doc, _view, elements, DimensionReferenceRole.GENERIC_FACE, options.Axis).Take(1)) context.References.Add(info);
-            var plan = new DimensionPlan { Context = context, ViewId = _view.Id, Operation = DimensionOperation.SPOT_ELEVATION, Status = DimensionStatus.READY, DimensionTypeId = ElementId.InvalidElementId, Fingerprint = "SPOT_ELEVATION|" + (context.References.Count == 0 ? string.Empty : context.References[0].StableRepresentation + "@" + context.References[0].GeometryFingerprint) };
+            var plan = DimensionPlanBuilder.CreateBasePlan(context);
+            plan.Status = DimensionStatus.READY;
+            plan.DimensionTypeId = ElementId.InvalidElementId;
+            foreach (DimensionReferenceInfo info in context.References) plan.References.Add(DimensionPlanSnapshotAdapter.Capture(info));
+            plan.Fingerprint = DimensionPlanBuilder.BuildFingerprint(plan);
             if (context.References.Count != 1) { plan.Status = DimensionStatus.REFERENCE_NOT_FOUND; plan.Errors.Add("Select one element exposing a valid planar face Reference for Spot Elevation."); }
             return plan;
         }
@@ -178,7 +184,7 @@ namespace KhimTools.DimensionTools.Forms
         private static string FormatPreview(DimensionPlan plan)
         {
             if (plan == null) return "No plan.";
-            var lines = new List<string> { "Operation: " + plan.Operation, "Status: " + plan.Status, "View: " + (plan.ViewId == null ? "" : plan.ViewId.Value.ToString()), "Dimension type: " + (plan.DimensionTypeId == null ? "" : plan.DimensionTypeId.Value.ToString()), "References: " + plan.References.Count, "Expected segments: " + plan.ExpectedSegments };
+            var lines = new List<string> { "Operation: " + plan.Operation, "Status: " + plan.Status, "View: " + (plan.ViewId == null ? "" : plan.ViewId.ToLongValue().ToString()), "Dimension type: " + (plan.DimensionTypeId == null ? "" : plan.DimensionTypeId.ToLongValue().ToString()), "References: " + plan.References.Count, "Expected segments: " + plan.ExpectedSegments };
             for (int i = 0; i < plan.References.Count; i++) lines.Add((i + 1) + ". " + plan.References[i].SourceRole + " | " + plan.References[i].StableRepresentation);
             lines.AddRange(plan.Warnings.Select(x => "WARNING: " + x)); lines.AddRange(plan.Errors.Select(x => "BLOCKED: " + x)); return string.Join(Environment.NewLine, lines.ToArray());
         }

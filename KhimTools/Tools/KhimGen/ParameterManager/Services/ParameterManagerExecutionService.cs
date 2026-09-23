@@ -14,9 +14,9 @@ namespace KhimTools.ParameterManager.Services
         {
             var result = new ParameterManagerResult { RequestedTargets = plan == null ? 0 : plan.Items.Count, Status = ParameterManagerStatus.READY };
             if (doc == null || plan == null || plan.Request == null) { result.Status = ParameterManagerStatus.BLOCKED; result.Messages.Add("Plan is unavailable."); return result; }
-            if (plan.Request.Options == null) plan.Request.Options = new ParameterManagerOptions();
-            ParameterManagerPreflightResult preflight = ParameterManagerPreflightService.Validate(doc, plan); if (!preflight.IsValid && plan.Request.Options.AllOrNothing) { result.Status = preflight.Status; result.BlockedTargets = preflight.Errors.Count; return result; }
-            if (plan.Request.Options.AllOrNothing) return ExecuteStrict(doc, plan, result);
+            ParameterManagerOptions options = plan.Request.Options == null ? new ParameterManagerOptions() : plan.Request.Options.CreateExecutionOptions();
+            ParameterManagerPreflightResult preflight = ParameterManagerPreflightService.Validate(doc, plan); if (!preflight.IsValid && options.AllOrNothing) { result.Status = preflight.Status; result.BlockedTargets = preflight.Errors.Count; return result; }
+            if (options.AllOrNothing) return ExecuteStrict(doc, plan, result, options);
             using (var group = new TransactionGroup(doc, "K-TOOLS Parameter Manager 3.5"))
             {
                 group.Start();
@@ -32,7 +32,7 @@ namespace KhimTools.ParameterManager.Services
                     {
                         using (var tx = new Transaction(doc, "Parameter Manager item " + item.ElementId.IntegerValue))
                         {
-                            tx.Start(); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(parameter, item.ProposedValue, new ParameterTransferOptions { AllowElementId = plan.Request.Options.AllowElementId, ProtectIdentity = !plan.Request.Options.AllowProtectedParameters });
+                            tx.Start(); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(parameter, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters });
                             if (applied.Status == ParameterTransferStatus.COPIED) { tx.Commit(); item.Status = ParameterManagerStatus.UPDATED; item.Action = ParameterManagerAction.UPDATE; result.UpdatedTargets++; }
                             else { tx.RollBack(); item.Status = MapStatus(applied.Status); item.Action = ParameterEditItemAction(item.Status); result.BlockedTargets++; item.Message = applied.Message; }
                         }
@@ -44,13 +44,13 @@ namespace KhimTools.ParameterManager.Services
             result.VerificationPassed = ParameterManagerVerificationService.Verify(doc, plan, result);
             result.Status = result.FailedTargets > 0 ? ParameterManagerStatus.PARTIAL : ParameterManagerStatus.UPDATED; return result;
         }
-        private static ParameterManagerResult ExecuteStrict(Document doc, ParameterManagerPlan plan, ParameterManagerResult result)
+        private static ParameterManagerResult ExecuteStrict(Document doc, ParameterManagerPlan plan, ParameterManagerResult result, ParameterManagerOptions options)
         {
             using (var group = new TransactionGroup(doc, "K-TOOLS Parameter Manager strict"))
             {
                 group.Start(); using (var tx = new Transaction(doc, "K-TOOLS Parameter Manager all-or-nothing"))
                 {
-                    try { tx.Start(); foreach (ParameterEditItem item in plan.Items.Where(i => i.IsSelected && i.Action == ParameterManagerAction.UPDATE)) { Element target = doc.GetElement(plan.Request.ParameterScope == ParameterScopeMode.TYPE ? item.TypeId : item.ElementId); Parameter p = ParameterTransferService.FindMatchingParameter(target, plan.SelectedParameterKey); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(p, item.ProposedValue, new ParameterTransferOptions { AllowElementId = plan.Request.Options.AllowElementId, ProtectIdentity = !plan.Request.Options.AllowProtectedParameters }); if (applied.Status != ParameterTransferStatus.COPIED) throw new InvalidOperationException(applied.Status.ToString()); item.Status = ParameterManagerStatus.UPDATED; result.UpdatedTargets++; } tx.Commit(); group.Assimilate(); result.Status = ParameterManagerStatus.UPDATED; }
+                    try { tx.Start(); foreach (ParameterEditItem item in plan.Items.Where(i => i.IsSelected && i.Action == ParameterManagerAction.UPDATE)) { Element target = doc.GetElement(plan.Request.ParameterScope == ParameterScopeMode.TYPE ? item.TypeId : item.ElementId); Parameter p = ParameterTransferService.FindMatchingParameter(target, plan.SelectedParameterKey); ParameterTransferResult applied = ParameterTransferService.TryApplyValue(p, item.ProposedValue, new ParameterTransferOptions { AllowElementId = options.AllowElementId, ProtectIdentity = !options.AllowProtectedParameters }); if (applied.Status != ParameterTransferStatus.COPIED) throw new InvalidOperationException(applied.Status.ToString()); item.Status = ParameterManagerStatus.UPDATED; result.UpdatedTargets++; } tx.Commit(); group.Assimilate(); result.Status = ParameterManagerStatus.UPDATED; }
                     catch (Exception ex) { if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack(); group.RollBack(); result.RolledBack = true; result.Status = ParameterManagerStatus.ALL_OR_NOTHING_ROLLED_BACK; result.Messages.Add(ex.Message); }
                 }
             }

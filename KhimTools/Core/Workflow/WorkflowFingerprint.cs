@@ -16,7 +16,9 @@ namespace KhimTools.Core.Workflow
         {
             IEnumerable<string> normalized = (tokens ?? Enumerable.Empty<string>())
                 .Select(token => token ?? string.Empty);
-            string canonical = string.Join("\n", normalized);
+            // Length-prefix each token so embedded separators cannot make distinct
+            // plans hash to the same canonical representation.
+            string canonical = string.Concat(normalized.Select(token => token.Length + ":" + token));
             using (SHA256 sha = SHA256.Create())
             {
                 byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(canonical));

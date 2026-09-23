@@ -217,7 +217,12 @@ namespace KhimTools.RebarTool.Forms
                     resultSummary += $"• Móng (Structural Foundations): {n} đối tượng -> Cover {(double)_numFoundationCover.Value}mm\n";
                 }
 
-                tx.Commit();
+                TransactionStatus commitStatus = tx.Commit();
+                if (commitStatus != TransactionStatus.Committed)
+                {
+                    throw new InvalidOperationException(
+                        $"Không thể commit cấu hình cover. Trạng thái transaction: {commitStatus}.");
+                }
 
                 MessageBox.Show(this, $"Đã cập nhật Lớp bê tông bảo vệ thành công cho {totalApplied} đối tượng trong dự án:\n\n" + resultSummary,
                     "Hoàn thành Cấu hình Cover", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -227,7 +232,7 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                tx.RollBack();
+                if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
                 MessageBox.Show(this, "Lỗi khi cập nhật Cover cho dự án: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

@@ -35,6 +35,7 @@ namespace KhimTools.RebarTool.Commands
                 using (var tx = new Transaction(doc, "Create Column Drawings"))
                 {
                     tx.Start();
+                    int createdInTransaction = 0;
 
                     foreach (var col in columns)
                     {
@@ -95,10 +96,17 @@ namespace KhimTools.RebarTool.Commands
                         sectionGen.CreateOrUpdate(col, hostedRebars);
                         view3DGen.CreateOrUpdate(col, hostedRebars);
 
-                        created++;
+                        createdInTransaction++;
                     }
 
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        throw new InvalidOperationException(
+                            $"Không thể commit bản vẽ cột. Trạng thái transaction: {commitStatus}.");
+                    }
+
+                    created = createdInTransaction;
                 }
 
                 TaskDialog.Show("Column Drawing",

@@ -7,7 +7,25 @@ namespace KhimTools.DimensionTools.Models
 {
     public sealed class DimensionResult
     {
-        public WorkflowOutcome Outcome { get { return WorkflowOutcomeMapper.FromStatus(Status.ToString(), VerificationPassed, false); } }
+        public WorkflowOutcome Outcome
+        {
+            get
+            {
+                switch (Status)
+                {
+                    case DimensionStatus.READY: return WorkflowOutcome.Ready;
+                    case DimensionStatus.NO_CHANGE: return WorkflowOutcome.NoChange;
+                    case DimensionStatus.SKIPPED: return WorkflowOutcome.Skipped;
+                    case DimensionStatus.CREATED:
+                    case DimensionStatus.UPDATED:
+                    case DimensionStatus.REPLACED: return VerificationPassed ? WorkflowOutcome.Succeeded : WorkflowOutcome.Failed;
+                    case DimensionStatus.PARTIAL: return VerificationPassed ? WorkflowOutcome.Partial : WorkflowOutcome.Failed;
+                    case DimensionStatus.FAILED:
+                    case DimensionStatus.POST_VERIFY_FAILED: return WorkflowOutcome.Failed;
+                    default: return WorkflowOutcome.Blocked;
+                }
+            }
+        }
         public IList<WorkflowDiagnostic> Diagnostics { get; private set; }
         public DimensionOperation Operation { get; set; }
         public IList<ElementId> SourceElementIds { get; private set; }
