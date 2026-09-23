@@ -113,3 +113,28 @@ The current API-readiness classifications remain conservative (`PARTIAL` for Sta
 Remaining commit-status checks and Revit-host/runtime evidence are tracked in the debt
 register; therefore this checkpoint does not claim that every workflow is ready for external
 reuse.
+
+## Stage 4.1 + 4.2 follow-up evidence (2026-09-23)
+
+The old Slab Step supplemental script reflected `CreateLayoutPreview`, a method absent from the
+current production form. The canonical current preview path is `SlabStepDetector.Scan`, then
+fresh source/fingerprint validation, then `SlabStepService.GenerateSlabSteps`. The script now
+checks the current path (40/40 static checks); a registered Revit fixture covers read-only
+repeated scan, validation, commit, batch rollback, and fixture cleanup when actually run.
+
+| Evidence class | Result |
+| --- | --- |
+| Stage 3.1–3.7 structural checks | PASS (57, 49, 56, 114, 174, 146, 271) |
+| Stage 4 architecture static audit | PASS (61) |
+| Slab Step current-workflow static acceptance | PASS (40) |
+| Test-All | PASS (1061/1061) |
+| Revit 2024 / net48 forced rebuild | PASS, 0 errors, 230 warnings |
+| Revit 2025 / net8 forced rebuild | PASS, 0 errors, 228 warnings |
+| K-QS Domain build | PASS, both target frameworks, 0 warnings / errors |
+| Rebar QA | PASS (configuration 36, input-state 60, layout 9235 controls + 252 renders, references 40 renders) |
+| UI QA | PASS (92 contracts; 100 icons, 10 XAML surfaces, 43 renders) |
+| Revit-host runtime | DEFERRED / NOT EXECUTED |
+
+This remains a hardening checkpoint, not a claim that Stage 4 is closed. Full command-level
+diagnostic fields and operation-specific Modify Objects postconditions remain documented as
+P1 follow-up items. No push or merge was made.
