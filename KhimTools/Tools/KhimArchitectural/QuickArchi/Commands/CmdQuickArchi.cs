@@ -2,6 +2,8 @@ using System;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using System.Diagnostics;
+using KhimTools.Architectural;
 using KhimTools.Architectural.QuickArchi.Forms;
 
 namespace KhimTools.Architectural.QuickArchi.Commands
@@ -15,6 +17,7 @@ namespace KhimTools.Architectural.QuickArchi.Commands
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
+            var timer = Stopwatch.StartNew();
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null || uidoc.Document == null)
             {
@@ -26,11 +29,18 @@ namespace KhimTools.Architectural.QuickArchi.Commands
             {
                 var window = new QuickArchiWindow(uidoc);
                 window.ShowDialog();
-                return Result.Succeeded;
+                timer.Stop();
+                ArchitecturalDiagnostics.Log(nameof(CmdQuickArchi), uidoc.Document, "open-quick-archi",
+                    0, window.HasCompletedOperation ? 1 : 0, 0, timer.Elapsed);
+                return window.HasCompletedOperation ? Result.Succeeded :
+                    window.OperationExecuted ? Result.Failed : Result.Cancelled;
             }
             catch (Exception ex)
             {
+                timer.Stop();
                 message = ex.Message;
+                ArchitecturalDiagnostics.Log(nameof(CmdQuickArchi), uidoc.Document, "open-quick-archi",
+                    0, 0, 1, timer.Elapsed, ex.GetType().FullName);
                 return Result.Failed;
             }
         }

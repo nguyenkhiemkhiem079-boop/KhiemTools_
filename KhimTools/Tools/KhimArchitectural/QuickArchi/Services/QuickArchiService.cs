@@ -5,6 +5,9 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Architecture;
 using Autodesk.Revit.UI;
 using KhimTools.Core.Revit;
+using KhimTools.Architectural;
+using KhimTools.Core;
+using System.Diagnostics;
 
 namespace KhimTools.Architectural.QuickArchi.Services
 {
@@ -13,6 +16,12 @@ namespace KhimTools.Architectural.QuickArchi.Services
     /// </summary>
     public static class QuickArchiService
     {
+        public sealed class WallCreationResult
+        {
+            public List<Wall> CreatedWalls { get; } = new List<Wall>();
+            public int Failed { get; internal set; }
+        }
+
         public static List<WallType> GetWallTypes(Document doc)
         {
             if (doc == null) return new List<WallType>();
@@ -44,7 +53,7 @@ namespace KhimTools.Architectural.QuickArchi.Services
             var doc = uidoc.Document;
             var selIds = uidoc.Selection.GetElementIds();
 
-            foreach (var id in selIds)
+            foreach (var id in selIds.OrderBy(x => x.ToLongValue()))
             {
                 var elem = doc.GetElement(id);
                 if (elem is ModelCurve mc)
@@ -60,7 +69,7 @@ namespace KhimTools.Architectural.QuickArchi.Services
             return curves;
         }
 
-        public static List<Wall> CreateWallsFromCurves(
+        public static WallCreationResult CreateWallsFromCurves(
             Document doc,
             List<Curve> curves,
             WallType wallType,
@@ -69,57 +78,92 @@ namespace KhimTools.Architectural.QuickArchi.Services
             double offsetMm,
             bool isStructural)
         {
-            var createdWalls = new List<Wall>();
+            var result = new WallCreationResult();
             if (doc == null || curves == null || wallType == null || level == null)
-                return createdWalls;
+                throw new ArgumentException("A document, curves, wall type, and level are required.");
+            if (wallType.Document != doc || level.Document != doc || wallType.Kind == WallKind.Curtain)
+                throw new ArgumentException("The selected wall type and level must belong to this document; curtain wall types are not supported.");
+            if (double.IsNaN(heightMm) || double.IsInfinity(heightMm) || heightMm <= 0 ||
+                double.IsNaN(offsetMm) || double.IsInfinity(offsetMm))
+                throw new ArgumentOutOfRangeException(nameof(heightMm), "Wall height must be finite and positive and offset must be finite.");
+            if (curves.Count == 0) return result;
 
+            var timer = Stopwatch.StartNew();
             double heightFt = RevitUnitService.MillimetresToFeet(heightMm);
             double offsetFt = RevitUnitService.MillimetresToFeet(offsetMm);
 
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Archi Walls"))
             {
-                tx.Start();
-
-                foreach (var curve in curves)
+                TransactionBoundary.Start(tx, "Architectural.QuickArchi.Walls");
+                try
                 {
-                    try
+                    foreach (var curve in curves)
                     {
-                        Wall wall = Wall.Create(doc, curve, wallType.Id, level.Id, heightFt, offsetFt, false, isStructural);
-                        if (wall != null)
+                        if (curve == null || !curve.IsBound || curve.Length <= 1e-6)
                         {
-                            createdWalls.Add(wall);
+                            result.Failed++;
+                            continue;
+                        }
+                        using (var sub = new SubTransaction(doc))
+                        {
+                            TransactionBoundary.Start(sub, "Architectural.QuickArchi.Walls");
+                            try
+                            {
+                                Wall wall = Wall.Create(doc, curve, wallType.Id, level.Id, heightFt, offsetFt, false, isStructural);
+                                if (wall == null || doc.GetElement(wall.Id) is not Wall)
+                                    throw new InvalidOperationException("Wall creation did not produce a resolvable wall.");
+                                TransactionBoundary.Commit(sub, "Architectural.QuickArchi.Walls");
+                                result.CreatedWalls.Add(wall);
+                            }
+                            catch
+                            {
+                                TransactionBoundary.RollBack(sub, "Architectural.QuickArchi.Walls");
+                                result.Failed++;
+                            }
                         }
                     }
-                    catch
-                    {
-                        // Tiếp tục với các đoạn tường tiếp theo
-                    }
+                    if (result.CreatedWalls.Count == 0) TransactionBoundary.RollBack(tx, "Architectural.QuickArchi.Walls");
+                    else TransactionBoundary.Commit(tx, "Architectural.QuickArchi.Walls");
                 }
-
-                tx.Commit();
+                catch
+                {
+                    TransactionBoundary.RollBack(tx, "Architectural.QuickArchi.Walls");
+                    result.CreatedWalls.Clear();
+                    result.Failed = curves.Count;
+                    throw;
+                }
             }
-
-            return createdWalls;
+            timer.Stop();
+            ArchitecturalDiagnostics.Log("CmdQuickArchi", doc, "create-walls", curves.Count,
+                result.CreatedWalls.Count, result.Failed, timer.Elapsed);
+            return result;
         }
 
-        public static int CreateRoomsAndTags(Document doc, ViewPlan planView)
+        public static int CreateRooms(Document doc, ViewPlan planView)
         {
             if (doc == null || planView == null || planView.GenLevel == null) return 0;
 
+            var timer = Stopwatch.StartNew();
             int count = 0;
             using (var tx = new Transaction(doc, "K-TOOLS — Quick Archi Rooms"))
             {
-                tx.Start();
-
-                var topo = doc.Create.NewRooms2(planView.GenLevel);
-                if (topo != null)
+                TransactionBoundary.Start(tx, "Architectural.QuickArchi.Rooms");
+                try
                 {
-                    count = topo.Count;
+                    var topo = doc.Create.NewRooms2(planView.GenLevel);
+                    var createdIds = topo == null ? new List<ElementId>() : topo.ToList();
+                    count = createdIds.Count(id => doc.GetElement(id) is Room);
+                    if (count == 0) TransactionBoundary.RollBack(tx, "Architectural.QuickArchi.Rooms");
+                    else TransactionBoundary.Commit(tx, "Architectural.QuickArchi.Rooms");
                 }
-
-                tx.Commit();
+                catch
+                {
+                    TransactionBoundary.RollBack(tx, "Architectural.QuickArchi.Rooms");
+                    throw;
+                }
             }
-
+            timer.Stop();
+            ArchitecturalDiagnostics.Log("CmdQuickArchi", doc, "create-rooms", 1, count, 0, timer.Elapsed);
             return count;
         }
     }

@@ -6,11 +6,14 @@ using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Architectural.QuickArchi.Services;
+using KhimTools.Architectural.QuickArchi.Models;
 
 namespace KhimTools.Architectural.QuickArchi.Forms
 {
     public partial class QuickArchiWindow : Window
     {
+        public bool HasCompletedOperation { get; private set; }
+        public bool OperationExecuted { get; private set; }
         private readonly UIDocument _uidoc;
         private readonly Document _doc;
         private List<Curve> _selectedCurves = new List<Curve>();
@@ -39,7 +42,6 @@ namespace KhimTools.Architectural.QuickArchi.Forms
             _uidoc = uidoc;
             _doc = uidoc.Document;
             InitializeComponent();
-            KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             KhimTools.Core.UI.KhimWpfTheme.Apply(this);
             LoadData();
         }
@@ -87,26 +89,39 @@ namespace KhimTools.Architectural.QuickArchi.Forms
                 return;
             }
 
-            double heightMm = ParseDouble(TxtHeight.Text);
-            if (heightMm <= 0) heightMm = 3000.0;
+            var settings = new QuickArchiSettings
+            {
+                WallHeightMm = ParseDouble(TxtHeight.Text),
+                WallOffsetMm = ParseDouble(TxtOffset.Text),
+                IsStructural = ChkStructural.IsChecked == true,
+                AutoCreateRooms = ChkAutoRooms.IsChecked == true
+            };
+            if (!settings.Validate(out string settingsError))
+            {
+                Autodesk.Revit.UI.TaskDialog.Show("Invalid settings", settingsError);
+                return;
+            }
 
-            double offsetMm = ParseDouble(TxtOffset.Text);
-            bool isStructural = ChkStructural.IsChecked == true;
-
+            OperationExecuted = true;
             try
             {
-                var createdWalls = QuickArchiService.CreateWallsFromCurves(
-                    _doc, _selectedCurves, wallItem.Item, levelItem.Item, heightMm, offsetMm, isStructural);
+                var wallResult = QuickArchiService.CreateWallsFromCurves(
+                    _doc, _selectedCurves, wallItem.Item, levelItem.Item,
+                    settings.WallHeightMm, settings.WallOffsetMm, settings.IsStructural);
 
                 int roomsCount = 0;
-                if (ChkAutoRooms.IsChecked == true && _doc.ActiveView is ViewPlan vp)
+                if (settings.AutoCreateRooms && _doc.ActiveView is ViewPlan vp)
                 {
-                    roomsCount = QuickArchiService.CreateRoomsAndTags(_doc, vp);
+                    roomsCount = QuickArchiService.CreateRooms(_doc, vp);
                 }
 
-                string msg = string.Format("Tạo thành công:\n• {0} Đoạn Tường\n• {1} Phòng (Rooms)", createdWalls.Count, roomsCount);
+                string msg = string.Format("Tạo thành công:\n• {0} Đoạn Tường\n• {1} Phòng (Rooms)\n• {2} đường không hợp lệ/thất bại",
+                    wallResult.CreatedWalls.Count, roomsCount, wallResult.Failed);
                 Autodesk.Revit.UI.TaskDialog.Show("K-TOOLS — Quick Archi", msg);
-                TxtStatus.Text = string.Format("Hoàn tất: {0} tường, {1} phòng.", createdWalls.Count, roomsCount);
+                TxtStatus.Text = string.Format("Hoàn tất: {0} tường, {1} phòng, {2} lỗi.", wallResult.CreatedWalls.Count, roomsCount, wallResult.Failed);
+                HasCompletedOperation = wallResult.CreatedWalls.Count > 0 || roomsCount > 0;
+                if (!HasCompletedOperation)
+                    Autodesk.Revit.UI.TaskDialog.Show("Quick Archi", "No architectural elements were created. Check the selected curves and active plan boundaries.");
             }
             catch (Exception ex)
             {

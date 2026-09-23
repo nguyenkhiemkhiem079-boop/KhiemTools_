@@ -24,9 +24,14 @@ namespace KhimTools.Architectural.QuickArchi.Models
 
         public bool Validate(out string errorMessage)
         {
-            if (WallHeightMm <= 0)
+            if (double.IsNaN(WallHeightMm) || double.IsInfinity(WallHeightMm) || WallHeightMm <= 0)
             {
-                errorMessage = "Chiều cao tường phải lớn hơn 0 mm.";
+                errorMessage = "Chiều cao tường phải là số hữu hạn lớn hơn 0 mm.";
+                return false;
+            }
+            if (double.IsNaN(WallOffsetMm) || double.IsInfinity(WallOffsetMm))
+            {
+                errorMessage = "Độ lệch tường phải là số hữu hạn.";
                 return false;
             }
 
