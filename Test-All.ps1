@@ -107,6 +107,16 @@ $suites = @(
         Name = "K-Architectural Domain QA"
         Script = Join-Path $scriptDir "Tools\Verify-KArchitecturalDomain.ps1"
         ExpectedCount = 14
+    },
+    @{
+        Name = "K-MEP Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-KMepAcceptance.ps1"
+        ExpectedCount = 30
+    },
+    @{
+        Name = "K-MEP Domain QA"
+        Script = Join-Path $scriptDir "Tools\Verify-KMepDomain.ps1"
+        ExpectedCount = 12
     }
 )
 
