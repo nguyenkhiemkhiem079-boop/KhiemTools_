@@ -13,7 +13,7 @@ function Get-TextFiles([string]$root) {
     return @(Get-ChildItem -LiteralPath $root -Recurse -File -Include *.cs,*.csproj)
 }
 
-$genFiles = Get-TextFiles $genRoot
+$genFiles = @(Get-ChildItem -LiteralPath $genRoot -Recurse -File -Filter *.cs)
 $allProduction = Get-TextFiles $productionRoot
 $entrypoints = @($genFiles | Where-Object { Select-String -LiteralPath $_.FullName -Pattern 'IExternalCommand|IExternalApplication' -Quiet })
 $transactionFiles = @($genFiles | Where-Object { Select-String -LiteralPath $_.FullName -Pattern 'Transaction\s*\(' -Quiet })
