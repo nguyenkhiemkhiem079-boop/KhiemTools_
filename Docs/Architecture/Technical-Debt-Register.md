@@ -5,7 +5,7 @@ feature requests; they describe seams that must be hardened before reuse as an i
 
 | ID | Priority | Area | Debt / risk | Required treatment | Target |
 | --- | --- | --- | --- | --- | --- |
-| TD-001 | P0 | SlabJoin | `SwallowWarningsPreprocessor` deletes every warning and attempts to resolve/delete elements for errors, with an empty catch. | Replace with explicit benign-warning allow-list; record unknown failures and roll back. | Stage 4 hardening |
+| TD-001 | P1 | SlabJoin | The unsafe generic processor is retained only as a deprecated compatibility wrapper with an empty allow-list; no production call sites remain. | Delete the wrapper after downstream references are proven absent; add explicit IDs only where a warning is intentionally benign. | Stage 5 cleanup |
 | TD-002 | P0 | Rebar | Several legacy forms still own large model transactions. | Keep the existing error-rollback processor; migrate orchestration behind an executor boundary before public reuse. | Stage 4/5 |
 | TD-003 | P1 | Backend | Empty catches obscure failed reads, geometry, and cleanup outcomes. | Replace backend empty catches with diagnostics or narrowly documented cleanup handling. | Stage 4 |
 | TD-004 | P1 | Logging | Diagnostics are split between `Debug.WriteLine`, dialogs, and ad-hoc strings. | Use the shared structured logger; UI may render returned diagnostics only. | Stage 4 |

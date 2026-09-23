@@ -58,7 +58,7 @@ internal API is exposed.
 | Stage 3.6 ModifyObjects | GOOD | GOOD | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P1 |
 | Stage 3.7 DimensionTools | GOOD | PARTIAL | GOOD | GOOD | GOOD | GOOD | PARTIAL | LOW | READY | P1 |
 | RebarTool | PARTIAL | PARTIAL | PARTIAL | PARTIAL | GOOD | GOOD | GOOD for errors / PARTIAL for warnings | HIGH in legacy forms | PARTIAL | P0 |
-| SlabJoin | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | CRITICAL (generic swallow) | HIGH | NOT_READY | P0 |
+| SlabJoin | PARTIAL | LEGACY | PARTIAL | LEGACY | PARTIAL | PARTIAL | GOOD for unknown errors / PARTIAL for legacy batching | HIGH | NOT_READY | P1 |
 | GridLevel / Grid Generator | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | MEDIUM | PARTIAL | P1 |
 | SectionCut | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | PARTIAL | MEDIUM | PARTIAL | P1 |
 | QuantityTakeoff / K-QS | GOOD domain boundary | GOOD snapshots | GOOD | PARTIAL Revit adapter | GOOD snapshot result | GOOD | PARTIAL | LOW in domain | PARTIAL | P1 |
@@ -68,6 +68,15 @@ internal API is exposed.
 The matrix is deliberately conservative. A `READY` Stage 3 entry means its existing
 request/plan/preflight/execute/verify seams are suitable for an adapter, not that it is
 already a public SDK or that runtime acceptance has been completed.
+
+The Stage 4 audit after hardening reports 340 KhimGen C# files, 37 command/application
+entrypoints, 79 files containing transaction calls, 10 forms containing transactions, 4
+heavy command files over 200 lines, 13 plan-like files (4 retaining live API tokens), 10
+runtime-QA fixture files, 14 failure-preprocessor files, and zero God workflow managers.
+The KhimGen exact empty-catch count is now 9 files / 18 occurrences; remaining catches are
+classified as UI, cleanup, or capability-probe debt. The full production tree still has 33
+files / 60 exact empty-catch occurrences because legacy UI/runtime paths are intentionally
+deferred.
 
 ## Modern Stage 3 chain
 
@@ -82,8 +91,9 @@ god manager and does not move Revit API behavior into the domain assembly.
 
 ## Known hardening targets
 
-1. Replace generic warning/error swallowing in SlabJoin with an allow-list policy and an
-   observable diagnostic. Unknown errors must remain rollback-capable.
+1. The generic SlabJoin warning/error swallow was removed from production call sites. The
+   compatibility type remains deprecated and uses the empty allow-list policy; a later pass
+   can delete it once downstream references are proven absent.
 2. Keep the Rebar failure processor's error rollback behavior and expose its records through
    the shared outcome/diagnostic shape.
 3. Route backend diagnostics through a non-UI logger. `TaskDialog` remains a presentation

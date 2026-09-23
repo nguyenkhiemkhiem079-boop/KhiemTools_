@@ -16,6 +16,24 @@ namespace KhimTools.Core.Logging
             Debug.WriteLine(string.Concat("[K-TOOLS][", severity, "][", operation ?? string.Empty, "] ", prefix, message ?? string.Empty));
         }
 
+        public void Log(WorkflowSeverity severity, WorkflowLogContext context, string message, string code = null)
+        {
+            if (context == null)
+            {
+                Log(severity, string.Empty, message, code);
+                return;
+            }
+
+            string details = string.Concat(
+                "module=", context.Module ?? string.Empty,
+                ";operation=", context.Operation ?? string.Empty,
+                ";document=", context.DocumentFingerprint ?? string.Empty,
+                ";targets=", context.TargetCount,
+                ";durationMs=", context.Duration.TotalMilliseconds.ToString("F0"),
+                ";outcome=", context.Outcome);
+            Log(severity, context.Operation, details + ";message=" + (message ?? string.Empty), code);
+        }
+
         public void Exception(string operation, Exception exception, string code = null)
         {
             Log(WorkflowSeverity.Error, operation, exception == null ? "Unknown exception." : exception.Message, code);
