@@ -17,7 +17,7 @@ installer install, upgrade, repair, uninstall, publication, push, or merge was r
 | Phase 17 domain goldens/edge/performance/stress | PARTIAL: 48 assertions now include actual Rebar anchorage/lap production math and input edges; Rebar semantic geometry goldens and geometry edge cases remain unexecuted |
 | MCP serialization stress | PASS, 100/1,000/10,000 requests; 10,000 completed in about 0.67 s |
 | MSI implementation acceptance | PASS, 14/14 |
-| Fresh local package structural/lifecycle validation | PASS; MSI 13/13; no installation was executed |
+| Historical local package structural/lifecycle validation | PASS for source commit `4542170`; artifacts are STALE against current source `a7098e7`, unsigned, and not install-tested |
 | `git diff --check` | PASS |
 
 Current-source MSI and bootstrapper were built from detached code commit `4542170` in an isolated
