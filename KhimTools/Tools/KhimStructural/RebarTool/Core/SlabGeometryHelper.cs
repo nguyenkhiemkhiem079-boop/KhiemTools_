@@ -25,6 +25,8 @@ namespace KhimTools.RebarTool.Core
                 LevelName = doc.GetElement(floor.LevelId)?.Name ?? "?",
                 BoundingBox = floor.get_BoundingBox(null)
             };
+            if (profile.BoundingBox == null)
+                throw new InvalidOperationException("Slab model bounds are unavailable; reinforcement cannot be safely planned.");
 
             // 1. Độ dày sàn
             double thicknessFeet = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
@@ -39,61 +41,22 @@ namespace KhimTools.RebarTool.Core
 
             // 3. Trích xuất Face trên cùng & ranh giới (Top Face Boundary)
             PlanarFace topFace = GetTopPlanarFace(floor);
-            if (topFace != null)
-            {
-                profile.Normal = topFace.FaceNormal;
-                profile.Origin = topFace.Origin;
+            if (topFace == null || !topFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ, 1e-6))
+                throw new InvalidOperationException("Slab reinforcement currently supports horizontal planar floors only; sloped or non-planar hosts require a host-specific detailing workflow.");
 
-                IList<CurveLoop> loops = topFace.GetEdgesAsCurveLoops();
-                if (loops != null && loops.Count > 0)
-                {
-                    // Loop có diện tích lớn nhất là ranh giới ngoài
-                    var sortedLoops = loops.OrderByDescending(GetLoopArea).ToList();
-                    profile.OuterBoundary = sortedLoops[0];
+            profile.Normal = topFace.FaceNormal;
+            profile.Origin = topFace.Origin;
+            IList<CurveLoop> loops = topFace.GetEdgesAsCurveLoops();
+            if (loops == null || loops.Count == 0)
+                throw new InvalidOperationException("Slab top-face boundary geometry is unavailable; reinforcement cannot be safely clipped to the host.");
+            if (loops.Any(loop => !IsSupportedHorizontalLinearLoop(loop, topFace.Origin.Z)))
+                throw new InvalidOperationException("Slab reinforcement currently supports straight-edged horizontal boundaries and openings only.");
 
-                    // Các loop còn lại trên Face là lỗ mở trong sàn
-                    for (int i = 1; i < sortedLoops.Count; i++)
-                    {
-                        profile.InnerOpenings.Add(sortedLoops[i]);
-                    }
-                }
-            }
-
-            // 4. Tìm thêm các Opening (Shaft Opening / Floor Opening) cắt qua Floor trong mô hình
-            try
-            {
-                var openings = new FilteredElementCollector(doc)
-                    .OfClass(typeof(Opening))
-                    .WherePasses(new ElementIntersectsElementFilter(floor))
-                    .Cast<Opening>()
-                    .ToList();
-
-                foreach (var op in openings)
-                {
-                    var bbOp = op.get_BoundingBox(null);
-                    if (bbOp != null)
-                    {
-                        double minX = bbOp.Min.X; double maxX = bbOp.Max.X;
-                        double minY = bbOp.Min.Y; double maxY = bbOp.Max.Y;
-                        double z = topFace?.Origin.Z ?? floor.get_BoundingBox(null)?.Max.Z ?? 0;
-
-                        var opLoop = new CurveLoop();
-                        opLoop.Append(Line.CreateBound(new XYZ(minX, minY, z), new XYZ(maxX, minY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(maxX, minY, z), new XYZ(maxX, maxY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(maxX, maxY, z), new XYZ(minX, maxY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(minX, maxY, z), new XYZ(minX, minY, z)));
-                        
-                        // Kiểm tra không trùng với các loop đã có
-                        bool duplicate = profile.InnerOpenings.Any(existing => 
-                            GetLoopArea(existing) > 0 && Math.Abs(GetLoopArea(existing) - GetLoopArea(opLoop)) < 0.1);
-                        if (!duplicate)
-                        {
-                            profile.InnerOpenings.Add(opLoop);
-                        }
-                    }
-                }
-            }
-            catch { }
+            // The largest actual top-face loop is the outer boundary. Remaining loops are the
+            // actual void boundaries; never synthesize a rectangular opening from its bounding box.
+            var sortedLoops = loops.OrderByDescending(GetLoopArea).ToList();
+            profile.OuterBoundary = sortedLoops[0];
+            for (int i = 1; i < sortedLoops.Count; i++) profile.InnerOpenings.Add(sortedLoops[i]);
 
             // 5. Kích thước BoundingBox
             if (profile.BoundingBox != null)
@@ -330,6 +293,23 @@ namespace KhimTools.RebarTool.Core
                 area += (p1.X * p2.Y - p2.X * p1.Y);
             }
             return Math.Abs(area) / 2.0;
+        }
+
+        private static bool IsSupportedHorizontalLinearLoop(CurveLoop loop, double z)
+        {
+            if (loop == null) return false;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            int count = 0;
+            foreach (Curve curve in loop)
+            {
+                if (!(curve is Line)) return false;
+                XYZ start = curve.GetEndPoint(0);
+                XYZ end = curve.GetEndPoint(1);
+                if (Math.Abs(start.Z - z) > tolerance || Math.Abs(end.Z - z) > tolerance || start.DistanceTo(end) <= tolerance)
+                    return false;
+                count++;
+            }
+            return count >= 3;
         }
     }
 }
