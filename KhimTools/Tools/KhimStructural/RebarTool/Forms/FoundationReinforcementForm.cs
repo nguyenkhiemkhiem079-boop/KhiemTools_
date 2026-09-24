@@ -606,6 +606,8 @@ namespace KhimTools.RebarTool.Forms
                 _workflowTabs.TabPages.Insert(5, RebarReferenceViews.CreatePage(RebarReferenceKind.Foundation));
                 _workflowTabs.SelectedIndex = Math.Max(0, Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1));
             }
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 0)
+                RebarConfigurationPage.ApplyLanguage(_workflowTabs.TabPages[_workflowTabs.TabPages.Count - 1]);
 
             UpdateRoleNavigation();
             UpdatePreviewStateUi();

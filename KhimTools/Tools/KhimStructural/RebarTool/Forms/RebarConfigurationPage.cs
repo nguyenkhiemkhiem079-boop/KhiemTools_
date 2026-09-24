@@ -39,6 +39,96 @@ namespace KhimTools.RebarTool.Forms
 
     internal static class RebarConfigurationPage
     {
+        private static readonly Dictionary<string, string> FieldCaptionsEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Chân neo thép chờ (mm)"] = "Dowel anchorage leg (mm)",
+            ["Chiều dài thép chờ (mm)"] = "Dowel extension (mm)",
+            ["Lớp bảo vệ (mm)"] = "Concrete cover (mm)",
+            ["Lưới đáy X (mm)"] = "Bottom mat X spacing (mm)",
+            ["Lưới đáy Y (mm)"] = "Bottom mat Y spacing (mm)",
+            ["Thép U mép - khoảng cách (mm)"] = "Perimeter U-bar spacing (mm)",
+            ["Tạo thép chờ"] = "Create column dowels",
+            ["Tạo thép chữ U mép móng"] = "Create perimeter U-bars",
+            ["Thép chờ so le"] = "Stagger dowels",
+            ["Chân neo hướng vào"] = "Dowel legs point inward",
+            ["Móc lưới dưới X"] = "Bottom mat X hooks",
+            ["Móc lưới dưới Y"] = "Bottom mat Y hooks",
+            ["Tạo lưới trên"] = "Create top mat",
+            ["Chiều dài nối (k × d)"] = "Lap length (k × d)",
+            ["Đai vùng đầu (mm)"] = "End-zone tie spacing (mm)",
+            ["Đai vùng giữa (mm)"] = "Middle-zone tie spacing (mm)",
+            ["Chiều dài vùng đai đầu (mm)"] = "End tie-zone length (mm)",
+            ["Neo đỉnh"] = "Top anchorage",
+            ["Nhấn tại nối tầng"] = "Cranked splice at floor joint",
+            ["Nối so le"] = "Staggered lap splice",
+            ["Dùng cover tùy chỉnh"] = "Use custom cover",
+            ["Cover tùy chỉnh (mm)"] = "Custom cover (mm)"
+        };
+
+        private static string LocalizeCaption(string caption, bool isEnglish)
+        {
+            if (!isEnglish) return FieldCaptionsEnglish.FirstOrDefault(entry => entry.Value == caption).Key ?? caption;
+            return FieldCaptionsEnglish.TryGetValue(caption, out string translated) ? translated : caption;
+        }
+
+        internal static void ApplyLanguage(TabPage page)
+        {
+            if (page == null) return;
+            bool isEnglish = KhimTools.Core.LanguageManager.IsEnglish;
+            page.Text = isEnglish ? "Project Settings" : "Cấu hình dự án";
+            foreach (Control control in EnumerateControls(page))
+            {
+                if (control is ComboBox scope && scope.Name == "RebarConfigurationScope")
+                {
+                    int selectedIndex = scope.SelectedIndex;
+                    if (scope.Items.Count >= 2)
+                    {
+                        scope.Items[0] = isEnglish ? "Project default" : "Mặc định dự án";
+                        scope.Items[1] = isEnglish ? "Per element type" : "Riêng loại cấu kiện";
+                    }
+                    scope.SelectedIndex = selectedIndex;
+                }
+                else if (control is DataGridView grid && grid.Name == "RebarConfigurationGrid")
+                {
+                    string[] headers = isEnglish
+                        ? new[] { "Override", "Parameter", "Value", "Source" }
+                        : new[] { "Ghi đè", "Thông số", "Giá trị", "Nguồn" };
+                    for (int i = 0; i < grid.Columns.Count && i < headers.Length; i++) grid.Columns[i].HeaderText = headers[i];
+                    foreach (DataGridViewRow row in grid.Rows)
+                    {
+                        if (row.Cells.Count < 4) continue;
+                        row.Cells[1].Value = LocalizeCaption(Convert.ToString(row.Cells[1].Value), isEnglish);
+                        string source = Convert.ToString(row.Cells[3].Value);
+                        if (source == "Ghi đè" || source == "Override") row.Cells[3].Value = isEnglish ? "Override" : "Ghi đè";
+                        else if (source == "Dự án" || source == "Project") row.Cells[3].Value = isEnglish ? "Project" : "Dự án";
+                        else if (source == "Form") row.Cells[3].Value = "Form";
+                    }
+                }
+                else if (control is Button button && button.Tag is string action)
+                {
+                    button.Text = action switch
+                    {
+                        "reload" => isEnglish ? "Reload" : "Nạp lại",
+                        "save" => isEnglish ? "Save & Apply" : "Lưu & áp dụng",
+                        "import" => isEnglish ? "Import JSON" : "Nhập JSON",
+                        "export" => isEnglish ? "Export JSON" : "Xuất JSON",
+                        _ => button.Text
+                    };
+                }
+                else if (control is Label revision && revision.Name == "RebarConfigurationRevision")
+                    revision.Text = string.Format(isEnglish ? "Revision {0}" : "Phiên bản {0}", revision.Tag ?? "0");
+            }
+        }
+
+        private static IEnumerable<Control> EnumerateControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateControls(child)) yield return descendant;
+            }
+        }
+
         internal static TabPage Create(Form owner, Document document, RebarReferenceKind kind, params RebarConfigurationField[] fields)
         {
             var page = new TabPage("Cấu hình dự án") { Name = "RebarConfigurationPage", BackColor = Color.White };
@@ -47,18 +137,18 @@ namespace KhimTools.RebarTool.Forms
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             page.Controls.Add(root);
-            var scope = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
+            var scope = new ComboBox { Name = "RebarConfigurationScope", DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
             scope.Items.AddRange(new object[] { "Mặc định dự án", "Riêng loại cấu kiện" });
             scope.SelectedIndex = 1;
             var toolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true };
             toolbar.Controls.Add(scope);
-            var revision = new Label { AutoSize = true, Margin = new Padding(8) };
+            var revision = new Label { Name = "RebarConfigurationRevision", AutoSize = true, Margin = new Padding(8) };
             toolbar.Controls.Add(revision);
             root.Controls.Add(toolbar, 0, 0);
             var split = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 1 };
             split.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.Controls.Add(split, 0, 1);
-            var grid = new DataGridView { Dock = DockStyle.Fill, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            var grid = new DataGridView { Name = "RebarConfigurationGrid", Dock = DockStyle.Fill, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 AllowUserToAddRows = false, AllowUserToDeleteRows = false, RowHeadersVisible = false, BackgroundColor = Color.White };
             grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Ghi đè", FillWeight = 20 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Thông số", ReadOnly = true, FillWeight = 100 });
@@ -83,11 +173,16 @@ namespace KhimTools.RebarTool.Forms
                     bool overridden = layer != null && layer.ContainsKey(field.Key);
                     decimal value = overridden ? layer[field.Key] : scope.SelectedIndex == 0
                         ? fallback[field.Key] : config.Project.TryGetValue(field.Key, out var projectValue) ? projectValue : fallback[field.Key];
-                    int row = grid.Rows.Add(overridden, field.Caption, value.ToString(CultureInfo.CurrentCulture), overridden ? "Ghi đè" : config.Project.ContainsKey(field.Key) && scope.SelectedIndex == 1 ? "Dự án" : "Form");
+                    bool isProjectValue = config.Project.ContainsKey(field.Key) && scope.SelectedIndex == 1;
+                    string source = overridden
+                        ? (KhimTools.Core.LanguageManager.IsEnglish ? "Override" : "Ghi đè")
+                        : isProjectValue ? (KhimTools.Core.LanguageManager.IsEnglish ? "Project" : "Dự án") : "Form";
+                    int row = grid.Rows.Add(overridden, LocalizeCaption(field.Caption, KhimTools.Core.LanguageManager.IsEnglish), value.ToString(CultureInfo.CurrentCulture), source);
                     if (field.Control is CheckBox)
                         grid.Rows[row].Cells[2] = new DataGridViewCheckBoxCell { Value = value == 1 };
                 }
-                revision.Text = "Revision " + config.Revision;
+                revision.Tag = config.Revision;
+                revision.Text = string.Format(KhimTools.Core.LanguageManager.IsEnglish ? "Revision {0}" : "Phiên bản {0}", config.Revision);
             };
             Action<RebarConfiguration> validate = candidate =>
             {
@@ -127,14 +222,14 @@ namespace KhimTools.RebarTool.Forms
                 validate(next);
                 return next;
             };
-            Action<string, Action> button = (caption, action) =>
+            Action<string, string, Action> button = (caption, actionName, action) =>
             {
-                var command = new Button { Text = caption, AutoSize = true, MinimumSize = new Size(80, 32) };
+                var command = new Button { Text = caption, Tag = actionName, AutoSize = true, MinimumSize = new Size(80, 32) };
                 command.Click += (s, e) => { try { action(); } catch (Exception ex) { MessageBox.Show(page.FindForm(), ex.Message, "Cấu hình Rebar", MessageBoxButtons.OK, MessageBoxIcon.Warning); } };
                 footer.Controls.Add(command);
             };
-            button("Nạp lại", load);
-            button("Lưu & áp dụng", () =>
+            button("Nạp lại", "reload", load);
+            button("Lưu & áp dụng", "save", () =>
             {
                 if (store == null) throw new InvalidOperationException("Lưu dự án Revit trước khi lưu cấu hình.");
                 var next = capture(scope.SelectedIndex);
@@ -142,7 +237,7 @@ namespace KhimTools.RebarTool.Forms
                 config = next;
                 apply(); refresh();
             });
-            button("Nhập JSON", () =>
+            button("Nhập JSON", "import", () =>
             {
                 using (var dialog = new OpenFileDialog { Filter = "Rebar configuration|*.json", CheckFileExists = true })
                     if (dialog.ShowDialog(page.FindForm()) == DialogResult.OK)
@@ -154,7 +249,7 @@ namespace KhimTools.RebarTool.Forms
                         config = next; refresh();
                     }
             });
-            button("Xuất JSON", () =>
+            button("Xuất JSON", "export", () =>
             {
                 config = capture(scope.SelectedIndex);
                 using (var dialog = new SaveFileDialog { Filter = "Rebar configuration|*.json", FileName = "RebarConfiguration.json" })
@@ -191,6 +286,7 @@ namespace KhimTools.RebarTool.Forms
                 catch (Exception ex) { revision.Text = "Không nạp được cấu hình"; MessageBox.Show(owner, ex.Message, "Cấu hình Rebar"); }
             };
             refresh();
+            ApplyLanguage(page);
             return page;
         }
     }

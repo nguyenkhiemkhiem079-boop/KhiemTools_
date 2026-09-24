@@ -705,12 +705,16 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Preselected: {count} columns from Revit"
+                    : $"Đã chọn sẵn: {count} cột từ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Selected: {count} / {_columnListBox.Items.Count} columns"
+                    : $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }
@@ -1773,6 +1777,9 @@ namespace KhimTools.RebarTool.Forms
             if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "Create Rebar" : "Tạo Thép";
             if (_btnPreview3D != null) _btnPreview3D.Text = isEn ? "Solve preview" : "Giải xem trước";
             if (_btnClose != null) _btnClose.Text = isEn ? "Close" : "Đóng";
+
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 0)
+                RebarConfigurationPage.ApplyLanguage(_workflowTabs.TabPages[_workflowTabs.TabPages.Count - 1]);
 
             UpdateSelectedCount();
             UpdatePreviewStateUi();
