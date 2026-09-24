@@ -112,8 +112,10 @@ $contractChecks++
 $rectangularColumnForm = $rebarForms[2]
 if ($rectangularColumnForm -notmatch 'AccessibleName\s*=\s*"Rectangular column preview state"' -or
     $rectangularColumnForm -notmatch 'MarkPreviewStale\(\)' -or
-    $rectangularColumnForm -notmatch 'RebarLayout\.Footer\(_cmbLanguage,\s*_btnPreview3D,\s*_btnCreateRebar') {
-    throw "Rectangular-column solver preview must be discoverable in the primary footer and expose stale/valid state."
+    $rectangularColumnForm -notmatch 'RebarLayout\.Footer\(_cmbLanguage,\s*_btnPreview3D,\s*_btnCreateRebar' -or
+    $rectangularColumnForm -notmatch 'PreviewLifecycleState\.Valid\s*&&\s*_lastPreview\s*!=\s*null' -or
+    $rectangularColumnForm -notmatch '_formGuard\?\.ValidateNow\(\)') {
+    throw "Rectangular-column solver preview must be discoverable, visibly stateful, and gate Create until the current preview is accepted."
 }
 $contractChecks++
 $iconNames = @([regex]::Matches($ribbon, '"([^"\r\n]+\.png)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)

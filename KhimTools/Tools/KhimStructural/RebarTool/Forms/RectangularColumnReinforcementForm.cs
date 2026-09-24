@@ -178,7 +178,10 @@ namespace KhimTools.RebarTool.Forms
                     "Khoảng cách đai vùng A1 phải nhỏ hơn hoặc bằng A2."),
                 new RebarValidationRule(_numBarsB,
                     () => GetSelectedTieLayoutType() != ColumnTieLayoutType.MultiCellClosed || _numBarsB.Value >= 5,
-                    "Bố trí đai đa ô cần ít nhất 5 thanh chủ theo cạnh B."));
+                    "Bố trí đai đa ô cần ít nhất 5 thanh chủ theo cạnh B."),
+                new RebarValidationRule(_btnCreateRebar,
+                    () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
+                    "Giải Preview cho cột và thông số hiện tại trước khi tạo thép."));
         }
 
         private void BuildUi()
@@ -590,6 +593,7 @@ namespace KhimTools.RebarTool.Forms
                     _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
                     break;
             }
+            _formGuard?.ValidateNow();
         }
 
         private static Label AddRowToLayout(TableLayoutPanel layout, string labelText, Control control)
