@@ -144,6 +144,8 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtStirrupEnd1Len;
         private TextBox _txtStirrupEnd2Len;
         private TextBox _txtStirrupFirstDistance;
+        private NumericUpDown _numHangerStirrupQty;
+        private NumericUpDown _numHangerStirrupSpacing;
 
         // ── Anti Bulge (Side Bar) Controls ──
         private ComboBox _cmbAntiBulgeDia;
@@ -284,6 +286,7 @@ namespace KhimTools.RebarTool.Forms
             BuildViewAddBot();
             BuildViewStirrup();
             BuildViewAntiBulge();
+            DisableUnmappedLegacyInputs();
 
             pnlMiddle.Controls.Add(_pnlViewMainTop);
             pnlMiddle.Controls.Add(_pnlViewMainBot);
@@ -322,6 +325,45 @@ namespace KhimTools.RebarTool.Forms
             botPanel.Controls.Add(footerBar);
 
             Controls.Add(mainSplit);
+        }
+
+        private void DisableUnmappedLegacyInputs()
+        {
+            // Only the controls used by CreateGenerationInput remain editable.
+            // Legacy local lists and schematic dimensions never enter the solver request.
+            Control[] referenceOnlyInputs =
+            {
+                _cmbMainTopStartPoint, _cmbMainTopEndPoint,
+                _txtMainTopAnchorLeft, _txtMainTopAnchorRight, _txtMainTopAnchorXLeft, _txtMainTopAnchorXRight,
+                _cmbMainBotStartPoint, _cmbMainBotEndPoint,
+                _txtMainBotAnchorLeft, _txtMainBotAnchorRight, _txtMainBotAnchorXLeft, _txtMainBotAnchorXRight,
+                _cmbAddTopLayer, _cmbAddTopStartPoint, _cmbAddTopEndPoint, _cmbAddTopStartType, _cmbAddTopEndType,
+                _txtAddTopLeftRatio, _txtAddTopRightRatio, _txtAddTopLeftLen, _txtAddTopRightLen, _txtAddTopDLeft, _txtAddTopDRight,
+                _cmbAddBotLayer, _cmbAddBotStartPoint, _cmbAddBotEndPoint,
+                _txtAddBotLeftRatio, _txtAddBotRightRatio, _txtAddBotLeftLen, _txtAddBotRightLen,
+                _txtAddBotAnchorLeft, _txtAddBotAnchorRight, _txtAddBotTotal,
+                _cmbStirrupSpan, _txtStirrupEnd2Len, _txtStirrupFirstDistance,
+                _txtAntiShrinkageH, _cmbAntiBulgeOffset, _cmbAntiBulgeTieDia, _txtAntiBulgeSpacing, _txtAntiBulgeAnchor
+            };
+            foreach (Control input in referenceOnlyInputs)
+                if (input != null) input.Enabled = false;
+
+            foreach (ListBox list in new[] { _lstMainTop, _lstMainBot, _lstAddTop, _lstAddBot })
+                if (list != null) list.Enabled = false;
+
+            foreach (Control view in new Control[] { _pnlViewMainTop, _pnlViewMainBot, _pnlViewAddTop, _pnlViewAddBot })
+                foreach (Button button in FindControls<Button>(view))
+                    if (button.Text == "Add" || button.Text == "Delete" || button.Text == "Delete All") button.Enabled = false;
+        }
+
+        private static IEnumerable<T> FindControls<T>(Control parent) where T : Control
+        {
+            if (parent == null) yield break;
+            foreach (Control child in parent.Controls)
+            {
+                if (child is T match) yield return match;
+                foreach (T descendant in FindControls<T>(child)) yield return descendant;
+            }
         }
 
         #region Sidebar Setting
@@ -501,7 +543,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstMainTop);
 
             // Middle: Rebar Information
-            var grpInfo = new GroupBox { Text = "Rebar Information", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; other fields are reference-only", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainTopDia = CreateDiameterComboBox();
@@ -589,7 +631,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstMainBot);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; other fields are reference-only", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainBotDia = CreateDiameterComboBox();
@@ -675,7 +717,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstAddTop);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; generator controls bar extent", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblLayer = new Label { Text = "Layer:", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbAddTopLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -785,7 +827,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstAddBot);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; generator controls bar extent", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblLayer = new Label { Text = "LAYER", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbAddBotLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -879,25 +921,28 @@ namespace KhimTools.RebarTool.Forms
         {
             _pnlViewStirrup = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
 
-            // Middle: TabControl with Stirrup Distribution, Additional Stirrup, etc.
+            // Only generated stirrup controls are exposed; unfinished panels are not shown as active workflows.
             var tabStirrup = new TabControl { Left = 5, Top = 5, Width = 590, Height = 390, Font = new Font("Segoe UI", 8.5F) };
 
             var tabDist = new TabPage { Text = "Stirrup Distribution", BackColor = Color.White, Padding = new Padding(8) };
             BuildStirrupDistributionTab(tabDist);
             tabStirrup.TabPages.Add(tabDist);
 
-            var tabAddStirrup = new TabPage { Text = "Additional Stirrup", BackColor = Color.White };
-            tabStirrup.TabPages.Add(tabAddStirrup);
-
-            var tabHanger = new TabPage { Text = "Hanger bar For 2nd Beam", BackColor = Color.White };
+            var tabHanger = new TabPage { Text = "Hanger Bars", BackColor = Color.White, Padding = new Padding(12) };
+            var hangerLayout = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(8) };
+            hangerLayout.Controls.Add(new Label { Text = "Hanger stirrup count (0 disables):", AutoSize = true, Margin = new Padding(4, 8, 4, 4) });
+            _numHangerStirrupQty = new NumericUpDown { Minimum = 0, Maximum = 20, Value = 3, Width = 70, Margin = new Padding(4) };
+            hangerLayout.Controls.Add(_numHangerStirrupQty);
+            hangerLayout.Controls.Add(new Label { Text = "Spacing (mm):", AutoSize = true, Margin = new Padding(16, 8, 4, 4) });
+            _numHangerStirrupSpacing = new NumericUpDown { Minimum = 25, Maximum = 1000, Value = 50, Increment = 5, Width = 80, Margin = new Padding(4) };
+            hangerLayout.Controls.Add(_numHangerStirrupSpacing);
+            hangerLayout.Controls.Add(new Label { Text = "Generated through the same BeamRebarGenerator preview and Create plan.", AutoSize = true, Margin = new Padding(4, 14, 4, 4) });
+            tabHanger.Controls.Add(hangerLayout);
             tabStirrup.TabPages.Add(tabHanger);
-
-            var tabShape = new TabPage { Text = "Stirrup Shape", BackColor = Color.White };
-            tabStirrup.TabPages.Add(tabShape);
 
             // Right: Section Group (3 Cross-sections 1-1, 2-2, 3-3)
             var grpSection = new GroupBox { Text = "Section", Left = 600, Top = 5, Width = 485, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            var cmbSectionSpan = new ComboBox { Left = 160, Top = 18, Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            var cmbSectionSpan = new ComboBox { Left = 160, Top = 18, Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F), Enabled = false };
             cmbSectionSpan.Items.AddRange(new object[] { "0", "1" }); cmbSectionSpan.SelectedIndex = 0;
 
             var pnlSectionCanvas = new Panel { Left = 10, Top = 45, Width = 465, Height = 335, BackColor = Color.White };
@@ -950,7 +995,7 @@ namespace KhimTools.RebarTool.Forms
             var lblMm1 = new Label { Text = "(mm)", Left = 335, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
 
             var lblEnd2 = new Label { Text = "End 2 :", Left = 380, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _txtStirrupEnd2Len = new TextBox { Text = "1800", Left = 430, Top = 145, Width = 60 };
+            _txtStirrupEnd2Len = new TextBox { Text = "1800", Left = 430, Top = 145, Width = 60, ReadOnly = true, Enabled = false };
             var lblMm2 = new Label { Text = "(mm)", Left = 495, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
 
             // 4. Distance of first stirrup to the column
@@ -1891,6 +1936,8 @@ namespace KhimTools.RebarTool.Forms
                 BottomMidExtraQty = (int)_numAddBotQty.Value,
                 BottomMidExtraBarType = GetSelectedBarType(_cmbAddBotDia),
                 SideBarQty = (int)_numAntiBulgeQty.Value,
+                HangerStirrupQty = (int)_numHangerStirrupQty.Value,
+                HangerStirrupSpacingMm = (double)_numHangerStirrupSpacing.Value,
                 AutoSideBars = true,
                 LdMultiplier = (double)_configLd.Value,
                 HookTailMultiplier = (double)_configHookTail.Value,
