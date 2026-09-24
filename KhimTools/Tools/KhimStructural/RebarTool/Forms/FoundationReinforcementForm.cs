@@ -67,7 +67,12 @@ namespace KhimTools.RebarTool.Forms
         private NumericUpDown _numTopYSpacing;
         private CheckBox _chkTopYHook;
 
-        // Tab 3 (Column Dowels & Stirrups)
+        // Tab 3 (Perimeter U-bars)
+        private CheckBox _chkEnablePerimeterUStirrups;
+        private ComboBox _cmbPerimeterStirrupDia;
+        private NumericUpDown _numPerimeterStirrupSpacing;
+
+        // Tab 4 (Column Dowels & Stirrups)
         private CheckBox _chkEnableDowels;
         private ComboBox _cmbDowelDia;
         private NumericUpDown _numDowelQtyX;
@@ -79,7 +84,7 @@ namespace KhimTools.RebarTool.Forms
         private CheckBox _chkEnableDowelStirrups;
         private NumericUpDown _numDowelStirrupQty;
 
-        // Tab 4 (Design Code & Templates)
+        // Tab 5 (Design Code & Templates)
         private ComboBox _cmbDesignCode;
         private ComboBox _cmbConcreteGrade;
         private ComboBox _cmbSteelGrade;
@@ -133,6 +138,9 @@ namespace KhimTools.RebarTool.Forms
                 new RebarValidationRule(_cmbDowelDia,
                     () => !_chkEnableDowels.Checked || _cmbDowelDia.SelectedIndex >= 0,
                     "Chọn loại thép chờ cột."),
+                new RebarValidationRule(_cmbPerimeterStirrupDia,
+                    () => !_chkEnablePerimeterUStirrups.Checked || _cmbPerimeterStirrupDia.SelectedIndex >= 0,
+                    "Chọn đường kính thép chữ U mép móng."),
                 new RebarValidationRule(_btnCreateRebar,
                     () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
                     "Giải và kiểm tra Preview cho cấu hình hiện tại trước khi tạo thép."));
@@ -302,7 +310,32 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Stack(tabTop, _chkEnableTopMesh, grpTopX, grpTopY);
             tabControl.TabPages.Add(tabTop);
 
-            // TAB 3: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
+            // TAB 3: Perimeter edge U-bars (existing generator output, now explicit in the UI)
+            var tabPerimeter = new TabPage("Thép chữ U mép móng") { BackColor = KhimUiStyle.FormBg };
+            _chkEnablePerimeterUStirrups = new CheckBox
+            {
+                Text = "Tạo thép chữ U gia cường mép móng (4 cạnh)",
+                AutoSize = true,
+                Checked = _settings.EnablePerimeterUStirrups
+            };
+            _cmbPerimeterStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _numPerimeterStirrupSpacing = new NumericUpDown { Minimum = 50, Maximum = 500, Value = 200, Increment = 10 };
+            var grpPerimeter = new GroupBox { Text = "Cấu hình thép U theo chu vi", Dock = DockStyle.Top, Padding = new Padding(10) };
+            KhimUiStyle.ApplyCardStyle(grpPerimeter);
+            RebarLayout.Fields(grpPerimeter,
+                RebarLayout.Field("Đường kính", _cmbPerimeterStirrupDia),
+                RebarLayout.Field("Khoảng cách (mm)", _numPerimeterStirrupSpacing),
+                new Control[] { new Label { Text = "Chiều dài chân U do solver chọn: min(40% chiều dày móng, 366 mm).", AutoSize = true } });
+            RebarLayout.Stack(tabPerimeter, _chkEnablePerimeterUStirrups, grpPerimeter);
+            _chkEnablePerimeterUStirrups.CheckedChanged += (s, e) =>
+            {
+                grpPerimeter.Enabled = _chkEnablePerimeterUStirrups.Checked;
+                _cmbPerimeterStirrupDia.Enabled = _chkEnablePerimeterUStirrups.Checked;
+                _numPerimeterStirrupSpacing.Enabled = _chkEnablePerimeterUStirrups.Checked;
+            };
+            tabControl.TabPages.Add(tabPerimeter);
+
+            // TAB 4: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
             var tabDowel = new TabPage("Thép Chờ & Thép Đai") { BackColor = KhimUiStyle.FormBg };
             _chkEnableDowels = new CheckBox { Text = "Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)", Left = 15, Top = 12, AutoSize = true, Checked = true };
 
@@ -355,7 +388,7 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Stack(tabDowel, _chkEnableDowels, grpDowel);
             tabControl.TabPages.Add(tabDowel);
 
-            // TAB 4: Tiêu Chuẩn & Template
+            // TAB 5: Tiêu Chuẩn & Template
             var tabDesign = new TabPage("Tiêu Chuẩn & Template") { BackColor = KhimUiStyle.FormBg };
             var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Cấp Độ Bền", Left = 15, Top = 15, Width = 520, Height = 140 };
             KhimUiStyle.ApplyCardStyle(grpCode);
@@ -430,10 +463,12 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Foundation,
                 RebarConfigurationField.Number("Foundation.DowelFootMm", "Chân neo thép chờ (mm)", _numDowelFootLeg),
                 RebarConfigurationField.Number("Foundation.DowelExtensionMm", "Chiều dài thép chờ (mm)", _numDowelExtension),
-                RebarConfigurationField.Number("Foundation.CoverMm", "Lớp bảo vệ (mm)", _numCoverMm),
-                RebarConfigurationField.Number("Foundation.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
-                RebarConfigurationField.Number("Foundation.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
-                RebarConfigurationField.Flag("Foundation.Dowels", "Tạo thép chờ", _chkEnableDowels),
+            RebarConfigurationField.Number("Foundation.CoverMm", "Lớp bảo vệ (mm)", _numCoverMm),
+            RebarConfigurationField.Number("Foundation.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
+            RebarConfigurationField.Number("Foundation.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
+            RebarConfigurationField.Number("Foundation.PerimeterUBarSpacingMm", "Thép U mép - khoảng cách (mm)", _numPerimeterStirrupSpacing),
+            RebarConfigurationField.Flag("Foundation.Dowels", "Tạo thép chờ", _chkEnableDowels),
+            RebarConfigurationField.Flag("Foundation.PerimeterUStirrups", "Tạo thép chữ U mép móng", _chkEnablePerimeterUStirrups),
                 RebarConfigurationField.Flag("Foundation.Staggered", "Thép chờ so le", _chkStaggeredDowels),
                 RebarConfigurationField.Flag("Foundation.Inward", "Chân neo hướng vào", _chkDowelInward),
                 RebarConfigurationField.Flag("Foundation.BottomXHook", "Móc lưới dưới X", _chkBotXHook),
@@ -446,15 +481,16 @@ namespace KhimTools.RebarTool.Forms
                 Height = 42,
                 WrapContents = false,
                 AutoScroll = true,
-                Padding = new Padding(8, 5, 8, 3),
+                Padding = new Padding(6, 5, 6, 3),
                 BackColor = Color.White
             };
             AddRoleNavigation(roleNavigation, "Lưới dưới", 0);
             AddRoleNavigation(roleNavigation, "Lưới trên", 1);
-            AddRoleNavigation(roleNavigation, "Thép chờ & đai cổ", 2);
-            AddRoleNavigation(roleNavigation, "Thiết lập", 3);
-            AddRoleNavigation(roleNavigation, "Tham khảo", 4);
-            AddRoleNavigation(roleNavigation, "Cấu hình", 5);
+            AddRoleNavigation(roleNavigation, "Thép U mép", 2);
+            AddRoleNavigation(roleNavigation, "Thép chờ & đai cổ", 3);
+            AddRoleNavigation(roleNavigation, "Thiết lập", 4);
+            AddRoleNavigation(roleNavigation, "Tham khảo", 5);
+            AddRoleNavigation(roleNavigation, "Cấu hình", 6);
             tabControl.SelectedIndexChanged += (s, e) => UpdateRoleNavigation();
             workspace.Controls.Add(tabControl);
             workspace.Controls.Add(roleNavigation);
@@ -473,7 +509,7 @@ namespace KhimTools.RebarTool.Forms
                 AutoSize = true,
                 Height = 30,
                 AccessibleName = "Show foundation " + label + " settings",
-                Margin = new Padding(3, 0, 3, 0)
+                Margin = new Padding(2, 0, 2, 0)
             };
             button.Click += (s, e) =>
             {
@@ -513,6 +549,7 @@ namespace KhimTools.RebarTool.Forms
             PopulateCombo(_cmbTopXDia, barTypes, "12");
             PopulateCombo(_cmbTopYDia, barTypes, "12");
             PopulateCombo(_cmbDowelDia, barTypes, "18");
+            PopulateCombo(_cmbPerimeterStirrupDia, barTypes, "10");
         }
 
         private void PopulateCombo(ComboBox combo, List<string> items, string defaultDia)
@@ -595,6 +632,9 @@ namespace KhimTools.RebarTool.Forms
             _settings.TopYDiaLabel = _cmbTopYDia.Text;
             _settings.TopYSpacingMm = (double)_numTopYSpacing.Value;
             _settings.TopYHookDown = _chkTopYHook.Checked;
+            _settings.EnablePerimeterUStirrups = _chkEnablePerimeterUStirrups.Checked;
+            _settings.PerimeterStirrupDiaLabel = _cmbPerimeterStirrupDia.Text;
+            _settings.PerimeterStirrupSpacingMm = (double)_numPerimeterStirrupSpacing.Value;
             _settings.EnableColumnDowels = _chkEnableDowels.Checked;
             _settings.DowelDiaLabel = _cmbDowelDia.Text;
             _settings.DowelQtyX = (int)_numDowelQtyX.Value;
@@ -626,6 +666,9 @@ namespace KhimTools.RebarTool.Forms
             _cmbTopYDia.Text = value.TopYDiaLabel;
             _numTopYSpacing.Value = Clamp(_numTopYSpacing, value.TopYSpacingMm);
             _chkTopYHook.Checked = value.TopYHookDown;
+            _chkEnablePerimeterUStirrups.Checked = value.EnablePerimeterUStirrups;
+            _cmbPerimeterStirrupDia.Text = value.PerimeterStirrupDiaLabel;
+            _numPerimeterStirrupSpacing.Value = Clamp(_numPerimeterStirrupSpacing, value.PerimeterStirrupSpacingMm);
             _chkEnableDowels.Checked = value.EnableColumnDowels;
             _cmbDowelDia.Text = value.DowelDiaLabel;
             _numDowelQtyX.Value = Clamp(_numDowelQtyX, value.DowelQtyX);
@@ -786,10 +829,11 @@ namespace KhimTools.RebarTool.Forms
             MaxX = bounds.Max.X, MaxY = bounds.Max.Y, MaxZ = bounds.Max.Z
         };
 
-        private static IList<Rebar> GenerateFoundation(FoundationRebarGenerator generator, FoundationProfile profile, FoundationRebarSettings settings)
+        private static IList<Rebar> GenerateFoundation(FoundationRebarGenerator generator, FoundationProfile profile,
+            FoundationRebarSettings settings, IDictionary<string, string> roleByBarId)
         {
             var report = new RebarGenerationReport();
-            List<Rebar> bars = generator.Generate(profile, settings, report);
+            List<Rebar> bars = generator.Generate(profile, settings, report, roleByBarId);
             if (report.HasErrors)
                 throw new InvalidOperationException(report.Errors[0].ErrorReason);
             return bars;
@@ -809,15 +853,22 @@ namespace KhimTools.RebarTool.Forms
                 {
                     string key = profile.FoundationElement.UniqueId;
                     string fingerprint = RebarPreviewService.Fingerprint(profile, _settings);
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
                     _previewFingerprints[key] = fingerprint;
                     return new RebarPreviewRequest(fingerprint,
-                        () => GenerateFoundation(generator, profile, _settings),
+                        () => GenerateFoundation(generator, profile, _settings, roleByBarId),
                         () =>
                         {
                             CaptureSettingsFromControls();
                             FoundationProfile current = FoundationGeometryHelper.AnalyzeFoundation(_doc, profile.FoundationElement);
                             return RebarPreviewService.Fingerprint(current, _settings);
-                        }, RebarPreviewService.Describe(profile, _settings));
+                        }, RebarPreviewService.Describe(profile, _settings),
+                        bar =>
+                        {
+                            string role;
+                            return bar != null && roleByBarId.TryGetValue(bar.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), out role)
+                                ? role : string.Empty;
+                        });
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
                 UpdatePreviewStateUi();
@@ -886,7 +937,8 @@ namespace KhimTools.RebarTool.Forms
                 {
                     foreach (FoundationProfile profile in profiles)
                     {
-                        List<Rebar> generated = generator.Generate(profile, _settings, report);
+                        var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                        List<Rebar> generated = generator.Generate(profile, _settings, report, roleByBarId);
                         _doc.Regenerate();
                         if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview,
                             RebarPreviewService.Fingerprint(profile, _settings), generated))

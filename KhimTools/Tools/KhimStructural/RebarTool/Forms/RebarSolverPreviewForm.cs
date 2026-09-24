@@ -214,6 +214,9 @@ namespace KhimTools.RebarTool.Forms
                 case "support-y": return "Support Y / Mũ gối Y";
                 case "opening": return "Opening trim / Gia cường lỗ mở";
                 case "spacer": return "Spacer / Con kê";
+                case "dowel": return "Column dowels / Thép chờ";
+                case "dowel-stirrup": return "Dowel ties / Đai thép chờ";
+                case "perimeter-u": return "Perimeter U-bars / Thép U mép";
                 case "top-continuous": return "Top continuous / Thép trên suốt";
                 case "bottom-continuous": return "Bottom continuous / Thép dưới suốt";
                 case "top-left-extra": return "Top left support / Tăng cường gối trái";
