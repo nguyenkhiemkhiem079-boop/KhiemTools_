@@ -25,6 +25,9 @@ namespace KhimTools.Core
             }
             catch (Exception ex)
             {
+                ActionEventHandler eventHandler = EventHandler;
+                EventHandler = null;
+                if (eventHandler != null) eventHandler.Dispose();
                 System.Diagnostics.Debug.WriteLine("[K-TOOLS] Startup failed: " + ex);
                 TaskDialog.Show("K-TOOLS Startup Error", "K-TOOLS could not start. " + ex.Message);
                 return Result.Failed;
@@ -33,6 +36,9 @@ namespace KhimTools.Core
 
         public Result OnShutdown(UIControlledApplication application)
         {
+            ActionEventHandler eventHandler = EventHandler;
+            EventHandler = null;
+            if (eventHandler != null) eventHandler.Dispose();
             return Result.Succeeded;
         }
 

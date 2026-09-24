@@ -1,5 +1,6 @@
 using System;
-using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Collections.Generic;
 using Autodesk.Revit.UI;
 
 namespace KhimTools.Core
@@ -15,11 +16,13 @@ namespace KhimTools.Core
     /// thread ngay từ đầu (modal dialog chặn thread cho tới khi đóng), nên không cần
     /// ActionEventHandler cho các form đó.
     /// </summary>
-    public class ActionEventHandler : IExternalEventHandler
+    public class ActionEventHandler : IExternalEventHandler, IDisposable
     {
         private readonly ExternalEvent _externalEvent;
-        private readonly ConcurrentQueue<Action<UIApplication>> _pendingActions =
-            new ConcurrentQueue<Action<UIApplication>>();
+        private readonly object _queueLock = new object();
+        private readonly LinkedList<Action<UIApplication>> _pendingActions =
+            new LinkedList<Action<UIApplication>>();
+        private bool _disposed;
 
         public ActionEventHandler()
         {
@@ -30,16 +33,58 @@ namespace KhimTools.Core
         public void Raise(Action<UIApplication> action)
         {
             if (action == null) throw new ArgumentNullException(nameof(action));
-            _pendingActions.Enqueue(action);
-            _externalEvent.Raise();
+            lock (_queueLock)
+            {
+                if (_disposed) throw new ObjectDisposedException(nameof(ActionEventHandler));
+                LinkedListNode<Action<UIApplication>> node = _pendingActions.AddLast(action);
+                try
+                {
+                    ExternalEventRequest request = _externalEvent.Raise();
+                    if (request == ExternalEventRequest.Denied || request == ExternalEventRequest.TimedOut)
+                    {
+                        _pendingActions.Remove(node);
+                        Debug.WriteLine("[K-TOOLS] Revit rejected an ExternalEvent request; its action was discarded: " + request);
+                    }
+                }
+                catch
+                {
+                    _pendingActions.Remove(node);
+                    Debug.WriteLine("[K-TOOLS] Revit ExternalEvent could not be raised; its action was discarded.");
+                    throw;
+                }
+            }
         }
 
         public void Execute(UIApplication app)
         {
-            Action<UIApplication> action;
-            while (_pendingActions.TryDequeue(out action))
+            Action<UIApplication>[] actions;
+            lock (_queueLock)
             {
-                action(app);
+                actions = new Action<UIApplication>[_pendingActions.Count];
+                _pendingActions.CopyTo(actions, 0);
+                _pendingActions.Clear();
+            }
+            foreach (Action<UIApplication> action in actions)
+            {
+                try
+                {
+                    action(app);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine("[K-TOOLS] ExternalEvent action failed: " + ex);
+                }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_queueLock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _pendingActions.Clear();
+                _externalEvent.Dispose();
             }
         }
 

@@ -97,6 +97,11 @@ $suites = @(
         ExpectedCount = 217
     },
     @{
+        Name = "Phase 16 Reliability & Security Static Audit"
+        Script = Join-Path $scriptDir "Tools\Verify-Phase16ReliabilitySecurity.ps1"
+        ExpectedCount = 13
+    },
+    @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-SheetCopyStage31.ps1"
         ExpectedCount = 57
