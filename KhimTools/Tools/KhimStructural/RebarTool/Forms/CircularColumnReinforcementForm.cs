@@ -655,7 +655,7 @@ namespace KhimTools.RebarTool.Forms
         private bool HasCurrentAcceptedPreview()
         {
             RebarPreviewSnapshot accepted;
-            return _doc != null && _lastPreview != null &&
+            return _doc != null && _lastPreview != null && _previewLifecycle.State == PreviewLifecycleState.Valid &&
                 _previewLifecycle.TryGetValid(CurrentInputFingerprint(), out accepted);
         }
 

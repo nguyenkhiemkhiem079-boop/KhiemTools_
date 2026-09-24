@@ -1254,7 +1254,8 @@ namespace KhimTools.RebarTool.Forms
 
         private bool HasCurrentAcceptedPreview()
         {
-            if (_doc == null || _lastPreview == null || _selectedBeams == null || _selectedBeams.Count == 0) return false;
+            if (_doc == null || _lastPreview == null || _previewLifecycle.State != PreviewLifecycleState.Valid ||
+                _selectedBeams == null || _selectedBeams.Count == 0) return false;
             try
             {
                 BeamRebarInput[] inputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
