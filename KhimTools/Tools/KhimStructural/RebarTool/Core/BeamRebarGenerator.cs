@@ -35,7 +35,7 @@ namespace KhimTools.RebarTool.Core
         public bool AutoSideBars { get; set; } = true;
         public int SideBarQty { get; set; } = 2;
         /// <summary>
-        /// TCVN 5574:2018 Äiá»u 10.3.5.4: NgÆ°á»¡ng chiá»u cao dáº§m tá»± Ä‘á»™ng báº­t thÃ©p sÆ°á»n (máº·c Ä‘á»‹nh 700mm).
+        /// TCVN 5574:2018 Điều 10.3.5.4: Ngưỡng chiều cao dầm tự động bật thép sườn (mặc định 700 mm).
         /// </summary>
         public double SideBarThresholdMm { get; set; } = 700.0;
 
@@ -59,7 +59,7 @@ namespace KhimTools.RebarTool.Core
     }
 
     /// <summary>
-    /// Sinh thÃ©p chá»§ (Top/Bottom/Side), thÃ©p tÄƒng cÆ°á»ng (Gá»‘i/Bá»¥ng) vÃ  thÃ©p Ä‘ai A1/A2/A1 cho Dáº§m.
+    /// Sinh thép chủ (Top/Bottom/Side), thép tăng cường (Gối/Bụng) và thép đai A1/A2/A1 cho Dầm.
     /// </summary>
     public class BeamRebarGenerator
     {
@@ -108,24 +108,24 @@ namespace KhimTools.RebarTool.Core
             if (halfB <= 0 || halfH <= 0)
                 throw new InvalidOperationException("Tiết diện dầm quá nhỏ so với lớp bảo vệ đã chọn.");
 
-            // ÄÃ£ loáº¡i bá» kiá»ƒm tra cáº£nh bÃ¡o hÃ m lÆ°á»£ng thÃ©p an toÃ n káº¿t cáº¥u theo yÃªu cáº§u
-            // 1. ThÃ©p chá»§ trÃªn cháº¡y suá»‘t
+            // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu.
+            // 1. Thép chủ trên chạy suốt.
             created.AddRange(CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia));
 
-            // 2. ThÃ©p chá»§ dÆ°á»›i cháº¡y suá»‘t
+            // 2. Thép chủ dưới chạy suốt.
             created.AddRange(CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia));
 
-            // 3. ThÃ©p tÄƒng cÆ°á»ng gá»‘i trÃ¡i & gá»‘i pháº£i (Top Extra)
+            // 3. Thép tăng cường gối trái và gối phải (Top Extra).
             if (input.TopLeftExtraQty > 0)
                 created.AddRange(CreateTopLeftExtraBars(input, profile, cover, stirrupDia, topMainDia));
             if (input.TopRightExtraQty > 0)
                 created.AddRange(CreateTopRightExtraBars(input, profile, cover, stirrupDia, topMainDia));
 
-            // 4. ThÃ©p tÄƒng cÆ°á»ng bá»¥ng (Bottom Mid Extra)
+            // 4. Thép tăng cường bụng (Bottom Mid Extra).
             if (input.BottomMidExtraQty > 0)
                 created.AddRange(CreateBottomMidExtraBars(input, profile, cover, stirrupDia, botMainDia));
 
-            // 5. ThÃ©p sÆ°á»n dáº§m (Side/Skin Bars)
+            // 5. Thép sườn dầm (Side/Skin Bars).
             double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
             if ((input.AutoSideBars && hMm >= input.SideBarThresholdMm) || input.SideBarQty > 0)
             {
@@ -133,10 +133,10 @@ namespace KhimTools.RebarTool.Core
                 created.AddRange(CreateSideBars(input, profile, cover, stirrupDia, sideType));
             }
 
-            // 6. ThÃ©p Ä‘ai phÃ¢n vÃ¹ng A1 / A2 / A1
+            // 6. Thép đai phân vùng A1 / A2 / A1.
             created.AddRange(CreateBeamStirrups(input, profile, halfB, halfH));
 
-            // 7. ThÃ©p Ä‘ai treo chá»‘ng giáº­t dáº§m phá»¥ giao dáº§m chÃ­nh (Gap 7b)
+            // 7. Thép đai treo chống giật tại vị trí dầm phụ giao dầm chính (Gap 7b).
             created.AddRange(CreateHangerStirrups(input, profile, halfB, halfH, report));
 
             var containment = RebarSafetyValidator.CheckRebarContainment(input.Beam, created);
@@ -250,10 +250,10 @@ namespace KhimTools.RebarTool.Core
         {
             var bars = new List<Rebar>();
             int qty = input.TopLeftExtraQty;
-            double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia; // lá»›p 2
+            double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia; // lớp 2
 
             double zStart = -ToFeet(300);
-            double zEnd = profile.Length / 3.0; // cáº¯t á»Ÿ L/3
+            double zEnd = profile.Length / 3.0; // cắt ở L/3
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
@@ -281,7 +281,7 @@ namespace KhimTools.RebarTool.Core
             int qty = input.TopRightExtraQty;
             double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0 - mainDia;
 
-            double zStart = profile.Length * 2.0 / 3.0; // báº¯t Ä‘áº§u tá»« 2L/3
+            double zStart = profile.Length * 2.0 / 3.0; // bắt đầu từ 2L/3
             double zEnd = profile.Length + ToFeet(300);
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
@@ -312,7 +312,7 @@ namespace KhimTools.RebarTool.Core
             int qty = input.BottomMidExtraQty;
             double yBot = -profile.H / 2.0 + cover + stirrupDia + mainDia / 2.0 + mainDia;
 
-            double zStart = profile.Length * 0.15; // cáº¯t cÃ¡ch gá»‘i L/6
+            double zStart = profile.Length * 0.15; // cắt cách gối L/6
             double zEnd = profile.Length * 0.85;
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
@@ -353,13 +353,13 @@ namespace KhimTools.RebarTool.Core
             {
                 double y = -profile.H / 2.0 + cover + stirrupDia + sideDia + i * (usableH / (sidePairs + 1));
 
-                // Thanh trÃ¡i
+                // Thanh trái.
                 XYZ startL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zStart);
                 XYZ endL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zEnd);
                 Rebar barL = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startL, endL);
                 if (barL != null) bars.Add(barL);
 
-                // Thanh pháº£i
+                // Thanh phải.
                 XYZ startR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zStart);
                 XYZ endR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zEnd);
                 Rebar barR = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startR, endR);
@@ -397,7 +397,7 @@ namespace KhimTools.RebarTool.Core
         {
             var hoops = new List<Rebar>();
 
-            // 2. Generate Hanger Stirrups (ThÃ©p Treo) at secondary beam intersections (Gap 7b)
+            // 2. Generate hanger stirrups (thép treo) at secondary-beam intersections (Gap 7b).
             try
             {
                 var interPts = FindIntersectingSecondaryBeams(input.Beam);
@@ -424,7 +424,7 @@ namespace KhimTools.RebarTool.Core
             }
             catch (Exception ex)
             {
-                report?.AddError(input.Beam, "ThÃ©p Ä‘ai treo dáº§m (Hanger Stirrups)", ex);
+                report?.AddError(input.Beam, "Thép đai treo dầm (Hanger Stirrups)", ex);
             }
 
             return hoops;
@@ -456,18 +456,18 @@ namespace KhimTools.RebarTool.Core
             double zLeftEnd = Math.Min(l1, totalLength / 2.0);
             double zRightStart = Math.Max(totalLength - l1, totalLength / 2.0);
 
-            // VÃ¹ng gá»‘i trÃ¡i A1
+            // Vùng gối trái A1.
             for (double z = ToFeet(50); z <= zLeftEnd + 0.001; z += s1)
                 zList.Add(z);
 
-            // VÃ¹ng giá»¯a A2
+            // Vùng giữa A2.
             double lastZ = zList.LastOrDefault();
             if (lastZ <= 0) lastZ = 0;
 
             for (double z = lastZ + s2; z < zRightStart - 0.001; z += s2)
                 zList.Add(z);
 
-            // VÃ¹ng gá»‘i pháº£i A1
+            // Vùng gối phải A1.
             for (double z = zRightStart; z <= totalLength - ToFeet(50); z += s1)
             {
                 if (!zList.Any(existingZ => Math.Abs(existingZ - z) < 0.01))
@@ -491,7 +491,7 @@ namespace KhimTools.RebarTool.Core
                 BoundingBoxXYZ bb = col.get_BoundingBox(null);
                 if (bb == null) continue;
 
-                // TÄƒng dung sai tÃ¬m kiáº¿m cá»™t lÃªn 300mm (~1 foot) Ä‘á»ƒ báº¯t Ä‘Ãºng cá»™t lá»‡ch tÃ¢m nháº¹
+                // Tăng dung sai tìm kiếm cột lên 300 mm (~1 foot) để bắt đúng cột lệch tâm nhẹ.
                 if (point.X >= bb.Min.X - ToFeet(300) && point.X <= bb.Max.X + ToFeet(300) &&
                     point.Y >= bb.Min.Y - ToFeet(300) && point.Y <= bb.Max.Y + ToFeet(300) &&
                     point.Z >= bb.Min.Z - ToFeet(500) && point.Z <= bb.Max.Z + ToFeet(500))
