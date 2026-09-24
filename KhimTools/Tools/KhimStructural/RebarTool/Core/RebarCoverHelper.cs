@@ -140,7 +140,14 @@ namespace KhimTools.RebarTool.Core
                 RebarHostData hostData = RebarHostData.GetRebarHostData(elem);
                 if (hostData != null)
                 {
-                    hostData.SetCommonCoverType(coverType);
+                    try
+                    {
+                        hostData.SetCommonCoverType(coverType);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new InvalidOperationException("Could not apply the requested Rebar cover type to host element " + elem.Id + ".", ex);
+                    }
                     count++;
                 }
             }
