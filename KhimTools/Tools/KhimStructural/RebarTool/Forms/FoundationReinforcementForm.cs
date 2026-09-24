@@ -10,6 +10,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
 using KhimTools.Core.Revit;
+using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
 using Form = System.Windows.Forms.Form;
@@ -36,9 +37,16 @@ namespace KhimTools.RebarTool.Forms
         // Form Controls
         private ComboBox _cmbLanguage;
         private Button _btnCreateRebar;
+        private Button _btnPreviewRebar;
+        private Button _btnSolve3D;
         private Button _btnClose;
         private ListBox _foundationListBox;
         private Panel _previewPanel;
+        private Label _lblPreviewState;
+        private readonly Dictionary<int, FoundationPreviewOutline> _previewOutlines = new Dictionary<int, FoundationPreviewOutline>();
+        private readonly Dictionary<string, string> _previewFingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
+        private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         // Tab 1 (Bottom Mesh)
         private ComboBox _cmbBotXDia;
@@ -79,6 +87,18 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnLoadTemplate;
         private RebarFormGuard _formGuard;
 
+        private sealed class FoundationPreviewOutline
+        {
+            public string HostUniqueId { get; set; }
+            public string Label { get; set; }
+            public double MinX { get; set; }
+            public double MinY { get; set; }
+            public double MaxX { get; set; }
+            public double MaxY { get; set; }
+            public double MinZ { get; set; }
+            public double MaxZ { get; set; }
+        }
+
         public FoundationReinforcementForm(Document doc, List<FamilyInstance> availableFoundations)
             : this(doc, availableFoundations, true)
         {
@@ -110,7 +130,12 @@ namespace KhimTools.RebarTool.Forms
                     "Chọn đủ loại thép lớp trên X/Y."),
                 new RebarValidationRule(_cmbDowelDia,
                     () => !_chkEnableDowels.Checked || _cmbDowelDia.SelectedIndex >= 0,
-                    "Chọn loại thép chờ cột."));
+                    "Chọn loại thép chờ cột."),
+                new RebarValidationRule(_btnCreateRebar,
+                    () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
+                    "Giải và kiểm tra Preview cho cấu hình hiện tại trước khi tạo thép."));
+            AttachPreviewInvalidationHandlers(this);
+            UpdatePreviewStateUi();
         }
 
         private void BuildUi()
@@ -136,6 +161,17 @@ namespace KhimTools.RebarTool.Forms
             _btnCreateRebar = new Button { Text = "Tạo thép móng", Width = 148, Height = 38, Top = 13 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
 
+            _btnPreviewRebar = new Button { Text = LanguageManager.IsEnglish ? "Solve / Refresh" : "Giải / Cập nhật", Width = 130, Height = 38, Top = 13, AccessibleName = "Solve foundation reinforcement preview" };
+            KhimUiStyle.ApplySecondaryButton(_btnPreviewRebar);
+            _btnPreviewRebar.Click += BtnPreviewRebar_Click;
+            _btnSolve3D = new Button { Text = LanguageManager.IsEnglish ? "View 3D" : "Xem 3D", Width = 90, Height = 38, Top = 13, Enabled = false, AccessibleName = "Open foundation solver preview" };
+            KhimUiStyle.ApplySecondaryButton(_btnSolve3D);
+            _btnSolve3D.Click += (s, e) =>
+            {
+                if (_lastPreview == null || _previewLifecycle.State != PreviewLifecycleState.Valid) return;
+                using (var preview = new RebarSolverPreviewForm(_lastPreview)) preview.ShowDialog(this);
+            };
+
             _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
 
@@ -153,7 +189,7 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            var footer = RebarLayout.Footer(_cmbLanguage, _btnCreateRebar, _btnClose);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnPreviewRebar, _btnSolve3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -163,13 +199,13 @@ namespace KhimTools.RebarTool.Forms
 
             _foundationListBox = new ListBox { Dock = DockStyle.Top, Height = 200, SelectionMode = SelectionMode.MultiExtended };
 
-            var lblPreviewTitle = new Label { Text = "XEM TRƯỚC CẤU TẠO", Dock = DockStyle.Top, Height = 32, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            _lblPreviewState = new Label { Text = LanguageManager.IsEnglish ? "PREVIEW · Not solved" : "XEM TRƯỚC · Chưa giải", Dock = DockStyle.Top, Height = 32, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary, TextAlign = ContentAlignment.MiddleLeft, AccessibleName = "Foundation preview state" };
 
             _previewPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
             _previewPanel.Paint += PreviewPanel_Paint;
 
             rightPanel.Controls.Add(_previewPanel);
-            rightPanel.Controls.Add(lblPreviewTitle);
+            rightPanel.Controls.Add(_lblPreviewState);
             rightPanel.Controls.Add(_foundationListBox);
             rightPanel.Controls.Add(lblFdnTitle);
             Controls.Add(rightPanel);
@@ -425,9 +461,14 @@ namespace KhimTools.RebarTool.Forms
         private void PopulateFoundationList()
         {
             _foundationListBox.Items.Clear();
-            foreach (var fdn in _availableFoundations)
+            _previewOutlines.Clear();
+            for (int i = 0; i < _availableFoundations.Count; i++)
             {
+                FamilyInstance fdn = _availableFoundations[i];
                 _foundationListBox.Items.Add($"{fdn.Name} (ID: {fdn.Id.ToLongValue()})");
+                BoundingBoxXYZ bounds = fdn.get_BoundingBox(null);
+                if (bounds != null)
+                    _previewOutlines[i] = MakePreviewOutline(fdn, bounds);
             }
             if (_foundationListBox.Items.Count > 0)
                 _foundationListBox.SelectedIndex = 0;
@@ -554,62 +595,237 @@ namespace KhimTools.RebarTool.Forms
             g.SmoothingMode = SmoothingMode.AntiAlias;
             int w = _previewPanel.Width;
             int h = _previewPanel.Height;
-
             g.Clear(Color.White);
-
-            Rectangle rectFdn = new Rectangle(20, h / 2 - 40, w - 40, 70);
-            using (Pen pFdn = new Pen(Color.DimGray, 2))
-                g.DrawRectangle(pFdn, rectFdn);
-
-            // Draw Bottom Mesh
-            using (Pen pRed = new Pen(Color.Red, 3))
+            int index = _foundationListBox.SelectedIndices.Count == 0 ? -1 : _foundationListBox.SelectedIndices[0];
+            FoundationPreviewOutline outline;
+            if (index < 0 || !_previewOutlines.TryGetValue(index, out outline))
             {
-                g.DrawLine(pRed, rectFdn.Left + 8, rectFdn.Bottom - 8, rectFdn.Right - 8, rectFdn.Bottom - 8);
-                g.DrawLine(pRed, rectFdn.Left + 8, rectFdn.Bottom - 8, rectFdn.Left + 8, rectFdn.Top + 8);
-                g.DrawLine(pRed, rectFdn.Right - 8, rectFdn.Bottom - 8, rectFdn.Right - 8, rectFdn.Top + 8);
+                TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "Select a foundation to inspect its bounding-box extents." : "Chọn móng để xem phạm vi hộp bao.", Font, _previewPanel.ClientRectangle,
+                    Color.DimGray, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+                return;
             }
 
-            // Draw Column Dowels
-            using (Pen pBlue = new Pen(Color.Blue, 3))
-            {
-                g.DrawLine(pBlue, w / 2 - 25, rectFdn.Bottom - 12, w / 2 - 10, rectFdn.Bottom - 12);
-                g.DrawLine(pBlue, w / 2 - 10, rectFdn.Bottom - 12, w / 2 - 10, rectFdn.Top - 30);
+            float minX = (float)outline.MinX, minY = (float)outline.MinY;
+            float width = Math.Max(1e-5f, (float)(outline.MaxX - outline.MinX));
+            float height = Math.Max(1e-5f, (float)(outline.MaxY - outline.MinY));
+            float scale = Math.Min((w - 56f) / width, (h - 82f) / height);
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
+            float ox = (w - width * scale) / 2f;
+            float oy = (h - height * scale) / 2f;
+            PointF Map(double x, double y) => new PointF(ox + (float)(x - minX) * scale, oy + (float)(outline.MaxY - y) * scale);
+            PointF topLeft = Map(outline.MinX, outline.MaxY);
+            var hostRect = new RectangleF(topLeft.X, topLeft.Y, width * scale, height * scale);
 
-                g.DrawLine(pBlue, w / 2 + 25, rectFdn.Bottom - 12, w / 2 + 10, rectFdn.Bottom - 12);
-                g.DrawLine(pBlue, w / 2 + 10, rectFdn.Bottom - 12, w / 2 + 10, rectFdn.Top - 30);
+            string fingerprint;
+            RebarPreviewComponent component = _previewFingerprints.TryGetValue(outline.HostUniqueId, out fingerprint)
+                ? _lastPreview?.Find(fingerprint) : null;
+            using (var hostPen = new Pen(Color.FromArgb(51, 65, 85), 2f))
+            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 1.4f))
+            using (var textBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))
+            using (var noteBrush = new SolidBrush(Color.FromArgb(100, 116, 139)))
+            using (var font = new Font("Segoe UI", 8.5f))
+            {
+                g.DrawRectangle(hostPen, hostRect.X, hostRect.Y, hostRect.Width, hostRect.Height);
+                if (component != null)
+                {
+                    foreach (RebarPreviewPath path in component.Paths)
+                    {
+                        PointF[] points = path.Points.Select(point => Map(point.X, point.Y)).ToArray();
+                        if (points.Length < 2) continue;
+                        float dx = points.Max(point => point.X) - points.Min(point => point.X);
+                        float dy = points.Max(point => point.Y) - points.Min(point => point.Y);
+                        if (dx < 0.5f && dy < 0.5f) g.FillEllipse(barPen.Brush, points[0].X - 2.5f, points[0].Y - 2.5f, 5f, 5f);
+                        else g.DrawLines(barPen, points);
+                    }
+                    TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "SOLVED CENTERLINES · " + component.BarCount + " bars" : "TIM THÉP ĐÃ GIẢI · " + component.BarCount + " thanh",
+                        Font, new Rectangle(8, 6, w - 16, 24), textBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+                }
+                else TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "Bounding-box outline only — solve to show production-generated reinforcement." : "Chỉ có hộp bao — hãy giải để xem thép từ bộ tạo sản xuất.",
+                    Font, new Rectangle(8, 6, w - 16, 36), noteBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+                g.DrawString(outline.Label + "  ·  " + (width * 304.8f).ToString("N0") + " × " + (height * 304.8f).ToString("N0") + " mm",
+                    font, textBrush, 8, h - 24);
+                g.DrawString(LanguageManager.IsEnglish ? "PLAN · host bounding-box axes X/Y" : "MẶT BẰNG · hộp bao trục mô hình X/Y", font, noteBrush, 8, h - 42);
+                if (_previewLifecycle.State == PreviewLifecycleState.Stale)
+                    TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "STALE · showing the last accepted solve" : "CŨ · đang hiển thị kết quả đã giải trước đó",
+                        Font, new Rectangle(8, 26, w - 16, 24), noteBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+            }
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control == _cmbLanguage) continue;
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+            _foundationListBox.SelectedIndexChanged += (s, e) =>
+            {
+                MarkPreviewStale();
+                _previewPanel?.Invalidate();
+            };
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid) _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+            _previewPanel?.Invalidate();
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Valid" : "XEM TRƯỚC · Hợp lệ";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Inputs changed — solve again" : "XEM TRƯỚC · Thông số đổi — giải lại";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Solve failed" : "XEM TRƯỚC · Giải không thành công";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Not solved" : "XEM TRƯỚC · Chưa giải";
+                    _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
+                    break;
+            }
+            bool valid = _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null;
+            _btnCreateRebar.Enabled = valid;
+            _btnSolve3D.Enabled = valid;
+        }
+
+        private FoundationProfile AnalyzeSelectedFoundation(int index)
+        {
+            if (index < 0 || index >= _availableFoundations.Count)
+                throw new InvalidOperationException("Select a foundation before solving or creating reinforcement.");
+            FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, _availableFoundations[index]);
+            if (profile == null) throw new InvalidOperationException("Foundation geometry is unavailable for the selected host.");
+            _previewOutlines[index] = MakePreviewOutline(profile.FoundationElement, profile.BoundingBox);
+            return profile;
+        }
+
+        private FoundationPreviewOutline MakePreviewOutline(FamilyInstance foundation, BoundingBoxXYZ bounds) => new FoundationPreviewOutline
+        {
+            HostUniqueId = foundation.UniqueId,
+            Label = foundation.Name,
+            MinX = bounds.Min.X, MinY = bounds.Min.Y, MinZ = bounds.Min.Z,
+            MaxX = bounds.Max.X, MaxY = bounds.Max.Y, MaxZ = bounds.Max.Z
+        };
+
+        private static IList<Rebar> GenerateFoundation(FoundationRebarGenerator generator, FoundationProfile profile, FoundationRebarSettings settings)
+        {
+            var report = new RebarGenerationReport();
+            List<Rebar> bars = generator.Generate(profile, settings, report);
+            if (report.HasErrors)
+                throw new InvalidOperationException(report.Errors[0].ErrorReason);
+            return bars;
+        }
+
+        private void BtnPreviewRebar_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int[] selectedIndices = _foundationListBox.SelectedIndices.Cast<int>().ToArray();
+                if (selectedIndices.Length == 0) throw new InvalidOperationException("Select at least one foundation before solving its reinforcement.");
+                CaptureSettingsFromControls();
+                var generator = new FoundationRebarGenerator(_doc);
+                FoundationProfile[] profiles = selectedIndices.Select(AnalyzeSelectedFoundation).ToArray();
+                _previewFingerprints.Clear();
+                RebarPreviewRequest[] requests = profiles.Select(profile =>
+                {
+                    string key = profile.FoundationElement.UniqueId;
+                    string fingerprint = RebarPreviewService.Fingerprint(profile, _settings);
+                    _previewFingerprints[key] = fingerprint;
+                    return new RebarPreviewRequest(fingerprint,
+                        () => GenerateFoundation(generator, profile, _settings),
+                        () =>
+                        {
+                            CaptureSettingsFromControls();
+                            FoundationProfile current = FoundationGeometryHelper.AnalyzeFoundation(_doc, profile.FoundationElement);
+                            return RebarPreviewService.Fingerprint(current, _settings);
+                        }, RebarPreviewService.Describe(profile, _settings));
+                }).ToArray();
+                _previewLifecycle.BeginGeneration();
+                UpdatePreviewStateUi();
+                _lastPreview = RebarPreviewService.Capture(_doc, requests);
+                _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
+                UpdatePreviewStateUi();
+                _previewPanel?.Invalidate();
+            }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                _previewFingerprints.Clear();
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                _previewPanel?.Invalidate();
+                KhimDialogHelper.ShowError("Unable to solve foundation reinforcement preview: " + ex.Message);
             }
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
         {
-            var selectedIndices = _foundationListBox.SelectedIndices;
-            if (selectedIndices.Count == 0)
+            int[] selectedIndices = _foundationListBox.SelectedIndices.Cast<int>().ToArray();
+            if (selectedIndices.Length == 0)
             {
                 KhimDialogHelper.ShowError("Vui lòng chọn ít nhất 1 Móng để tạo thép.");
                 return;
             }
 
             CaptureSettingsFromControls();
-
             var generator = new FoundationRebarGenerator(_doc);
             var report = new RebarGenerationReport();
+            FoundationProfile[] profiles;
+            RebarPreviewSnapshot acceptedPreview;
+            string currentFingerprint;
+            try
+            {
+                profiles = selectedIndices.Select(AnalyzeSelectedFoundation).ToArray();
+                currentFingerprint = RebarPreviewService.FingerprintInputs(profiles.Select(profile => RebarPreviewService.Fingerprint(profile, _settings)));
+                if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) ||
+                    profiles.Any(profile => acceptedPreview.Find(RebarPreviewService.Fingerprint(profile, _settings)) == null))
+                {
+                    UpdatePreviewStateUi();
+                    _previewPanel?.Invalidate();
+                    KhimDialogHelper.ShowWarning("Solve or refresh the foundation Preview for the current hosts and settings before creating reinforcement.");
+                    return;
+                }
+                foreach (FoundationProfile profile in profiles)
+                    if (RebarPreviewService.HasExistingDuplicateBar(_doc, profile.FoundationElement, acceptedPreview,
+                        RebarPreviewService.Fingerprint(profile, _settings)))
+                    {
+                        KhimDialogHelper.ShowWarning("Equivalent reinforcement already exists on foundation " + profile.FoundationElement.Id + ". Remove or edit existing bars before creating to avoid duplicates.");
+                        return;
+                    }
+            }
+            catch (Exception ex)
+            {
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                KhimDialogHelper.ShowError("Could not validate the accepted foundation preview: " + ex.Message);
+                return;
+            }
 
             try
             {
                 TransactionBoundary.Execute(_doc, "Bố trí Thép Móng — KhimTools", () =>
                 {
-                    foreach (int idx in selectedIndices)
+                    foreach (FoundationProfile profile in profiles)
                     {
-                        FamilyInstance fdn = _availableFoundations[idx];
-                        FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, fdn);
-                        if (profile == null)
-                        {
-                            report.AddError(fdn, "Phân tích hình học móng",
-                                new InvalidOperationException("Không lấy được bounding box của móng."));
-                            continue;
-                        }
-
-                        generator.Generate(profile, _settings, report);
+                        List<Rebar> generated = generator.Generate(profile, _settings, report);
+                        _doc.Regenerate();
+                        if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview,
+                            RebarPreviewService.Fingerprint(profile, _settings), generated))
+                            throw new InvalidOperationException("Generated foundation centerlines differ from the accepted solver preview, or a generator error occurred; the entire foundation transaction was rolled back.");
                     }
                 });
             }
@@ -619,7 +835,7 @@ namespace KhimTools.RebarTool.Forms
                 return;
             }
 
-            KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Count);
+            KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Length);
             Close();
         }
     }

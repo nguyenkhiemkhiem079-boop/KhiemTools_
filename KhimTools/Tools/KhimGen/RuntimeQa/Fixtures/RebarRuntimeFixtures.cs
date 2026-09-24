@@ -596,19 +596,70 @@ namespace KhimTools.RuntimeQa.Fixtures
         public override string Id { get { return "FR"; } }
         public override string Name { get { return "Foundation Rebar"; } }
         public override string Suite { get { return "REBAR"; } }
-        public override string Description { get { return "Run the production FoundationRebarGenerator on a simple structural foundation host."; } }
+        public override string Description { get { return "Compare rollback-only FoundationRebarGenerator preview centerlines with transactional production output on a structural foundation host."; } }
         protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
         {
             Document doc = context.Document; FamilyInstance foundation = RuntimeQaFixtureHelpers.FirstFoundation(doc); RebarBarType bar = RuntimeQaFixtureHelpers.FindBarType(doc, 14);
             if (foundation == null || bar == null) { Block(result, "FR_RES", "Foundation resources", "Structural foundation host and RebarBarType", "BLOCKED: no suitable foundation fixture is available."); return; }
             FoundationProfile profile; try { profile = FoundationGeometryHelper.AnalyzeFoundation(doc, foundation); } catch (Exception ex) { Block(result, "FR_RES", "Foundation profile", "Analyzable foundation profile", "BLOCKED: " + ex.Message); return; }
             if (profile == null) { Block(result, "FR_RES", "Foundation profile", "Analyzable foundation profile", "BLOCKED: foundation geometry is unavailable."); return; }
+            var settings = new FoundationRebarSettings();
+            var generator = new FoundationRebarGenerator(doc);
+            string inputFingerprint = RebarPreviewService.Fingerprint(profile, settings);
+            RebarPreviewSnapshot preview;
+            int barsBefore = CountHostedBars(doc, foundation);
+            try
+            {
+                preview = RebarPreviewService.Capture(doc, new[]
+                {
+                    new RebarPreviewRequest(inputFingerprint,
+                        () =>
+                        {
+                            var previewReport = new RebarGenerationReport();
+                            List<Rebar> planned = generator.Generate(profile, settings, previewReport);
+                            if (previewReport.HasErrors) throw new InvalidOperationException(previewReport.Errors[0].ErrorReason);
+                            return planned;
+                        },
+                        () => RebarPreviewService.Fingerprint(FoundationGeometryHelper.AnalyzeFoundation(doc, foundation), settings),
+                        RebarPreviewService.Describe(profile, settings))
+                });
+                RebarPreviewComponent component = preview.Find(inputFingerprint);
+                Check(result, "FR_PREVIEW", "Rollback-only solver preview", component != null && component.BarCount > 0 && component.Paths.Count > 0,
+                    "Foundation production solver paths", component == null ? "No component" : component.BarCount + " bars / " + component.Paths.Count + " paths",
+                    "The rollback-only capture uses the production FoundationRebarGenerator.", QaSeverity.CRITICAL);
+                Check(result, "FR_CANCEL", "Preview capture leaves no hosted bars", CountHostedBars(doc, foundation) == barsBefore,
+                    barsBefore.ToString(), CountHostedBars(doc, foundation).ToString(),
+                    "Foundation preview solver transaction is rolled back without persistent bars.", QaSeverity.CRITICAL);
+            }
+            catch (Exception ex)
+            {
+                Check(result, "FR_PREVIEW", "Rollback-only solver preview", false,
+                    "Successful non-mutating foundation preview", "Exception: " + ex.Message,
+                    "Rollback-only capture failed.", QaSeverity.CRITICAL);
+                return;
+            }
+
             var report = new RebarGenerationReport(); List<Rebar> bars;
+            bool matched;
+            bool duplicateDetected;
             using (var tx = new Transaction(doc, "K-TOOLS Runtime QA foundation"))
             {
-                tx.Start(); RebarGenerationFailurePreprocessor failureCapture = RuntimeQaFixtureHelpers.AttachFailureCapture(tx); bars = new FoundationRebarGenerator(doc).Generate(profile, new FoundationRebarSettings(), report); doc.Regenerate(); foreach (Rebar rb in bars ?? new List<Rebar>()) context.TrackCreated(rb.Id); tx.Commit(); RuntimeQaFixtureHelpers.AddFailureCaptureCheck(result, "FR_FAILURES", failureCapture);
+                tx.Start(); RebarGenerationFailurePreprocessor failureCapture = RuntimeQaFixtureHelpers.AttachFailureCapture(tx); bars = generator.Generate(profile, settings, report); doc.Regenerate();
+                matched = RebarPreviewService.Matches(preview, inputFingerprint, bars);
+                duplicateDetected = RebarPreviewService.HasExistingDuplicateBar(doc, foundation, preview, inputFingerprint);
+                foreach (Rebar rb in bars ?? new List<Rebar>()) context.TrackCreated(rb.Id);
+                tx.Commit(); RuntimeQaFixtureHelpers.AddFailureCaptureCheck(result, "FR_FAILURES", failureCapture);
             }
+            Check(result, "FR_PARITY", "Preview/create centerline parity", matched,
+                "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
+                "Foundation production output is regenerated in a disposable transaction and compared with the solver snapshot.", QaSeverity.CRITICAL);
+            Check(result, "FR_DUPLICATE", "Equivalent generated foundation bars are detected", duplicateDetected,
+                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "Duplicate protection is checked while preview-matched bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             RuntimeQaFixtureHelpers.AddRebarResult(result, "FR01", bars, report, foundation);
         }
+
+        private static int CountHostedBars(Document document, Element host) =>
+            new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>().Count(bar => bar.GetHostId() == host.Id);
     }
 }

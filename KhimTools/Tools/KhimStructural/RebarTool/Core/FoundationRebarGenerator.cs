@@ -373,7 +373,7 @@ namespace KhimTools.RebarTool.Core
             return list;
         }
 
-        private RebarBarType FindBarType(List<RebarBarType> list, string diaLabel)
+        internal static RebarBarType FindBarType(List<RebarBarType> list, string diaLabel)
         {
             if (string.IsNullOrWhiteSpace(diaLabel)) return list.FirstOrDefault();
             string search = diaLabel.Replace("d", "").Replace("Φ", "").Replace("ϕ", "").Trim();
