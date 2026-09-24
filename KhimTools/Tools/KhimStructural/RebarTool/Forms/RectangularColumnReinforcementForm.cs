@@ -38,6 +38,7 @@ namespace KhimTools.RebarTool.Forms
         // UI Controls
         private ListBox _columnListBox;
         private Label _lblSelectedCount;
+        private Label _lblPreviewState;
         private Panel _previewPanel;
 
         // Tab 1: Thép Chủ & Cover
@@ -229,9 +230,11 @@ namespace KhimTools.RebarTool.Forms
                 Height = 38,
                 Top = 13
             };
+            _btnPreview3D = new Button { Text = "Solve preview", Width = 132, Height = 38, Enabled = _doc != null };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
 
             _btnCreateRebar.Click += BtnCreateRebar_Click;
+            _btnPreview3D.Click += BtnPreview3D_Click;
             _btnClose.Click += (s, e) => Close();
 
             bottomPanel.Controls.Add(workflowStatus);
@@ -244,7 +247,7 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            var footer = RebarLayout.Footer(_cmbLanguage, _btnCreateRebar, _btnClose);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnPreview3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -284,6 +287,7 @@ namespace KhimTools.RebarTool.Forms
             _columnListBox.SelectedIndexChanged += (s, e) =>
             {
                 UpdateSelectedCount();
+                MarkPreviewStale();
                 _previewPanel?.Invalidate();
             };
 
@@ -394,8 +398,18 @@ namespace KhimTools.RebarTool.Forms
             _previewPanel.Paint += PreviewPanel_Paint;
             var previewViewport = RebarLayout.ScrollPreview(_previewPanel, new Size(560, 420));
             _previewPanel.Resize += (s, e) => _previewPanel.Invalidate();
-            _tabMain.Controls.Add(previewViewport);
-            previewViewport.BringToFront();
+            var previewArea = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            _lblPreviewState = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 30,
+                Padding = new Padding(8, 7, 4, 2),
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                AccessibleName = "Rectangular column preview state"
+            };
+            previewArea.Controls.Add(previewViewport);
+            previewArea.Controls.Add(_lblPreviewState);
+            _tabMain.Controls.Add(previewArea);
 
             tabControl.TabPages.Add(_tabMain);
 
@@ -505,11 +519,8 @@ namespace KhimTools.RebarTool.Forms
             var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
             _chkAutoSection3D = new CheckBox { Text = "Tự động tạo View xem thép 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
-            _btnPreview3D = new Button { Text = "Solve Rebar preview (2D / 3D, rollback only)", AutoSize = true, Enabled = _doc != null };
-            _btnPreview3D.Click += BtnPreview3D_Click;
             pnlViews.Controls.Add(_chkAutoDrawing);
             pnlViews.Controls.Add(_chkAutoSection3D);
-            pnlViews.Controls.Add(_btnPreview3D);
             _grpViews.Controls.Add(pnlViews);
 
             _tabViews.Controls.Add(_grpViews);
@@ -529,11 +540,56 @@ namespace KhimTools.RebarTool.Forms
             tabControl.Multiline = true;
             Controls.Add(tabControl);
             tabControl.BringToFront();
+            AttachPreviewInvalidationHandlers(tabControl);
             RebarLayout.FitColumnGroups(tabControl);
             RebarLayout.Stack(pnlMainLeft, _grpMainSection, _grpCover, _grpMainAnchor);
-            RebarLayout.ColumnEditor(_tabMain, pnlMainLeft, previewViewport);
+            RebarLayout.ColumnEditor(_tabMain, pnlMainLeft, previewArea);
             footer.SendToBack();
             RebarLayout.PresetBar(templatePanel, _lblTemplate, _cmbTemplate, _btnApplyTemplate, _btnSaveTemplate, _btnDeleteTemplate);
+            UpdatePreviewStateUi();
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control is NumericUpDown number) number.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is RadioButton radio) radio.CheckedChanged += (s, e) => { if (radio.Checked) MarkPreviewStale(); };
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid) _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            bool isEn = LanguageManager.IsEnglish;
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = isEn ? "PREVIEW · Valid — current inputs solved" : "XEM TRƯỚC · Hợp lệ — đã giải theo thông số hiện tại";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = isEn ? "PREVIEW · Inputs changed — solve again" : "XEM TRƯỚC · Thông số đổi — cần giải lại";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = isEn ? "PREVIEW · Solve failed — review inputs" : "XEM TRƯỚC · Giải không thành công — kiểm tra thông số";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = isEn ? "PREVIEW · Not solved — solve before Create" : "XEM TRƯỚC · Chưa giải — hãy giải trước khi tạo";
+                    _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
+                    break;
+            }
         }
 
         private static Label AddRowToLayout(TableLayoutPanel layout, string labelText, Control control)
@@ -651,6 +707,7 @@ namespace KhimTools.RebarTool.Forms
             if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) || inputGroups.SelectMany(g => g).Any(input =>
                 acceptedPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
             {
+                UpdatePreviewStateUi();
                 MessageBox.Show(this, "Create or refresh the solver-backed 3D preview for the current columns and settings before generating rebar.",
                     "Preview required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -715,6 +772,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
                 System.Diagnostics.Debug.WriteLine("Rectangular column Rebar creation failed: " + ex);
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột";
                 KhimDialogHelper.ShowError(errTitle, ex.Message);
@@ -735,6 +793,7 @@ namespace KhimTools.RebarTool.Forms
             }
             _lastPreview = null;
             _previewLifecycle.Invalidate();
+            UpdatePreviewStateUi();
         }
 
         private void BtnPreview3D_Click(object sender, EventArgs e)
@@ -775,11 +834,13 @@ namespace KhimTools.RebarTool.Forms
                     if (preview.ShowDialog(this) == DialogResult.OK) _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
                     else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
+                UpdatePreviewStateUi();
             }
             catch (Exception ex)
             {
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
                 KhimDialogHelper.ShowError("Unable to create Rebar solver preview: " + ex.Message);
             }
         }
@@ -1581,9 +1642,11 @@ namespace KhimTools.RebarTool.Forms
             if (_btnDeselectAll != null) _btnDeselectAll.Text = isEn ? "Deselect All" : "Bỏ Chọn";
 
             if (_btnCreateRebar != null) _btnCreateRebar.Text = isEn ? "Create Rebar" : "Tạo Thép";
+            if (_btnPreview3D != null) _btnPreview3D.Text = isEn ? "Solve preview" : "Giải xem trước";
             if (_btnClose != null) _btnClose.Text = isEn ? "Close" : "Đóng";
 
             UpdateSelectedCount();
+            UpdatePreviewStateUi();
             _previewPanel?.Invalidate();
         }
 

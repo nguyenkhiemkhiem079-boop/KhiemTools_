@@ -109,6 +109,13 @@ if (@($rebarForms | Where-Object { $_ -notmatch "PreviewLifecycleSession<RebarPr
     throw "Column, beam and slab must preserve Rebar parity while using the canonical stale-preview lifecycle."
 }
 $contractChecks++
+$rectangularColumnForm = $rebarForms[2]
+if ($rectangularColumnForm -notmatch 'AccessibleName\s*=\s*"Rectangular column preview state"' -or
+    $rectangularColumnForm -notmatch 'MarkPreviewStale\(\)' -or
+    $rectangularColumnForm -notmatch 'RebarLayout\.Footer\(_cmbLanguage,\s*_btnPreview3D,\s*_btnCreateRebar') {
+    throw "Rectangular-column solver preview must be discoverable in the primary footer and expose stale/valid state."
+}
+$contractChecks++
 $iconNames = @([regex]::Matches($ribbon, '"([^"\r\n]+\.png)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 foreach ($iconName in $iconNames) {
     if (!(Test-Path -LiteralPath (Join-Path $root ("KhimTools/Resources/" + $iconName)))) { throw "Ribbon icon resource is missing: $iconName" }
