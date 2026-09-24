@@ -64,7 +64,15 @@ Add-Check 'rollback-only-solver-capture' ($previewService.Contains('transaction.
 Add-Check 'solver-derived-centerline-geometry' ($previewService.Contains('GetCenterlineCurves') -and $previewService.Contains('Tessellate')) 'Detached path coordinates are captured from Revit-solved centerlines.'
 Add-Check 'solver-preview-inspection-controls' ($previewForm.Contains('"ISO"') -and $previewForm.Contains('"TOP"') -and $previewForm.Contains('"FRONT"') -and $previewForm.Contains('"RIGHT"') -and $previewForm.Contains('"FIT"') -and $previewForm.Contains('Canvas_MouseWheel') -and $previewForm.Contains('Canvas_MouseMove') -and $previewForm.Contains('0.82f') -and $previewForm.Contains('Filter solver preview by host') -and $previewForm.Contains('GetVisibleComponents()')) 'Detached Rebar solver viewer provides four engineering projections, per-host filtering, 82% fit, bounded wheel zoom, pan and Fit.'
 $referenceViews = Get-Content -Raw (Join-Path $base 'Forms\RebarReferenceViews.cs')
-Add-Check 'rebar-reference-view-vietnamese-encoding' ($referenceViews -cnotmatch '(?:\u00C3.|\u00E1[\u00BA\u00BB]|\u00C4.|\u00E2\u20AC\u00A2|\uFFFD)') 'Rebar reference-view text contains no common UTF-8 mojibake signatures or replacement characters.'
+$localizedRebarSurfaces = @(
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\RectangularColumnReinforcementForm.cs')),
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\BeamReinforcementForm.cs')),
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\CircularColumnReinforcementForm.cs')),
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\SlabReinforcementForm.cs')),
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\FoundationReinforcementForm.cs')),
+    (Get-Content -Encoding UTF8 -Raw (Join-Path $base 'Forms\RebarReferenceViews.cs'))
+) -join "`n"
+Add-Check 'rebar-user-facing-surfaces-vietnamese-encoding' ($localizedRebarSurfaces -cnotmatch '(?:\u00C3[\u00A0-\u00BF]|\u00E1[\u00BA\u00BB]|\u00C4[\u00A0-\u00BF]|\u00E2\u20AC\u00A2|\uFFFD)') 'UTF-8 is decoded explicitly; Beam, column, circular-column, slab, foundation, and reference-view source contain no common mojibake byte sequences or replacement characters.'
 Add-Check 'stable-input-fingerprints' ($previewService.Contains('VersionGuid') -and $previewService.Contains('BarsAlongB') -and $previewService.Contains('TieLayout') -and $previewService.Contains('AdjacentColumnAbove.VersionGuid') -and $previewService.Contains('AdjacentColumnBelow.VersionGuid')) 'Fingerprint includes host/type/adjacent-host versions and generation settings.'
 Add-Check 'preview-ui-wired' ($columnText.Contains('RebarPreviewService.Capture') -and $columnText.Contains('new RebarSolverPreviewForm') -and $previewForm.Contains('RebarPreviewSnapshot') -and $previewForm.Contains('DrawLines')) 'Rectangular-column UI renders detached solver paths in a disposable preview form.'
 Add-Check 'precommit-preview-parity' ($columnText.Contains('RebarPreviewService.Matches') -and $columnText.Contains('_lastPreview')) 'Generation rejects missing/stale preview and compares solved geometry before commit.'
