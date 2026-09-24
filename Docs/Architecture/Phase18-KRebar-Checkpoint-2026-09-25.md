@@ -10,6 +10,7 @@ Checkpoint: 2026-09-25, local-only. This records code-side evidence and open hos
 - Local commits in this continuation:
   - `2c94c86 fix(rebar): localize shared validation feedback`
   - `0be0caf fix(rebar): localize circular column workflow`
+  - `2985eed` and `4472249` record this checkpoint and clarify its code-head reference.
 - No push, merge, installer action, machine-wide deployment, or Revit model operation was performed.
 
 The first commit localizes shared validation status, action text and error messages across Beam, rectangular Column, Slab and Foundation. The second adds a bilingual selector and complete UI-state localization to Circular Column, including preview/count text, reference/configuration pages, validation feedback and bilingual layout coverage. Circular Column was previously mixed-language and did not expose the global selector.
@@ -30,6 +31,8 @@ The first commit localizes shared validation status, action text and error messa
 | Canonical `Test-All.ps1` | PASS; 2,639/2,639 configured audits |
 | `git diff --check` | PASS |
 
+After the code commits, both Release targets were rebuilt from the clean committed tree. Both DLLs report product version `2.7.2+4472249cc04d8eae2e9d5fe54f0e15cdc86f6cb0`; because `4472249` is documentation-only on top of code commit `0be0caf`, the compiled source matches `0be0caf`.
+
 The layout verifier reports host-dependent check/render totals in PowerShell 5.1 versus PowerShell 7; each run passed in its own runtime. The Test-All total is configured-suite accounting, not Revit runtime evidence. The layout checks are offline rendering simulations, not live Windows DPI or Revit command QA.
 
 ## Runtime, host QA, and deployment truth
@@ -37,7 +40,8 @@ The layout verifier reports host-dependent check/render totals in PowerShell 5.1
 - Rebar host scenario definitions: 28; 0 executed; 28 remain `REGISTERED_NOT_EXECUTED` / `HOST_REQUIRED`.
 - Revit host runtime: `DEFERRED`, not PASS. No safe disposable model or supported Revit host runner is available in this task; the active user model was not touched.
 - Runtime fixtures are registered/compiled; their registration is not evidence that the fixtures ran.
-- Deployment sanity previously found the active Revit 2025 process loaded an older machine-wide bundle than the current local build. The existing isolated user-scope QA bundle is also based on an older checkpoint. Neither was replaced or registered in this continuation.
+- Deployment sanity found active Revit 2025 PID `26356` still loads `C:\ProgramData\Autodesk\ApplicationPlugins\KhimTools.bundle\Contents\Modern\KhimTools.dll`, product version `2.7.2+88b8cddcc75dae58cd6929e074465c010cb05129`, which is older than this local build.
+- A new, versioned QA bundle was prepared at `%LOCALAPPDATA%\KhimToolsQA\2.7.2-4472249\KhimTools.bundle`. Its Revit 2024 and 2025 DLL SHA-256 values match the clean build outputs (`88E2177B426C331E994ACBEA7D3FD942928D73D2A0640895F62C3EF7E7BD5740` and `6580400F6A0FF29540440DE5BFC1DD8D8E5626B54CD19AADC0904F6C0E238827`); both manifests have the same AddInId, the modern `.deps.json` is present, package series are R2022–R2026, and R2027 is absent. The bundle is outside Autodesk discovery paths and remains unregistered. The older `2.7.2-309dccb` bundle was not modified.
 - Build warnings observed are `ElementId.IntegerValue` obsolescence (`CS0618`); no RebarTool warning line was found in either build log. No new Category C warning was identified in the changed Rebar paths. This is not a claim that all historical warnings across the repository were exhaustively reclassified.
 
 ## Remaining real blockers
@@ -50,6 +54,6 @@ The layout verifier reports host-dependent check/render totals in PowerShell 5.1
 
 ## Resume point
 
-`NEXT_EXACT_ACTION = Inspect the existing isolated user-scope QA bundle and the current 2024/2025 build outputs; prepare a new versioned, unregistered QA bundle from HEAD 0be0caf only if its manifest/dependency payload can be validated without changing Revit discovery or the active model. Then continue the focused code-side audits for preview/execute parity, warning/debt classification, and remaining responsive/localization cases. Keep host runtime DEFERRED and stop at the 18-hour limit.`
+`NEXT_EXACT_ACTION = Continue focused code-side audits for preview/execute parity, warning/debt classification, and remaining responsive/localization cases; then obtain a safe disposable Revit QA model/runner before considering registration or launch of the new bundle. Do not alter the active model or machine-wide plugin. Keep host runtime DEFERRED and stop at the 18-hour limit.`
 
 `SAFE_TO_PUSH_FOR_REVIEW = NO` — host semantic goldens remain unexecuted, Foundation side ties remain unresolved, and the active loaded DLL is stale.
