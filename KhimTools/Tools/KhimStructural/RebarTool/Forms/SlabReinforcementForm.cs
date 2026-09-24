@@ -2,6 +2,7 @@ using KhimTools.Core.UI;
 using Control = System.Windows.Forms.Control;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -105,6 +106,7 @@ namespace KhimTools.RebarTool.Forms
         private Label _lblPreviewTarget;
         private ComboBox _cmbPreviewPanel;
         private ComboBox _cmbPreviewView;
+        private ComboBox _cmbPreviewRole;
         private Panel _previewCanvas;
         private TabControl _workflowTabs;
         private readonly Dictionary<string, string> _previewFingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -320,16 +322,22 @@ namespace KhimTools.RebarTool.Forms
             editorAndPanels.Controls.Add(pnlRight, 0, 1);
 
             var previewGroup = new GroupBox { Text = "PREVIEW KỸ THUẬT SÀN — geometry đã solve từ generator sản xuất", Dock = DockStyle.Fill, Padding = new Padding(8), Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold) };
-            var previewLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
-            previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            var previewLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             var previewToolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, Padding = new Padding(2) };
+            var previewMetadata = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, Padding = new Padding(2, 0, 2, 0) };
             _cmbPreviewPanel = new ComboBox { Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Active panel shown in preview" };
             _cmbPreviewPanel.SelectedIndexChanged += (s, e) => { UpdatePreviewTargetLabel(); _previewCanvas?.Invalidate(); };
             _cmbPreviewView = new ComboBox { Width = 125, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Preview projection" };
             _cmbPreviewView.Items.AddRange(new object[] { "Mặt bằng", "Mặt cắt X", "Mặt cắt Y" });
             _cmbPreviewView.SelectedIndex = 0;
             _cmbPreviewView.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
+            _cmbPreviewRole = new ComboBox { Width = 155, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Slab reinforcement role filter" };
+            _cmbPreviewRole.Items.AddRange(new object[] { "Tất cả", "Lưới dưới", "Dưới X", "Dưới Y", "Lưới trên", "Trên X", "Trên Y", "Mũ gối", "Mũ X", "Mũ Y", "Lỗ mở", "Con kê" });
+            _cmbPreviewRole.SelectedIndex = 0;
+            _cmbPreviewRole.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
             var fitButton = new Button { Text = "Fit All", AutoSize = true, Height = 28 };
             fitButton.Click += (s, e) => { _previewZoom = 1f; _previewPan = Point.Empty; _previewCanvas?.Invalidate(); };
             var zoomInButton = new Button { Text = "+", Width = 34, Height = 28, AccessibleName = "Zoom in" };
@@ -341,11 +349,13 @@ namespace KhimTools.RebarTool.Forms
             previewToolbar.Controls.Add(new Label { Text = "Panel xem:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
             previewToolbar.Controls.Add(_cmbPreviewPanel);
             previewToolbar.Controls.Add(_cmbPreviewView);
+            previewToolbar.Controls.Add(new Label { Text = "Lọc thép:", AutoSize = true, Padding = new Padding(4, 6, 0, 0) });
+            previewToolbar.Controls.Add(_cmbPreviewRole);
             previewToolbar.Controls.Add(fitButton);
             previewToolbar.Controls.Add(zoomInButton);
             previewToolbar.Controls.Add(zoomOutButton);
-            previewToolbar.Controls.Add(_lblPreviewState);
-            previewToolbar.Controls.Add(_lblPreviewTarget);
+            previewMetadata.Controls.Add(_lblPreviewState);
+            previewMetadata.Controls.Add(_lblPreviewTarget);
             _previewCanvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), AccessibleName = "Slab plan and section preview", TabStop = true };
             _previewCanvas.Paint += PaintSlabPreview;
             _previewCanvas.Resize += (s, e) => _previewCanvas.Invalidate();
@@ -354,7 +364,8 @@ namespace KhimTools.RebarTool.Forms
             _previewCanvas.MouseUp += (s, e) => { _previewPanning = false; _previewCanvas.Cursor = Cursors.Default; };
             _previewCanvas.MouseWheel += (s, e) => { _previewZoom = Math.Max(0.25f, Math.Min(8f, _previewZoom * (e.Delta > 0 ? 1.1f : 0.9f))); _previewCanvas.Invalidate(); };
             previewLayout.Controls.Add(previewToolbar, 0, 0);
-            previewLayout.Controls.Add(_previewCanvas, 0, 1);
+            previewLayout.Controls.Add(previewMetadata, 0, 1);
+            previewLayout.Controls.Add(_previewCanvas, 0, 2);
             previewGroup.Controls.Add(previewLayout);
             pnlMain.Controls.Add(editorAndPanels, 0, 0);
             pnlMain.Controls.Add(previewGroup, 0, 1);
@@ -373,6 +384,11 @@ namespace KhimTools.RebarTool.Forms
                 int index = (int)((Button)s).Tag;
                 if (_workflowTabs != null && index >= 0 && index < _workflowTabs.TabPages.Count)
                     _workflowTabs.SelectedIndex = index;
+                if (_cmbPreviewRole != null)
+                {
+                    int filterIndex = index == 0 ? 1 : index == 1 ? 4 : index == 2 ? 7 : 0;
+                    _cmbPreviewRole.SelectedIndex = filterIndex;
+                }
             };
             host.Controls.Add(button);
         }
@@ -514,14 +530,17 @@ namespace KhimTools.RebarTool.Forms
             _detachedPanelGeometry.TryGetValue(panel.PanelId, out geometry);
             var projectedBoundary = geometry?.Boundary(axis) ?? new PointF[0];
             var projectedOpenings = geometry?.Openings(axis) ?? new PointF[0][];
-            var pathSets = new List<PointF[]>();
+            var pathSets = new List<Tuple<string, PointF[]>>();
             string fingerprint;
             RebarPreviewComponent component = null;
             if (_lastPreview != null && _previewFingerprints.TryGetValue(panel.PanelId, out fingerprint))
                 component = _lastPreview.Find(fingerprint);
-            if (component != null) pathSets.AddRange(component.Paths.Select(path => ProjectPath(path, axis)).Where(points => points.Length > 1));
+            if (component != null)
+                pathSets.AddRange(component.Paths.Select(path => Tuple.Create(path.Role, ProjectPath(path, axis)))
+                    .Where(item => item.Item2.Length > 1));
 
-            PointF[] all = projectedBoundary.Concat(projectedOpenings.SelectMany(points => points)).Concat(pathSets.SelectMany(points => points)).ToArray();
+            PointF[] all = projectedBoundary.Concat(projectedOpenings.SelectMany(points => points))
+                .Concat(pathSets.SelectMany(item => item.Item2)).ToArray();
             if (all.Length < 2)
             {
                 TextRenderer.DrawText(e.Graphics, "Panel geometry is unavailable.", Font, canvas.ClientRectangle, Color.DimGray,
@@ -539,23 +558,27 @@ namespace KhimTools.RebarTool.Forms
             PointF Map(PointF point) => new PointF(ox + _previewPan.X + (point.X - minX) * scale, oy + _previewPan.Y + (maxY - point.Y) * scale);
             using (var boundaryPen = new Pen(Color.FromArgb(51, 65, 85), 2f))
             using (var openingPen = new Pen(Color.FromArgb(220, 38, 38), 1.5f) { DashStyle = DashStyle.Dash })
-            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 1.3f))
+            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 2.2f))
+            using (var subduedBarPen = new Pen(Color.FromArgb(180, 190, 198), 1f))
             using (var textBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))
             using (var font = new Font("Segoe UI", 9f))
             {
                 if (projectedBoundary.Length > 2) e.Graphics.DrawPolygon(boundaryPen, projectedBoundary.Select(Map).ToArray());
                 foreach (PointF[] opening in projectedOpenings) e.Graphics.DrawPolygon(openingPen, opening.Select(Map).ToArray());
-                foreach (PointF[] path in pathSets)
+                foreach (Tuple<string, PointF[]> rolePath in pathSets)
                 {
+                    bool selectedRole = MatchesSlabRoleFilter(rolePath.Item1, _cmbPreviewRole?.SelectedIndex ?? 0);
+                    Pen pathPen = selectedRole ? barPen : subduedBarPen;
+                    PointF[] path = rolePath.Item2;
                     PointF[] projected = path.Select(Map).ToArray();
                     float pathWidth = projected.Max(point => point.X) - projected.Min(point => point.X);
                     float pathHeight = projected.Max(point => point.Y) - projected.Min(point => point.Y);
                     if (axis != 0 && pathWidth < 0.5f && pathHeight < 0.5f)
                     {
                         PointF center = projected[0];
-                        e.Graphics.FillEllipse(barPen.Brush, center.X - 3f, center.Y - 3f, 6f, 6f);
+                        e.Graphics.FillEllipse(pathPen.Brush, center.X - (selectedRole ? 3.5f : 2.5f), center.Y - (selectedRole ? 3.5f : 2.5f), selectedRole ? 7f : 5f, selectedRole ? 7f : 5f);
                     }
-                    else e.Graphics.DrawLines(barPen, projected);
+                    else e.Graphics.DrawLines(pathPen, projected);
                 }
                 string title = plan ? "PLAN · model axes X/Y" : axis == 1 ? "SECTION X · elevation X/Z" : "SECTION Y · elevation Y/Z";
                 e.Graphics.DrawString(title, font, textBrush, 10, 8);
@@ -575,6 +598,26 @@ namespace KhimTools.RebarTool.Forms
             if (loop == null) return new[] { new PointF[0], new PointF[0], new PointF[0] };
             var points = loop.SelectMany(curve => curve.Tessellate()).Select(point => new[] { point.X, point.Y, point.Z }).ToArray();
             return Enumerable.Range(0, 3).Select(axis => points.Select(point => ProjectPoint(point[0], point[1], point[2], axis)).ToArray()).ToArray();
+        }
+
+        private static bool MatchesSlabRoleFilter(string role, int filterIndex)
+        {
+            if (filterIndex <= 0) return true;
+            switch (filterIndex)
+            {
+                case 1: return role == "bottom-x" || role == "bottom-y";
+                case 2: return role == "bottom-x";
+                case 3: return role == "bottom-y";
+                case 4: return role == "top-x" || role == "top-y";
+                case 5: return role == "top-x";
+                case 6: return role == "top-y";
+                case 7: return role == "support-x" || role == "support-y";
+                case 8: return role == "support-x";
+                case 9: return role == "support-y";
+                case 10: return role == "opening";
+                case 11: return role == "spacer";
+                default: return true;
+            }
         }
 
         private static SlabPreviewGeometry DetachPanelGeometry(SlabPanel panel)
@@ -1141,13 +1184,20 @@ namespace KhimTools.RebarTool.Forms
                 {
                     string fingerprint = generator.GetPanelInputFingerprint(panel);
                     _previewFingerprints[panel.PanelId] = fingerprint;
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
                     return new RebarPreviewRequest(fingerprint, () =>
                     {
                         var report = new RebarGenerationReport();
-                        List<Rebar> bars = generator.GeneratePanel(panel, report);
+                        List<Rebar> bars = generator.GeneratePanel(panel, report, roleByBarId);
                         if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
                         return bars;
-                    }, () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes));
+                    }, () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes),
+                    bar =>
+                    {
+                        string role;
+                        string id = bar.Id.Value.ToString(CultureInfo.InvariantCulture);
+                        return roleByBarId.TryGetValue(id, out role) ? role : string.Empty;
+                    });
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
                 UpdatePreviewStateUi();

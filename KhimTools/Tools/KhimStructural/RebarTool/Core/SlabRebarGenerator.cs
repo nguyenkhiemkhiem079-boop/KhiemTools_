@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -32,7 +33,8 @@ namespace KhimTools.RebarTool.Core
         public string GetPanelInputFingerprint(SlabPanel panel) => RebarPreviewService.Fingerprint(panel, _barTypes);
         public IList<RebarBarType> BarTypes => _barTypes.AsReadOnly();
 
-        public List<Rebar> GeneratePanel(SlabPanel panel, RebarGenerationReport report = null)
+        public List<Rebar> GeneratePanel(SlabPanel panel, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             if (panel == null || panel.HostFloor == null)
                 return new List<Rebar>();
@@ -114,6 +116,7 @@ namespace KhimTools.RebarTool.Core
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Thép đáy phương X");
                 createdRebars.AddRange(botX);
+                RecordRoles(botX, "bottom-x", roleByBarId);
 
                 // Bottom Y (Thanh dọc rải theo X)
                 var botY = CreateBoundaryConstrainedRebars(panel.HostFloor, botYType,
@@ -122,6 +125,7 @@ namespace KhimTools.RebarTool.Core
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Thép đáy phương Y");
                 createdRebars.AddRange(botY);
+                RecordRoles(botY, "bottom-y", roleByBarId);
             }
 
             // ── 2. TOP LAYER FULL MESH (LƯỚI TRÊN TOÀN DIỆN NẾU BẬT) ──────────
@@ -133,6 +137,7 @@ namespace KhimTools.RebarTool.Core
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Lưới trên full X");
                 createdRebars.AddRange(topX);
+                RecordRoles(topX, "top-x", roleByBarId);
 
                 var topY = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshYType,
                     bMinX + coverOffset, bMaxX - coverOffset, zTopY,
@@ -140,6 +145,7 @@ namespace KhimTools.RebarTool.Core
                     panel.Boundary, panel.Openings, beamAnchorFeet,
                     report, $"{panel.PanelId} - Lưới trên full Y");
                 createdRebars.AddRange(topY);
+                RecordRoles(topY, "top-y", roleByBarId);
             }
 
             // ── 3. HAT REINFORCE (MŨ GỐI) & TOP DISTRIBUTION ────────────────
@@ -163,6 +169,7 @@ namespace KhimTools.RebarTool.Core
                 double stepY = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingXMm, UnitTypeId.Millimeters);
                 double stepX = UnitUtils.ConvertToInternalUnits(cfg.HatReinforce.SpacingYMm, UnitTypeId.Millimeters);
 
+                int supportXStart = createdRebars.Count;
                 // Mũ gối gối trái phương X (X-min vươn sang phải)
                 if (!skipEdge3)
                 {
@@ -193,6 +200,8 @@ namespace KhimTools.RebarTool.Core
                     }
                 }
 
+                RecordRoles(createdRebars.Skip(supportXStart), "support-x", roleByBarId);
+                int supportYStart = createdRebars.Count;
                 // Mũ gối gối dưới phương Y (Y-min vươn lên trên)
                 if (!skipEdge0)
                 {
@@ -222,6 +231,7 @@ namespace KhimTools.RebarTool.Core
                         }
                     }
                 }
+                RecordRoles(createdRebars.Skip(supportYStart), "support-y", roleByBarId);
             }
 
             // ── 4. SPACERS (THÉP CHÂN CHÓ KÊ SÀN) ───────────────────────────
@@ -229,6 +239,7 @@ namespace KhimTools.RebarTool.Core
             {
                 var chairs = CreateSpacers(panel.HostFloor, chairType, bMinX, bMaxX, bMinY, bMaxY, zBotX, zHatX, panel.Boundary, panel.Openings, cfg.Spacer, report, panel.PanelId);
                 createdRebars.AddRange(chairs);
+                RecordRoles(chairs, "spacer", roleByBarId);
             }
 
             // ── 5. THÉP GIA CƯỜNG BO VIỀN LỖ MỞ (OPENING TRIM REBARS) ──────────
@@ -238,9 +249,17 @@ namespace KhimTools.RebarTool.Core
                 double zOpeningTop = cfg.TopLayer.Enabled ? zTopX : zHatX;
                 var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Boundary, panel.Openings, coverOffset, zBot1, zOpeningTop, report);
                 createdRebars.AddRange(trimmers);
+                RecordRoles(trimmers, "opening", roleByBarId);
             }
 
             return createdRebars;
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
+                if (bar != null) roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         // Tương thích ngược với hàm Generate cũ

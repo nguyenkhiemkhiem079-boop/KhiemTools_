@@ -16,15 +16,18 @@ namespace KhimTools.RebarTool.Core
         public Func<IList<Rebar>> Generate { get; private set; }
         public Func<string> CurrentInputFingerprint { get; private set; }
         public IDictionary<string, string> Semantics { get; private set; }
+        public Func<Rebar, string> RoleSelector { get; private set; }
 
         public RebarPreviewRequest(string inputFingerprint, Func<IList<Rebar>> generate,
-            Func<string> currentInputFingerprint = null, IDictionary<string, string> semantics = null)
+            Func<string> currentInputFingerprint = null, IDictionary<string, string> semantics = null,
+            Func<Rebar, string> roleSelector = null)
         {
             if (string.IsNullOrWhiteSpace(inputFingerprint)) throw new ArgumentException("A stable input fingerprint is required.", "inputFingerprint");
             InputFingerprint = inputFingerprint;
             Generate = generate ?? throw new ArgumentNullException("generate");
             CurrentInputFingerprint = currentInputFingerprint;
             Semantics = semantics == null ? new Dictionary<string, string>() : new Dictionary<string, string>(semantics, StringComparer.Ordinal);
+            RoleSelector = roleSelector;
         }
     }
 
@@ -40,7 +43,12 @@ namespace KhimTools.RebarTool.Core
     public sealed class RebarPreviewPath
     {
         public IReadOnlyList<RebarPreviewPoint> Points { get; private set; }
-        public RebarPreviewPath(IEnumerable<RebarPreviewPoint> points) { Points = (points ?? Enumerable.Empty<RebarPreviewPoint>()).ToArray(); }
+        public string Role { get; private set; }
+        public RebarPreviewPath(IEnumerable<RebarPreviewPoint> points, string role = null)
+        {
+            Points = (points ?? Enumerable.Empty<RebarPreviewPoint>()).ToArray();
+            Role = role ?? string.Empty;
+        }
     }
 
     public sealed class RebarPreviewComponent
@@ -64,7 +72,8 @@ namespace KhimTools.RebarTool.Core
             BarCount = bars.Count;
             var descriptors = bars.Select(bar =>
             {
-                IReadOnlyList<RebarPreviewPath> paths = RebarPreviewService.ReadPaths(new List<Rebar> { bar });
+                string role = request.RoleSelector == null ? string.Empty : request.RoleSelector(bar);
+                IReadOnlyList<RebarPreviewPath> paths = RebarPreviewService.ReadPaths(new List<Rebar> { bar }, role);
                 return new { Paths = paths, Fingerprint = RebarPreviewService.FingerprintBar(bar, paths) };
             }).ToArray();
             Paths = descriptors.SelectMany(descriptor => descriptor.Paths).ToArray();
@@ -443,7 +452,7 @@ namespace KhimTools.RebarTool.Core
                 point.X.ToString("R", CultureInfo.InvariantCulture) + "," + point.Y.ToString("R", CultureInfo.InvariantCulture) + "," + point.Z.ToString("R", CultureInfo.InvariantCulture)))));
         }
 
-        internal static IReadOnlyList<RebarPreviewPath> ReadPaths(IList<Rebar> bars)
+        internal static IReadOnlyList<RebarPreviewPath> ReadPaths(IList<Rebar> bars, string role = null)
         {
             var paths = new List<RebarPreviewPath>();
             foreach (Rebar bar in bars)
@@ -454,7 +463,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     IList<XYZ> points = curve.Tessellate();
                     if (points.Count < 2) continue;
-                    paths.Add(new RebarPreviewPath(points.Select(p => new RebarPreviewPoint(p.X, p.Y, p.Z))));
+                    paths.Add(new RebarPreviewPath(points.Select(p => new RebarPreviewPoint(p.X, p.Y, p.Z)), role));
                 }
             }
             if (paths.Count == 0) throw new InvalidOperationException("Revit returned no solved Rebar centerline paths.");
