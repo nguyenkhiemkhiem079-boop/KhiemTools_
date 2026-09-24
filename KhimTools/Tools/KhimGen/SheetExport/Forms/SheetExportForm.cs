@@ -1335,7 +1335,8 @@ namespace KhimTools.SheetExport.Forms
             }
             catch (Exception ex)
             {
-                KhimDialogHelper.ShowError("Lỗi Khởi Tạo Dữ Liệu Sheet", ex.Message, ex.StackTrace);
+                System.Diagnostics.Debug.WriteLine("Sheet export data initialization failed: " + ex);
+                KhimDialogHelper.ShowError("Lỗi Khởi Tạo Dữ Liệu Sheet", ex.Message);
             }
             finally
             {
@@ -1900,7 +1901,8 @@ namespace KhimTools.SheetExport.Forms
             catch (Exception ex)
             {
                 Cursor = Cursors.Default;
-                KhimDialogHelper.ShowError("Lỗi Trong Quá Trình Xuất", ex.Message, ex.StackTrace);
+                System.Diagnostics.Debug.WriteLine("Sheet export failed: " + ex);
+                KhimDialogHelper.ShowError("Lỗi Trong Quá Trình Xuất", ex.Message);
             }
             finally
             {

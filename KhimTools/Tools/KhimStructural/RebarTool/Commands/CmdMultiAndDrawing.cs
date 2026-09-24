@@ -43,7 +43,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Multi-Column Rebar Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][MultiColumnRebar] " + ex);
+                TaskDialog.Show("Multi-Column Rebar Error", "Multi-column reinforcement failed. " + ex.Message);
                 return Result.Failed;
             }
         }
@@ -90,7 +91,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Multi-Round Column Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][MultiRoundColumn] " + ex);
+                TaskDialog.Show("Multi-Round Column Error", "Multi-round-column reinforcement failed. " + ex.Message);
                 return Result.Failed;
             }
         }

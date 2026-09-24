@@ -10,6 +10,7 @@ using KhimTools.Structural.QuickStructure.Services;
 using KhimTools.Structural.QuickStructure.Models;
 using KhimTools.Architectural.QuickArchi.Models;
 using KhimTools.RebarTool.Core;
+using KhimTools.Core.Preview;
 
 namespace KhimTools.Tests
 {
@@ -92,6 +93,11 @@ namespace KhimTools.Tests
                 RunTest("Test 42: Mandrel Diameter & Bend Radius Standards Verification", Test_42_MandrelAndBendRadius);
                 RunTest("Test 43: Column Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_43_ColumnSteelRatio_Validation);
                 RunTest("Test 44: Beam Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_44_BeamSteelRatio_Validation);
+                RunTest("Test 45: Preview lifecycle starts ungenerated and enters generation", Test_45_PreviewLifecycle_Start);
+                RunTest("Test 46: Preview lifecycle accepts only completed fingerprinted payloads", Test_46_PreviewLifecycle_Complete);
+                RunTest("Test 47: Preview lifecycle rejects and clears stale payloads", Test_47_PreviewLifecycle_Stale);
+                RunTest("Test 48: Preview lifecycle invalidation clears payload and fingerprint", Test_48_PreviewLifecycle_Invalidate);
+                RunTest("Test 49: Host-verification state cannot be consumed as a valid preview", Test_49_PreviewLifecycle_HostRequired);
             }
             finally
             {
@@ -1719,6 +1725,39 @@ namespace KhimTools.Tests
             {
                 throw new Exception("Super-maximum beam steel ratio (4.36%) should fail validation in both standards!");
             }
+        }
+
+        private static void Test_45_PreviewLifecycle_Start()
+        {
+            var session = new PreviewLifecycleSession<object>();
+            if (session.State != PreviewLifecycleState.NotGenerated) throw new Exception("New preview session must start NOT_GENERATED.");
+            session.BeginGeneration();
+            if (session.State != PreviewLifecycleState.Generating || session.Payload != null) throw new Exception("Beginning generation must clear prior output and enter GENERATING.");
+        }
+
+        private static void Test_46_PreviewLifecycle_Complete()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration();
+            var expected = new object(); session.Complete(expected, "plan-1"); object actual;
+            if (session.State != PreviewLifecycleState.Valid || !session.TryGetValid("plan-1", out actual) || !object.ReferenceEquals(expected, actual)) throw new Exception("A completed matching fingerprint should produce a valid preview payload.");
+        }
+
+        private static void Test_47_PreviewLifecycle_Stale()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); object actual;
+            if (session.TryGetValid("plan-2", out actual) || actual != null || session.State != PreviewLifecycleState.Stale || session.Payload != null) throw new Exception("A changed fingerprint must reject and clear the payload as STALE.");
+        }
+
+        private static void Test_48_PreviewLifecycle_Invalidate()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); session.Invalidate(); object actual;
+            if (session.TryGetValid("plan-1", out actual) || session.State != PreviewLifecycleState.Invalid || session.InputFingerprint.Length != 0) throw new Exception("Invalidation must clear payload and fingerprint.");
+        }
+
+        private static void Test_49_PreviewLifecycle_HostRequired()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); session.RequireHostVerification(); object actual;
+            if (session.TryGetValid("plan-1", out actual) || session.State != PreviewLifecycleState.HostVerificationRequired) throw new Exception("Host-required previews must not be reported as executable code-side previews.");
         }
     }
 }

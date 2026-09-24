@@ -7,6 +7,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI.Selection;
 using KhimTools.Core;
 using KhimTools.Core.UI;
+using KhimTools.Core.Preview;
 using KhimTools.DimensionTools.Core;
 using KhimTools.DimensionTools.Models;
 using KhimTools.DimensionTools.Services;
@@ -36,6 +37,7 @@ namespace KhimTools.DimensionTools.Forms
         private DimensionOperation _selectedOperation = DimensionOperation.GRID;
         private IList<DimensionReferenceInfo> _generalReferences = new List<DimensionReferenceInfo>();
         private Line _generalLine;
+        private readonly PreviewLifecycleSession<DimensionPlan> _previewLifecycle = new PreviewLifecycleSession<DimensionPlan>();
         public DimensionPlan Plan { get; private set; }
 
         public DimensionToolsForm(RevitUIDocument uidoc, RevitView view, IList<ElementId> selection) { _uidoc = uidoc; _doc = uidoc == null ? null : uidoc.Document; _view = view; _selection = selection ?? new List<ElementId>(); KhimUiStyle.ApplyFormTheme(this); BuildLayout(); }
@@ -66,7 +68,7 @@ namespace KhimTools.DimensionTools.Forms
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             _apply = new Button { Text = "Apply", Width = 100, Enabled = false }; _apply.Click += ApplyClicked;
             var previewButton = new Button { Text = "Preview", Width = 100 }; previewButton.Click += PreviewClicked;
-            var refresh = new Button { Text = "Refresh", Width = 100 }; refresh.Click += delegate { Plan = null; _apply.Enabled = false; _status.Text = "Refresh cleared the cached Preview; current command selection will be read again."; };
+            var refresh = new Button { Text = "Refresh", Width = 100 }; refresh.Click += delegate { InvalidatePreview(); _status.Text = "Preview cleared. Solve again to create a current plan."; };
             var close = new Button { Text = "Close", Width = 100, DialogResult = DialogResult.Cancel };
             buttons.Controls.Add(_apply); buttons.Controls.Add(previewButton); buttons.Controls.Add(refresh); buttons.Controls.Add(close);
             _status.AutoSize = true; _status.Text = "Preview does not write model state."; buttons.Controls.Add(_status);
@@ -83,13 +85,17 @@ namespace KhimTools.DimensionTools.Forms
             _dimensionType.DropDownStyle = ComboBoxStyle.DropDownList;
             if (_doc != null) foreach (DimensionType type in new FilteredElementCollector(_doc).OfClass(typeof(DimensionType)).Cast<DimensionType>().OrderBy(x => x.Name)) _dimensionType.Items.Add(new DimensionTypeItem(type));
             if (_dimensionType.Items.Count > 0) _dimensionType.SelectedIndex = 0;
+            _axis.SelectedIndexChanged += InputChanged;
+            _strategy.SelectedIndexChanged += InputChanged;
+            _dimensionType.SelectedIndexChanged += InputChanged;
+            foreach (NumericUpDown value in new[] { _offset, _horizontalMove, _verticalMove, _boundary }) value.ValueChanged += InputChanged;
         }
 
         private TabPage BuildOperationPage(string title, IEnumerable<DimensionOperation> operations)
         {
             var page = new TabPage(title); var list = new ListBox { Dock = DockStyle.Fill };
             foreach (DimensionOperation operation in operations) list.Items.Add(operation);
-            list.SelectedIndexChanged += delegate { if (list.SelectedItem == null) return; _selectedOperation = (DimensionOperation)list.SelectedItem; Plan = null; _apply.Enabled = false; UpdateDynamicSettings(); };
+            list.SelectedIndexChanged += delegate { if (list.SelectedItem == null) return; _selectedOperation = (DimensionOperation)list.SelectedItem; InvalidatePreview(); UpdateDynamicSettings(); };
             if (title.StartsWith("AUTO", StringComparison.Ordinal)) list.SelectedIndex = 0;
             page.Controls.Add(list); return page;
         }
@@ -107,12 +113,26 @@ namespace KhimTools.DimensionTools.Forms
         }
         private void SetVisible(WinControl control, bool visible) { control.Visible = visible; Label label; if (_labels.TryGetValue(control, out label)) label.Visible = visible; }
 
+        private void InputChanged(object sender, EventArgs e) => InvalidatePreview();
+
+        private void InvalidatePreview()
+        {
+            _previewLifecycle.MarkStale();
+            Plan = null;
+            if (_apply != null) _apply.Enabled = false;
+            if (_status != null && _doc != null) _status.Text = "Inputs changed. Preview is stale; solve again before Apply.";
+        }
+
         private void PreviewClicked(object sender, EventArgs e)
         {
             if (_doc == null) { _status.Text = "Layout preview only; no model writes occurred."; return; }
             var options = new DimensionOptions { Axis = (DimensionAxis)_axis.SelectedItem, OffsetMillimeters = (double)_offset.Value, BoundaryIndex = (int)_boundary.Value, ReferenceStrategy = Convert.ToString(_strategy.SelectedItem), DimensionTypeId = _dimensionType.SelectedItem is DimensionTypeItem ? ((DimensionTypeItem)_dimensionType.SelectedItem).Id : ElementId.InvalidElementId };
             if (_selectedOperation == DimensionOperation.GENERAL && !CaptureGeneralInput()) return;
-            Plan = BuildPlan(_selectedOperation, options); _apply.Enabled = Plan != null && Plan.CanExecute;
+            _previewLifecycle.BeginGeneration();
+            Plan = BuildPlan(_selectedOperation, options);
+            if (Plan != null && Plan.CanExecute && !string.IsNullOrWhiteSpace(Plan.Fingerprint)) _previewLifecycle.Complete(Plan, Plan.Fingerprint);
+            else _previewLifecycle.Invalidate();
+            _apply.Enabled = Plan != null && Plan.CanExecute && _previewLifecycle.State == PreviewLifecycleState.Valid;
             _preview.Text = FormatPreview(Plan); _status.Text = "Preview completed. No model writes occurred.";
         }
 
@@ -189,7 +209,18 @@ namespace KhimTools.DimensionTools.Forms
             lines.AddRange(plan.Warnings.Select(x => "WARNING: " + x)); lines.AddRange(plan.Errors.Select(x => "BLOCKED: " + x)); return string.Join(Environment.NewLine, lines.ToArray());
         }
 
-        private void ApplyClicked(object sender, EventArgs e) { if (Plan == null || !Plan.CanExecute) { _status.Text = "Preflight blocked this operation."; return; } DialogResult = DialogResult.OK; Close(); }
+        private void ApplyClicked(object sender, EventArgs e)
+        {
+            DimensionPlan accepted;
+            if (Plan == null || !Plan.CanExecute || !_previewLifecycle.TryGetValid(Plan.Fingerprint, out accepted) || !object.ReferenceEquals(accepted, Plan))
+            {
+                InvalidatePreview();
+                _status.Text = "Preflight blocked this operation. Refresh the preview before Apply.";
+                return;
+            }
+            DialogResult = DialogResult.OK;
+            Close();
+        }
         private sealed class DimensionTypeItem { public ElementId Id { get; private set; } private readonly string _name; public DimensionTypeItem(DimensionType type) { Id = type.Id; _name = type.Name; } public override string ToString() { return _name; } }
     }
 }

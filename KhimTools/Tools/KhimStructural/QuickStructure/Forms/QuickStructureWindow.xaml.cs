@@ -207,7 +207,8 @@ namespace KhimTools.Structural.QuickStructure.Forms
             }
             catch (Exception ex)
             {
-                Autodesk.Revit.UI.TaskDialog.Show("Lỗi thực thi", ex.ToString());
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][QuickStructure] Execution failed: " + ex);
+                Autodesk.Revit.UI.TaskDialog.Show("Lỗi thực thi", "Không thể tạo cấu kiện. " + ex.Message);
             }
         }
 

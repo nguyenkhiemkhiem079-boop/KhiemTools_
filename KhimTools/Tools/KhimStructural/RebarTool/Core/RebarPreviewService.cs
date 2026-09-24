@@ -138,8 +138,11 @@ namespace KhimTools.RebarTool.Core
                     throw new InvalidOperationException("A Rebar preview input changed while its detached plan was being captured.");
             }
             return new RebarPreviewSnapshot(components,
-                WorkflowFingerprint.Compute(requestArray.Select(request => request.InputFingerprint).OrderBy(value => value, StringComparer.Ordinal)));
+                FingerprintInputs(requestArray.Select(request => request.InputFingerprint)));
         }
+
+        public static string FingerprintInputs(IEnumerable<string> inputFingerprints) =>
+            WorkflowFingerprint.Compute((inputFingerprints ?? Enumerable.Empty<string>()).OrderBy(value => value, StringComparer.Ordinal));
 
         public static bool Matches(RebarPreviewSnapshot snapshot, string inputFingerprint, IList<Rebar> generated)
         {

@@ -662,8 +662,9 @@ namespace KhimTools.RebarTool.Forms
             catch (Exception ex)
             {
                 if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                System.Diagnostics.Debug.WriteLine("Circular column Rebar creation failed: " + ex);
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
-                KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError(errTitle, ex.Message);
             }
         }
 

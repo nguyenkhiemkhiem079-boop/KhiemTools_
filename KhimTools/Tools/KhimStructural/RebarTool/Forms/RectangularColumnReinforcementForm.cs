@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
@@ -92,6 +93,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnPreview3D;
         private Button _btnClose;
         private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         private ComboBox _cmbLanguage;
         private Label _lblColTitle;
@@ -643,8 +645,10 @@ namespace KhimTools.RebarTool.Forms
 
             List<List<RectangularColumnRebarInput>> inputGroups = BuildGenerationInputGroups(
                 selectedItems, mainType, stirrupType, customCoverFeet);
-            if (_lastPreview == null || inputGroups.SelectMany(g => g).Any(input =>
-                _lastPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+            string currentFingerprint = RebarPreviewService.FingerprintInputs(inputGroups.SelectMany(group => group).Select(RebarPreviewService.Fingerprint));
+            RebarPreviewSnapshot acceptedPreview;
+            if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) || inputGroups.SelectMany(g => g).Any(input =>
+                acceptedPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
             {
                 MessageBox.Show(this, "Create or refresh the solver-backed 3D preview for the current columns and settings before generating rebar.",
                     "Preview required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -653,7 +657,7 @@ namespace KhimTools.RebarTool.Forms
 
             foreach (RectangularColumnRebarInput input in inputGroups.SelectMany(group => group))
             {
-                if (RebarPreviewService.HasExistingDuplicateBar(_doc, input.Column, _lastPreview,
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, input.Column, acceptedPreview,
                     RebarPreviewService.Fingerprint(input)))
                 {
                     MessageBox.Show(this, "Equivalent reinforcement already exists on column " + input.Column.Id + ". Remove or edit existing bars before generating to avoid duplicates.",
@@ -691,7 +695,7 @@ namespace KhimTools.RebarTool.Forms
                                 input,
                                 report,
                                 ref commonShapesPreloaded,
-                                _lastPreview))
+                                acceptedPreview))
                         {
                             rolledBackColumnCount++;
                             continue;
@@ -716,8 +720,11 @@ namespace KhimTools.RebarTool.Forms
             catch (Exception ex)
             {
                 RollBackGroupIfStarted(transactionGroup);
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                System.Diagnostics.Debug.WriteLine("Rectangular column Rebar creation failed: " + ex);
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột";
-                KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError(errTitle, ex.Message);
                 return;
             }
 
@@ -734,6 +741,7 @@ namespace KhimTools.RebarTool.Forms
                 KhimDialogHelper.ShowColumnRebarSuccess(committedColumnCount, axisGroupCount, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
             }
             _lastPreview = null;
+            _previewLifecycle.Invalidate();
         }
 
         private void BtnPreview3D_Click(object sender, EventArgs e)
@@ -767,15 +775,18 @@ namespace KhimTools.RebarTool.Forms
                         return bars;
                     }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
                 }).ToArray();
+                _previewLifecycle.BeginGeneration();
                 _lastPreview = RebarPreviewService.Capture(_doc, requests);
                 using (var preview = new RebarSolverPreviewForm(_lastPreview))
                 {
-                    if (preview.ShowDialog(this) != DialogResult.OK) _lastPreview = null;
+                    if (preview.ShowDialog(this) == DialogResult.OK) _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
+                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
             }
             catch (Exception ex)
             {
                 _lastPreview = null;
+                _previewLifecycle.Invalidate();
                 KhimDialogHelper.ShowError("Unable to create Rebar solver preview: " + ex.Message);
             }
         }

@@ -79,5 +79,47 @@ if ([regex]::Matches($workspaceBody, "new PushButtonData").Count -ne 1 -or $work
 $contractChecks++
 if ((Method-Body "BuildPublishPanel") -notmatch "CmdSheetExport") { throw "Publish is missing Print/Export." }
  $contractChecks++
+
+$dimensionForm = [IO.File]::ReadAllText((Join-Path $root "KhimTools/Tools/KhimGen/DimensionTools/Forms/DimensionToolsForm.cs"))
+if ($dimensionForm -notmatch "PreviewLifecycleSession<DimensionPlan>" -or $dimensionForm -notmatch "ValueChanged \+= InputChanged" -or $dimensionForm -notmatch "TryGetValid\(Plan.Fingerprint") {
+    throw "Dimension preview must invalidate on request-field changes and gate Apply through the canonical lifecycle."
+}
+$contractChecks++
+$modifyForm = [IO.File]::ReadAllText((Join-Path $root "KhimTools/Tools/KhimGen/ModifyObjects/Forms/ModifyObjectsForm.cs"))
+if ($modifyForm -notmatch "PreviewLifecycleSession<ModifyObjectPlan>" -or $modifyForm -notmatch "TextChanged \+= InputChanged" -or $modifyForm -notmatch "Plan.IsStale\(_doc\)" -or $modifyForm -notmatch "TryGetValid\(Plan.Fingerprint") {
+    throw "Modify Objects preview must invalidate on request-field changes and reject stale model plans before Apply."
+}
+$contractChecks++
+$parameterForm = [IO.File]::ReadAllText((Join-Path $root "KhimTools/Tools/KhimGen/ParameterManager/Forms/ParameterManagerForm.cs"))
+if ($parameterForm -notmatch "PreviewLifecycleSession<ParameterManagerPlan>" -or $parameterForm -notmatch "_scope\.SelectedIndexChanged.*InputChanged" -or $parameterForm -notmatch "_parameterScope\.SelectedIndexChanged.*InputChanged" -or $parameterForm -notmatch "_rule\.SelectedIndexChanged \+= InputChanged" -or $parameterForm -notmatch "_value\.TextChanged \+= InputChanged" -or $parameterForm -notmatch "_onlyMissing\.CheckedChanged \+= InputChanged" -or $parameterForm -notmatch "_strict\.CheckedChanged \+= InputChanged" -or $parameterForm -notmatch "TryGetValid\(Plan\.Fingerprint") {
+    throw "Parameter Manager request changes must invalidate its accepted preview, and Apply must require the current plan."
+}
+$contractChecks++
+$modifyPlanBuilder = [IO.File]::ReadAllText((Join-Path $root "KhimTools/Tools/KhimGen/ModifyObjects/Core/ModifyObjectPlanBuilder.cs"))
+foreach ($requestField in @("context.Operation", "context.MoveVector", "context.ArrayCount", "context.ArrayVector", "context.TargetBaseOffset", "context.ConflictPolicy")) {
+    if ($modifyPlanBuilder -notmatch [regex]::Escape($requestField)) { throw "Modify Object plan fingerprint omits request field: $requestField" }
+}
+$contractChecks++
+if ($modifyForm -notmatch 'UnitUtils\.ConvertToInternalUnits\(value, UnitTypeId\.Millimeters\)' -or $modifyForm -notmatch 'finite number in millimetres' -or $modifyForm -notmatch 'Preview failed: ') {
+    throw "Modify Objects must validate its millimetre distance input, convert it to Revit internal units, and report preview validation errors."
+}
+$contractChecks++
+$rebarForms = @("BeamReinforcementForm.cs", "SlabReinforcementForm.cs", "RectangularColumnReinforcementForm.cs") | ForEach-Object { [IO.File]::ReadAllText((Join-Path $root ("KhimTools/Tools/KhimStructural/RebarTool/Forms/" + $_))) }
+if (@($rebarForms | Where-Object { $_ -notmatch "PreviewLifecycleSession<RebarPreviewSnapshot>" -or $_ -notmatch "TryGetValid\(" }).Count -gt 0) {
+    throw "Column, beam and slab must preserve Rebar parity while using the canonical stale-preview lifecycle."
+}
+$contractChecks++
+$iconNames = @([regex]::Matches($ribbon, '"([^"\r\n]+\.png)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+foreach ($iconName in $iconNames) {
+    if (!(Test-Path -LiteralPath (Join-Path $root ("KhimTools/Resources/" + $iconName)))) { throw "Ribbon icon resource is missing: $iconName" }
+}
+if ($ribbon -match '[A-Z]:\\|\\Users\\') { throw "Ribbon resource configuration contains a machine-specific path." }
+$contractChecks++
+$inventoryPath = Join-Path $root "Tools/UiPreviewProductionInventory.md"
+$inventory = [IO.File]::ReadAllText($inventoryPath)
+foreach ($inventoryField in @("MODULE | TOOL | PREVIEW EXISTS?", "CAN MUTATE MODEL?", "STALE-STATE PROTECTION", "CANCEL CLEANUP", "EXECUTION PARITY", "VIEWMODEL", "BUTTONS / ACTIONS", "VALIDATION", "UNITS", "RESULT SUMMARY", "HELP", "STATUS", "K-Rebar", "QuickArchi", "Openings", "Quantity Takeoff", "Modify Objects", "Dimension Tools", "Parameter Manager", "Slab Step")) {
+    if ($inventory.IndexOf($inventoryField, [StringComparison]::OrdinalIgnoreCase) -lt 0) { throw "Phase 9 UI/preview inventory omits required audit field or surface: $inventoryField" }
+}
+$contractChecks++
 Write-Host "PASS: $($commands.Count) Revit command metadata checks; $($bindings.Count) workspace bindings; 4 ribbon ownership boundaries; $contractChecks contract assertions."
 Write-Host "Metadata only: command Execute methods were NOT run."

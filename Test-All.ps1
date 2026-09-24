@@ -21,7 +21,7 @@ $suites = @(
     @{
         Name = "Deployment Security & Rebar Engineering Suite (Phase 0, 4, 5, 6, 7, 8)"
         Script = Join-Path $scriptDir "KhimTools\Tests\RunTests.ps1"
-        ExpectedCount = 44
+        ExpectedCount = 49
     },
     @{
         Name = "MSI Implementation Structural Audit (Phase 2)"
@@ -58,7 +58,7 @@ $suites = @(
     @{
         Name = "UI Command Contract Metadata Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
-        ExpectedCount = 115
+        ExpectedCount = 123
     },
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"

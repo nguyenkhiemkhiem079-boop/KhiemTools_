@@ -30,7 +30,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Project Cover Setup Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][ProjectCoverSetup] " + ex);
+                TaskDialog.Show("Project Cover Setup Error", "Project cover settings could not be applied. " + ex.Message);
                 return Result.Failed;
             }
         }

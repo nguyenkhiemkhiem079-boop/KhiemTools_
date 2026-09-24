@@ -117,7 +117,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Column Drawing Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][ColumnDrawing] " + ex);
+                TaskDialog.Show("Column Drawing Error", "Column drawing creation failed. " + ex.Message);
                 return Result.Failed;
             }
         }
@@ -168,7 +169,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Update Column Drawing Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][UpdateColumnDrawing] " + ex);
+                TaskDialog.Show("Update Column Drawing Error", "Column drawing update failed. " + ex.Message);
                 return Result.Failed;
             }
         }

@@ -25,7 +25,8 @@ namespace KhimTools.Core
             }
             catch (Exception ex)
             {
-                TaskDialog.Show("K-TOOLS Startup Error", ex.ToString());
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS] Startup failed: " + ex);
+                TaskDialog.Show("K-TOOLS Startup Error", "K-TOOLS could not start. " + ex.Message);
                 return Result.Failed;
             }
         }

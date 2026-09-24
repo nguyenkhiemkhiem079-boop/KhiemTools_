@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
 using KhimTools.Core.UI;
+using KhimTools.Core.Preview;
 using KhimTools.ModifyObjects.Core;
 using KhimTools.ModifyObjects.General;
 using KhimTools.ModifyObjects.Structural;
@@ -15,7 +16,7 @@ namespace KhimTools.ModifyObjects.Forms
 {
     public sealed class ModifyObjectsForm : KTBaseForm
     {
-        private readonly Document _doc; private readonly IList<ElementId> _selection; private readonly ComboBox _operation = new ComboBox(); private readonly TextBox _distance = new TextBox(); private readonly NumericUpDown _count = new NumericUpDown(); private readonly Label _status = new Label(); private Button _apply; private ModifyObjectPlan _plan;
+        private readonly Document _doc; private readonly IList<ElementId> _selection; private readonly ComboBox _operation = new ComboBox(); private readonly TextBox _distance = new TextBox(); private readonly NumericUpDown _count = new NumericUpDown(); private readonly Label _status = new Label(); private Button _apply; private ModifyObjectPlan _plan; private readonly PreviewLifecycleSession<ModifyObjectPlan> _previewLifecycle = new PreviewLifecycleSession<ModifyObjectPlan>();
         public ModifyObjectPlan Plan { get { return _plan; } private set { _plan = value; } }
         public ModifyObjectsForm(Document doc, IList<ElementId> selection) { _doc = doc; _selection = selection ?? new List<ElementId>(); KhimUiStyle.ApplyFormTheme(this); BuildLayout(); }
         private ModifyObjectsForm(bool preview) { _doc = null; _selection = new List<ElementId>(); KhimUiStyle.ApplyFormTheme(this); BuildLayout(); }
@@ -27,13 +28,28 @@ namespace KhimTools.ModifyObjects.Forms
             _operation.DropDownStyle = ComboBoxStyle.DropDownList; _operation.Items.AddRange(Enum.GetNames(typeof(ModifyObjectOperation))); _operation.SelectedIndex = 0; _operation.Dock = DockStyle.Fill; _distance.Text = "100"; _distance.Dock = DockStyle.Fill; _count.Minimum = 1; _count.Maximum = 1000; _count.Value = 2;
             foreach (TabPage page in tabs.TabPages) { var grid = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(12), ColumnCount = 2, RowCount = 5 }; grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180)); grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); grid.Controls.Add(new Label { Text = "Operation", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0); grid.Controls.Add(_operation, 1, 0); grid.Controls.Add(new Label { Text = "Distance (mm)", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1); grid.Controls.Add(_distance, 1, 1); grid.Controls.Add(new Label { Text = "Array count", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 2); grid.Controls.Add(_count, 1, 2); var hint = new Label { AutoSize = true, Text = "Preview runs ANALYZE/PLAN/PREFLIGHT only. Model writes occur only after Apply." }; grid.Controls.Add(hint, 0, 3); grid.SetColumnSpan(hint, 2); page.Controls.Add(grid); }
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), RowCount = 2 }; root.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56)); root.Controls.Add(tabs, 0, 0); var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft }; _apply = new Button { Text = "Apply", Width = 100, Enabled = false }; _apply.Click += ApplyClicked; var preview = new Button { Text = "Preview", Width = 100 }; preview.Click += PreviewClicked; var cancel = new Button { Text = "Cancel", Width = 100, DialogResult = DialogResult.Cancel }; buttons.Controls.Add(_apply); buttons.Controls.Add(preview); buttons.Controls.Add(cancel); _status.Text = "Select an operation and click Preview."; _status.AutoSize = true; buttons.Controls.Add(_status); root.Controls.Add(buttons, 0, 1); Controls.Add(root); CancelButton = cancel;
+            _operation.SelectedIndexChanged += InputChanged;
+            _distance.TextChanged += InputChanged;
+            _count.ValueChanged += InputChanged;
+        }
+        private void InputChanged(object sender, EventArgs e) => InvalidatePreview();
+        private void InvalidatePreview()
+        {
+            _previewLifecycle.MarkStale();
+            Plan = null;
+            if (_apply != null) _apply.Enabled = false;
+            if (_status != null && _doc != null) _status.Text = "Inputs changed. Preview is stale; solve again before Apply.";
         }
         private void PreviewClicked(object sender, EventArgs e)
         {
             if (_doc == null) { _status.Text = "Layout preview only; no model writes occurred."; return; }
             ModifyObjectOperation operation; if (!Enum.TryParse(_operation.SelectedItem == null ? string.Empty : _operation.SelectedItem.ToString(), out operation)) return; IList<ElementId> ids = _selection;
-            Plan = BuildPreviewPlan(operation, ids);
-            _apply.Enabled = Plan != null && Plan.CanExecute; _status.Text = "Preview: " + (Plan == null ? "no plan" : Plan.Status + " / " + Plan.Warnings.Count + " warning(s)") + ". No model writes occurred.";
+            _previewLifecycle.BeginGeneration();
+            try { Plan = BuildPreviewPlan(operation, ids); }
+            catch (Exception ex) { Plan = null; _previewLifecycle.Invalidate(); _apply.Enabled = false; _status.Text = "Preview failed: " + ex.Message; return; }
+            if (Plan != null && Plan.CanExecute && !string.IsNullOrWhiteSpace(Plan.Fingerprint)) _previewLifecycle.Complete(Plan, Plan.Fingerprint);
+            else _previewLifecycle.Invalidate();
+            _apply.Enabled = Plan != null && Plan.CanExecute && _previewLifecycle.State == PreviewLifecycleState.Valid; _status.Text = "Preview: " + (Plan == null ? "no plan" : Plan.Status + " / " + Plan.Warnings.Count + " warning(s)") + ". No model writes occurred.";
         }
         private ModifyObjectPlan BuildPreviewPlan(ModifyObjectOperation operation, IList<ElementId> ids)
         {
@@ -64,7 +80,24 @@ namespace KhimTools.ModifyObjects.Forms
         }
         private ElementId PickSplitLevel(ElementId columnId) { var levels = new FilteredElementCollector(_doc).OfClass(typeof(Level)).Cast<Level>().OrderBy(x => x.Elevation).ToList(); FamilyInstance column = _doc.GetElement(columnId) as FamilyInstance; Level baseLevel = column == null ? null : _doc.GetElement(column.LevelId) as Level; return levels.FirstOrDefault(x => baseLevel != null && x.Elevation > baseLevel.Elevation)?.Id ?? ElementId.InvalidElementId; }
         private XYZ Midpoint(ElementId id) { Element element = _doc.GetElement(id); LocationCurve curve = element == null ? null : element.Location as LocationCurve; return curve == null ? null : curve.Curve.Evaluate(0.5, true); }
-        private double ParseDistance() { double value; return double.TryParse(_distance.Text, out value) ? value : 0; }
-        private void ApplyClicked(object sender, EventArgs e) { if (Plan == null || !Plan.CanExecute) { _status.Text = "Preflight blocked this operation."; return; } DialogResult = DialogResult.OK; Close(); }
+        private double ParseDistance()
+        {
+            double value;
+            if (!double.TryParse(_distance.Text, out value) || double.IsNaN(value) || double.IsInfinity(value))
+                throw new FormatException("Distance must be a finite number in millimetres.");
+            return UnitUtils.ConvertToInternalUnits(value, UnitTypeId.Millimeters);
+        }
+        private void ApplyClicked(object sender, EventArgs e)
+        {
+            ModifyObjectPlan accepted;
+            if (Plan == null || !Plan.CanExecute || Plan.IsStale(_doc) || !_previewLifecycle.TryGetValid(Plan.Fingerprint, out accepted) || !object.ReferenceEquals(accepted, Plan))
+            {
+                InvalidatePreview();
+                _status.Text = "Preflight blocked this operation. Refresh the preview before Apply.";
+                return;
+            }
+            DialogResult = DialogResult.OK;
+            Close();
+        }
     }
 }

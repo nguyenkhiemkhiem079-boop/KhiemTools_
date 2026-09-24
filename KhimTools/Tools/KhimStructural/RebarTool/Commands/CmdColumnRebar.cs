@@ -116,8 +116,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                string details = $"Lỗi thực thi lệnh Column Rebar:\n\n[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}";
-                TaskDialog.Show("Column Rebar - Failure Details", details);
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][ColumnRebar] " + ex);
+                TaskDialog.Show("Column Rebar - Failure", "Column reinforcement failed. " + ex.Message);
                 return Result.Failed;
             }
         }
@@ -150,7 +150,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Column Rebar V2 Error", $"{ex.GetType().Name}: {ex.Message}\n\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][ColumnRebarV2] " + ex);
+                TaskDialog.Show("Column Rebar V2 Error", "Column reinforcement failed. " + ex.Message);
                 return Result.Failed;
             }
         }

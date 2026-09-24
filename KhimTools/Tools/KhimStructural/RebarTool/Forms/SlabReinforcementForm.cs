@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
 using Form = System.Windows.Forms.Form;
@@ -99,6 +100,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnPreviewRebar;
         private Button _btnClose;
         private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
         private RebarFormGuard _formGuard;
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
@@ -787,16 +789,22 @@ namespace KhimTools.RebarTool.Forms
                         return bars;
                     }, () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes));
                 }).ToArray();
+                _previewLifecycle.BeginGeneration();
                 RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
                 using (var preview = new RebarSolverPreviewForm(snapshot))
                 {
-                    if (preview.ShowDialog(this) == DialogResult.OK) _lastPreview = snapshot;
-                    else _lastPreview = null;
+                    if (preview.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _lastPreview = snapshot;
+                        _previewLifecycle.Complete(snapshot, snapshot.PlanFingerprint);
+                    }
+                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
             }
             catch (Exception ex)
             {
                 _lastPreview = null;
+                _previewLifecycle.Invalidate();
                 KhimDialogHelper.ShowError("Unable to create solver-backed slab preview: " + ex.Message);
             }
         }
@@ -812,14 +820,16 @@ namespace KhimTools.RebarTool.Forms
 
             AssignSettingsToPanels(selectedPanels);
             var generator = new SlabRebarGenerator(_doc);
-            if (_lastPreview == null || selectedPanels.Any(panel =>
-                _lastPreview.Find(generator.GetPanelInputFingerprint(panel)) == null))
+            string currentFingerprint = RebarPreviewService.FingerprintInputs(selectedPanels.Select(generator.GetPanelInputFingerprint));
+            RebarPreviewSnapshot acceptedPreview;
+            if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) || selectedPanels.Any(panel =>
+                acceptedPreview.Find(generator.GetPanelInputFingerprint(panel)) == null))
             {
                 KhimDialogHelper.ShowWarning("Create or refresh the solver-backed preview for the current slab panels and settings before generating.");
                 return;
             }
             foreach (SlabPanel panel in selectedPanels)
-                if (RebarPreviewService.HasExistingDuplicateBar(_doc, panel.HostFloor, _lastPreview, generator.GetPanelInputFingerprint(panel)))
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, panel.HostFloor, acceptedPreview, generator.GetPanelInputFingerprint(panel)))
                 {
                     KhimDialogHelper.ShowWarning("Equivalent reinforcement already exists on slab " + panel.HostFloor.Id + ". Remove or edit existing bars before generating to avoid duplicates.");
                     return;
@@ -840,7 +850,7 @@ namespace KhimTools.RebarTool.Forms
                     {
                         List<Rebar> generated = generator.GeneratePanel(panel, report);
                         _doc.Regenerate();
-                        if (!RebarPreviewService.Matches(_lastPreview, generator.GetPanelInputFingerprint(panel), generated))
+                        if (!RebarPreviewService.Matches(acceptedPreview, generator.GetPanelInputFingerprint(panel), generated))
                             throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview; the entire slab transaction was rolled back.");
                     }
 
@@ -856,12 +866,14 @@ namespace KhimTools.RebarTool.Forms
                     if (trans.GetStatus() == TransactionStatus.Started) trans.RollBack();
                     KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
                     _lastPreview = null;
+                    _previewLifecycle.Invalidate();
                     return;
                 }
             }
 
             KhimDialogHelper.ShowRebarGenerationReport(report, "Tạo Thép Sàn (Slab Rebar Panel System)", selectedPanels.Count);
             _lastPreview = null;
+            _previewLifecycle.Invalidate();
         }
 
         private void PopulateBarCombos()

@@ -34,7 +34,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Rebar Shape Library Error", string.Format("[{0}] {1}\n\n{2}", ex.GetType().Name, ex.Message, ex.StackTrace));
+                System.Diagnostics.Debug.WriteLine("Rebar shape library command failed: " + ex);
+                TaskDialog.Show("Rebar Shape Library Error", string.Format("[{0}] {1}", ex.GetType().Name, ex.Message));
                 return Result.Failed;
             }
         }

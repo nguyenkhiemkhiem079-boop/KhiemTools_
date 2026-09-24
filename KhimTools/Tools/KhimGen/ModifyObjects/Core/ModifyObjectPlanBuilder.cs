@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Globalization;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
 using KhimTools.Core.Workflow;
@@ -21,8 +23,28 @@ namespace KhimTools.ModifyObjects.Core
             }
             if (context.PrimaryElementId != null && context.PrimaryElementId != ElementId.InvalidElementId && plan.Sources.All(s => s.ElementId != context.PrimaryElementId)) plan.Sources.Add(Capture(context.Document.GetElement(context.PrimaryElementId)));
             if (plan.Sources.Count == 0) { plan.Status = ModifyObjectStatus.INVALID_SELECTION; plan.Errors.Add("At least one model element is required."); }
-            plan.Fingerprint = WorkflowFingerprint.Compute(new[] { plan.DocumentIdentityKey }.Concat(plan.Sources.OrderBy(source => source.UniqueId, System.StringComparer.Ordinal).Select(source => source.UniqueId + "|" + source.GeometryFingerprint + "|" + source.ParameterFingerprint)));
+            plan.Fingerprint = WorkflowFingerprint.Compute(new[] { ContextFingerprint(plan.Context) }.Concat(plan.Sources.OrderBy(source => source.UniqueId, System.StringComparer.Ordinal).Select(source => source.UniqueId + "|" + source.GeometryFingerprint + "|" + source.ParameterFingerprint)));
             return plan;
+        }
+
+        public static string ContextFingerprint(ModifyObjectPlanContext context)
+        {
+            if (context == null) return WorkflowFingerprint.Compute("<no-context>");
+            string Point(ModifyObjectPointSnapshot point) => point == null ? string.Empty :
+                point.X.ToString("R", CultureInfo.InvariantCulture) + "," +
+                point.Y.ToString("R", CultureInfo.InvariantCulture) + "," +
+                point.Z.ToString("R", CultureInfo.InvariantCulture);
+            string Id(ElementId id) => id == null ? string.Empty : id.ToLongValue().ToString(CultureInfo.InvariantCulture);
+            return WorkflowFingerprint.Compute(new[]
+            {
+                context.DocumentIdentityKey ?? string.Empty, context.Operation.ToString(),
+                string.Join("|", (context.ElementIds ?? new List<ElementId>()).Select(Id).OrderBy(value => value, StringComparer.Ordinal)),
+                Id(context.PrimaryElementId), Id(context.SecondaryElementId),
+                Point(context.SplitPoint), Point(context.OpeningStart), Point(context.OpeningEnd),
+                Point(context.MoveVector), context.ArrayCount.ToString(CultureInfo.InvariantCulture), Point(context.ArrayVector),
+                Id(context.TargetLevelId), context.TargetBaseOffset.ToString("R", CultureInfo.InvariantCulture),
+                context.IncludeOriginal.ToString(), context.PreviewOnly.ToString(), context.ConflictPolicy.ToString()
+            });
         }
         public static ModifyObjectSourceSnapshot Capture(Element element)
         {

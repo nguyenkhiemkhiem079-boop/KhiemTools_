@@ -25,6 +25,7 @@ $sourceFiles = @(
     (Join-Path $projectRoot "Tools\KhimArchitectural\QuickArchi\Models\QuickArchiSettings.cs"),
     (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs"),
     (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\IRebarDesignStandard.cs"),
+    (Join-Path $projectRoot "Core\Preview\PreviewLifecycleSession.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 
