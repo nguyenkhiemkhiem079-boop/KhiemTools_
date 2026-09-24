@@ -99,10 +99,37 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnAssignData;
         private Button _btnCreateRebar;
         private Button _btnPreviewRebar;
+        private Button _btnSolve3D;
         private Button _btnClose;
+        private Label _lblPreviewState;
+        private Label _lblPreviewTarget;
+        private ComboBox _cmbPreviewPanel;
+        private ComboBox _cmbPreviewView;
+        private Panel _previewCanvas;
+        private TabControl _workflowTabs;
+        private readonly Dictionary<string, string> _previewFingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
+        private readonly Dictionary<string, SlabPreviewGeometry> _detachedPanelGeometry = new Dictionary<string, SlabPreviewGeometry>(StringComparer.Ordinal);
+        private ToolTip _previewToolTip;
+        private float _previewZoom = 1f;
+        private Point _previewPan = Point.Empty;
+        private Point _previewPanOrigin;
+        private bool _previewPanning;
         private RebarPreviewSnapshot _lastPreview;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
         private RebarFormGuard _formGuard;
+
+        private sealed class SlabPreviewGeometry
+        {
+            public PointF[] PlanBoundary { get; set; }
+            public PointF[] SectionXBoundary { get; set; }
+            public PointF[] SectionYBoundary { get; set; }
+            public PointF[][] PlanOpenings { get; set; }
+            public PointF[][] SectionXOpenings { get; set; }
+            public PointF[][] SectionYOpenings { get; set; }
+
+            public PointF[] Boundary(int axis) => axis == 1 ? SectionXBoundary : axis == 2 ? SectionYBoundary : PlanBoundary;
+            public PointF[][] Openings(int axis) => axis == 1 ? SectionXOpenings : axis == 2 ? SectionYOpenings : PlanOpenings;
+        }
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
             : this(doc, availableFloors, preSelectedFloors, true)
@@ -146,15 +173,20 @@ namespace KhimTools.RebarTool.Forms
                     "Chọn đủ thép trên phương X/Y."),
                 new RebarValidationRule(_cmbHatXDia,
                     () => !_chkHatDraw.Checked || (_cmbHatXDia.SelectedIndex >= 0 && _cmbHatYDia.SelectedIndex >= 0),
-                    "Chọn đủ thép mũ phương X/Y."));
+                    "Chọn đủ thép mũ phương X/Y."),
+                new RebarValidationRule(_btnCreateRebar,
+                    () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
+                    "Cập nhật Preview cho thông số hiện tại trước khi tạo thép."));
+            AttachPreviewInvalidationHandlers(this);
+            UpdatePreviewStateUi();
         }
 
         private void BuildUi()
         {
             SetFormTitle("Rebar - Sàn", "Lưới đáy, lưới trên, mũ gối và thép kê");
-            Width = 1080;
-            Height = 760;
-            MinimumSize = new Size(1020, 700);
+            Width = 1280;
+            Height = 900;
+            MinimumSize = new Size(1080, 820);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
             MaximizeBox = true;
@@ -176,9 +208,18 @@ namespace KhimTools.RebarTool.Forms
             _btnCreateRebar = new Button { Text = "Tạo thép sàn", Width = 142, Height = 38, Top = 13, Left = 760 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
             _btnCreateRebar.Click += BtnCreateRebar_Click;
-            _btnPreviewRebar = new Button { Text = "Solve 3D preview", Width = 142, Height = 38, Top = 13, Left = 600 };
+            _btnPreviewRebar = new Button { Text = "CẬP NHẬT PREVIEW", Width = 170, Height = 38, Top = 13, Left = 600, AccessibleName = "Refresh slab reinforcement preview" };
             KhimUiStyle.ApplySecondaryButton(_btnPreviewRebar);
             _btnPreviewRebar.Click += BtnPreviewRebar_Click;
+            _previewToolTip = new ToolTip();
+
+            _btnSolve3D = new Button { Text = "Solve 3D", Width = 100, Height = 38, Top = 13, Left = 600, Enabled = false, AccessibleName = "Open slab 3D solver preview" };
+            KhimUiStyle.ApplySecondaryButton(_btnSolve3D);
+            _btnSolve3D.Click += (s, e) =>
+            {
+                if (_lastPreview == null || _previewLifecycle.State != PreviewLifecycleState.Valid) return;
+                using (var preview = new RebarSolverPreviewForm(_lastPreview)) preview.ShowDialog(this);
+            };
 
             _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13, Left = 915 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
@@ -190,18 +231,22 @@ namespace KhimTools.RebarTool.Forms
             bottomPanel.Controls.Add(_btnAssignData);
             bottomPanel.Controls.Add(_btnCreateRebar);
             bottomPanel.Controls.Add(_btnClose);
-            var footer = RebarLayout.Footer(_cmbLanguage, _btnAssignData, _btnPreviewRebar, _btnCreateRebar, _btnClose);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnAssignData, _btnPreviewRebar, _btnSolve3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
-            // 2. Main Content Split (Left: Tabs 580px, Right: Panel DataGridView)
-            var pnlMain = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), ColumnCount = 2, RowCount = 1 };
-            pnlMain.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
-            pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            // One continuous editing workspace above a persistent solver-backed host preview.
+            var pnlMain = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(8), ColumnCount = 1, RowCount = 2 };
+            pnlMain.RowStyles.Add(new RowStyle(SizeType.Percent, 64));
+            pnlMain.RowStyles.Add(new RowStyle(SizeType.Percent, 36));
+            pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            var editorAndPanels = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            editorAndPanels.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
+            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
 
             // ── LEFT: TabControl (Thông số cốt thép)
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F) };
+            var tabControl = _workflowTabs = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F) };
 
             // TAB 1: 🔽 Lớp Dưới (Bottom Layer)
             var tabBottom = new TabPage("Lưới Đáy") { BackColor = KhimUiStyle.FormBg };
@@ -244,17 +289,306 @@ namespace KhimTools.RebarTool.Forms
                 RebarConfigurationField.Flag("Slab.TopMesh", "Tạo lưới trên", _chkTopDraw),
                 RebarConfigurationField.Flag("Slab.InvertBottom", "Đảo lớp đáy X/Y", _chkBotInvert),
                 RebarConfigurationField.Flag("Slab.InvertTop", "Đảo lớp trên X/Y", _chkTopInvert)));
-            pnlMain.Controls.Add(tabControl, 0, 0);
+            var editor = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Padding = new Padding(0, 0, 6, 0) };
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            editor.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var roles = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, Padding = new Padding(0, 2, 0, 2) };
+            AddRoleSelector(roles, "Lưới dưới X/Y", 0);
+            AddRoleSelector(roles, "Lưới trên X/Y", 1);
+            AddRoleSelector(roles, "Mũ gối", 2);
+            AddRoleSelector(roles, "Kê & neo", 3);
+            AddRoleSelector(roles, "Thiết lập", 4);
+            AddRoleSelector(roles, "Tham khảo", 5);
+            AddRoleSelector(roles, "Cấu hình", 6);
+            editor.Controls.Add(roles, 0, 0);
+            editor.Controls.Add(tabControl, 0, 1);
+            editorAndPanels.Controls.Add(editor, 0, 0);
 
             // ── RIGHT: Panel List DataGridView (460px)
             var pnlRight = new Panel { Dock = DockStyle.Fill };
             BuildPanelGridSection(pnlRight);
-            pnlMain.Controls.Add(pnlRight, 1, 0);
+            editorAndPanels.Controls.Add(pnlRight, 0, 1);
+
+            var previewGroup = new GroupBox { Text = "PREVIEW KỸ THUẬT SÀN — geometry đã solve từ generator sản xuất", Dock = DockStyle.Fill, Padding = new Padding(8), Font = new Font("Segoe UI Semibold", 9F, FontStyle.Bold) };
+            var previewLayout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            previewLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            var previewToolbar = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, Padding = new Padding(2) };
+            _cmbPreviewPanel = new ComboBox { Width = 230, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Active panel shown in preview" };
+            _cmbPreviewPanel.SelectedIndexChanged += (s, e) => { UpdatePreviewTargetLabel(); _previewCanvas?.Invalidate(); };
+            _cmbPreviewView = new ComboBox { Width = 125, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Preview projection" };
+            _cmbPreviewView.Items.AddRange(new object[] { "Mặt bằng", "Mặt cắt X", "Mặt cắt Y" });
+            _cmbPreviewView.SelectedIndex = 0;
+            _cmbPreviewView.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
+            var fitButton = new Button { Text = "Fit All", AutoSize = true, Height = 28 };
+            fitButton.Click += (s, e) => { _previewZoom = 1f; _previewPan = Point.Empty; _previewCanvas?.Invalidate(); };
+            var zoomInButton = new Button { Text = "+", Width = 34, Height = 28, AccessibleName = "Zoom in" };
+            zoomInButton.Click += (s, e) => { _previewZoom = Math.Min(8f, _previewZoom * 1.25f); _previewCanvas?.Invalidate(); };
+            var zoomOutButton = new Button { Text = "−", Width = 34, Height = 28, AccessibleName = "Zoom out" };
+            zoomOutButton.Click += (s, e) => { _previewZoom = Math.Max(0.25f, _previewZoom / 1.25f); _previewCanvas?.Invalidate(); };
+            _lblPreviewState = new Label { AutoSize = true, Padding = new Padding(8, 6, 2, 0), Text = "Chưa tạo Preview", ForeColor = Color.FromArgb(100, 116, 139), AccessibleName = "Slab preview state" };
+            _lblPreviewTarget = new Label { AutoSize = true, Padding = new Padding(8, 6, 2, 0), ForeColor = Color.FromArgb(71, 85, 105), AccessibleName = "Preview scope" };
+            previewToolbar.Controls.Add(new Label { Text = "Panel xem:", AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
+            previewToolbar.Controls.Add(_cmbPreviewPanel);
+            previewToolbar.Controls.Add(_cmbPreviewView);
+            previewToolbar.Controls.Add(fitButton);
+            previewToolbar.Controls.Add(zoomInButton);
+            previewToolbar.Controls.Add(zoomOutButton);
+            previewToolbar.Controls.Add(_lblPreviewState);
+            previewToolbar.Controls.Add(_lblPreviewTarget);
+            _previewCanvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), AccessibleName = "Slab plan and section preview", TabStop = true };
+            _previewCanvas.Paint += PaintSlabPreview;
+            _previewCanvas.Resize += (s, e) => _previewCanvas.Invalidate();
+            _previewCanvas.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { _previewPanning = true; _previewPanOrigin = e.Location; _previewCanvas.Cursor = Cursors.Hand; } };
+            _previewCanvas.MouseMove += (s, e) => { if (_previewPanning) { _previewPan.X += e.X - _previewPanOrigin.X; _previewPan.Y += e.Y - _previewPanOrigin.Y; _previewPanOrigin = e.Location; _previewCanvas.Invalidate(); } };
+            _previewCanvas.MouseUp += (s, e) => { _previewPanning = false; _previewCanvas.Cursor = Cursors.Default; };
+            _previewCanvas.MouseWheel += (s, e) => { _previewZoom = Math.Max(0.25f, Math.Min(8f, _previewZoom * (e.Delta > 0 ? 1.1f : 0.9f))); _previewCanvas.Invalidate(); };
+            previewLayout.Controls.Add(previewToolbar, 0, 0);
+            previewLayout.Controls.Add(_previewCanvas, 0, 1);
+            previewGroup.Controls.Add(previewLayout);
+            pnlMain.Controls.Add(editorAndPanels, 0, 0);
+            pnlMain.Controls.Add(previewGroup, 0, 1);
 
             Controls.Add(pnlMain);
             pnlMain.BringToFront();
             footer.SendToBack();
         }
+
+        private void AddRoleSelector(FlowLayoutPanel host, string text, int tabIndex)
+        {
+            var button = new Button { Text = text, AutoSize = true, Height = 30, Margin = new Padding(2), Tag = tabIndex, AccessibleName = "Show " + text + " slab settings" };
+            KhimUiStyle.ApplySecondaryButton(button);
+            button.Click += (s, e) =>
+            {
+                int index = (int)((Button)s).Tag;
+                if (_workflowTabs != null && index >= 0 && index < _workflowTabs.TabPages.Count)
+                    _workflowTabs.SelectedIndex = index;
+            };
+            host.Controls.Add(button);
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            Control[] inputs =
+            {
+                _chkBotDraw, _chkBotInvert, _cmbBotXDia, _numBotXSpacing, _cmbBotYDia, _numBotYSpacing,
+                _chkTopDraw, _chkTopInvert, _cmbTopXDia, _numTopXSpacing, _cmbTopYDia, _numTopYSpacing,
+                _chkHatDraw, _cmbHatXDia, _numHatXSpacing, _cmbHatYDia, _numHatYSpacing, _cmbHatFactor,
+                _chkHatFullSpan, _chkHatHookDown, _numHatHookDownLen, _chkDistDraw, _cmbDistDia, _numDistSpacing,
+                _chkSpacerDraw, _cmbSpacerDia, _numSpacerStepX, _numSpacerStepY, _numSpacerHookLen,
+                _numBeamAnchorA, _numSlabAnchorB, _numRounding, _numMinSpan,
+                _cmbDesignCode, _cmbConcreteGrade, _cmbSteelGrade, _cmbTemplates
+            };
+            foreach (Control input in inputs)
+            {
+                if (input is NumericUpDown number) number.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (input is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (input is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (input is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+            }
+            if (_gridPanels != null)
+            {
+                _gridPanels.CellValueChanged += (s, e) =>
+                {
+                    if (e.RowIndex >= 0 && e.ColumnIndex == 0)
+                    {
+                        MarkPreviewStale();
+                        GetSelectedPanelsFromGrid();
+                        UpdatePanelCountLabel();
+                        RefreshPreviewPanelChoices();
+                        UpdatePreviewTargetLabel();
+                    }
+                };
+                _gridPanels.CurrentCellDirtyStateChanged += (s, e) =>
+                {
+                    if (_gridPanels.IsCurrentCellDirty) _gridPanels.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                };
+                _gridPanels.CurrentCellChanged += (s, e) => { UpdatePreviewTargetLabel(); _previewCanvas?.Invalidate(); };
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid) _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+            _previewCanvas?.Invalidate();
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = "Preview hợp lệ";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = "Thông số đã thay đổi — cập nhật Preview";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = "Dữ liệu không hợp lệ";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = "Chưa tạo Preview";
+                    _lblPreviewState.ForeColor = Color.FromArgb(100, 116, 139);
+                    break;
+            }
+            bool valid = _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null;
+            if (_btnCreateRebar != null)
+            {
+                _btnCreateRebar.Enabled = valid;
+                _previewToolTip?.SetToolTip(_btnCreateRebar, valid ? "Preview hiện tại khớp với thông số." : "Cần cập nhật Preview trước khi tạo thép.");
+            }
+            if (_btnSolve3D != null) _btnSolve3D.Enabled = valid;
+        }
+
+        private void RefreshPreviewPanelChoices()
+        {
+            if (_cmbPreviewPanel == null) return;
+            string prior = _cmbPreviewPanel.SelectedItem as string;
+            List<SlabPanel> targets = _panelManager.Panels.Where(panel => panel.IsSelected).ToList();
+            _cmbPreviewPanel.BeginUpdate();
+            _cmbPreviewPanel.Items.Clear();
+            foreach (SlabPanel panel in targets) _cmbPreviewPanel.Items.Add(panel.PanelId + " — " + panel.LevelName);
+            int selected = -1;
+            for (int i = 0; i < _cmbPreviewPanel.Items.Count; i++)
+                if (string.Equals(_cmbPreviewPanel.Items[i] as string, prior, StringComparison.Ordinal)) { selected = i; break; }
+            _cmbPreviewPanel.SelectedIndex = selected >= 0 ? selected : (_cmbPreviewPanel.Items.Count > 0 ? 0 : -1);
+            _cmbPreviewPanel.EndUpdate();
+            UpdatePreviewTargetLabel();
+        }
+
+        private SlabPanel GetActivePreviewPanel()
+        {
+            string choice = _cmbPreviewPanel?.SelectedItem as string;
+            string id = string.IsNullOrEmpty(choice) ? null : choice.Split(new[] { " — " }, StringSplitOptions.None)[0];
+            return _panelManager.Panels.FirstOrDefault(panel => panel.PanelId == id) ??
+                _panelManager.Panels.FirstOrDefault(panel => panel.IsSelected) ?? _panelManager.Panels.FirstOrDefault();
+        }
+
+        private void UpdatePanelCountLabel()
+        {
+            if (_lblPanelCount == null) return;
+            int count = _panelManager.Panels.Count(panel => panel.IsSelected);
+            _lblPanelCount.Text = "Đã chọn: " + count + " / " + _panelManager.Panels.Count + " panels";
+        }
+
+        private void UpdatePreviewTargetLabel()
+        {
+            if (_lblPreviewTarget == null) return;
+            int targetCount = _panelManager.Panels.Count(panel => panel.IsSelected);
+            SlabPanel active = GetActivePreviewPanel();
+            _lblPreviewTarget.Text = active == null ? "Không có panel được chọn" :
+                "Xem panel đang hoạt động: " + active.PanelId + "  |  Batch: " + targetCount + " panel";
+        }
+
+        private void PaintSlabPreview(object sender, PaintEventArgs e)
+        {
+            Panel canvas = (Panel)sender;
+            SlabPanel panel = GetActivePreviewPanel();
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            e.Graphics.Clear(canvas.BackColor);
+            if (panel == null)
+            {
+                TextRenderer.DrawText(e.Graphics, "Chọn panel sàn để xem hình học.", Font, canvas.ClientRectangle, Color.DimGray,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+
+            bool plan = _cmbPreviewView == null || _cmbPreviewView.SelectedIndex == 0;
+            int axis = _cmbPreviewView == null ? 0 : _cmbPreviewView.SelectedIndex;
+            SlabPreviewGeometry geometry;
+            _detachedPanelGeometry.TryGetValue(panel.PanelId, out geometry);
+            var projectedBoundary = geometry?.Boundary(axis) ?? new PointF[0];
+            var projectedOpenings = geometry?.Openings(axis) ?? new PointF[0][];
+            var pathSets = new List<PointF[]>();
+            string fingerprint;
+            RebarPreviewComponent component = null;
+            if (_lastPreview != null && _previewFingerprints.TryGetValue(panel.PanelId, out fingerprint))
+                component = _lastPreview.Find(fingerprint);
+            if (component != null) pathSets.AddRange(component.Paths.Select(path => ProjectPath(path, axis)).Where(points => points.Length > 1));
+
+            PointF[] all = projectedBoundary.Concat(projectedOpenings.SelectMany(points => points)).Concat(pathSets.SelectMany(points => points)).ToArray();
+            if (all.Length < 2)
+            {
+                TextRenderer.DrawText(e.Graphics, "Panel geometry is unavailable.", Font, canvas.ClientRectangle, Color.DimGray,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+            float minX = all.Min(point => point.X), maxX = all.Max(point => point.X);
+            float minY = all.Min(point => point.Y), maxY = all.Max(point => point.Y);
+            float width = Math.Max(1e-4f, maxX - minX), height = Math.Max(1e-4f, maxY - minY);
+            float scale = Math.Min((canvas.ClientSize.Width - 100f) / width, (canvas.ClientSize.Height - 70f) / height);
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
+            scale *= _previewZoom;
+            float ox = (canvas.ClientSize.Width - width * scale) / 2f;
+            float oy = (canvas.ClientSize.Height - height * scale) / 2f;
+            PointF Map(PointF point) => new PointF(ox + _previewPan.X + (point.X - minX) * scale, oy + _previewPan.Y + (maxY - point.Y) * scale);
+            using (var boundaryPen = new Pen(Color.FromArgb(51, 65, 85), 2f))
+            using (var openingPen = new Pen(Color.FromArgb(220, 38, 38), 1.5f) { DashStyle = DashStyle.Dash })
+            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 1.3f))
+            using (var textBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))
+            using (var font = new Font("Segoe UI", 9f))
+            {
+                if (projectedBoundary.Length > 2) e.Graphics.DrawPolygon(boundaryPen, projectedBoundary.Select(Map).ToArray());
+                foreach (PointF[] opening in projectedOpenings) e.Graphics.DrawPolygon(openingPen, opening.Select(Map).ToArray());
+                foreach (PointF[] path in pathSets)
+                {
+                    PointF[] projected = path.Select(Map).ToArray();
+                    float pathWidth = projected.Max(point => point.X) - projected.Min(point => point.X);
+                    float pathHeight = projected.Max(point => point.Y) - projected.Min(point => point.Y);
+                    if (axis != 0 && pathWidth < 0.5f && pathHeight < 0.5f)
+                    {
+                        PointF center = projected[0];
+                        e.Graphics.FillEllipse(barPen.Brush, center.X - 3f, center.Y - 3f, 6f, 6f);
+                    }
+                    else e.Graphics.DrawLines(barPen, projected);
+                }
+                string title = plan ? "PLAN · model axes X/Y" : axis == 1 ? "SECTION X · elevation X/Z" : "SECTION Y · elevation Y/Z";
+                e.Graphics.DrawString(title, font, textBrush, 10, 8);
+                string dimensions = plan ? string.Format("{0}  ·  {1:N0} × {2:N0} mm", panel.PanelId, panel.WidthMm, panel.LengthMm) :
+                    string.Format("{0}  ·  thickness {1:N0} mm  ·  cover top/bottom {2:N0}/{3:N0} mm", panel.PanelId, panel.ThicknessMm,
+                        panel.CoverTopFeet * 304.8, panel.CoverBottomFeet * 304.8);
+                e.Graphics.DrawString(dimensions, font, textBrush, 10, canvas.ClientSize.Height - 22);
+                if (component == null)
+                    e.Graphics.DrawString("Geometry only — refresh to solve reinforcement centerlines.", font, textBrush, 10, 28);
+                else if (_previewLifecycle.State == PreviewLifecycleState.Stale)
+                    e.Graphics.DrawString("STALE · bars shown from the last valid solve", font, textBrush, 10, 28);
+            }
+        }
+
+        private static PointF[][] DetachLoopViews(CurveLoop loop)
+        {
+            if (loop == null) return new[] { new PointF[0], new PointF[0], new PointF[0] };
+            var points = loop.SelectMany(curve => curve.Tessellate()).Select(point => new[] { point.X, point.Y, point.Z }).ToArray();
+            return Enumerable.Range(0, 3).Select(axis => points.Select(point => ProjectPoint(point[0], point[1], point[2], axis)).ToArray()).ToArray();
+        }
+
+        private static SlabPreviewGeometry DetachPanelGeometry(SlabPanel panel)
+        {
+            var openings = panel.Openings ?? new List<CurveLoop>();
+            PointF[][] boundary = DetachLoopViews(panel.Boundary);
+            PointF[][][] openingViews = openings.Select(DetachLoopViews).ToArray();
+            return new SlabPreviewGeometry
+            {
+                PlanBoundary = boundary[0],
+                SectionXBoundary = boundary[1],
+                SectionYBoundary = boundary[2],
+                PlanOpenings = openingViews.Select(views => views[0]).Where(points => points.Length > 1).ToArray(),
+                SectionXOpenings = openingViews.Select(views => views[1]).Where(points => points.Length > 1).ToArray(),
+                SectionYOpenings = openingViews.Select(views => views[2]).Where(points => points.Length > 1).ToArray()
+            };
+        }
+
+        private static PointF[] ProjectPath(RebarPreviewPath path, int axis) =>
+            path.Points.Select(point => ProjectPoint(point.X, point.Y, point.Z, axis)).ToArray();
+
+        private static PointF ProjectPoint(double x, double y, double z, int axis) =>
+            axis == 1 ? new PointF((float)x, (float)z) : axis == 2 ? new PointF((float)y, (float)z) : new PointF((float)x, (float)y);
 
         private void BuildTabBottom(TabPage page)
         {
@@ -611,6 +945,8 @@ namespace KhimTools.RebarTool.Forms
 
             foreach (var p in _panelManager.Panels)
             {
+                if (!_detachedPanelGeometry.ContainsKey(p.PanelId))
+                    _detachedPanelGeometry[p.PanelId] = DetachPanelGeometry(p);
                 int rowIdx = _gridPanels.Rows.Add();
                 var row = _gridPanels.Rows[rowIdx];
                 row.Cells["colCheck"].Value = p.IsSelected;
@@ -622,13 +958,20 @@ namespace KhimTools.RebarTool.Forms
                 if (p.IsSelected) selectedCount++;
             }
 
+            var activeIds = new HashSet<string>(_panelManager.Panels.Select(panel => panel.PanelId), StringComparer.Ordinal);
+            foreach (string staleId in _detachedPanelGeometry.Keys.Where(id => !activeIds.Contains(id)).ToArray())
+                _detachedPanelGeometry.Remove(staleId);
+
             _lblPanelCount.Text = $"Đã chọn: {selectedCount} / {_panelManager.Panels.Count} panels";
+            RefreshPreviewPanelChoices();
         }
 
         private void SetAllSelection(bool select)
         {
+            MarkPreviewStale();
             foreach (var p in _panelManager.Panels) p.IsSelected = select;
             RefreshGridPanels();
+            RefreshPreviewPanelChoices();
         }
 
         private void BtnMergeSelected_Click(object sender, EventArgs e)
@@ -651,6 +994,8 @@ namespace KhimTools.RebarTool.Forms
 
             if (_panelManager.MergeSelectedPanels(selectedIds))
             {
+                MarkPreviewStale();
+                _detachedPanelGeometry.Clear();
                 RefreshGridPanels();
                 KhimDialogHelper.ShowInfo($"Đã gộp thành công {selectedIds.Count} panels thành 1 panel liên tục.");
             }
@@ -675,6 +1020,7 @@ namespace KhimTools.RebarTool.Forms
             }
 
             _panelManager.DeletePanels(selectedIds);
+            MarkPreviewStale();
             RefreshGridPanels();
         }
 
@@ -695,6 +1041,8 @@ namespace KhimTools.RebarTool.Forms
                     {
                         picker.ShowDialog(this);
                     }
+                    MarkPreviewStale();
+                    _previewCanvas?.Invalidate();
                 }
             }
             else
@@ -779,9 +1127,11 @@ namespace KhimTools.RebarTool.Forms
                 if (selectedPanels.Count == 0) throw new InvalidOperationException("Select at least one slab panel before previewing.");
                 AssignSettingsToPanels(selectedPanels);
                 var generator = new SlabRebarGenerator(_doc);
+                _previewFingerprints.Clear();
                 RebarPreviewRequest[] requests = selectedPanels.Select(panel =>
                 {
                     string fingerprint = generator.GetPanelInputFingerprint(panel);
+                    _previewFingerprints[panel.PanelId] = fingerprint;
                     return new RebarPreviewRequest(fingerprint, () =>
                     {
                         var report = new RebarGenerationReport();
@@ -791,21 +1141,21 @@ namespace KhimTools.RebarTool.Forms
                     }, () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes));
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
+                UpdatePreviewStateUi();
                 RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
-                using (var preview = new RebarSolverPreviewForm(snapshot))
-                {
-                    if (preview.ShowDialog(this) == DialogResult.OK)
-                    {
-                        _lastPreview = snapshot;
-                        _previewLifecycle.Complete(snapshot, snapshot.PlanFingerprint);
-                    }
-                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
-                }
+                _lastPreview = snapshot;
+                _previewLifecycle.Complete(snapshot, snapshot.PlanFingerprint);
+                UpdatePreviewStateUi();
+                UpdatePreviewTargetLabel();
+                _previewCanvas?.Invalidate();
             }
             catch (Exception ex)
             {
                 _lastPreview = null;
+                _previewFingerprints.Clear();
                 _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                _previewCanvas?.Invalidate();
                 KhimDialogHelper.ShowError("Unable to create solver-backed slab preview: " + ex.Message);
             }
         }
