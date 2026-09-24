@@ -55,6 +55,7 @@ namespace KhimTools.RebarTool.Core
     {
         public string InputFingerprint { get; private set; }
         public int BarCount { get; private set; }
+        internal int RebarSetCount { get; private set; }
         public string GeometryFingerprint { get; private set; }
         public IReadOnlyList<RebarPreviewPath> Paths { get; private set; }
         public IReadOnlyList<string> BarFingerprints { get; private set; }
@@ -69,7 +70,8 @@ namespace KhimTools.RebarTool.Core
             Semantics = new Dictionary<string, string>(request.Semantics, StringComparer.Ordinal);
             HostId = Semantics.ContainsKey("HostId") ? Semantics["HostId"] : string.Empty;
             HostGeometryDescriptor = Semantics.ContainsKey("HostGeometry") ? Semantics["HostGeometry"] : string.Empty;
-            BarCount = bars.Count;
+            BarCount = bars.Sum(bar => bar.Quantity);
+            RebarSetCount = bars.Count;
             var descriptors = bars.Select(bar =>
             {
                 string role = request.RoleSelector == null ? string.Empty : request.RoleSelector(bar);
@@ -157,7 +159,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (snapshot == null || generated == null || generated.Count == 0) return false;
             RebarPreviewComponent expected = snapshot.Find(inputFingerprint);
-            if (expected == null || expected.BarCount != generated.Count) return false;
+            if (expected == null || expected.RebarSetCount != generated.Count) return false;
             string[] actualBars = generated.Select(FingerprintBar).ToArray();
             return WorkflowFingerprint.Matches(expected.GeometryFingerprint, FingerprintBars(actualBars));
         }
@@ -457,13 +459,18 @@ namespace KhimTools.RebarTool.Core
             var paths = new List<RebarPreviewPath>();
             foreach (Rebar bar in bars)
             {
-                IList<Curve> curves = bar.GetCenterlineCurves(false, false, false,
-                    MultiplanarOption.IncludeAllMultiplanarCurves, 0);
-                foreach (Curve curve in curves)
+                int positionCount = Math.Max(1, bar.NumberOfBarPositions);
+                for (int positionIndex = 0; positionIndex < positionCount; positionIndex++)
                 {
-                    IList<XYZ> points = curve.Tessellate();
-                    if (points.Count < 2) continue;
-                    paths.Add(new RebarPreviewPath(points.Select(p => new RebarPreviewPoint(p.X, p.Y, p.Z)), role));
+                    if (!bar.DoesBarExistAtPosition(positionIndex)) continue;
+                    IList<Curve> curves = bar.GetCenterlineCurves(false, false, false,
+                        MultiplanarOption.IncludeAllMultiplanarCurves, positionIndex);
+                    foreach (Curve curve in curves)
+                    {
+                        IList<XYZ> points = curve.Tessellate();
+                        if (points.Count < 2) continue;
+                        paths.Add(new RebarPreviewPath(points.Select(p => new RebarPreviewPoint(p.X, p.Y, p.Z)), role));
+                    }
                 }
             }
             if (paths.Count == 0) throw new InvalidOperationException("Revit returned no solved Rebar centerline paths.");
