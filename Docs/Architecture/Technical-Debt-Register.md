@@ -14,11 +14,18 @@ feature requests; they describe seams that must be hardened before reuse as an i
 | TD-007 | Wave 1.1–1.6 | P1 | Wave workflows remain command/form-centric without consistent detached plans, preflight, and verification. | Behavior-preserving adapter work is a separate migration wave. | Stage 5 | Medium; workflows are hard to call and audit uniformly. |
 | TD-008 | DimensionTools | P1 | Create, text move, rebuild, and spot-elevation paths use checked transaction lifecycle outcomes; model-level host verification remains deferred. | Host fixtures are not executed in this environment. | Release gate | Medium; end-state live dimension behavior remains unproven. |
 | TD-009 | Legacy workflows | P2 | Some legacy fingerprints still concatenate API-derived values. | These fingerprints are not all part of modern plan pipelines. | Stage 5 | Low to medium; collision/order sensitivity can weaken staleness checks. |
-| TD-010 | Runtime QA | P2 | Runtime acceptance is deferred; no Revit host fixture run occurred in this pass. | No host execution was performed in this environment. | Release gate | Medium; static/build checks cannot prove live behavior. |
+| TD-010 | Runtime QA | P2 | Runtime acceptance is deferred; 90 host scenarios are registered, 0 passed/failed, 82 not executed, and 8 require manual deployment validation. Rebar golden outputs and geometry edge cases still require host evidence. | No host execution was performed in this environment. | Manual Revit 2024/2025 QA | Medium; static/build checks cannot prove live behavior. |
 | TD-011 | K-QS | P2 | Domain remains Revit-free; the Revit application adapter contract is incomplete. | K-QS stays separate from the Revit workflow core by design. | Stage 5 | Low; adapter boundary needs validation. |
 
 Severity means release risk, not implementation order. P0 items block reuse of the affected
 workflow; P1 items block broad consolidation; P2 items are follow-up hardening.
+
+## Phase 18 code-side checkpoint (2026-09-24)
+
+`TECH_DEBT_P0 = 0`, `TECH_DEBT_P1 = 7`, `TECH_DEBT_P2 = 3`, `TECH_DEBT_P3 = 0`.
+TD-003 remains P1 until the residual 59 empty catches receive a path-level classification; a
+sampled audit is not treated as full resolution. TD-010 host acceptance remains deferred and is
+not represented as a code-side PASS or failure.
 
 ## Silent-catch audit disposition
 
