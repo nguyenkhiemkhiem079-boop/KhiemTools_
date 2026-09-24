@@ -286,9 +286,6 @@ namespace KhimTools.RebarTool.Forms
 
             tabControl.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Slab));
             tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Slab,
-                RebarConfigurationField.Number("Slab.BeamAnchorMm", "Neo vào dầm (mm)", _numBeamAnchorA),
-                RebarConfigurationField.Number("Slab.AdjacentAnchorMm", "Neo sàn giáp cạnh (mm)", _numSlabAnchorB),
-                RebarConfigurationField.Number("Slab.HatHookMm", "Móc thép mũ (mm)", _numHatHookDownLen),
                 RebarConfigurationField.Number("Slab.SpacerHookMm", "Chân con kê (mm)", _numSpacerHookLen),
                 RebarConfigurationField.Number("Slab.RoundingMm", "Bước làm tròn (mm)", _numRounding),
                 RebarConfigurationField.Number("Slab.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
@@ -735,8 +732,8 @@ namespace KhimTools.RebarTool.Forms
             _cmbHatFactor.Items.AddRange(new object[] { "L/4", "L/3", "L/5" });
             _cmbHatFactor.SelectedIndex = 0;
 
-            _chkHatHookDown = new CheckBox { Text = "Bẻ móc mép biên:", Left = 270, Top = 57, Width = 130, Checked = true };
-            _numHatHookDownLen = new NumericUpDown { Left = 405, Top = 55, Width = 80, Minimum = 50, Maximum = 300, Value = 100, Increment = 10 };
+            _chkHatHookDown = new CheckBox { Text = "Móc mép (chưa hỗ trợ)", Left = 270, Top = 57, Width = 150, Checked = false, Enabled = false };
+            _numHatHookDownLen = new NumericUpDown { Left = 405, Top = 55, Width = 80, Minimum = 50, Maximum = 300, Value = 100, Increment = 10, Enabled = false };
 
             var grpX = new GroupBox { Text = "Mũ Gối Phương X", Left = 20, Top = 90, Width = 235, Height = 120 };
             var lblDiaX = new Label { Text = "Đường kính:", Left = 15, Top = 35, AutoSize = true };
@@ -769,13 +766,15 @@ namespace KhimTools.RebarTool.Forms
             page.Controls.Add(grpHat);
 
             // Group Top Distribution Rebar
-            var grpDist = new GroupBox { Text = "Thép Phân Bố Vuông Góc Mũ Gối (Top Distribution Rebar)", Left = 15, Top = 300, Width = 525, Height = 110 };
+            var grpDist = new GroupBox { Text = "Thép phân bố vuông góc mũ gối (chưa hỗ trợ tạo thép)", Left = 15, Top = 300, Width = 525, Height = 110 };
             KhimUiStyle.ApplyCardStyle(grpDist);
-            _chkDistDraw = new CheckBox { Text = "Bật bố trí thép phân bố mũ gối", Left = 20, Top = 30, Width = 250, Checked = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            _chkDistDraw = new CheckBox { Text = "Chưa khả dụng", Left = 20, Top = 30, Width = 250, Checked = false, Enabled = false, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
             var lblDistDia = new Label { Text = "Đường kính:", Left = 20, Top = 65, AutoSize = true };
             _cmbDistDia = new ComboBox { Left = 115, Top = 60, Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
             var lblDistSp = new Label { Text = "Khoảng rải (s):", Left = 250, Top = 65, AutoSize = true };
             _numDistSpacing = new NumericUpDown { Left = 350, Top = 62, Width = 100, Minimum = 50, Maximum = 400, Value = 200, Increment = 10 };
+            _cmbDistDia.Enabled = false;
+            _numDistSpacing.Enabled = false;
 
             grpDist.Controls.Add(_chkDistDraw);
             grpDist.Controls.Add(lblDistDia);
@@ -825,14 +824,14 @@ namespace KhimTools.RebarTool.Forms
             page.Controls.Add(grpSpacer);
 
             // Group Anchors & Tolerances
-            var grpAnchor = new GroupBox { Text = "Chiều Dài Neo & Dung Sai Nhịp", Left = 15, Top = 170, Width = 525, Height = 170 };
+            var grpAnchor = new GroupBox { Text = "Neo cạnh (chưa áp dụng) & Dung Sai Nhịp", Left = 15, Top = 170, Width = 525, Height = 170 };
             KhimUiStyle.ApplyCardStyle(grpAnchor);
 
-            var lblBeamA = new Label { Text = "Beam Anchor A (mm) [Neo Dầm]:", Left = 20, Top = 35, AutoSize = true };
-            _numBeamAnchorA = new NumericUpDown { Left = 250, Top = 30, Width = 100, Minimum = 100, Maximum = 1000, Value = 250, Increment = 10 };
+            var lblBeamA = new Label { Text = "Neo dầm A (chưa áp dụng):", Left = 20, Top = 35, AutoSize = true };
+            _numBeamAnchorA = new NumericUpDown { Left = 250, Top = 30, Width = 100, Minimum = 100, Maximum = 1000, Value = 250, Increment = 10, Enabled = false };
 
-            var lblSlabB = new Label { Text = "Slab Anchor B (mm) [Neo Giáp Sàn]:", Left = 20, Top = 70, AutoSize = true };
-            _numSlabAnchorB = new NumericUpDown { Left = 250, Top = 67, Width = 100, Minimum = 100, Maximum = 1000, Value = 300, Increment = 10 };
+            var lblSlabB = new Label { Text = "Neo sàn giáp cạnh B (chưa áp dụng):", Left = 20, Top = 70, AutoSize = true };
+            _numSlabAnchorB = new NumericUpDown { Left = 250, Top = 67, Width = 100, Minimum = 100, Maximum = 1000, Value = 300, Increment = 10, Enabled = false };
 
             var lblRound = new Label { Text = "Làm tròn chiều dài thép (mm):", Left = 20, Top = 110, AutoSize = true };
             _numRounding = new NumericUpDown { Left = 250, Top = 107, Width = 100, Minimum = 1, Maximum = 100, Value = 10, Increment = 5 };
@@ -1149,13 +1148,10 @@ namespace KhimTools.RebarTool.Forms
                     cfg.HatReinforce.SpacingYMm = (double)_numHatYSpacing.Value;
                     cfg.HatReinforce.IsFullSpan = _chkHatFullSpan.Checked;
                     cfg.HatReinforce.HatFactor = _cmbHatFactor.Text;
-                    cfg.HatReinforce.HookDownEdge = _chkHatHookDown.Checked;
-                    cfg.HatReinforce.HookDownLenMm = (double)_numHatHookDownLen.Value;
+                    cfg.HatReinforce.HookDownEdge = false;
 
                     // Top Dist
-                    cfg.TopDistribution.Enabled = _chkDistDraw.Checked;
-                    cfg.TopDistribution.DiaLabel = _cmbDistDia.Text;
-                    cfg.TopDistribution.SpacingMm = (double)_numDistSpacing.Value;
+                    cfg.TopDistribution.Enabled = false;
 
                     // Spacer
                     cfg.Spacer.Enabled = _chkSpacerDraw.Checked;
@@ -1165,8 +1161,6 @@ namespace KhimTools.RebarTool.Forms
                     cfg.Spacer.HookLenMm = (double)_numSpacerHookLen.Value;
 
                     // Anchors & Tolerances
-                    cfg.Anchors.BeamAnchorAMm = (double)_numBeamAnchorA.Value;
-                    cfg.Anchors.SlabAnchorBMm = (double)_numSlabAnchorB.Value;
                     cfg.Tolerances.RoundingMm = (double)_numRounding.Value;
                     cfg.Tolerances.MinSpanMm = (double)_numMinSpan.Value;
 
@@ -1379,8 +1373,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbHatYDia.Text = settings.TopYDiaLabel;
             _numHatYSpacing.Value = Clamp(_numHatYSpacing, settings.TopYSpacingMm);
             _cmbHatFactor.Text = settings.TopExtensionRatio;
-            _chkHatHookDown.Checked = settings.TopHookDown;
-            _numHatHookDownLen.Value = Clamp(_numHatHookDownLen, settings.TopHookTailMm);
+            _chkHatHookDown.Checked = false;
             _chkSpacerDraw.Checked = settings.EnableChairRebar;
             _cmbSpacerDia.Text = settings.ChairDiaLabel;
             _numSpacerStepX.Value = Clamp(_numSpacerStepX, settings.ChairSpacingXmm);
@@ -1407,8 +1400,8 @@ namespace KhimTools.RebarTool.Forms
                 TopYDiaLabel = _cmbHatYDia.Text,
                 TopYSpacingMm = (double)_numHatYSpacing.Value,
                 TopExtensionRatio = _cmbHatFactor.Text,
-                TopHookDown = _chkHatHookDown.Checked,
-                TopHookTailMm = (double)_numHatHookDownLen.Value,
+                TopHookDown = false,
+                TopHookTailMm = 0,
                 EnableChairRebar = _chkSpacerDraw.Checked,
                 ChairDiaLabel = _cmbSpacerDia.Text,
                 ChairSpacingXmm = (double)_numSpacerStepX.Value,

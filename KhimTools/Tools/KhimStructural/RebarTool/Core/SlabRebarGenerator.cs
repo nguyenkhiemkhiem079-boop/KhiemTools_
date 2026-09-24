@@ -102,8 +102,6 @@ namespace KhimTools.RebarTool.Core
                 bMinY = bb.Min.Y; bMaxY = bb.Max.Y;
             }
 
-            double beamAnchorFeet = ToFeet(cfg.Anchors.BeamAnchorAMm);
-            double slabAnchorFeet = ToFeet(cfg.Anchors.SlabAnchorBMm);
             double coverOffset = Math.Max(coverTop, coverBot);
 
             // ── 1. BOTTOM LAYER (LƯỚI ĐÁY) ──────────────────────────────────
@@ -113,7 +111,7 @@ namespace KhimTools.RebarTool.Core
                 var botX = CreateBoundaryConstrainedRebars(panel.HostFloor, botXType,
                     bMinY + coverOffset, bMaxY - coverOffset, zBotX,
                     isXDirection: true, cfg.BottomLayer.SpacingXMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
+                    panel.Boundary, panel.Openings,
                     report, $"{panel.PanelId} - Thép đáy phương X");
                 createdRebars.AddRange(botX);
                 RecordRoles(botX, "bottom-x", roleByBarId);
@@ -122,7 +120,7 @@ namespace KhimTools.RebarTool.Core
                 var botY = CreateBoundaryConstrainedRebars(panel.HostFloor, botYType,
                     bMinX + coverOffset, bMaxX - coverOffset, zBotY,
                     isXDirection: false, cfg.BottomLayer.SpacingYMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
+                    panel.Boundary, panel.Openings,
                     report, $"{panel.PanelId} - Thép đáy phương Y");
                 createdRebars.AddRange(botY);
                 RecordRoles(botY, "bottom-y", roleByBarId);
@@ -134,7 +132,7 @@ namespace KhimTools.RebarTool.Core
                 var topX = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshXType,
                     bMinY + coverOffset, bMaxY - coverOffset, zTopX,
                     isXDirection: true, cfg.TopLayer.SpacingXMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
+                    panel.Boundary, panel.Openings,
                     report, $"{panel.PanelId} - Lưới trên full X");
                 createdRebars.AddRange(topX);
                 RecordRoles(topX, "top-x", roleByBarId);
@@ -142,7 +140,7 @@ namespace KhimTools.RebarTool.Core
                 var topY = CreateBoundaryConstrainedRebars(panel.HostFloor, topMeshYType,
                     bMinX + coverOffset, bMaxX - coverOffset, zTopY,
                     isXDirection: false, cfg.TopLayer.SpacingYMm,
-                    panel.Boundary, panel.Openings, beamAnchorFeet,
+                    panel.Boundary, panel.Openings,
                     report, $"{panel.PanelId} - Lưới trên full Y");
                 createdRebars.AddRange(topY);
                 RecordRoles(topY, "top-y", roleByBarId);
@@ -175,7 +173,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     for (double y = bMinY + coverOffset; y <= bMaxY - coverOffset; y += stepY)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, coverOffset);
                         foreach (var seg in segs)
                         {
                             double hx1 = seg.Start;
@@ -190,7 +188,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     for (double y = bMinY + coverOffset; y <= bMaxY - coverOffset; y += stepY)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(y, isXDirection: true, panel.Boundary, panel.Openings, coverOffset);
                         foreach (var seg in segs)
                         {
                             double hx1 = Math.Max(seg.Start, seg.End - hatLenX);
@@ -207,7 +205,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     for (double x = bMinX + coverOffset; x <= bMaxX - coverOffset; x += stepX)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, coverOffset);
                         foreach (var seg in segs)
                         {
                             double hy1 = seg.Start;
@@ -222,7 +220,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     for (double x = bMinX + coverOffset; x <= bMaxX - coverOffset; x += stepX)
                     {
-                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, beamAnchorFeet, coverOffset);
+                        var segs = SlabGeometryHelper.GetSlabIntervalsAtCoord(x, isXDirection: false, panel.Boundary, panel.Openings, coverOffset);
                         foreach (var seg in segs)
                         {
                             double hy1 = Math.Max(seg.Start, seg.End - hatLenY);
@@ -304,7 +302,7 @@ namespace KhimTools.RebarTool.Core
         private List<Rebar> CreateBoundaryConstrainedRebars(Floor floor, RebarBarType barType,
             double startPerp, double endPerp, double zLevel,
             bool isXDirection, double spacingMm,
-            CurveLoop boundary, List<CurveLoop> openings, double anchorFeet,
+            CurveLoop boundary, List<CurveLoop> openings,
             RebarGenerationReport report = null, string groupName = "Thép sàn")
         {
             var list = new List<Rebar>();
@@ -319,7 +317,7 @@ namespace KhimTools.RebarTool.Core
                 for (double perp = startPerp; perp <= endPerp; perp += spacingFeet)
                 {
                     var intervals = SlabGeometryHelper.GetSlabIntervalsAtCoord(
-                        perp, isXDirection, boundary, openings, anchorFeet, coverFeet);
+                        perp, isXDirection, boundary, openings, coverFeet);
 
                     foreach (var seg in intervals)
                     {
@@ -423,7 +421,7 @@ namespace KhimTools.RebarTool.Core
             double fixedCoord, bool isXDirection, double start, double end)
         {
             double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
-            return SlabGeometryHelper.GetSlabIntervalsAtCoord(fixedCoord, isXDirection, boundary, openings, 0, 0)
+            return SlabGeometryHelper.GetSlabIntervalsAtCoord(fixedCoord, isXDirection, boundary, openings, 0)
                 .Any(interval => interval.Start <= start + tolerance && interval.End >= end - tolerance);
         }
 

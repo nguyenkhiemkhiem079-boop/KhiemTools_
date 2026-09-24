@@ -154,7 +154,7 @@ namespace KhimTools.RebarTool.Core
         public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
             double fixedCoord, bool isXDirection,
             CurveLoop boundary, List<CurveLoop> openings,
-            double anchorFeet, double coverFeet)
+            double coverFeet)
         {
             var rawCrossings = new List<double>();
             if (boundary == null) return new List<(double, double)>();
@@ -211,6 +211,15 @@ namespace KhimTools.RebarTool.Core
             }
 
             return finalIntervals;
+        }
+
+        [Obsolete("anchorFeet is not applied by slab interval clipping. Use the overload without anchorFeet.")]
+        public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
+            double fixedCoord, bool isXDirection,
+            CurveLoop boundary, List<CurveLoop> openings,
+            double anchorFeet, double coverFeet)
+        {
+            return GetSlabIntervalsAtCoord(fixedCoord, isXDirection, boundary, openings, coverFeet);
         }
 
         /// <summary>
