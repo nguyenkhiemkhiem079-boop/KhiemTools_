@@ -39,18 +39,20 @@ namespace KhimTools.RebarTool.Core
             DesignCode code,
             double fallbackMultiplier = 35)
         {
+            ValidateInputs(barDiameterMm, concrete, steel, type, code, fallbackMultiplier);
+
             if (concrete == ConcreteGrade.Auto || steel == SteelGrade.Auto)
             {
-                return barDiameterMm * fallbackMultiplier;
+                return FiniteResult(barDiameterMm * fallbackMultiplier, "fallbackMultiplier");
             }
 
             if (code == DesignCode.TCVN5574_2018)
             {
-                return CalculateTCVN(barDiameterMm, concrete, steel, type);
+                return FiniteResult(CalculateTCVN(barDiameterMm, concrete, steel, type), "barDiameterMm");
             }
             else
             {
-                return CalculateEurocode(barDiameterMm, concrete, steel, type);
+                return FiniteResult(CalculateEurocode(barDiameterMm, concrete, steel, type), "barDiameterMm");
             }
         }
 
@@ -63,9 +65,13 @@ namespace KhimTools.RebarTool.Core
             double fallbackMultiplier = 30,
             double percentLappedFactor = 1.5)
         {
+            ValidateInputs(barDiameterMm, concrete, steel, type, code, fallbackMultiplier);
+            if (!IsFinite(percentLappedFactor) || percentLappedFactor <= 0)
+                throw new ArgumentOutOfRangeException("percentLappedFactor", "Lap factor must be finite and greater than zero.");
+
             if (concrete == ConcreteGrade.Auto || steel == SteelGrade.Auto)
             {
-                return barDiameterMm * fallbackMultiplier;
+                return FiniteResult(barDiameterMm * fallbackMultiplier, "fallbackMultiplier");
             }
 
             double ld = CalculateAnchorageLength(barDiameterMm, concrete, steel, type, code);
@@ -77,7 +83,7 @@ namespace KhimTools.RebarTool.Core
                 // alpha depends on percent lapped: typically 1.2 to 2.0. We use percentLappedFactor.
                 double lan = ld; // assuming ld is calculated tension straight
                 double ll = percentLappedFactor * lan;
-                return Math.Max(ll, Math.Max(barDiameterMm * 20, 250.0));
+                return FiniteResult(Math.Max(ll, Math.Max(barDiameterMm * 20, 250.0)), "barDiameterMm");
             }
             else
             {
@@ -85,8 +91,42 @@ namespace KhimTools.RebarTool.Core
                 // l_0 = alpha_6 * l_bd
                 // alpha_6 depends on percent lapped: 1.0 to 1.5. We use percentLappedFactor.
                 double l0 = percentLappedFactor * ld;
-                return Math.Max(l0, Math.Max(barDiameterMm * 15, 200.0));
+                return FiniteResult(Math.Max(l0, Math.Max(barDiameterMm * 15, 200.0)), "barDiameterMm");
             }
+        }
+
+        private static void ValidateInputs(
+            double barDiameterMm,
+            ConcreteGrade concrete,
+            SteelGrade steel,
+            AnchorageType type,
+            DesignCode code,
+            double fallbackMultiplier)
+        {
+            if (!IsFinite(barDiameterMm) || barDiameterMm <= 0)
+                throw new ArgumentOutOfRangeException("barDiameterMm", "Bar diameter must be finite and greater than zero millimetres.");
+            if (!IsFinite(fallbackMultiplier) || fallbackMultiplier <= 0)
+                throw new ArgumentOutOfRangeException("fallbackMultiplier", "Fallback multiplier must be finite and greater than zero.");
+            if (!Enum.IsDefined(typeof(ConcreteGrade), concrete))
+                throw new ArgumentOutOfRangeException("concrete", "Concrete grade is not supported.");
+            if (!Enum.IsDefined(typeof(SteelGrade), steel))
+                throw new ArgumentOutOfRangeException("steel", "Steel grade is not supported.");
+            if (!Enum.IsDefined(typeof(AnchorageType), type))
+                throw new ArgumentOutOfRangeException("type", "Anchorage type is not supported.");
+            if (!Enum.IsDefined(typeof(DesignCode), code))
+                throw new ArgumentOutOfRangeException("code", "Design code is not supported.");
+        }
+
+        private static double FiniteResult(double result, string parameterName)
+        {
+            if (!IsFinite(result) || result <= 0)
+                throw new ArgumentOutOfRangeException(parameterName, "Inputs produced an invalid or non-finite reinforcement length.");
+            return result;
+        }
+
+        private static bool IsFinite(double value)
+        {
+            return !double.IsNaN(value) && !double.IsInfinity(value);
         }
 
         private static double CalculateTCVN(double d, ConcreteGrade concrete, SteelGrade steel, AnchorageType type)

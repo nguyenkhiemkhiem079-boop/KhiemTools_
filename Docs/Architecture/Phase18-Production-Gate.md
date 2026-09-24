@@ -9,12 +9,12 @@ installer install, upgrade, repair, uninstall, publication, push, or merge was r
 | --- | --- |
 | Revit 2025 Release build | PASS, 0 errors (210 existing API obsolescence warnings) |
 | Revit 2024 Release build | PASS, 0 errors (212 existing API obsolescence warnings) |
-| Canonical `Test-All.ps1` | PASS, 2556/2556; all individual suites reported success |
+| Canonical `Test-All.ps1` | PASS, 2568/2568 (baseline 2556 + 12 new Rebar production-math golden/edge assertions); all individual suites reported success |
 | Phase 8 Rebar static acceptance | PASS, 47/47 |
 | Stage 4 transaction acceptance | PASS, 17 checks |
 | Phase 15 runtime harness/catalog | PASS, 25 harness checks and 217 catalog checks |
 | Phase 16 reliability/security | PASS, 13 static checks; dependency vulnerability scan reported none |
-| Phase 17 domain goldens/edge/performance/stress | PARTIAL: 36 assertions cover QS/MEP/Architectural only; required Rebar semantic goldens and Rebar edge cases are not implemented/executed |
+| Phase 17 domain goldens/edge/performance/stress | PARTIAL: 48 assertions now include actual Rebar anchorage/lap production math and input edges; Rebar semantic geometry goldens and geometry edge cases remain unexecuted |
 | MCP serialization stress | PASS, 100/1,000/10,000 requests; 10,000 completed in about 0.67 s |
 | MSI implementation acceptance | PASS, 14/14 |
 | Fresh local package structural/lifecycle validation | PASS; MSI 13/13; no installation was executed |
@@ -22,7 +22,9 @@ installer install, upgrade, repair, uninstall, publication, push, or merge was r
 
 Current-source MSI and bootstrapper were built from detached code commit `4542170` in an isolated
 temporary worktree, preserving any pre-existing `Installer/Output` files in the main checkout.
-Artifacts and SHA-256 manifest are at
+Artifacts and SHA-256 manifest were generated from source commit `4542170` and are now stale relative
+to the Rebar calculator hardening in this continuation; they are historical evidence only and must
+not be treated as a current-source package. They were at
 `%TEMP%\KTOOL-phase18-package-4542170\Installer\Output`. The generated package is unsigned;
 signing credentials were not supplied and no release was created. MSI payload lifecycle checks
 validated 132 files, runtime dependencies and package hygiene. No system-wide installer action
@@ -46,8 +48,9 @@ remains **DEFERRED**, not PASS.
 
 ## Release decision
 
-The Phase 17 executable explicitly reports `REBAR_HOST_GOLDEN=HOST_REQUIRED / NOT_EXECUTED` and
-`REBAR_EDGE_CASE_STATUS=HOST_REQUIRED / NOT_EXECUTED`. Its semantic-bar comparator is exercised
+The Phase 17 executable explicitly reports `REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED`
+and `REBAR_GEOMETRY_EDGE_CASE_STATUS=HOST_REQUIRED / NOT_EXECUTED`. Production Rebar anchorage/lap
+calculation goldens and invalid-input cases now run, but its semantic-bar comparator is exercised
 with synthetic DTO values; it does not compare output from the production Rebar generators. The
 current Rebar runtime fixtures check refresh, stale-input rejection, rollback, duplicates, and
 preview/execution parity, but they are not semantic golden fixtures and have not run in Revit.

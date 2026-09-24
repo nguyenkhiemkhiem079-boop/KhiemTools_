@@ -5,6 +5,7 @@ using System.Linq;
 using KhimTools.Domain.Models.Architectural;
 using KhimTools.Domain.Models.Mep;
 using KhimTools.Domain.Models.Qs;
+using KhimTools.RebarTool.Core;
 
 static class Program
 {
@@ -33,15 +34,38 @@ static class Program
     private static void Main()
     {
         RunDomainGoldens();
+        RunRebarCalculationGoldens();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
         Console.WriteLine($"GOLDEN_REGRESSION_ACCEPTANCE=PASS ({_checks} assertions)");
+        Console.WriteLine("REBAR_DOMAIN_GOLDEN_ACCEPTANCE=PASS (production anchorage/lap calculator)");
         Console.WriteLine("EDGE_CASE_ACCEPTANCE=PASS (QS/MEP/Architectural domain calculations)");
-        Console.WriteLine("REBAR_EDGE_CASE_STATUS=HOST_REQUIRED / NOT_EXECUTED");
+        Console.WriteLine("REBAR_DOMAIN_EDGE_ACCEPTANCE=PASS (anchorage/lap calculator validation)");
+        Console.WriteLine("REBAR_GEOMETRY_EDGE_CASE_STATUS=HOST_REQUIRED / NOT_EXECUTED");
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
-        Console.WriteLine("REBAR_HOST_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+        Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunRebarCalculationGoldens()
+    {
+        double tcvnAnchorage = RebarAnchorageCalculator.CalculateAnchorageLength(
+            18, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018);
+        double tcvnLap = RebarAnchorageCalculator.CalculateLapLength(
+            18, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018);
+        double eurocodeAnchorage = RebarAnchorageCalculator.CalculateAnchorageLength(
+            18, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.TensionStraight, DesignCode.Eurocode2);
+        double eurocodeHooked = RebarAnchorageCalculator.CalculateAnchorageLength(
+            18, ConcreteGrade.C25_30, SteelGrade.B500, AnchorageType.TensionHooked, DesignCode.Eurocode2);
+
+        Check(Near(600, tcvnAnchorage, 0.000001), "production Rebar TCVN B25/CB400V d18 anchorage golden");
+        Check(Near(900, tcvnLap, 0.000001), "production Rebar TCVN B25/CB400V d18 lap golden");
+        Check(Near(726.4640343386, eurocodeAnchorage, 0.000001), "production Rebar Eurocode C25/30 B500 d18 anchorage golden");
+        Check(Near(508.52482403702, eurocodeHooked, 0.000001), "production Rebar Eurocode C25/30 B500 d18 hooked anchorage golden");
+        Check(Near(630, RebarAnchorageCalculator.CalculateAnchorageLength(
+            18, ConcreteGrade.Auto, SteelGrade.Auto, AnchorageType.TensionStraight, DesignCode.Eurocode2), 0.000001),
+            "production Rebar automatic-grade fallback golden");
     }
 
     private static void RunDomainGoldens()
@@ -91,6 +115,13 @@ static class Program
 
     private static void RunEdgeCases()
     {
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(0, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018)), "Rebar rejects zero diameter");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(-16, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018)), "Rebar rejects negative diameter");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(double.NaN, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018)), "Rebar rejects NaN diameter");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(double.MaxValue, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018)), "Rebar rejects overflowing extreme diameter result");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(16, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018, double.NaN)), "Rebar rejects non-finite fallback multiplier");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateAnchorageLength(16, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, (DesignCode)999)), "Rebar rejects unknown design code");
+        Check(ThrowsOutOfRange(() => RebarAnchorageCalculator.CalculateLapLength(16, ConcreteGrade.B25, SteelGrade.CB400_V, AnchorageType.TensionStraight, DesignCode.TCVN5574_2018, percentLappedFactor: 0)), "Rebar rejects zero lap factor");
         Check(!QsQuantityMath.TryCalculatePayQuantity(double.NaN, 0, 2, out _), "QS rejects NaN input");
         Check(!QsQuantityMath.TryCalculatePayQuantity(-1, 0, 2, out _), "QS rejects negative quantity");
         Check(!QsQuantityMath.TryCalculatePayQuantity(1, -1, 2, out _), "QS rejects negative waste");
@@ -103,6 +134,12 @@ static class Program
         Check(ThrowsArgument(() => LintelLayout.Compute(0, 0, 0, 0, 0, 1, 0)), "Architectural rejects zero lintel width");
         Check(ThrowsArgument(() => LintelLayout.Compute(0, 0, 0, 1, -1, 1, 0)), "Architectural rejects negative extension");
         Check(ThrowsArgument(() => LintelLayout.Compute(double.NaN, 0, 0, 1, 0, 1, 0)), "Architectural rejects non-finite input");
+    }
+
+    private static bool ThrowsOutOfRange(Action action)
+    {
+        try { action(); return false; }
+        catch (ArgumentOutOfRangeException) { return true; }
     }
 
     private static bool ThrowsArgument(Action action)
