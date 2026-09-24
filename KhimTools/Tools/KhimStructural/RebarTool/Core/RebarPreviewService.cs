@@ -435,23 +435,33 @@ namespace KhimTools.RebarTool.Core
             return WorkflowFingerprint.Compute(new[]
             {
                 TypeFingerprint(type),
-                ElementFingerprint(bar.Document, bar.GetShapeId()),
-                ElementFingerprint(bar.Document, bar.GetHookTypeId(0)),
-                ElementFingerprint(bar.Document, bar.GetHookTypeId(1)),
+                ShapeFingerprint(bar.Document, bar.GetShapeId()),
+                HookFingerprint(bar.Document, bar.GetHookTypeId(0)),
+                HookFingerprint(bar.Document, bar.GetHookTypeId(1)),
                 bar.LayoutRule.ToString(),
                 bar.Quantity.ToString(CultureInfo.InvariantCulture),
                 Fingerprint(paths)
             });
         }
 
-        private static string ElementFingerprint(Document document, ElementId elementId)
+        private static string ShapeFingerprint(Document document, ElementId elementId)
         {
             if (document == null || elementId == null || elementId == ElementId.InvalidElementId)
                 return "<none>";
-            Element element = document.GetElement(elementId);
-            return element == null
-                ? elementId.ToString()
-                : element.UniqueId + ":" + element.VersionGuid.ToString("D");
+            RebarShape shape = document.GetElement(elementId) as RebarShape;
+            return shape == null
+                ? "<unresolved-shape>"
+                : shape.Name + ":" + shape.RebarStyle;
+        }
+
+        private static string HookFingerprint(Document document, ElementId elementId)
+        {
+            if (document == null || elementId == null || elementId == ElementId.InvalidElementId)
+                return "<none>";
+            RebarHookType hook = document.GetElement(elementId) as RebarHookType;
+            return hook == null
+                ? "<unresolved-hook>"
+                : hook.Name + ":" + hook.HookAngle.ToString("R", CultureInfo.InvariantCulture);
         }
 
         internal static string FingerprintBars(IEnumerable<string> fingerprints) =>
