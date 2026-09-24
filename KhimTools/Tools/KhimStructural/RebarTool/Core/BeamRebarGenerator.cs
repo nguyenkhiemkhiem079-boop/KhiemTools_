@@ -91,6 +91,8 @@ namespace KhimTools.RebarTool.Core
             if (input?.Beam == null) return new List<Rebar>();
             if (input.TopContinuousQty < 2 || input.BottomContinuousQty < 2)
                 throw new InvalidOperationException("Beam reinforcement requires at least two continuous top bars and two continuous bottom bars.");
+            if (input.SideBarQty < 0 || input.SideBarQty % 2 != 0)
+                throw new InvalidOperationException("Beam side-bar quantity must be a non-negative even number because side bars are placed in symmetric pairs.");
             EnsureBarTypes(input);
             if (input?.Beam == null) return new List<Rebar>();
 
@@ -343,7 +345,7 @@ namespace KhimTools.RebarTool.Core
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, RebarBarType sideType)
         {
             var bars = new List<Rebar>();
-            int sidePairs = Math.Max(input.SideBarQty / 2, 1);
+            int sidePairs = Math.Max(input.SideBarQty / 2, input.AutoSideBars ? 1 : 0);
             double sideDia = sideType.BarModelDiameter;
 
             double halfB = profile.B / 2.0 - cover - stirrupDia - sideDia / 2.0;
