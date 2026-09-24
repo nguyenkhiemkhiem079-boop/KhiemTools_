@@ -5,7 +5,7 @@ Checkpoint: 2026-09-25, local-only. This records code-side evidence and open hos
 ## Repository and latest changes
 
 - Start of this continuation: `phase18/production-gate` at `309dccb`.
-- Current code branch / source HEAD: `phase18/production-gate` / `dbb2469`.
+- Current code branch / source HEAD: `phase18/production-gate` / `9b070d3`.
 - Worktree: clean following local source and checkpoint documentation commits.
 - Local commits in this continuation:
   - `2c94c86 fix(rebar): localize shared validation feedback`
@@ -19,10 +19,11 @@ Checkpoint: 2026-09-25, local-only. This records code-side evidence and open hos
   - `b6198a6 fix(rebar): stabilize preview type fingerprints`
   - `dcd6466 fix(rebar): include hook style in preview parity`
   - `dbb2469 fix(runtime-qa): fail closed on incomplete model snapshots`
+  - `9b070d3 fix(rebar): count column bar set positions`
   - `dcd9313 docs(rebar): record tie rollback hardening checkpoint`
 - No push, merge, installer action, machine-wide deployment, or Revit model operation was performed.
 
-The first commit localizes shared validation status, action text and error messages across Beam, rectangular Column, Slab and Foundation. The second adds a bilingual selector and complete UI-state localization to Circular Column, including preview/count text, reference/configuration pages, validation feedback and bilingual layout coverage. Circular Column was previously mixed-language and did not expose the global selector. Candidate rollback hardening verifies every candidate `SubTransaction.RollBack` result and aborts to the owner if rollback cannot be confirmed; it also aligns the canonical suite's Rebar expected count with the direct verifier result. Commit `681a8d2` applies the same fail-closed policy to rectangular-column tie-station subtransactions and prevents per-column error recovery from continuing the batch when station rollback cannot be confirmed. Commit `4e0d9a8` makes the standalone Rebar fixture command require a confirmed `TransactionGroup` rollback before reporting the fixture model unchanged; uncertain cleanup is now recorded as a failed check and an operator warning. Commit `f13cc7b` corrects preview fidelity: indexed centerline capture enumerates every existing distributed bar position and displays actual `Quantity`, while parity compares Rebar set counts separately. Commit `32f6dbd` added shape/hook, layout, quantity and geometry parity fingerprints. Commit `b6198a6` avoids false mismatches when a shape is first loaded inside the preview rollback transaction: shape identity now uses name/style and hook identity uses stable name/angle semantics. Commit `dcd6466` also fingerprints hook style. Commit `dbb2469` hardens the runtime QA model-integrity guard: incomplete snapshots and failed element lookups fail closed, and post-rollback verification compares exact element-ID sets as well as counts.
+The first commit localizes shared validation status, action text and error messages across Beam, rectangular Column, Slab and Foundation. The second adds a bilingual selector and complete UI-state localization to Circular Column, including preview/count text, reference/configuration pages, validation feedback and bilingual layout coverage. Circular Column was previously mixed-language and did not expose the global selector. Candidate rollback hardening verifies every candidate `SubTransaction.RollBack` result and aborts to the owner if rollback cannot be confirmed; it also aligns the canonical suite's Rebar expected count with the direct verifier result. Commit `681a8d2` applies the same fail-closed policy to rectangular-column tie-station subtransactions and prevents per-column error recovery from continuing the batch when station rollback cannot be confirmed. Commit `4e0d9a8` makes the standalone Rebar fixture command require a confirmed `TransactionGroup` rollback before reporting the fixture model unchanged; uncertain cleanup is now recorded as a failed check and an operator warning. Commit `f13cc7b` corrects preview fidelity: indexed centerline capture enumerates every existing distributed bar position and displays actual `Quantity`, while parity compares Rebar set counts separately. Commit `32f6dbd` added shape/hook, layout, quantity and geometry parity fingerprints. Commit `b6198a6` avoids false mismatches when a shape is first loaded inside the preview rollback transaction: shape identity now uses name/style and hook identity uses stable name/angle semantics. Commit `dcd6466` also fingerprints hook style. Commit `dbb2469` hardens the runtime QA model-integrity guard: incomplete snapshots and failed element lookups fail closed, and post-rollback verification compares exact element-ID sets as well as counts. Commit `9b070d3` corrects the existing-column drawing reader to count included bars in each Rebar set, estimate tie spacing from each indexed solved centerline, and fail visibly instead of silently treating unresolved shapes as standard bars.
 
 ## Current reproducible code-side evidence
 
@@ -30,7 +31,7 @@ The first commit localizes shared validation status, action text and error messa
 | --- | --- |
 | Revit 2024 Release build | PASS, 0 errors; 210 existing `CS0618` API-obsolescence warnings |
 | Revit 2025 Release build | PASS, 0 errors; 208 existing `CS0618` API-obsolescence warnings |
-| K-Rebar static acceptance | PASS, 109/109 |
+| K-Rebar static acceptance | PASS, 110/110 |
 | Rebar layout under Test-All's Windows PowerShell 5.1 host | PASS; 16,591 control checks, 348 renders |
 | Standalone Rebar layout under PowerShell 7 | PASS; 18,327 control checks, 384 renders |
 | UI layout acceptance | PASS; 100 embedded icons, 10 XAML surfaces, 43 renders |
@@ -39,12 +40,12 @@ The first commit localizes shared validation status, action text and error messa
 | Rebar configuration persistence | PASS; 37 checks |
 | Rebar reference rendering | PASS; 40 schematic renders; not geometry/compliance validation |
 | Runtime QA harness audit | PASS; 28 checks; this audits harness structure only |
-| Canonical `Test-All.ps1` | PASS; 2,658/2,658 configured audits; Rebar acceptance is explicitly budgeted as 109 checks |
+| Canonical `Test-All.ps1` | PASS; 2,659/2,659 configured audits; Rebar acceptance is explicitly budgeted as 110 checks |
 | `git diff --check` | PASS |
 
 The latest source-only audit found no `TODO`, `FIXME`, `HACK`, `PLACEHOLDER`, or `NotImplementedException` markers under active Rebar production code/runtime fixtures. Foundation side ties remain an explicitly disclosed engineering gap rather than an implicit PASS. No Rebar-specific build warning or new Category C warning was identified; the repository builds still emit existing `ElementId` `CS0618` obsolescence warnings.
 
-After `dbb2469`, both Release targets were rebuilt from committed source: Revit 2024 produced 210 existing `CS0618` warnings and 0 errors; Revit 2025 produced 208 existing `CS0618` warnings and 0 errors. Product version: `2.7.2+dbb246983e662c10b7a2301217f4f9b9932c7939`.
+After `9b070d3`, both Release targets were rebuilt from committed source: Revit 2024 produced 210 existing `CS0618` warnings and 0 errors; Revit 2025 produced 208 existing `CS0618` warnings and 0 errors. Product version: `2.7.2+9b070d3bac3b639ee6f345ab137bdccaf2d77d58`.
 
 The layout verifier reports host-dependent check/render totals in PowerShell 5.1 versus PowerShell 7; each run passed in its own runtime. The Test-All total is configured-suite accounting, not Revit runtime evidence. The layout checks are offline rendering simulations, not live Windows DPI or Revit command QA.
 
@@ -54,7 +55,7 @@ The layout verifier reports host-dependent check/render totals in PowerShell 5.1
 - Revit host runtime: `DEFERRED`, not PASS. No safe disposable model or supported Revit host runner is available in this task; the active user model was not touched.
 - Runtime fixtures are registered/compiled; their registration is not evidence that the fixtures ran.
 - Deployment sanity found active Revit 2025 PID `26356` still loads `C:\ProgramData\Autodesk\ApplicationPlugins\KhimTools.bundle\Contents\Modern\KhimTools.dll`, product version `2.7.2+88b8cddcc75dae58cd6929e074465c010cb05129`, which is older than this local build.
-- A fresh, versioned QA bundle was prepared at `%LOCALAPPDATA%\KhimToolsQA\2.7.2-dbb2469\KhimTools.bundle`. Revit 2024/Legacy SHA-256 is `B06D369097562C91336FFC76F84F8EAA278C7DB3F0C62FBE103C956677AF0E47`; Revit 2025/Modern SHA-256 is `BBCBD5342E239445C22B890C35E1BF3B9E780A994CFD45D5B93E4862E5B36642`; both match the committed build outputs. The 141-file bundle's Legacy and Modern manifests have the same AddInId, modern `.deps.json` is present, PackageContents supports R2022–R2026 with no R2027, and the bundle remains under LocalAppData, outside Autodesk discovery paths, and unregistered. Earlier bundles were not modified.
+- A fresh, versioned QA bundle was prepared at `%LOCALAPPDATA%\KhimToolsQA\2.7.2-9b070d3\KhimTools.bundle`. Revit 2024/Legacy SHA-256 is `4DF8A92963962074109159B7809C2C045C8797CD1F2FBCA5CE9CDC7431AB2D36`; Revit 2025/Modern SHA-256 is `7BAE1F6BBE86B09EE4553139EF78ED8E22DE2CCC2962735B41235F051E62B92D`; both match the committed build outputs. The 141-file bundle's Legacy and Modern manifests have the same AddInId, modern `.deps.json` is present, PackageContents supports R2022–R2026 with no R2027, and the bundle remains under LocalAppData, outside Autodesk discovery paths, and unregistered. Earlier bundles were not modified.
 - Build warnings observed are `ElementId.IntegerValue` obsolescence (`CS0618`); no RebarTool warning line was found in either build log. No new Category C warning was identified in the changed Rebar paths. This is not a claim that all historical warnings across the repository were exhaustively reclassified.
 
 ## Remaining real blockers
@@ -62,11 +63,11 @@ The layout verifier reports host-dependent check/render totals in PowerShell 5.1
 - Foundation side-tie detailing remains unresolved. The option is disabled by default and explicitly fails closed if requested; do not claim complete Foundation capability.
 - No Wall Rebar generator/workflow is present; classify Wall as `NOT_APPLICABLE` unless an active product requirement is identified.
 - Rebar semantic geometry golden/edge scenarios still require actual Revit host comparison. The registered rollback/parity fixtures have not run.
-- The active Revit bundle remains stale (loaded product version `2.7.2+88b8cddcc75dae58cd6929e074465c010cb05129`). The new user-scope QA bundle matches `dbb2469` but is unregistered; runtime still requires a disposable QA model and explicit safe host execution.
+- The active Revit bundle remains stale (loaded product version `2.7.2+88b8cddcc75dae58cd6929e074465c010cb05129`). The new user-scope QA bundle matches `9b070d3` but is unregistered; runtime still requires a disposable QA model and explicit safe host execution.
 - Code-side static/build green does not close host-runtime acceptance or the overall production gate and does not authorize push/release. The fresh QA bundle is only prepared and unregistered.
 
 ## Resume point
 
-`NEXT_EXACT_ACTION = Continue the focused responsiveness/localization and remaining code audit, then perform host QA only through a safely isolated Revit session and disposable model. Do not alter the active model or machine-wide plugin. Keep all unexecuted host scenarios NOT_EXECUTED and stop at the 18-hour limit.`
+`NEXT_EXACT_ACTION = Continue focused responsiveness/localization and code-side regression audits; obtain an isolated disposable model and supported Revit host execution path before running any fixture. Do not alter the active model or machine-wide plugin. Keep all unexecuted host scenarios NOT_EXECUTED and stop at the 18-hour limit.`
 
 `SAFE_TO_PUSH_FOR_REVIEW = NO` — host semantic goldens remain unexecuted, Foundation side ties remain unresolved, and the active loaded DLL is stale.
