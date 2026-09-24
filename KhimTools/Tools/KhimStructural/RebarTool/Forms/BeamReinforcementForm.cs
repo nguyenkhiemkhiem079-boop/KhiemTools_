@@ -504,7 +504,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbMainTopDia.Left = 120; _cmbMainTopDia.Top = 25; _cmbMainTopDia.Width = 90;
 
             var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numMainTopQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+            _numMainTopQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 2, Maximum = 20, Value = 2 };
 
             var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainTopStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -592,7 +592,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbMainBotDia.Left = 120; _cmbMainBotDia.Top = 25; _cmbMainBotDia.Width = 90;
 
             var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numMainBotQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+            _numMainBotQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 2, Maximum = 20, Value = 2 };
 
             var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainBotStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };

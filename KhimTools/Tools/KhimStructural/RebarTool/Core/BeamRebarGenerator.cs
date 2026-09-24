@@ -89,6 +89,8 @@ namespace KhimTools.RebarTool.Core
         public List<Rebar> Generate(BeamRebarInput input, RebarGenerationReport report = null)
         {
             if (input?.Beam == null) return new List<Rebar>();
+            if (input.TopContinuousQty < 2 || input.BottomContinuousQty < 2)
+                throw new InvalidOperationException("Beam reinforcement requires at least two continuous top bars and two continuous bottom bars.");
             EnsureBarTypes(input);
             if (input?.Beam == null) return new List<Rebar>();
 
@@ -155,7 +157,7 @@ namespace KhimTools.RebarTool.Core
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
         {
             var bars = new List<Rebar>();
-            int qty = Math.Max(input.TopContinuousQty, 2);
+            int qty = input.TopContinuousQty;
 
             double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0;
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
@@ -203,7 +205,7 @@ namespace KhimTools.RebarTool.Core
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
         {
             var bars = new List<Rebar>();
-            int qty = Math.Max(input.BottomContinuousQty, 2);
+            int qty = input.BottomContinuousQty;
 
             double yBot = -profile.H / 2.0 + cover + stirrupDia + mainDia / 2.0;
             double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
