@@ -494,7 +494,7 @@ namespace KhimTools.RebarTool.Forms
             AddRoleNavigation(roleNavigation, "Lưới dưới", 0);
             AddRoleNavigation(roleNavigation, "Lưới trên", 1);
             AddRoleNavigation(roleNavigation, "Thép U mép", 2);
-            AddRoleNavigation(roleNavigation, "Thép chờ & đai cổ", 3);
+            AddRoleNavigation(roleNavigation, "Thép chờ", 3);
             AddRoleNavigation(roleNavigation, "Thiết lập", 4);
             AddRoleNavigation(roleNavigation, "Tham khảo", 5);
             AddRoleNavigation(roleNavigation, "Cấu hình", 6);
@@ -578,7 +578,7 @@ namespace KhimTools.RebarTool.Forms
                 ["Lưới dưới"] = "Bottom mat",
                 ["Lưới trên"] = "Top mat",
                 ["Thép U mép"] = "Edge U-bars",
-                ["Thép chờ & đai cổ"] = "Dowels & ties",
+                ["Thép chờ"] = "Dowels",
                 ["Thiết lập"] = "Design",
                 ["Tham khảo"] = "Reference",
                 ["Cấu hình"] = "Settings"

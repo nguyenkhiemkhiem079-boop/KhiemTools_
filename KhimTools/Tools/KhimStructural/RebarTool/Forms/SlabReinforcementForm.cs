@@ -152,6 +152,7 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
+            ApplyLanguage();
             RebarLayout.EnableFullTypeNames(this);
             if (loadDocument) PopulateBarCombos();
 
@@ -202,6 +203,12 @@ namespace KhimTools.RebarTool.Forms
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
+            _cmbLanguage.SelectedIndexChanged += (s, e) =>
+            {
+                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1
+                    ? AppLanguage.English : AppLanguage.Vietnamese;
+                ApplyLanguage();
+            };
 
             _btnAssignData = new Button { Text = "Gán thông số", Width = 130, Height = 38, Top = 13, Left = 620 };
             KhimUiStyle.ApplySecondaryButton(_btnAssignData);
@@ -372,6 +379,120 @@ namespace KhimTools.RebarTool.Forms
             footer.SendToBack();
         }
 
+        private void ApplyLanguage()
+        {
+            bool isEnglish = LanguageManager.IsEnglish;
+            Text = isEnglish ? "Slab Reinforcement" : "Rebar - Sàn";
+            AccessibleName = isEnglish ? "Slab Reinforcement" : "Bố trí cốt thép sàn theo panel";
+
+            var viToEn = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["1  Chọn panel     2  Cấu hình lớp thép     3  Gán thông số     4  Tạo thép"] = "1  Select panels     2  Configure layers     3  Assign settings     4  Create rebar",
+                ["Ngôn ngữ"] = "Language", ["Gán thông số"] = "Assign Settings", ["Tạo thép sàn"] = "Create Slab Rebar",
+                ["CẬP NHẬT PREVIEW"] = "Refresh Preview", ["Solve 3D"] = "Solve 3D", ["Đóng"] = "Close",
+                ["Lưới Đáy"] = "Bottom Mat", ["Lưới Trên"] = "Top Mat", ["Mũ Gối & Phân Bố"] = "Support Bars",
+                ["Spacer & Neo Cạnh"] = "Spacers & Edge Anchors", ["Tiêu Chuẩn & Mẫu"] = "Design & Templates",
+                ["Tham khảo"] = "Reference", ["Cấu hình dự án"] = "Project Settings",
+                ["Lưới dưới X/Y"] = "Bottom X/Y", ["Lưới trên X/Y"] = "Top X/Y", ["Mũ gối"] = "Support Bars",
+                ["Kê & neo"] = "Spacers & Anchors", ["Thiết lập"] = "Design", ["Cấu hình"] = "Settings",
+                ["Chọn cạnh"] = "Pick Edge", ["Vừa khung"] = "Fit All", ["Giải 3D"] = "Solve 3D",
+                ["PREVIEW KỸ THUẬT SÀN — geometry đã solve từ generator sản xuất"] = "SLAB ENGINEERING PREVIEW — solved production centerlines",
+                ["Mặt bằng"] = "Plan", ["Mặt cắt X"] = "Section X", ["Mặt cắt Y"] = "Section Y",
+                ["Tất cả"] = "All roles", ["Lưới dưới"] = "Bottom mat", ["Dưới X"] = "Bottom X", ["Dưới Y"] = "Bottom Y",
+                ["Lưới trên"] = "Top mat", ["Trên X"] = "Top X", ["Trên Y"] = "Top Y", ["Phương X"] = "Direction X",
+                ["Phương Y"] = "Direction Y", ["Mũ X"] = "Support X", ["Mũ Y"] = "Support Y", ["Lỗ mở"] = "Opening",
+                ["Con kê"] = "Spacer", ["Fit All"] = "Fit All", ["Panel xem:"] = "Panel:", ["Lọc thép:"] = "Role:",
+                ["Chưa tạo Preview"] = "Preview not generated", ["Không có panel được chọn"] = "No panel selected",
+                ["DANH SÁCH PANEL SÀN"] = "SLAB PANEL LIST", ["Xóa"] = "Delete", ["Pick Edge"] = "Pick Edge",
+                ["Panel"] = "Panel", ["Tầng"] = "Level", ["Kích thước (WxL)"] = "Size (W × L)", ["Dày (mm)"] = "Thickness (mm)",
+                ["Chọn tất cả"] = "Select All", ["Bỏ chọn"] = "Deselect All", ["Bố Trí Thép Lưới Đáy (Bottom Layer)"] = "Bottom Mat Reinforcement",
+                ["Bật tạo thép lưới đáy (Draw Bottom)"] = "Enable bottom mat", ["Đảo phương chịu lực (Invert Layer: Y nằm dưới X)"] = "Invert bottom layer order (Y below X)",
+                ["Phương X"] = "Direction X", ["Phương Y"] = "Direction Y", ["Đường kính:"] = "Bar diameter:", ["Đường kính"] = "Bar diameter",
+                ["Đường kính X"] = "Diameter X", ["Đường kính Y"] = "Diameter Y", ["Khoảng rải (s):"] = "Spacing (mm):",
+                ["Khoảng rải s (mm)"] = "Spacing (mm)", ["Khoảng rải X (mm)"] = "Spacing X (mm)", ["Khoảng rải Y (mm)"] = "Spacing Y (mm)",
+                ["Bố Trí Thép Lưới Trên Full Nhịp (Top Layer Mesh)"] = "Top Mat Reinforcement",
+                ["Bật tạo thép lưới trên chạy full nhịp (Draw Top Mesh)"] = "Enable full-span top mat", ["Đảo phương chịu lực (Invert Layer: Y nằm ngoài X)"] = "Invert top layer order (Y outside X)",
+                ["Thép Mũ Gối (Hat / Reinforce)"] = "Support Reinforcement", ["Bật bố trí thép mũ gối (Draw Support Hats)"] = "Enable support bars",
+                ["Chạy suốt nhịp (Full Span)"] = "Run full span", ["Tỷ lệ vươn (Hat Fac):"] = "Extension ratio:", ["Móc mép (chưa hỗ trợ)"] = "Edge hook (unsupported)",
+                ["Mũ Gối Phương X"] = "Support X", ["Mũ Gối Phương Y"] = "Support Y", ["Thép phân bố vuông góc mũ gối (chưa hỗ trợ tạo thép)"] = "Perpendicular distribution bars (not supported)",
+                ["Chưa khả dụng"] = "Unavailable", ["Con Kê / Thép Chân Chó (Spacer / High Chair)"] = "Spacers / High Chairs",
+                ["Bật bố trí con kê / thép chân chó"] = "Enable spacers / high chairs", ["Chiều dài móc chân (mm):"] = "Chair hook length (mm):",
+                ["Bước X (mm):"] = "Step X (mm):", ["Bước Y (mm):"] = "Step Y (mm):", ["Bước X (mm)"] = "Step X (mm)", ["Bước Y (mm)"] = "Step Y (mm)",
+                ["Chiều dài móc chân (mm)"] = "Chair hook length (mm)", ["Chiều dài móc mép (mm)"] = "Edge hook length (mm)",
+                ["Làm tròn chiều dài (mm)"] = "Round bar length to (mm)", ["Neo dầm A (mm)"] = "Beam A anchorage (mm)",
+                ["Neo giáp sàn B (mm)"] = "Adjacent slab B anchorage (mm)", ["Ngưỡng nhịp chạy suốt (mm)"] = "Minimum continuous-span length (mm)",
+                ["Tiêu chuẩn neo"] = "Anchorage code", ["Tỷ lệ vươn"] = "Extension ratio", ["Mác bê tông"] = "Concrete grade",
+                ["Mác thép"] = "Rebar grade", ["Mẫu thiết lập"] = "Template", ["Neo cạnh (chưa áp dụng) & Dung Sai Nhịp"] = "Edge anchorage (not applied) & span tolerance",
+                ["Neo dầm A (chưa áp dụng):"] = "Beam A anchorage (not applied):", ["Neo sàn giáp cạnh B (chưa áp dụng):"] = "Adjacent slab B anchorage (not applied):",
+                ["Làm tròn chiều dài thép (mm):"] = "Round bar length to (mm):", ["Min Span ngưỡng chạy suốt (mm):"] = "Minimum continuous-span length (mm):",
+                ["Tiêu Chuẩn Thiết Kế & Vật Liệu"] = "Design Code & Materials", ["Tiêu chuẩn neo:"] = "Anchorage code:", ["Mác bê tông:"] = "Concrete grade:", ["Mác thép:"] = "Rebar grade:",
+                ["Quản Lý Mẫu Thiết Lập (Template JSON)"] = "JSON Template Management", ["Lưu mẫu"] = "Save Template", ["Nạp mẫu"] = "Load Template",
+                ["Đã chọn"] = "Selected", ["Đã chọn: "] = "Selected: ", ["Preview hợp lệ"] = "Preview valid",
+                ["Thông số đã thay đổi — cập nhật Preview"] = "Inputs changed — refresh preview", ["Dữ liệu không hợp lệ"] = "Invalid inputs",
+                ["Xem panel đang hoạt động:"] = "Active panel:", ["Chọn panel được chọn"] = "Select a panel",
+                ["Chọn panel sàn để xem hình học."] = "Select a slab panel to inspect its geometry.", ["Panel geometry is unavailable."] = "Panel geometry is unavailable.",
+                ["Geometry only — refresh to solve reinforcement centerlines."] = "Geometry only — refresh to solve reinforcement centerlines.",
+                ["STALE · bars shown from the last valid solve"] = "STALE · bars shown from last valid solve", ["CẬP NHẬT PREVIEW"] = "Refresh Preview"
+            };
+            var enToVi = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> item in viToEn)
+                if (!enToVi.ContainsKey(item.Value)) enToVi.Add(item.Value, item.Key);
+
+            foreach (Control control in EnumerateControls(this))
+            {
+                string translated;
+                if (isEnglish && viToEn.TryGetValue(control.Text, out translated)) control.Text = translated;
+                else if (!isEnglish && enToVi.TryGetValue(control.Text, out translated)) control.Text = translated;
+            }
+
+            SetComboItems(_cmbPreviewView, isEnglish
+                ? new[] { "Plan", "Section X", "Section Y" }
+                : new[] { "Mặt bằng", "Mặt cắt X", "Mặt cắt Y" });
+            SetComboItems(_cmbPreviewRole, isEnglish
+                ? new[] { "All roles", "Bottom mat", "Bottom X", "Bottom Y", "Top mat", "Top X", "Top Y", "Direction X", "Direction Y", "Support bars", "Support X", "Support Y", "Opening", "Spacer" }
+                : new[] { "Tất cả", "Lưới dưới", "Dưới X", "Dưới Y", "Lưới trên", "Trên X", "Trên Y", "Phương X", "Phương Y", "Mũ gối", "Mũ X", "Mũ Y", "Lỗ mở", "Con kê" });
+            if (_gridPanels != null && _gridPanels.Columns.Count >= 5)
+            {
+                _gridPanels.Columns[1].HeaderText = isEnglish ? "Panel" : "Panel";
+                _gridPanels.Columns[2].HeaderText = isEnglish ? "Level" : "Tầng";
+                _gridPanels.Columns[3].HeaderText = isEnglish ? "Size (W × L)" : "Kích thước (WxL)";
+                _gridPanels.Columns[4].HeaderText = isEnglish ? "Thickness (mm)" : "Dày (mm)";
+            }
+
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 5)
+            {
+                int selectedIndex = _workflowTabs.SelectedIndex;
+                TabPage oldReference = _workflowTabs.TabPages[5];
+                _workflowTabs.TabPages.RemoveAt(5);
+                oldReference.Dispose();
+                _workflowTabs.TabPages.Insert(5, RebarReferenceViews.CreatePage(RebarReferenceKind.Slab));
+                _workflowTabs.SelectedIndex = Math.Max(0, Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1));
+                RebarConfigurationPage.ApplyLanguage(_workflowTabs.TabPages[_workflowTabs.TabPages.Count - 1]);
+            }
+            UpdatePanelCountLabel();
+            UpdatePreviewStateUi();
+            UpdatePreviewTargetLabel();
+            _previewCanvas?.Invalidate();
+        }
+
+        private static void SetComboItems(ComboBox combo, string[] values)
+        {
+            if (combo == null) return;
+            int selectedIndex = combo.SelectedIndex;
+            if (combo.Items.Count != values.Length) return;
+            for (int index = 0; index < values.Length; index++) combo.Items[index] = values[index];
+            combo.SelectedIndex = selectedIndex;
+        }
+
+        private static IEnumerable<Control> EnumerateControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateControls(child)) yield return descendant;
+            }
+        }
+
         private void AddRoleSelector(FlowLayoutPanel host, string text, int tabIndex)
         {
             var button = new Button { Text = text, AutoSize = true, Height = 30, Margin = new Padding(2), Tag = tabIndex, AccessibleName = "Show " + text + " slab settings" };
@@ -443,19 +564,19 @@ namespace KhimTools.RebarTool.Forms
             switch (_previewLifecycle.State)
             {
                 case PreviewLifecycleState.Valid:
-                    _lblPreviewState.Text = "Preview hợp lệ";
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "Preview valid" : "Preview hợp lệ";
                     _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
                     break;
                 case PreviewLifecycleState.Stale:
-                    _lblPreviewState.Text = "Thông số đã thay đổi — cập nhật Preview";
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "Inputs changed — refresh preview" : "Thông số đã thay đổi — cập nhật Preview";
                     _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
                     break;
                 case PreviewLifecycleState.Invalid:
-                    _lblPreviewState.Text = "Dữ liệu không hợp lệ";
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "Invalid inputs" : "Dữ liệu không hợp lệ";
                     _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
                     break;
                 default:
-                    _lblPreviewState.Text = "Chưa tạo Preview";
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "Preview not generated" : "Chưa tạo Preview";
                     _lblPreviewState.ForeColor = Color.FromArgb(100, 116, 139);
                     break;
             }
@@ -463,7 +584,9 @@ namespace KhimTools.RebarTool.Forms
             if (_btnCreateRebar != null)
             {
                 _btnCreateRebar.Enabled = valid;
-                _previewToolTip?.SetToolTip(_btnCreateRebar, valid ? "Preview hiện tại khớp với thông số." : "Cần cập nhật Preview trước khi tạo thép.");
+                _previewToolTip?.SetToolTip(_btnCreateRebar, valid
+                    ? (LanguageManager.IsEnglish ? "Current preview matches the inputs." : "Preview hiện tại khớp với thông số.")
+                    : (LanguageManager.IsEnglish ? "Refresh preview before creating rebar." : "Cần cập nhật Preview trước khi tạo thép."));
             }
             if (_btnSolve3D != null) _btnSolve3D.Enabled = valid;
         }
@@ -496,7 +619,9 @@ namespace KhimTools.RebarTool.Forms
         {
             if (_lblPanelCount == null) return;
             int count = _panelManager.Panels.Count(panel => panel.IsSelected);
-            _lblPanelCount.Text = "Đã chọn: " + count + " / " + _panelManager.Panels.Count + " panels";
+            _lblPanelCount.Text = LanguageManager.IsEnglish
+                ? $"Selected: {count} / {_panelManager.Panels.Count} panels"
+                : $"Đã chọn: {count} / {_panelManager.Panels.Count} panels";
         }
 
         private void UpdatePreviewTargetLabel()
@@ -504,8 +629,11 @@ namespace KhimTools.RebarTool.Forms
             if (_lblPreviewTarget == null) return;
             int targetCount = _panelManager.Panels.Count(panel => panel.IsSelected);
             SlabPanel active = GetActivePreviewPanel();
-            _lblPreviewTarget.Text = active == null ? "Không có panel được chọn" :
-                "Xem panel đang hoạt động: " + active.PanelId + "  |  Batch: " + targetCount + " panel";
+            _lblPreviewTarget.Text = active == null
+                ? (LanguageManager.IsEnglish ? "No panel selected" : "Không có panel được chọn")
+                : LanguageManager.IsEnglish
+                    ? $"Active panel: {active.PanelId}  |  Batch: {targetCount} panels"
+                    : "Xem panel đang hoạt động: " + active.PanelId + "  |  Batch: " + targetCount + " panel";
         }
 
         private void PaintSlabPreview(object sender, PaintEventArgs e)
@@ -516,7 +644,7 @@ namespace KhimTools.RebarTool.Forms
             e.Graphics.Clear(canvas.BackColor);
             if (panel == null)
             {
-                TextRenderer.DrawText(e.Graphics, "Chọn panel sàn để xem hình học.", Font, canvas.ClientRectangle, Color.DimGray,
+                TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "Select a slab panel to inspect its geometry." : "Chọn panel sàn để xem hình học.", Font, canvas.ClientRectangle, Color.DimGray,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 return;
             }
@@ -540,7 +668,7 @@ namespace KhimTools.RebarTool.Forms
                 .Concat(pathSets.SelectMany(item => item.Item2)).ToArray();
             if (all.Length < 2)
             {
-                TextRenderer.DrawText(e.Graphics, "Panel geometry is unavailable.", Font, canvas.ClientRectangle, Color.DimGray,
+                TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "Panel geometry is unavailable." : "Hình học panel không khả dụng.", Font, canvas.ClientRectangle, Color.DimGray,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 return;
             }
@@ -577,16 +705,20 @@ namespace KhimTools.RebarTool.Forms
                     }
                     else e.Graphics.DrawLines(pathPen, projected);
                 }
-                string title = plan ? "PLAN · model axes X/Y" : axis == 1 ? "SECTION X · elevation X/Z" : "SECTION Y · elevation Y/Z";
+                string title = plan
+                    ? (LanguageManager.IsEnglish ? "PLAN · model axes X/Y" : "MẶT BẰNG · trục mô hình X/Y")
+                    : axis == 1
+                        ? (LanguageManager.IsEnglish ? "SECTION X · elevation X/Z" : "MẶT CẮT X · cao độ X/Z")
+                        : (LanguageManager.IsEnglish ? "SECTION Y · elevation Y/Z" : "MẶT CẮT Y · cao độ Y/Z");
                 e.Graphics.DrawString(title, font, textBrush, 10, 8);
                 string dimensions = plan ? string.Format("{0}  ·  {1:N0} × {2:N0} mm", panel.PanelId, panel.WidthMm, panel.LengthMm) :
-                    string.Format("{0}  ·  thickness {1:N0} mm  ·  cover top/bottom {2:N0}/{3:N0} mm", panel.PanelId, panel.ThicknessMm,
+                    string.Format(LanguageManager.IsEnglish ? "{0}  ·  thickness {1:N0} mm  ·  cover top/bottom {2:N0}/{3:N0} mm" : "{0}  ·  dày {1:N0} mm  ·  lớp bảo vệ trên/dưới {2:N0}/{3:N0} mm", panel.PanelId, panel.ThicknessMm,
                         panel.CoverTopFeet * 304.8, panel.CoverBottomFeet * 304.8);
                 e.Graphics.DrawString(dimensions, font, textBrush, 10, canvas.ClientSize.Height - 22);
                 if (component == null)
-                    e.Graphics.DrawString("Geometry only — refresh to solve reinforcement centerlines.", font, textBrush, 10, 28);
+                    e.Graphics.DrawString(LanguageManager.IsEnglish ? "Geometry only — refresh to solve reinforcement centerlines." : "Chỉ có hình học — cập nhật để giải tim thép.", font, textBrush, 10, 28);
                 else if (_previewLifecycle.State == PreviewLifecycleState.Stale)
-                    e.Graphics.DrawString("STALE · bars shown from the last valid solve", font, textBrush, 10, 28);
+                    e.Graphics.DrawString(LanguageManager.IsEnglish ? "STALE · bars shown from last valid solve" : "CŨ · đang hiển thị tim thép từ lần giải hợp lệ trước", font, textBrush, 10, 28);
             }
         }
 
