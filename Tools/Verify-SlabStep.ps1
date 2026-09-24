@@ -44,6 +44,10 @@ Assert-Text $form 'BoundaryFingerprint\(currentBoundaries\)' 'Preview geometry i
 Assert-Text $form 'GenerateSlabSteps\(' 'Form routes writes through the production batch service'
 Assert-Text $form 'btnClose\.Click.*this\.Close\(\)' 'Cancel/close exits without a generation call'
 Assert-NotText $form 'CreateLayoutPreview' 'Obsolete CreateLayoutPreview implementation detail is not reintroduced'
+$defaultSelection = [regex]::Match($form, '(?s)private void SelectLoadedDefaultFamily\(\).*?(?=private void BrowseAndLoadFamily\(\))').Value
+Assert-Text $form 'SelectLoadedDefaultFamily\(\)' 'Form initialization only selects an already-loaded default family'
+Assert-Text $defaultSelection 'GetLoadedFamily\(' 'Default-family selection performs a read-only lookup'
+Assert-NotText $defaultSelection 'GetOrLoadFamily\(|LoadFamilySafely\(' 'Opening or canceling the form cannot load a family into the model'
 
 $single = [regex]::Match($service, '(?s)public static SlabStepExecutionResult GenerateSlabStepWithResult\b.*?(?=public static SlabStepExecutionResult GenerateSlabSteps\b)').Value
 $batch = [regex]::Match($service, '(?s)public static SlabStepExecutionResult GenerateSlabSteps\b.*?(?=private static void SetLengthParameter\b)').Value

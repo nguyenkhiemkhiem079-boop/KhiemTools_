@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
 using Form = System.Windows.Forms.Form;
@@ -557,98 +558,95 @@ namespace KhimTools.RebarTool.Forms
                 ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
                 : null;
 
-            using var tx = new Transaction(_doc, "Create Circular Column Rebar");
-            tx.Start();
-            FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-            failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
-            tx.SetFailureHandlingOptions(failOptions);
+            var report = new RebarGenerationReport();
+            int axisGroupCount = 0;
             try
             {
-                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
-                RebarShapeLibrary.PreloadCommonShapes(_doc);
-
-                var generator = new CircularColumnRebarGenerator(_doc);
-                var drawingGen = new ColumnRebarDrawingGenerator(_doc);
-                var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
-                var view3DGen = new ColumnRebar3DViewGenerator(_doc);
-
-                List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
-                List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
-
-                // Results are displayed only after the containing Revit transaction commits.
-                var report = new RebarGenerationReport();
-
-                foreach (var group in axisGroups)
+                TransactionBoundary.Execute(_doc, "Create Circular Column Rebar", () =>
                 {
-                    var inputs = group.Select(col => new CircularColumnRebarInput
-                    {
-                        Column = col,
-                        MainBarType = mainType,
-                        StirrupBarType = stirrupType,
-                        MainBarQty = (int)_numMainQty.Value,
-                        HasDowel = !_rdBaseFoundation.Checked,
-                        IsFoundationColumn = _rdBaseFoundation.Checked,
-                        EnableCrankedSplice = _chkCrankedSplice.Checked,
-                        HasTopAnchor = _chkTopAnchor.Checked,
-                        StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
-                        CustomCoverFeet = customCoverFeet,
-                        LapLengthMultiplier = (double)_numLapMultiplier.Value,
-                        StaggeredSplice = _chkStaggeredSplice.Checked,
-                        DesignStandard = GetSelectedDesignStandard(),
-                        ConcreteGrade = GetSelectedConcreteGrade(),
-                        SteelGrade = GetSelectedSteelGrade()
-                    }).ToList();
+                    // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
+                    RebarShapeLibrary.PreloadCommonShapes(_doc);
 
-                    var createdRebars = generator.GenerateMultiStory(inputs, report);
+                    var generator = new CircularColumnRebarGenerator(_doc);
+                    var drawingGen = new ColumnRebarDrawingGenerator(_doc);
+                    var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
+                    var view3DGen = new ColumnRebar3DViewGenerator(_doc);
 
-                    foreach (var item in group)
+                    List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
+                    List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
+                    axisGroupCount = axisGroups.Count;
+
+                    foreach (var group in axisGroups)
                     {
-                        if (_chkAutoDrawing.Checked)
+                        var inputs = group.Select(col => new CircularColumnRebarInput
                         {
-                            try
-                            {
-                                var profile = CircularColumnGeometryHelper.GetCircularProfile(item);
-                                double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(item, RebarFace.Exterior);
+                            Column = col,
+                            MainBarType = mainType,
+                            StirrupBarType = stirrupType,
+                            MainBarQty = (int)_numMainQty.Value,
+                            HasDowel = !_rdBaseFoundation.Checked,
+                            IsFoundationColumn = _rdBaseFoundation.Checked,
+                            EnableCrankedSplice = _chkCrankedSplice.Checked,
+                            HasTopAnchor = _chkTopAnchor.Checked,
+                            StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                            CustomCoverFeet = customCoverFeet,
+                            LapLengthMultiplier = (double)_numLapMultiplier.Value,
+                            StaggeredSplice = _chkStaggeredSplice.Checked,
+                            DesignStandard = GetSelectedDesignStandard(),
+                            ConcreteGrade = GetSelectedConcreteGrade(),
+                            SteelGrade = GetSelectedSteelGrade()
+                        }).ToList();
 
-                                drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                        var createdRebars = generator.GenerateMultiStory(inputs, report);
+
+                        foreach (var item in group)
+                        {
+                            if (_chkAutoDrawing.Checked)
+                            {
+                                try
                                 {
-                                    Shape = ColumnShapeType.Circular,
-                                    ColumnMark = item.LookupParameter("Mark")?.AsString() ?? item.Id.ToLongValue().ToString(),
-                                    ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
-                                    MainBarQty = (int)_numMainQty.Value,
-                                    MainBarLabel = _cmbMainDia.Text,
-                                    StirrupLabel = _cmbStirrupDia.Text,
-                                    StirrupSpacingMm = (double)_numStirrupSpacing.Value,
-                                    CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
-                                });
-                            }
-                            catch (Exception exDraw)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[CircularColumnDrawingGenerator] Error: {exDraw.Message}");
-                            }
-                        }
+                                    var profile = CircularColumnGeometryHelper.GetCircularProfile(item);
+                                    double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(item, RebarFace.Exterior);
 
-                        if (_chkAutoSection3D.Checked)
-                        {
-                            try
-                            {
-                                var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, item);
-                                sectionGen.CreateOrUpdate(item, itemRebars);
-                                view3DGen.CreateOrUpdate(item, itemRebars);
+                                    drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                                    {
+                                        Shape = ColumnShapeType.Circular,
+                                        ColumnMark = item.LookupParameter("Mark")?.AsString() ?? item.Id.ToLongValue().ToString(),
+                                        ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
+                                        MainBarQty = (int)_numMainQty.Value,
+                                        MainBarLabel = _cmbMainDia.Text,
+                                        StirrupLabel = _cmbStirrupDia.Text,
+                                        StirrupSpacingMm = (double)_numStirrupSpacing.Value,
+                                        CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
+                                    });
+                                }
+                                catch (Exception exDraw)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"[CircularColumnDrawingGenerator] Error: {exDraw.Message}");
+                                }
                             }
-                            catch (Exception exView)
+
+                            if (_chkAutoSection3D.Checked)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CircularColumnViewGenerator] Error: {exView.Message}");
+                                try
+                                {
+                                    var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, item);
+                                    sectionGen.CreateOrUpdate(item, itemRebars);
+                                    view3DGen.CreateOrUpdate(item, itemRebars);
+                                }
+                                catch (Exception exView)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"[CircularColumnViewGenerator] Error: {exView.Message}");
+                                }
                             }
                         }
                     }
-                }
-                TransactionStatus commitStatus = tx.Commit();
-                if (commitStatus != TransactionStatus.Committed)
+                }, configure: transaction =>
                 {
-                    throw new InvalidOperationException(
-                        $"Không thể commit thép cột tròn. Trạng thái transaction: {commitStatus}.");
-                }
+                    FailureHandlingOptions failOptions = transaction.GetFailureHandlingOptions();
+                    failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                    transaction.SetFailureHandlingOptions(failOptions);
+                });
 
                 if (report.HasErrors)
                 {
@@ -656,12 +654,11 @@ namespace KhimTools.RebarTool.Forms
                 }
                 else
                 {
-                    KhimDialogHelper.ShowColumnRebarSuccess(selectedItems.Count, axisGroups.Count, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
+                    KhimDialogHelper.ShowColumnRebarSuccess(selectedItems.Count, axisGroupCount, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
                 }
             }
             catch (Exception ex)
             {
-                if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
                 System.Diagnostics.Debug.WriteLine("Circular column Rebar creation failed: " + ex);
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
                 KhimDialogHelper.ShowError(errTitle, ex.Message);

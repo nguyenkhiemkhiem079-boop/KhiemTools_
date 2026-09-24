@@ -75,6 +75,11 @@ $wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Fi
 $wallGenerator = Get-ChildItem -LiteralPath (Join-Path $base 'Core') -File -Filter '*Wall*Rebar*.cs'
 Add-Check 'wall-rebar-explicitly-unsupported' ($wallCommand.Count -eq 0 -and $wallGenerator.Count -eq 0) 'No wall command/generator; documentation must retain this boundary.'
 
+$columnDrawingPath = Join-Path $base 'Commands\CmdColumnDrawing.cs'
+$columnDrawing = Get-Content -Raw $columnDrawingPath
+Add-Check 'column-drawing-checked-transaction-ownership' ($columnDrawing.Contains('TransactionBoundary.ExecuteGroup') -and $columnDrawing.Contains('TransactionBoundary.Execute(doc') -and $columnDrawing -notmatch 'new Transaction\(|tx\.Start\(\)|tx\.Commit\(\)') $columnDrawingPath
+Add-Check 'column-drawing-three-view-postconditions' ($columnDrawing.Contains('ViewDrafting drawingView') -and $columnDrawing.Contains('ViewPlan sectionView') -and $columnDrawing.Contains('View3D inspectionView') -and $columnDrawing.Contains('generatedViewIds.Any') -and $columnDrawing.Contains('doc.GetElement(id)')) 'Drafting, section, and 3D views are checked before transaction-group assimilation.'
+
 $passCount = @($checks | Where-Object Pass).Count
 $failures = @($checks | Where-Object { -not $_.Pass })
 foreach ($check in $checks) {

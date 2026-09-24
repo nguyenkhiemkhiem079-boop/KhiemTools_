@@ -18,6 +18,7 @@ function Assert([bool]$condition, [string]$name) {
 }
 
 Assert ($ribbon.Contains('KhimTools.MEP.Penetrations.CmdMepOpenings')) 'ribbon-opening-command'
+Assert ($ribbon.Contains('"MEP Clash" + Environment.NewLine + "Review"') -and $ribbon.Contains('50 mm clearance each side')) 'clash-review-label-and-explicit-clearance'
 Assert ($ribbon.Contains('KhimTools.MEP.Tags.CmdMepElevationTags')) 'ribbon-elevation-command'
 Assert ($openingCommand.Contains('class CmdMepOpenings : IExternalCommand')) 'opening-command-entry-point'
 Assert ($noteCommand.Contains('class CmdMepElevationTags : IExternalCommand')) 'notes-command-entry-point'

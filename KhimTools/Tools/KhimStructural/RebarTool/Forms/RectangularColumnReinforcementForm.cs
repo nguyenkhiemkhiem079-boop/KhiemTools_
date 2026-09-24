@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using Form = System.Windows.Forms.Form;
@@ -672,54 +673,46 @@ namespace KhimTools.RebarTool.Forms
             int rolledBackColumnCount = 0;
             bool commonShapesPreloaded = false;
 
-            using var transactionGroup = new TransactionGroup(_doc, "K-TOOLS - Create Rectangular Column Rebar");
             try
             {
-                if (transactionGroup.Start() != TransactionStatus.Started)
+                TransactionBoundary.ExecuteGroup(_doc, "K-TOOLS - Create Rectangular Column Rebar", () =>
                 {
-                    throw new InvalidOperationException("Không thể bắt đầu TransactionGroup tạo thép cột chữ nhật.");
-                }
+                    var generator = new RectangularColumnRebarGenerator(_doc);
+                    var drawingGen = new ColumnRebarDrawingGenerator(_doc);
+                    var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
+                    var view3DGen = new ColumnRebar3DViewGenerator(_doc);
+                    ColumnTieLayoutType tieLayoutType = GetSelectedTieLayoutType();
 
-                var generator = new RectangularColumnRebarGenerator(_doc);
-                var drawingGen = new ColumnRebarDrawingGenerator(_doc);
-                var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
-                var view3DGen = new ColumnRebar3DViewGenerator(_doc);
-                ColumnTieLayoutType tieLayoutType = GetSelectedTieLayoutType();
-
-                foreach (List<RectangularColumnRebarInput> inputs in inputGroups)
-                {
-                    foreach (var input in inputs)
+                    foreach (List<RectangularColumnRebarInput> inputs in inputGroups)
                     {
-                        if (!TryGenerateRectangularColumn(
-                                generator,
-                                input,
-                                report,
-                                ref commonShapesPreloaded,
-                                acceptedPreview))
+                        foreach (var input in inputs)
                         {
-                            rolledBackColumnCount++;
-                            continue;
+                            if (!TryGenerateRectangularColumn(
+                                    generator,
+                                    input,
+                                    report,
+                                    ref commonShapesPreloaded,
+                                    acceptedPreview))
+                            {
+                                rolledBackColumnCount++;
+                                continue;
+                            }
+
+                            committedColumnCount++;
+                            CreatePostCommitColumnArtifacts(
+                                input,
+                                customCoverFeet,
+                                drawingGen,
+                                sectionGen,
+                                view3DGen,
+                                report);
                         }
-
-                        committedColumnCount++;
-                        CreatePostCommitColumnArtifacts(
-                            input,
-                            customCoverFeet,
-                            drawingGen,
-                            sectionGen,
-                            view3DGen,
-                            report);
                     }
-                }
-
-                if (transactionGroup.Assimilate() != TransactionStatus.Committed)
-                {
-                    throw new InvalidOperationException("TransactionGroup tạo thép cột chữ nhật không thể hoàn tất.");
-                }
+                    return true;
+                });
             }
             catch (Exception ex)
             {
-                RollBackGroupIfStarted(transactionGroup);
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
                 System.Diagnostics.Debug.WriteLine("Rectangular column Rebar creation failed: " + ex);
@@ -863,67 +856,60 @@ namespace KhimTools.RebarTool.Forms
         {
             var columnReport = new RebarGenerationReport();
             var failurePreprocessor = new RebarGenerationFailurePreprocessor();
+            bool abortBatch = false;
+            bool shapesWerePreloaded = commonShapesPreloaded;
 
-            using var transaction = new Transaction(
-                _doc,
-                $"K-TOOLS - Rectangular Column Rebar [{GetColumnLabel(input.Column)}]");
             try
             {
-                if (transaction.Start() != TransactionStatus.Started)
+                bool committed = TransactionBoundary.Execute(_doc,
+                    $"K-TOOLS - Rectangular Column Rebar [{GetColumnLabel(input.Column)}]", () =>
                 {
-                    throw new InvalidOperationException("Không thể bắt đầu transaction cho cột.");
-                }
+                    // RebarShape loading is part of the first column transaction. If
+                    // that column fails, its type-loading changes roll back with it.
+                    if (!shapesWerePreloaded)
+                        RebarShapeLibrary.PreloadCommonShapes(_doc);
 
-                ConfigureFailureHandling(transaction, failurePreprocessor);
+                    List<Rebar> createdRebars = generator.Generate(input, columnReport);
 
-                // RebarShape loading is part of the first column transaction. If
-                // that column fails, its type-loading changes roll back with it.
-                if (!commonShapesPreloaded)
+                    // Revit can post a shape-solver failure during regeneration or
+                    // commit. Force geometry validation while failure handling is active.
+                    _doc.Regenerate();
+
+                    if (!RebarPreviewService.Matches(preview, RebarPreviewService.Fingerprint(input), createdRebars))
+                    {
+                        columnReport.AddError(input.Column, "Preview parity",
+                            new InvalidOperationException("Generated centerlines differ from the reviewed solver preview; this column was rolled back."));
+                        return false;
+                    }
+
+                    if (createdRebars == null || createdRebars.Count == 0)
+                    {
+                        columnReport.AddError(
+                            input.Column,
+                            "Rectangular column rebar",
+                            new InvalidOperationException("Generator did not create a valid rebar set for this column."));
+                    }
+
+                    return !columnReport.HasErrors && !failurePreprocessor.HasUnrecoverableFailure;
+                }, configure: transaction => ConfigureFailureHandling(transaction, failurePreprocessor),
+                    shouldCommit: valid => valid);
+
+                if (!committed)
                 {
-                    RebarShapeLibrary.PreloadCommonShapes(_doc);
-                }
-
-                List<Rebar> createdRebars = generator.Generate(input, columnReport);
-
-                // Revit can post a shape-solver failure only during regeneration
-                // or commit. Force that validation while the rollback-only failure
-                // preprocessor is attached to this individual column transaction.
-                _doc.Regenerate();
-
-                if (!RebarPreviewService.Matches(preview, RebarPreviewService.Fingerprint(input), createdRebars))
-                {
-                    columnReport.AddError(input.Column, "Preview parity",
-                        new InvalidOperationException("Generated centerlines differ from the reviewed solver preview; this column was rolled back."));
-                    RollBackTransactionIfStarted(transaction);
                     AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, null);
                     return false;
                 }
 
-                if (createdRebars == null || createdRebars.Count == 0)
-                {
-                    columnReport.AddError(
-                        input.Column,
-                        "Rectangular column rebar",
-                        new InvalidOperationException("Generator did not create a valid rebar set for this column."));
-                }
-
-                if (columnReport.HasErrors || failurePreprocessor.HasUnrecoverableFailure)
-                {
-                    RollBackTransactionIfStarted(transaction);
-                    AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, null);
-                    return false;
-                }
-
-                TransactionStatus commitStatus = transaction.Commit();
-                if (commitStatus != TransactionStatus.Committed || failurePreprocessor.HasUnrecoverableFailure)
+                if (failurePreprocessor.HasUnrecoverableFailure)
                 {
                     AddRolledBackColumnDiagnostic(
                         aggregateReport,
                         input,
                         columnReport,
                         failurePreprocessor,
-                        new InvalidOperationException($"Column transaction ended with status {commitStatus}."));
-                    return false;
+                        new InvalidOperationException("Column transaction committed with an unrecoverable Revit failure."));
+                    abortBatch = true;
+                    throw new InvalidOperationException("Column transaction committed with an unrecoverable Revit failure; the enclosing batch was rolled back.");
                 }
 
                 commonShapesPreloaded = true;
@@ -932,7 +918,7 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                RollBackTransactionIfStarted(transaction);
+                if (abortBatch) throw;
                 AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, ex);
                 return false;
             }
@@ -949,57 +935,51 @@ namespace KhimTools.RebarTool.Forms
             if (!_chkAutoDrawing.Checked && !_chkAutoSection3D.Checked) return;
 
             var failurePreprocessor = new RebarGenerationFailurePreprocessor();
-            using var transaction = new Transaction(
-                _doc,
-                $"K-TOOLS - Rectangular Column Rebar Artifacts [{GetColumnLabel(input.Column)}]");
+            bool abortBatch = false;
             try
             {
-                if (transaction.Start() != TransactionStatus.Started)
+                TransactionBoundary.Execute(_doc,
+                    $"K-TOOLS - Rectangular Column Rebar Artifacts [{GetColumnLabel(input.Column)}]", () =>
                 {
-                    throw new InvalidOperationException("Không thể bắt đầu transaction tạo bản vẽ và view thép cột.");
-                }
-
-                ConfigureFailureHandling(transaction, failurePreprocessor);
-
-                if (_chkAutoDrawing.Checked)
-                {
-                    var profile = RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);
-                    double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(input.Column, RebarFace.Exterior);
-
-                    drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                    if (_chkAutoDrawing.Checked)
                     {
-                        Shape = ColumnShapeType.Rectangular,
-                        ColumnMark = input.Column.LookupParameter("Mark")?.AsString() ?? input.Column.Id.ToString(),
-                        ColumnWidthMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters),
-                        ColumnHeightMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters),
-                        BarsAlongB = input.BarsAlongB,
-                        BarsAlongH = input.BarsAlongH,
-                        MainBarLabel = input.MainBarType?.Name,
-                        StirrupLabel = input.StirrupBarType?.Name,
-                        StirrupSpacingMm = UnitUtils.ConvertFromInternalUnits(input.StirrupSpacingA1, UnitTypeId.Millimeters),
-                        CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
-                    });
-                }
+                        var profile = RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);
+                        double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(input.Column, RebarFace.Exterior);
 
-                if (_chkAutoSection3D.Checked)
-                {
-                    var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, input.Column);
-                    sectionGen.CreateOrUpdate(input.Column, itemRebars);
-                    view3DGen.CreateOrUpdate(input.Column, itemRebars);
-                }
+                        drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                        {
+                            Shape = ColumnShapeType.Rectangular,
+                            ColumnMark = input.Column.LookupParameter("Mark")?.AsString() ?? input.Column.Id.ToString(),
+                            ColumnWidthMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters),
+                            ColumnHeightMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters),
+                            BarsAlongB = input.BarsAlongB,
+                            BarsAlongH = input.BarsAlongH,
+                            MainBarLabel = input.MainBarType?.Name,
+                            StirrupLabel = input.StirrupBarType?.Name,
+                            StirrupSpacingMm = UnitUtils.ConvertFromInternalUnits(input.StirrupSpacingA1, UnitTypeId.Millimeters),
+                            CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
+                        });
+                    }
 
-                TransactionStatus commitStatus = transaction.Commit();
-                if (commitStatus != TransactionStatus.Committed || failurePreprocessor.HasUnrecoverableFailure)
+                    if (_chkAutoSection3D.Checked)
+                    {
+                        var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, input.Column);
+                        sectionGen.CreateOrUpdate(input.Column, itemRebars);
+                        view3DGen.CreateOrUpdate(input.Column, itemRebars);
+                    }
+                }, configure: transaction => ConfigureFailureHandling(transaction, failurePreprocessor));
+
+                if (failurePreprocessor.HasUnrecoverableFailure)
                 {
-                    report.AddError(
-                        input.Column,
-                        "Column rebar drawing / view",
-                        new InvalidOperationException("Drawing/view transaction rolled back after a Revit failure."));
+                    report.AddError(input.Column, "Column rebar drawing / view",
+                        new InvalidOperationException("Drawing/view transaction committed with an unrecoverable Revit failure."));
+                    abortBatch = true;
+                    throw new InvalidOperationException("Drawing/view transaction committed with an unrecoverable Revit failure; the enclosing batch was rolled back.");
                 }
             }
             catch (Exception ex)
             {
-                RollBackTransactionIfStarted(transaction);
+                if (abortBatch) throw;
                 report.AddError(input.Column, "Column rebar drawing / view", ex);
             }
         }
@@ -1012,22 +992,6 @@ namespace KhimTools.RebarTool.Forms
             options.SetClearAfterRollback(true);
             options.SetFailuresPreprocessor(failurePreprocessor);
             transaction.SetFailureHandlingOptions(options);
-        }
-
-        private static void RollBackTransactionIfStarted(Transaction transaction)
-        {
-            if (transaction != null && transaction.GetStatus() == TransactionStatus.Started)
-            {
-                transaction.RollBack();
-            }
-        }
-
-        private static void RollBackGroupIfStarted(TransactionGroup transactionGroup)
-        {
-            if (transactionGroup != null && transactionGroup.GetStatus() == TransactionStatus.Started)
-            {
-                transactionGroup.RollBack();
-            }
         }
 
         private static string GetColumnLabel(FamilyInstance column)

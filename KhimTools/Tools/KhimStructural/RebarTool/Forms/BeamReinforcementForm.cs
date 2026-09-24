@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using Form = System.Windows.Forms.Form;
@@ -1876,7 +1877,6 @@ namespace KhimTools.RebarTool.Forms
             _btnOk.Enabled = false;
             _btnOk.Text = "Generating...";
 
-            TransactionGroup transGroup = null;
             try
             {
                 var generationInputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
@@ -1891,44 +1891,31 @@ namespace KhimTools.RebarTool.Forms
                         throw new InvalidOperationException("Equivalent reinforcement already exists on beam " + generationInputs[i].Beam.Id + ". Remove or edit the existing bars before generating to avoid duplicates.");
 
                 int successCount = 0;
-                transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
-                if (transGroup.Start() != TransactionStatus.Started)
-                    throw new InvalidOperationException("Unable to start the beam reinforcement transaction group.");
-
-                foreach (var input in generationInputs)
+                TransactionBoundary.ExecuteGroup(_doc, "KHIM TOOLS — Generate Beam Rebars", () =>
                 {
-                    var beam = input.Beam;
-                    using var tx = new Transaction(_doc, $"Create Rebar for Beam {beam.Id.ToLongValue()}");
-                    if (tx.Start() != TransactionStatus.Started)
-                        throw new InvalidOperationException("Unable to start the beam transaction for " + beam.Id + ".");
-                    var failOpt = tx.GetFailureHandlingOptions();
-                    failOpt.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
-                    tx.SetFailureHandlingOptions(failOpt);
-
-                    var generator = new BeamRebarGenerator(_doc);
-                    var rebars = generator.Generate(input);
-                    _doc.Regenerate();
-                    if (!RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), rebars))
+                    foreach (var input in generationInputs)
                     {
-                        tx.RollBack();
-                        throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview; the beam transaction was rolled back.");
-                    }
-                    TransactionStatus commitStatus = tx.Commit();
-                    if (commitStatus != TransactionStatus.Committed)
-                    {
-                        throw new InvalidOperationException(
-                            $"Không thể commit thép dầm {beam.Id.ToLongValue()}. Trạng thái transaction: {commitStatus}.");
-                    }
+                        var beam = input.Beam;
+                        List<Rebar> rebars = TransactionBoundary.Execute(_doc,
+                            $"Create Rebar for Beam {beam.Id.ToLongValue()}", () =>
+                            {
+                                var generator = new BeamRebarGenerator(_doc);
+                                List<Rebar> generated = generator.Generate(input);
+                                _doc.Regenerate();
+                                if (!RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), generated))
+                                    throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview; the beam transaction was rolled back.");
+                                return generated;
+                            }, configure: transaction =>
+                            {
+                                var failOpt = transaction.GetFailureHandlingOptions();
+                                failOpt.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                                transaction.SetFailureHandlingOptions(failOpt);
+                            });
 
-                    if (rebars != null && rebars.Any()) successCount++;
-                }
-
-                TransactionStatus groupStatus = transGroup.Assimilate();
-                if (groupStatus != TransactionStatus.Committed)
-                {
-                    throw new InvalidOperationException(
-                        $"Không thể hoàn tất nhóm transaction bố trí thép dầm. Trạng thái: {groupStatus}.");
-                }
+                        if (rebars != null && rebars.Any()) successCount++;
+                    }
+                    return true;
+                });
 
                 KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
                 _lastPreview = null;
@@ -1937,8 +1924,6 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                if (transGroup != null && transGroup.GetStatus() == TransactionStatus.Started)
-                    transGroup.RollBack();
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
                 System.Diagnostics.Debug.WriteLine("Beam Rebar creation failed: " + ex);
@@ -1946,7 +1931,6 @@ namespace KhimTools.RebarTool.Forms
             }
             finally
             {
-                transGroup?.Dispose();
                 _btnOk.Enabled = true;
                 _btnOk.Text = "Ok";
             }

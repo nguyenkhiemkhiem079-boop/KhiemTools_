@@ -63,8 +63,8 @@ namespace KhimTools.SlabStep.Forms
             InitializeComponent();
             LoadData();
             
-            // Tự động nạp file family mặc định của người dùng nếu tồn tại
-            AutoLoadDefaultFamily();
+            // Select the default only when it is already loaded; opening/canceling this form must not edit the model.
+            SelectLoadedDefaultFamily();
         }
         
         private void InitializeComponent()
@@ -385,9 +385,9 @@ namespace KhimTools.SlabStep.Forms
             }
         }
         
-        private void AutoLoadDefaultFamily()
+        private void SelectLoadedDefaultFamily()
         {
-            var fam = CoreFamilyManager.GetOrLoadFamily(_doc, FamilyConstants.RincoAnStep);
+            var fam = CoreFamilyManager.GetLoadedFamily(_doc, FamilyConstants.RincoAnStep);
             if (fam != null)
             {
                 LoadData();

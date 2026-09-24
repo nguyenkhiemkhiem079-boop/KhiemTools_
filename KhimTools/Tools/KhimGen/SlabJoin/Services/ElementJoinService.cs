@@ -185,7 +185,7 @@ namespace KhimTools.SlabJoin.Services
             {
                 try
                 {
-                    tx.Start();
+                    KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ElementJoin.Chunk");
                     var failOpts = tx.GetFailureHandlingOptions();
                     failOpts.SetFailuresPreprocessor(failurePolicy);
                     tx.SetFailureHandlingOptions(failOpts);
@@ -210,7 +210,7 @@ namespace KhimTools.SlabJoin.Services
                 {
                     if (tx.GetStatus() == TransactionStatus.Started)
                     {
-                        tx.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "ElementJoin.Chunk");
                     }
 
                     string reason = "Transaction exception: " + ex.Message;
@@ -265,20 +265,24 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementJoin.Pair");
                 try
                 {
                     if (JoinGeometryUtils.AreElementsJoined(doc, a, b))
                         JoinGeometryUtils.UnjoinGeometry(doc, a, b);
 
                     bool ok = TryJoinOrder(doc, a, b) || TryJoinOrder(doc, b, a);
-                    if (ok) { sub.Commit(); return new JoinPairResult(idA, idB, true, false, "Joined."); }
-                    sub.RollBack();
+                    if (ok && JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                    {
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementJoin.Pair");
+                        return new JoinPairResult(idA, idB, true, false, "Joined.");
+                    }
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementJoin.Pair");
                     return new JoinPairResult(idA, idB, false, true, "Join rejected.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementJoin.Pair"); }
                     catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementJoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
@@ -293,21 +297,23 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementUnjoin.Pair");
                 try
                 {
                     if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
                     {
-                        sub.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementUnjoin.Pair");
                         return new JoinPairResult(idA, idB, false, false, "Not joined.");
                     }
                     JoinGeometryUtils.UnjoinGeometry(doc, a, b);
-                    sub.Commit();
+                    if (JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                        throw new InvalidOperationException("Unjoin postcondition failed.");
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementUnjoin.Pair");
                     return new JoinPairResult(idA, idB, true, false, "Unjoined.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementUnjoin.Pair"); }
                     catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementUnjoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
@@ -322,21 +328,23 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementSwitch.Pair");
                 try
                 {
                     if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
                     {
-                        sub.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementSwitch.Pair");
                         return new JoinPairResult(idA, idB, false, false, "Not joined — cannot switch.");
                     }
                     JoinGeometryUtils.SwitchJoinOrder(doc, a, b);
-                    sub.Commit();
+                    if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                        throw new InvalidOperationException("Switch-order postcondition failed.");
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementSwitch.Pair");
                     return new JoinPairResult(idA, idB, true, false, "Switched.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementSwitch.Pair"); }
                     catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementSwitch.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }

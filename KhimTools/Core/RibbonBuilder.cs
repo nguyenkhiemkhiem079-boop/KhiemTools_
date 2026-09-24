@@ -616,11 +616,11 @@ namespace KhimTools.Core
             // 1. MEP Openings
             var openingData = new PushButtonData(
                 "CmdMepOpenings",
-                "MEP Openings",
+                "MEP Clash" + Environment.NewLine + "Review",
                 assemblyPath,
                 "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
-                ToolTip = "Read-only exact-solid clash review between visible ducts/pipes/cable trays and structural framing/floors/walls; recommends clearance sizes but does not create openings.",
+                ToolTip = "Read-only exact-solid clash review (50 mm clearance each side) for visible ducts/pipes/cable trays versus structure. Recommends opening sizes; does not create openings.",
                 LargeImage = LoadImage("icon_mep_openings_32.png"),
                 Image = LoadImage("icon_mep_openings_16.png")
             };

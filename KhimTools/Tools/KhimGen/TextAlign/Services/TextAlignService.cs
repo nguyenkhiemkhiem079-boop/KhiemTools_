@@ -458,7 +458,9 @@ namespace KhimTools.TextAlign.Services
             {
                 using (var group = new TransactionGroup(doc, "K-TOOLS Text Align 2.0"))
                 {
-                    group.Start();
+                    KhimTools.Core.Revit.TransactionBoundary.Start(group, "TextAlign.Batch");
+                    try
+                    {
                     foreach (TextAlignPreflightResult row in preflight)
                     {
                         if (!row.CanExecute)
@@ -520,13 +522,21 @@ namespace KhimTools.TextAlign.Services
                             {
                                 try
                                 {
-                                    tx.Start();
+                                    KhimTools.Core.Revit.TransactionBoundary.Start(tx, "TextAlign." + alignType);
                                     ElementTransformUtils.MoveElement(doc, row.ElementId, ViewPlaneGeometry.ToModelDelta(view, deltaU, deltaV));
-                                    tx.Commit();
+                                    doc.Regenerate();
+                                    Element moved = doc.GetElement(row.ElementId);
+                                    ProjectedBounds movedBounds;
+                                    string movedError = null;
+                                    if (moved == null || !ViewPlaneGeometry.TryProjectBoundingBox(moved, view, out movedBounds, out movedError) ||
+                                        Math.Abs(movedBounds.CenterU - target.CenterU) > ViewPlaneGeometry.Tolerance ||
+                                        Math.Abs(movedBounds.CenterV - target.CenterV) > ViewPlaneGeometry.Tolerance)
+                                        throw new InvalidOperationException("Text alignment postcondition failed: " + (movedError ?? "target position was not achieved."));
+                                    KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "TextAlign." + alignType);
                                 }
                                 catch
                                 {
-                                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                                    KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "TextAlign." + alignType);
                                     throw;
                                 }
                             }
@@ -546,7 +556,7 @@ namespace KhimTools.TextAlign.Services
                     }
                     if (distribution && distributionFailed)
                     {
-                        group.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TextAlign.Batch");
                         foreach (TextAlignExecutionResult result in batch.Results.Where(result => result.Changed))
                         {
                             result.Changed = false;
@@ -556,7 +566,14 @@ namespace KhimTools.TextAlign.Services
                     }
                     else
                     {
-                        group.Assimilate();
+                        KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "TextAlign.Batch");
+                    }
+                    }
+                    catch
+                    {
+                        if (group.GetStatus() == TransactionStatus.Started)
+                            KhimTools.Core.Revit.TransactionBoundary.RollBack(group, "TextAlign.Batch");
+                        throw;
                     }
                 }
             }
@@ -564,7 +581,14 @@ namespace KhimTools.TextAlign.Services
             {
                 batch.Message = ex.Message;
                 Debug.WriteLine("[K-TOOLS][TextAlign] transaction group failed: " + ex);
-                foreach (TextAlignPreflightResult row in preflight.Where(row => row.CanExecute))
+                foreach (TextAlignExecutionResult rolledBack in batch.Results.Where(result => result.Changed))
+                {
+                    rolledBack.Changed = false;
+                    rolledBack.Status = TextAlignStatusCode.FAILED;
+                    rolledBack.Message = "Alignment group rolled back: " + ex.Message;
+                }
+                HashSet<ElementId> reported = new HashSet<ElementId>(batch.Results.Select(result => result.ElementId));
+                foreach (TextAlignPreflightResult row in preflight.Where(row => row.CanExecute && !reported.Contains(row.ElementId)))
                 {
                     batch.Results.Add(new TextAlignExecutionResult
                     {

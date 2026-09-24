@@ -6,6 +6,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.ViewportAlign.Forms;
 using KhimTools.ViewportAlign.Services;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
@@ -78,9 +79,8 @@ namespace KhimTools.ViewportAlign.Commands
                 };
                 var results = new List<AlignmentExecutionResult>();
 
-                using (var group = new TransactionGroup(doc, "K-TOOLS Align Viewports 2.0"))
+                TransactionBoundary.ExecuteGroup(doc, "K-TOOLS Align Viewports 2.0", () =>
                 {
-                    group.Start();
                     foreach (var item in targets)
                     {
                         AlignmentPreflightResult preflightRow = item == null || item.ViewportOrScheduleId == null
@@ -155,44 +155,44 @@ namespace KhimTools.ViewportAlign.Commands
                             continue;
                         }
 
-                        using (var tx = new Transaction(doc, "Align " + (item.ViewName ?? "target")))
+                        try
                         {
-                            tx.Start();
-                            AlignmentExecutionResult execution;
-                            try
-                            {
-                                distributionCenters.TryGetValue(item.ViewportOrScheduleId, out var distributionCenter);
-                                execution = ViewportAlignmentExecutor.Execute(doc, source, item, operation, distributionCenter);
-                                if (execution.Status == AlignmentExecutionStatus.FAILED || execution.Status == AlignmentExecutionStatus.BLOCKED)
-                                    tx.RollBack();
-                                else
-                                    tx.Commit();
-                            }
-                            catch (Exception ex)
-                            {
-                                tx.RollBack();
-                                execution = new AlignmentExecutionResult
+                            AlignmentExecutionResult execution = TransactionBoundary.Execute(doc,
+                                "Align " + (item.ViewName ?? "target"),
+                                () =>
                                 {
-                                    TargetElementId = item.ViewportOrScheduleId,
-                                    SheetNumber = item.SheetNumber,
-                                    TargetName = item.ViewName,
-                                    Operation = operation,
-                                    Status = AlignmentExecutionStatus.FAILED,
-                                    StatusCode = AlignmentStatusCode.FAILED,
-                                    Message = ex.Message
-                                };
-                            }
+                                    distributionCenters.TryGetValue(item.ViewportOrScheduleId, out var distributionCenter);
+                                    return ViewportAlignmentExecutor.Execute(doc, source, item, operation, distributionCenter);
+                                },
+                                shouldCommit: result => result != null &&
+                                    result.Status != AlignmentExecutionStatus.FAILED &&
+                                    result.Status != AlignmentExecutionStatus.BLOCKED);
+                            results.Add(execution);
+                            summary.Add(execution);
+                        }
+                        catch (Exception ex)
+                        {
+                            var execution = new AlignmentExecutionResult
+                            {
+                                TargetElementId = item.ViewportOrScheduleId,
+                                SheetNumber = item.SheetNumber,
+                                TargetName = item.ViewName,
+                                Operation = operation,
+                                Status = AlignmentExecutionStatus.FAILED,
+                                StatusCode = AlignmentStatusCode.FAILED,
+                                Message = ex.Message
+                            };
                             results.Add(execution);
                             summary.Add(execution);
                         }
                     }
-                    group.Assimilate();
-                }
+                    return true;
+                });
 
                 System.Diagnostics.Debug.WriteLine($"[ViewportAlign] source={source.ElementId.IntegerValue}; operation={operation}; requested={summary.Requested}; ready={summary.Ready}; changed={summary.Changed}; skipped={summary.Skipped}; failed={summary.Failed}");
                 uidoc.RefreshActiveView();
                 ShowSummary(summary, operation);
-                return Result.Succeeded;
+                return summary.Failed > 0 ? Result.Failed : Result.Succeeded;
             }
             catch (Exception ex)
             {

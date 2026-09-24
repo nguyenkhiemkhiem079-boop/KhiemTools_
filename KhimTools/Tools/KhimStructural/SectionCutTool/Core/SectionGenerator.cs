@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.Core.Logging;
+using KhimTools.Core.Revit;
 using KhimTools.Core.Revit.Failures;
 using KhimTools.Core.Workflow;
 using KhimTools.SectionCutTool.Models;
@@ -72,7 +73,7 @@ namespace KhimTools.SectionCutTool.Core
 
             using (var tx = new Transaction(_doc, "K-TOOLS — Auto Create Section Views"))
             {
-                tx.Start();
+                TransactionBoundary.Start(tx, "SectionCut.GenerateSections");
                 var failOptions = tx.GetFailureHandlingOptions();
                 var failurePolicy = new KnownWarningFailurePreprocessor();
                 failOptions.SetFailuresPreprocessor(failurePolicy);
@@ -211,7 +212,7 @@ namespace KhimTools.SectionCutTool.Core
                 {
                     if (tx.GetStatus() == TransactionStatus.Started)
                     {
-                        tx.RollBack();
+                        TransactionBoundary.RollBack(tx, "SectionCut.GenerateSections");
                     }
                     report.MarkRolledBack("Transaction exception: " + exTx.Message);
                     KToolsLog.Current.Exception("SectionCut.GenerateSections", exTx, "TRANSACTION");

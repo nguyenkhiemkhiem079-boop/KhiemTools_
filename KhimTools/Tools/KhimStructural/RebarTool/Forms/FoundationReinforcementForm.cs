@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
 using Form = System.Windows.Forms.Form;
@@ -593,10 +594,9 @@ namespace KhimTools.RebarTool.Forms
             var generator = new FoundationRebarGenerator(_doc);
             var report = new RebarGenerationReport();
 
-            using (var tx = new Transaction(_doc, "Bố trí Thép Móng — KhimTools"))
+            try
             {
-                tx.Start();
-                try
+                TransactionBoundary.Execute(_doc, "Bố trí Thép Móng — KhimTools", () =>
                 {
                     foreach (int idx in selectedIndices)
                     {
@@ -611,19 +611,12 @@ namespace KhimTools.RebarTool.Forms
 
                         generator.Generate(profile, _settings, report);
                     }
-                    TransactionStatus commitStatus = tx.Commit();
-                    if (commitStatus != TransactionStatus.Committed)
-                    {
-                        throw new InvalidOperationException(
-                            $"Không thể commit thép móng. Trạng thái transaction: {commitStatus}.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-                    KhimDialogHelper.ShowError("Không thể tạo thép móng: " + ex.Message);
-                    return;
-                }
+                });
+            }
+            catch (Exception ex)
+            {
+                KhimDialogHelper.ShowError("Không thể tạo thép móng: " + ex.Message);
+                return;
             }
 
             KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Count);

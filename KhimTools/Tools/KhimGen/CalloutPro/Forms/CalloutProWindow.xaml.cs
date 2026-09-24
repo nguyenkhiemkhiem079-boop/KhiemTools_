@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.CalloutPro.Forms
 {
@@ -159,10 +160,8 @@ namespace KhimTools.CalloutPro.Forms
                     return;
                 }
 
-                using (var tx = new Transaction(_doc, "K-TOOLS - Callout Pro"))
+                bool completed = TransactionBoundary.Execute(_doc, "K-TOOLS - Callout Pro", () =>
                 {
-                    tx.Start();
-
                     // 1. Tạo Callout View
                     var calloutType = new FilteredElementCollector(_doc)
                         .OfClass(typeof(ViewFamilyType))
@@ -180,9 +179,7 @@ namespace KhimTools.CalloutPro.Forms
                     if (calloutType == null)
                     {
                         MessageBox.Show("Không tìm thấy ViewFamilyType Detail/Section nào để tạo Callout.");
-                        tx.RollBack();
-                        Close();
-                        return;
+                        return false;
                     }
 
                     // Tạo Callout
@@ -195,9 +192,7 @@ namespace KhimTools.CalloutPro.Forms
                     catch (Exception ex)
                     {
                         MessageBox.Show("Revit API không hỗ trợ tạo Callout trên View này. Chi tiết: " + ex.Message);
-                        tx.RollBack();
-                        Close();
-                        return;
+                        return false;
                     }
 
                     // Đổi tên Callout
@@ -236,9 +231,7 @@ namespace KhimTools.CalloutPro.Forms
                     if (targetSheet == null)
                     {
                         MessageBox.Show("Không xác định được Sheet đích.");
-                        tx.RollBack();
-                        Close();
-                        return;
+                        return false;
                     }
 
                     // 3. Đặt Viewport vào Sheet
@@ -251,9 +244,16 @@ namespace KhimTools.CalloutPro.Forms
                     else
                     {
                         MessageBox.Show("Khung nhìn này đã được đặt trên một Sheet khác.");
+                        return false;
                     }
 
-                    tx.Commit();
+                    return true;
+                }, shouldCommit: result => result);
+
+                if (!completed)
+                {
+                    Close();
+                    return;
                 }
 
                 Close();

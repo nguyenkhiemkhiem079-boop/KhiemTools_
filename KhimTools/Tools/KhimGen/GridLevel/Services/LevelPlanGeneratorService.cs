@@ -29,6 +29,13 @@ namespace KhimTools.GridLevel.Services
             var structPlanType = viewFamilyTypes.FirstOrDefault(t => t.ViewFamily == ViewFamily.StructuralPlan) ?? floorPlanType;
             var ceilingPlanType = viewFamilyTypes.FirstOrDefault(t => t.ViewFamily == ViewFamily.CeilingPlan);
 
+            if (levelItems.Any(i => i.CreateStructuralPlan) && structPlanType == null)
+                throw new InvalidOperationException("No structural plan view type is available.");
+            if (levelItems.Any(i => i.CreateFloorPlan) && floorPlanType == null)
+                throw new InvalidOperationException("No floor plan view type is available.");
+            if (levelItems.Any(i => i.CreateCeilingPlan) && ceilingPlanType == null)
+                throw new InvalidOperationException("No ceiling plan view type is available.");
+
             // Thu thập các Level hiện có trong dự án
             var existingLevels = new FilteredElementCollector(doc)
                 .OfClass(typeof(Level))
@@ -45,11 +52,9 @@ namespace KhimTools.GridLevel.Services
                 if (level == null)
                 {
                     level = Level.Create(doc, elevationFt);
-                    if (level != null)
-                    {
-                        SetLevelNameSafely(doc, level, item.LevelName);
-                        levelsCount++;
-                    }
+                    if (level == null) throw new InvalidOperationException("Revit did not create the requested level.");
+                    SetLevelNameSafely(doc, level, item.LevelName);
+                    levelsCount++;
                 }
                 else
                 {
@@ -60,51 +65,33 @@ namespace KhimTools.GridLevel.Services
                     }
                 }
 
-                if (level == null) continue;
+                if (level == null) throw new InvalidOperationException("Could not resolve a level for the requested elevation.");
 
                 // 1. Tạo Mặt Bằng Kết Cấu (Structural Plan)
-                if (item.CreateStructuralPlan && structPlanType != null)
+                if (item.CreateStructuralPlan)
                 {
-                    try
-                    {
-                        var plan = ViewPlan.Create(doc, structPlanType.Id, level.Id);
-                        if (plan != null)
-                        {
-                            SetViewNameSafely(doc, plan, $"ST_{item.LevelName}");
-                            viewsCount++;
-                        }
-                    }
-                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.StructuralPlan", ex, "VIEW_PLAN_CREATE"); }
+                    var plan = ViewPlan.Create(doc, structPlanType.Id, level.Id);
+                    if (plan == null) throw new InvalidOperationException("Revit did not create the requested structural plan.");
+                    SetViewNameSafely(doc, plan, $"ST_{item.LevelName}");
+                    viewsCount++;
                 }
 
                 // 2. Tạo Mặt Bằng Kiến Trúc (Floor Plan)
-                if (item.CreateFloorPlan && floorPlanType != null)
+                if (item.CreateFloorPlan)
                 {
-                    try
-                    {
-                        var plan = ViewPlan.Create(doc, floorPlanType.Id, level.Id);
-                        if (plan != null)
-                        {
-                            SetViewNameSafely(doc, plan, $"AR_{item.LevelName}");
-                            viewsCount++;
-                        }
-                    }
-                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.FloorPlan", ex, "VIEW_PLAN_CREATE"); }
+                    var plan = ViewPlan.Create(doc, floorPlanType.Id, level.Id);
+                    if (plan == null) throw new InvalidOperationException("Revit did not create the requested floor plan.");
+                    SetViewNameSafely(doc, plan, $"AR_{item.LevelName}");
+                    viewsCount++;
                 }
 
                 // 3. Tạo Mặt Bằng Trần (Ceiling Plan)
-                if (item.CreateCeilingPlan && ceilingPlanType != null)
+                if (item.CreateCeilingPlan)
                 {
-                    try
-                    {
-                        var plan = ViewPlan.Create(doc, ceilingPlanType.Id, level.Id);
-                        if (plan != null)
-                        {
-                            SetViewNameSafely(doc, plan, $"RCP_{item.LevelName}");
-                            viewsCount++;
-                        }
-                    }
-                    catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.CeilingPlan", ex, "VIEW_PLAN_CREATE"); }
+                    var plan = ViewPlan.Create(doc, ceilingPlanType.Id, level.Id);
+                    if (plan == null) throw new InvalidOperationException("Revit did not create the requested ceiling plan.");
+                    SetViewNameSafely(doc, plan, $"RCP_{item.LevelName}");
+                    viewsCount++;
                 }
             }
 
@@ -122,11 +109,12 @@ namespace KhimTools.GridLevel.Services
                 finalName = $"{desiredName}_{counter++}";
             }
 
-            try
+            try { level.Name = finalName; }
+            catch (Exception ex)
             {
-                level.Name = finalName;
+                KToolsLog.Current.Exception("GridLevel.LevelName", ex, "LEVEL_NAME");
+                throw new InvalidOperationException("Could not assign the requested level name.", ex);
             }
-            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.LevelName", ex, "LEVEL_NAME"); }
         }
 
         private static bool IsLevelNameExists(Document doc, string name, ElementId excludeId)
@@ -148,11 +136,12 @@ namespace KhimTools.GridLevel.Services
                 finalName = $"{desiredName}_{counter++}";
             }
 
-            try
+            try { view.Name = finalName; }
+            catch (Exception ex)
             {
-                view.Name = finalName;
+                KToolsLog.Current.Exception("GridLevel.ViewName", ex, "VIEW_NAME");
+                throw new InvalidOperationException("Could not assign the requested plan name.", ex);
             }
-            catch (Exception ex) { KToolsLog.Current.Exception("GridLevel.ViewName", ex, "VIEW_NAME"); }
         }
 
         private static bool IsViewNameExists(Document doc, string name, ElementId excludeId)

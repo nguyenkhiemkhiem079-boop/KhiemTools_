@@ -32,9 +32,21 @@ namespace KhimTools.Structural.QuickStructure.Models
 
         public bool Validate(out string errorMessage)
         {
-            if (!CreateColumns && !CreateBeams && !CreateFootings && !CreateFloor)
+            if (CreateFloor)
             {
-                errorMessage = "Vui lòng chọn ít nhất một tác vụ mô hình hóa (Cột, Dầm, Móng hoặc Sàn).";
+                errorMessage = "Quick Structure floor generation is not implemented.";
+                return false;
+            }
+
+            if (CreateFootings && !CreateColumns)
+            {
+                errorMessage = "Footing generation requires column creation in the same operation.";
+                return false;
+            }
+
+            if (!CreateColumns && !CreateBeams && !CreateFootings)
+            {
+                errorMessage = "Vui lòng chọn ít nhất một tác vụ mô hình hóa (Cột, Dầm hoặc Móng).";
                 return false;
             }
 

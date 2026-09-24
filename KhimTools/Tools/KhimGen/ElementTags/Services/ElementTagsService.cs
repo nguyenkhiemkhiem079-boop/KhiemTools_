@@ -5,6 +5,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.ElementTags.Models;
 
 namespace KhimTools.ElementTags.Services
@@ -122,10 +123,8 @@ namespace KhimTools.ElementTags.Services
 
         public static void ApplyColorOverride(Document doc, View view, List<ElementTagsItem> configs)
         {
-            using (var tx = new Transaction(doc, "K-TOOLS: Tag Color Overrides"))
+            TransactionBoundary.Execute(doc, "K-TOOLS: Tag Color Overrides", () =>
             {
-                tx.Start();
-
                 foreach (var config in configs)
                 {
                     var tagCat = doc.Settings.Categories.get_Item(config.TagCategory);
@@ -139,9 +138,7 @@ namespace KhimTools.ElementTags.Services
 
                     view.SetCategoryOverrides(tagCat.Id, ogs);
                 }
-
-                tx.Commit();
-            }
+            });
         }
 
         public static void CheckTagsStatus(
@@ -278,9 +275,8 @@ namespace KhimTools.ElementTags.Services
 
         public static void ApplyRedOverrideForClashes(Document doc, View view, List<ElementId> clashingTagIds)
         {
-            using (var tx = new Transaction(doc, "K-TOOLS: Override Clashing Tags"))
+            TransactionBoundary.Execute(doc, "K-TOOLS: Override Clashing Tags", () =>
             {
-                tx.Start();
                 var red = new Color(255, 0, 0);
 
                 var tags = new FilteredElementCollector(doc, view.Id)
@@ -291,27 +287,17 @@ namespace KhimTools.ElementTags.Services
                 // Clear element-level overrides for all tags first
                 foreach (var tag in tags)
                 {
-                    try
-                    {
-                        view.SetElementOverrides(tag.Id, new OverrideGraphicSettings());
-                    }
-                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
+                    view.SetElementOverrides(tag.Id, new OverrideGraphicSettings());
                 }
 
                 // Apply red override to clashing tags
                 foreach (var tagId in clashingTagIds)
                 {
-                    try
-                    {
-                        var ogs = new OverrideGraphicSettings();
-                        ogs.SetProjectionLineColor(red);
-                        view.SetElementOverrides(tagId, ogs);
-                    }
-                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
+                    var ogs = new OverrideGraphicSettings();
+                    ogs.SetProjectionLineColor(red);
+                    view.SetElementOverrides(tagId, ogs);
                 }
-
-                tx.Commit();
-            }
+            });
         }
 
         public static int ResolveClashingTags(Document doc, View view)
@@ -319,28 +305,32 @@ namespace KhimTools.ElementTags.Services
             var tags = new FilteredElementCollector(doc, view.Id).OfClass(typeof(IndependentTag))
                 .Cast<IndependentTag>().OrderBy(t => t.UniqueId, StringComparer.Ordinal).ToList();
             int adjusted = 0, unresolved = 0;
-            using (var tx = new Transaction(doc, "K-TOOLS: Clash Tag Adjuster"))
+            TransactionBoundary.Execute(doc, "K-TOOLS: Clash Tag Adjuster", () =>
             {
-                tx.Start();
                 var occupied = TagPlacement.Obstacles(doc, view, tags.Where(t => t.Pinned));
                 foreach (var tag in tags.Where(t => !t.Pinned))
                 {
                     using (var sub = new SubTransaction(doc))
                     {
-                        sub.Start();
+                        TransactionBoundary.Start(sub, "ElementTags.ClashAdjustment");
                         try
                         {
                             var original = tag.TagHeadPosition;
                             bool placed = TagPlacement.Place(doc, view, tag, original, occupied);
+                            TransactionBoundary.Commit(sub, "ElementTags.ClashAdjustment");
                             if (!placed) unresolved++;
                             if (tag.TagHeadPosition.DistanceTo(original) > 1e-6) adjusted++;
-                            sub.Commit();
                         }
-                        catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] clash adjustment failed: " + ex); sub.RollBack(); unresolved++; }
+                        catch (Exception ex)
+                        {
+                            if (sub.GetStatus() == TransactionStatus.Started)
+                                TransactionBoundary.RollBack(sub, "ElementTags.ClashAdjustment");
+                            Debug.WriteLine("[K-TOOLS][ElementTags] clash adjustment failed: " + ex);
+                            unresolved++;
+                        }
                     }
                 }
-                tx.Commit();
-            }
+            });
             if (unresolved > 0) TaskDialog.Show("Clash Tag", $"{unresolved} tag cần chỉnh tay; đã giới hạn di chuyển tối đa 12 mm trên giấy.");
             return adjusted;
         }
@@ -788,43 +778,28 @@ namespace KhimTools.ElementTags.Services
 
         public static void ApplyRedOverrideForHostAndTags(Document doc, View view, List<ElementId> elementIds)
         {
-            using (var tx = new Transaction(doc, "K-TOOLS: Highlight Proximity Errors"))
+            TransactionBoundary.Execute(doc, "K-TOOLS: Highlight Proximity Errors", () =>
             {
-                tx.Start();
                 var red = new Color(255, 0, 0);
 
                 foreach (var id in elementIds)
                 {
-                    try
-                    {
-                        var ogs = new OverrideGraphicSettings();
-                        ogs.SetProjectionLineColor(red);
-                        view.SetElementOverrides(id, ogs);
-                    }
-                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
+                    var ogs = new OverrideGraphicSettings();
+                    ogs.SetProjectionLineColor(red);
+                    view.SetElementOverrides(id, ogs);
                 }
-
-                tx.Commit();
-            }
+            });
         }
 
         public static void ResetElementOverrides(Document doc, View view, List<ElementId> elementIds)
         {
-            using (var tx = new Transaction(doc, "K-TOOLS: Reset Graphic Overrides"))
+            TransactionBoundary.Execute(doc, "K-TOOLS: Reset Graphic Overrides", () =>
             {
-                tx.Start();
-
                 foreach (var id in elementIds)
                 {
-                    try
-                    {
-                        view.SetElementOverrides(id, new OverrideGraphicSettings());
-                    }
-                    catch (Exception ex) { Debug.WriteLine("[K-TOOLS][ElementTags] recoverable operation failed: " + ex); }
+                    view.SetElementOverrides(id, new OverrideGraphicSettings());
                 }
-
-                tx.Commit();
-            }
+            });
         }
     }
 }

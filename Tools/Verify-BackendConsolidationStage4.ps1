@@ -36,6 +36,23 @@ foreach ($path in $required) { Check "required:$path" (Test-Path (Join-Path $rep
 
 $transactionBoundary = Get-Content -Raw (Join-Path $productionRoot 'Core\Revit\TransactionBoundary.cs')
 Check 'transaction-boundary-checks-start-commit-rollback-group-and-subtransaction' ($transactionBoundary -match 'SUBTRANSACTION_START' -and $transactionBoundary -match 'SUBTRANSACTION_COMMIT' -and $transactionBoundary -match 'SUBTRANSACTION_ROLLBACK' -and $transactionBoundary -match 'GROUP_COMMIT' -and $transactionBoundary -match 'GROUP_ROLLBACK')
+Check 'transaction-boundary-execution-owns-transaction-and-group-lifecycle' ($transactionBoundary -match 'Execute<T>' -and $transactionBoundary -match 'Start\(transaction, operation\)' -and $transactionBoundary -match 'Commit\(transaction, operation\)' -and $transactionBoundary -match 'Start\(group, operation\)' -and $transactionBoundary -match 'Assimilate\(group, operation\)' -and $transactionBoundary -match 'RollBack\(group, operation\)')
+$uiMutationFiles = @(Get-ChildItem $productionRoot -Recurse -File -Include '*Form*.cs', '*Window.xaml.cs', '*ViewModel*.cs' | Where-Object { $_.FullName -notmatch '\\RuntimeQa\\' })
+$uiOwnedTransactions = @($uiMutationFiles | Where-Object { Select-String -LiteralPath $_.FullName -Pattern 'new\s+(Transaction|TransactionGroup|SubTransaction)\s*\(' -Quiet })
+Check 'production-forms-windows-and-viewmodels-do-not-own-revit-transactions' ($uiOwnedTransactions.Count -eq 0)
+$calloutWindow = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\CalloutPro\Forms\CalloutProWindow.xaml.cs')
+Check 'callout-failed-viewport-placement-rolls-back-created-views' ($calloutWindow -match 'if\s*\(!?Viewport\.CanAddViewToSheet[\s\S]*?return false;')
+$visibilityCommands = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\VisibilityTool\Commands\VisibilityCommands.cs')
+$visibilityService = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\VisibilityTool\Services\CategoryVisibilityService.cs')
+Check 'visibility-commands-propagate-service-failure' ([regex]::Matches($visibilityCommands, 'if\s*\(!CategoryVisibilityService\.(SetCategoryVisibility|SetTagVisibility)\(').Count -eq 34)
+Check 'visibility-service-owns-transaction-and-verifies-postcondition' ($visibilityService -match 'TransactionBoundary\.Execute\(' -and $visibilityService -match 'GetCategoryHidden\(id\)\s*==\s*targetHidden')
+$familyManager = Get-Content -Raw (Join-Path $productionRoot 'Core\Family\FamilyManager.cs')
+Check 'family-manager-owned-transactions-check-lifecycle-results' ($familyManager -match 'TransactionBoundary\.Start\(tx, operation\)' -and $familyManager -match 'TransactionBoundary\.Commit\(tx, operation\)' -and $familyManager -match 'TransactionBoundary\.RollBack\(tx, operation\)' -and $familyManager -notmatch '\btx\.(Start|Commit)\(\)')
+Check 'family-manager-symbol-activation-postcondition' ($familyManager -match 'targetSymbol\.Activate\(\)' -and $familyManager -match '!targetSymbol\.IsActive')
+$graphicVm = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\OverrideTool\ViewModels\GraphicOverdriveViewModel.cs')
+$graphicService = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\OverrideTool\Services\GraphicOverrideExecutionService.cs')
+Check 'graphic-override-viewmodel-delegates-mutations-without-transactions' ($graphicVm -match 'GraphicOverrideExecutionService\.(Apply|Reset)' -and $graphicVm -notmatch 'new\s+(Transaction|TransactionGroup|SubTransaction)\s*\(')
+Check 'graphic-override-service-owns-checked-transaction' ($graphicService -match 'TransactionBoundary\.Start\(' -and $graphicService -match 'TransactionBoundary\.Commit\(' -and $graphicService -match 'TransactionBoundary\.RollBack\(')
 
 $modernPlans = @(
     "Tools\KhimGen\SheetCopy\Models\SheetCopyPlan.cs",
@@ -69,6 +86,13 @@ Check 'modify-point-is-primitive-snapshot' ($modifyPoint -match 'double\s+X' -an
 Check 'dimension-plan-uses-detached-context-and-snapshots' ($dimensionPlan -match 'DimensionPlanContext\s+Context' -and $dimensionPlan -match 'IList<DimensionReferenceSnapshot>' -and $dimensionPlan -match 'DimensionLineSnapshot\s+DimensionLine')
 Check 'dimension-context-excludes-live-api-object-fields' ($dimensionContext -notmatch 'public\s+(Document|View|Reference|Line|XYZ)\s+')
 Check 'dimension-commit-status-is-verified' ($dimensionExecution -match 'TransactionStatus\s+commitStatus\s*=\s*tx\.Commit\(\)' -and $dimensionExecution -match 'commitStatus\s*!=\s*TransactionStatus\.Committed')
+$elementTagWorkflow = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimGen\ElementTags\Services\ElementTagsWorkflow.cs')
+Check 'element-tags-check-group-and-child-transaction-lifecycle' ($elementTagWorkflow -match 'TransactionBoundary\.Start\(group' -and $elementTagWorkflow -match 'TransactionBoundary\.Start\(transaction' -and $elementTagWorkflow -match 'TransactionBoundary\.Commit\(transaction' -and $elementTagWorkflow -match 'TransactionBoundary\.Assimilate\(group' -and $elementTagWorkflow -match 'TransactionBoundary\.RollBack\(group')
+Check 'element-tags-check-per-action-subtransaction-lifecycle' ($elementTagWorkflow -match 'TransactionBoundary\.Start\(sub' -and $elementTagWorkflow -match 'TransactionBoundary\.Commit\(sub' -and $elementTagWorkflow -match 'TransactionBoundary\.RollBack\(sub')
+Check 'element-tags-counts-success-only-after-committed-subtransaction' ($elementTagWorkflow.IndexOf('TransactionBoundary.Commit(sub') -lt $elementTagWorkflow.IndexOf('result.Created++'))
+Check 'element-tags-group-rollback-clears-success-counts' ($elementTagWorkflow -match 'Action group rolled back' -and $elementTagWorkflow -match 'result\.Created\s*=\s*0' -and $elementTagWorkflow -match 'result\.ChangedType\s*=\s*0')
+$sectionGenerator = Get-Content -Raw (Join-Path $productionRoot 'Tools\KhimStructural\SectionCutTool\Core\SectionGenerator.cs')
+Check 'section-cut-transaction-start-and-rollback-are-checked' ($sectionGenerator -match 'TransactionBoundary\.Start\(tx' -and $sectionGenerator -match 'TransactionBoundary\.RollBack\(tx')
 
 $modernResults = @(
     "Tools\KhimGen\SheetCopy\Models\SheetCopyResult.cs",

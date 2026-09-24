@@ -19,7 +19,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Window", true, BuiltInCategory.OST_Windows);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Window", true, BuiltInCategory.OST_Windows)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -32,7 +32,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Door", true, BuiltInCategory.OST_Doors);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Door", true, BuiltInCategory.OST_Doors)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -45,7 +45,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Ceiling", true, BuiltInCategory.OST_Ceilings);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Ceiling", true, BuiltInCategory.OST_Ceilings)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -58,7 +58,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Roof", true, BuiltInCategory.OST_Roofs);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Roof", true, BuiltInCategory.OST_Roofs)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -71,7 +71,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Stair", true, BuiltInCategory.OST_Stairs);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Stair", true, BuiltInCategory.OST_Stairs)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -84,7 +84,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Railing", true, BuiltInCategory.OST_StairsRailing, BuiltInCategory.OST_RailingSystem);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Railing", true, BuiltInCategory.OST_StairsRailing, BuiltInCategory.OST_RailingSystem)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -98,7 +98,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Column", true, BuiltInCategory.OST_StructuralColumns, BuiltInCategory.OST_Columns);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Column", true, BuiltInCategory.OST_StructuralColumns, BuiltInCategory.OST_Columns)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -111,7 +111,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Framing", true, BuiltInCategory.OST_StructuralFraming);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Framing", true, BuiltInCategory.OST_StructuralFraming)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -124,7 +124,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Floor", true, BuiltInCategory.OST_Floors);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Floor", true, BuiltInCategory.OST_Floors)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -137,7 +137,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Wall", true, BuiltInCategory.OST_Walls);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Wall", true, BuiltInCategory.OST_Walls)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -150,7 +150,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Foundation", true, BuiltInCategory.OST_StructuralFoundation);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Foundation", true, BuiltInCategory.OST_StructuralFoundation)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -163,7 +163,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Rebar", true, BuiltInCategory.OST_Rebar, BuiltInCategory.OST_FabricReinforcement);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Rebar", true, BuiltInCategory.OST_Rebar, BuiltInCategory.OST_FabricReinforcement)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -177,7 +177,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Grid", true, BuiltInCategory.OST_Grids);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Grid", true, BuiltInCategory.OST_Grids)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -190,7 +190,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Level", true, BuiltInCategory.OST_Levels);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Level", true, BuiltInCategory.OST_Levels)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -203,7 +203,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Section", true, BuiltInCategory.OST_Sections, BuiltInCategory.OST_Viewers);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Section", true, BuiltInCategory.OST_Sections, BuiltInCategory.OST_Viewers)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -216,7 +216,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Elevation", true, BuiltInCategory.OST_Elev);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Elevation", true, BuiltInCategory.OST_Elev)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -229,7 +229,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetTagVisibility(uidoc.Document, uidoc.ActiveView, true);
+            if (!CategoryVisibilityService.SetTagVisibility(uidoc.Document, uidoc.ActiveView, true)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -247,7 +247,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Window", false, BuiltInCategory.OST_Windows);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Window", false, BuiltInCategory.OST_Windows)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -260,7 +260,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Door", false, BuiltInCategory.OST_Doors);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Door", false, BuiltInCategory.OST_Doors)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -273,7 +273,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Ceiling", false, BuiltInCategory.OST_Ceilings);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Ceiling", false, BuiltInCategory.OST_Ceilings)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -286,7 +286,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Roof", false, BuiltInCategory.OST_Roofs);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Roof", false, BuiltInCategory.OST_Roofs)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -299,7 +299,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Stair", false, BuiltInCategory.OST_Stairs);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Stair", false, BuiltInCategory.OST_Stairs)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -312,7 +312,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Railing", false, BuiltInCategory.OST_StairsRailing, BuiltInCategory.OST_RailingSystem);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Railing", false, BuiltInCategory.OST_StairsRailing, BuiltInCategory.OST_RailingSystem)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -326,7 +326,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Column", false, BuiltInCategory.OST_StructuralColumns, BuiltInCategory.OST_Columns);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Column", false, BuiltInCategory.OST_StructuralColumns, BuiltInCategory.OST_Columns)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -339,7 +339,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Framing", false, BuiltInCategory.OST_StructuralFraming);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Framing", false, BuiltInCategory.OST_StructuralFraming)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -352,7 +352,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Floor", false, BuiltInCategory.OST_Floors);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Floor", false, BuiltInCategory.OST_Floors)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -365,7 +365,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Wall", false, BuiltInCategory.OST_Walls);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Wall", false, BuiltInCategory.OST_Walls)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -378,7 +378,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Foundation", false, BuiltInCategory.OST_StructuralFoundation);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Foundation", false, BuiltInCategory.OST_StructuralFoundation)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -391,7 +391,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Rebar", false, BuiltInCategory.OST_Rebar, BuiltInCategory.OST_FabricReinforcement);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Rebar", false, BuiltInCategory.OST_Rebar, BuiltInCategory.OST_FabricReinforcement)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -405,7 +405,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Grid", false, BuiltInCategory.OST_Grids);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Grid", false, BuiltInCategory.OST_Grids)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -418,7 +418,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Level", false, BuiltInCategory.OST_Levels);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Level", false, BuiltInCategory.OST_Levels)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -431,7 +431,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Section", false, BuiltInCategory.OST_Sections, BuiltInCategory.OST_Viewers);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Section", false, BuiltInCategory.OST_Sections, BuiltInCategory.OST_Viewers)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -444,7 +444,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Elevation", false, BuiltInCategory.OST_Elev);
+            if (!CategoryVisibilityService.SetCategoryVisibility(uidoc.Document, uidoc.ActiveView, "Elevation", false, BuiltInCategory.OST_Elev)) return Result.Failed;
             return Result.Succeeded;
         }
     }
@@ -457,7 +457,7 @@ namespace KhimTools.VisibilityTool.Commands
         {
             var uidoc = commandData.Application.ActiveUIDocument;
             if (uidoc == null) return Result.Cancelled;
-            CategoryVisibilityService.SetTagVisibility(uidoc.Document, uidoc.ActiveView, false);
+            if (!CategoryVisibilityService.SetTagVisibility(uidoc.Document, uidoc.ActiveView, false)) return Result.Failed;
             return Result.Succeeded;
         }
     }

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.DetailNumberUpdater.Services
 {
@@ -445,7 +446,9 @@ namespace KhimTools.DetailNumberUpdater.Services
             {
                 using (var group = new TransactionGroup(doc, "K-TOOLS Detail Number Update"))
                 {
-                    group.Start();
+                    TransactionBoundary.Start(group, "DetailNumber.Update");
+                    try
+                    {
                     foreach (DetailNumberCandidate candidate in pending)
                     {
                         Viewport viewport = doc.GetElement(candidate.ViewportId) as Viewport;
@@ -465,16 +468,20 @@ namespace KhimTools.DetailNumberUpdater.Services
                         {
                             using (var tx = new Transaction(doc, "Stage temporary detail number"))
                             {
-                                tx.Start();
-                                parameter.Set(temporary);
-                                tx.Commit();
+                                TransactionBoundary.Start(tx, "DetailNumber.StageTemporary");
+                                if (!parameter.Set(temporary)) throw new InvalidOperationException("Revit rejected the temporary detail number.");
+                                TransactionBoundary.Commit(tx, "DetailNumber.StageTemporary");
                             }
+                            Viewport stagedViewport = doc.GetElement(candidate.ViewportId) as Viewport;
+                            if (!string.Equals(GetDetailNumber(stagedViewport), temporary, StringComparison.Ordinal))
+                                throw new InvalidOperationException("Temporary detail-number postcondition failed.");
                             used.Add(temporary);
                             tempCandidates.Add(Tuple.Create(candidate, temporary));
                         }
                         catch (Exception ex)
                         {
                             Debug.WriteLine("[K-TOOLS][DetailNumber] staging failed for " + candidate.ViewportId + ": " + ex);
+                            RestoreNumber(doc, candidate, null);
                             candidate.Status = DetailNumberStatusCode.FAILED;
                             candidate.CanExecute = false;
                             result.FailedCount++;
@@ -503,10 +510,14 @@ namespace KhimTools.DetailNumberUpdater.Services
                             if (parameter == null || parameter.IsReadOnly) throw new InvalidOperationException("Detail number parameter became unavailable.");
                             using (var tx = new Transaction(doc, "Apply detail number"))
                             {
-                                tx.Start();
-                                parameter.Set(DetailNumberConflictResolver.Normalize(candidate.ProposedNumber));
-                                tx.Commit();
+                                TransactionBoundary.Start(tx, "DetailNumber.Apply");
+                                if (!parameter.Set(DetailNumberConflictResolver.Normalize(candidate.ProposedNumber)))
+                                    throw new InvalidOperationException("Revit rejected the proposed detail number.");
+                                TransactionBoundary.Commit(tx, "DetailNumber.Apply");
                             }
+                            Viewport updatedViewport = doc.GetElement(candidate.ViewportId) as Viewport;
+                            if (!string.Equals(GetDetailNumber(updatedViewport), DetailNumberConflictResolver.Normalize(candidate.ProposedNumber), StringComparison.Ordinal))
+                                throw new InvalidOperationException("Final detail-number postcondition failed.");
                             completed = true;
                             result.Changed++;
                             result.Results.Add(new DetailNumberExecutionResult
@@ -539,13 +550,27 @@ namespace KhimTools.DetailNumberUpdater.Services
                         }
                         if (!completed) RestoreNumber(doc, candidate, staged.Item2);
                     }
-                    group.Assimilate();
+                    TransactionBoundary.Assimilate(group, "DetailNumber.Update");
+                    }
+                    catch
+                    {
+                        if (group.GetStatus() == TransactionStatus.Started)
+                            TransactionBoundary.RollBack(group, "DetailNumber.Update");
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("[K-TOOLS][DetailNumber] transaction group failed: " + ex);
-                result.FailedCount += pending.Count;
+                foreach (DetailNumberExecutionResult item in result.Results.Where(r => r.Changed))
+                {
+                    item.Changed = false;
+                    item.Status = DetailNumberStatusCode.FAILED;
+                    item.Message = "Batch rolled back: " + ex.Message;
+                }
+                result.Changed = 0;
+                result.FailedCount = Math.Max(result.FailedCount, pending.Count);
                 result.Errors.Add(ex.Message);
             }
             LogSummary(sheet, report, result);
@@ -562,22 +587,20 @@ namespace KhimTools.DetailNumberUpdater.Services
 
         private static void RestoreNumber(Document doc, DetailNumberCandidate candidate, string temporary)
         {
-            try
+            Viewport viewport = doc.GetElement(candidate.ViewportId) as Viewport;
+            Parameter parameter = viewport == null ? null : viewport.get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER);
+            if (parameter == null || parameter.IsReadOnly)
+                throw new InvalidOperationException("Cannot restore the original detail number for viewport " + candidate.ViewportId + ".");
+            using (var tx = new Transaction(doc, "Restore detail number after failure"))
             {
-                Viewport viewport = doc.GetElement(candidate.ViewportId) as Viewport;
-                Parameter parameter = viewport == null ? null : viewport.get_Parameter(BuiltInParameter.VIEWPORT_DETAIL_NUMBER);
-                if (parameter == null || parameter.IsReadOnly) return;
-                using (var tx = new Transaction(doc, "Restore detail number after failure"))
-                {
-                    tx.Start();
-                    parameter.Set(DetailNumberConflictResolver.Normalize(candidate.CurrentNumber));
-                    tx.Commit();
-                }
+                TransactionBoundary.Start(tx, "DetailNumber.Restore");
+                if (!parameter.Set(DetailNumberConflictResolver.Normalize(candidate.CurrentNumber)))
+                    throw new InvalidOperationException("Revit rejected restoration of the original detail number.");
+                TransactionBoundary.Commit(tx, "DetailNumber.Restore");
             }
-            catch (Exception ex)
-            {
-                Debug.WriteLine("[K-TOOLS][DetailNumber] restore failed for " + candidate.ViewportId + ": " + ex);
-            }
+            Viewport restoredViewport = doc.GetElement(candidate.ViewportId) as Viewport;
+            if (!string.Equals(GetDetailNumber(restoredViewport), DetailNumberConflictResolver.Normalize(candidate.CurrentNumber), StringComparison.Ordinal))
+                throw new InvalidOperationException("Original detail-number restoration postcondition failed for viewport " + candidate.ViewportId + ".");
         }
 
         private static DetailNumberExecutionResult ToResult(DetailNumberCandidate candidate, bool changed)

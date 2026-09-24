@@ -1352,6 +1352,27 @@ namespace KhimTools.Tests
                 throw new Exception("QuickStructureSettings with CreateColumns=true failed validation: " + qsErr);
             }
 
+            qs.CreateFloor = true;
+            if (qs.Validate(out qsErr) || string.IsNullOrWhiteSpace(qsErr) || !qsErr.Contains("not implemented"))
+            {
+                throw new Exception("QuickStructureSettings must reject the legacy, unimplemented floor option.");
+            }
+
+            qs.CreateFloor = false;
+            qs.CreateColumns = false;
+            qs.CreateBeams = false;
+            qs.CreateFootings = true;
+            if (qs.Validate(out qsErr) || string.IsNullOrWhiteSpace(qsErr))
+            {
+                throw new Exception("QuickStructureSettings must reject footings without their prerequisite columns.");
+            }
+
+            qs.CreateColumns = true;
+            if (!qs.Validate(out qsErr))
+            {
+                throw new Exception("QuickStructureSettings with columns and footings failed validation: " + qsErr);
+            }
+
             // QuickArchiSettings validation
             var qa = new QuickArchiSettings();
             qa.WallHeightMm = -50.0;

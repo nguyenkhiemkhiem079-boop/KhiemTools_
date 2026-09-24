@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Structural.QuickStructure.Models;
 using KhimTools.Structural.QuickStructure.Services;
 
 namespace KhimTools.Structural.QuickStructure.Forms
@@ -49,8 +50,11 @@ namespace KhimTools.Structural.QuickStructure.Forms
                 // 1. Quét lưới trục và tính toán giao điểm
                 _grids = QuickStructureService.GetAllGrids(_doc);
                 _intersections = QuickStructureService.CalculateGridIntersections(_grids);
-
-                TxtStatus.Text = string.Format("{0} grids / {1} giao điểm", _grids.Count, _intersections.Count);
+                int straightGridCount = _grids.Count(grid => grid.Curve is Line);
+                int excludedGridCount = _grids.Count - straightGridCount;
+                TxtStatus.Text = string.Format("{0} straight grids / {1} giao điểm{2}",
+                    straightGridCount, _intersections.Count,
+                    excludedGridCount == 0 ? string.Empty : string.Format("; {0} curved grids excluded", excludedGridCount));
 
                 // 2. Thu thập danh sách Level
                 _levels = new FilteredElementCollector(_doc)
@@ -121,85 +125,59 @@ namespace KhimTools.Structural.QuickStructure.Forms
 
         private void BtnGenerate_Click(object sender, RoutedEventArgs e)
         {
-            if (_intersections.Count == 0)
-            {
-                Autodesk.Revit.UI.TaskDialog.Show("Cảnh báo", "Không tìm thấy giao điểm lưới trục hợp lệ nào trong dự án.");
-                return;
-            }
-
             bool doCols = ChkCreateColumns.IsChecked == true;
             bool doBeams = ChkCreateBeams.IsChecked == true;
             bool doFootings = ChkCreateFootings.IsChecked == true;
 
-            if (!doCols && !doBeams && !doFootings)
-            {
-                Autodesk.Revit.UI.TaskDialog.Show("Thông báo", "Vui lòng chọn ít nhất một tác vụ mô hình hóa.");
-                return;
-            }
-
-            int colsCount = 0;
-            int beamsCount = 0;
-            int footingsCount = 0;
-
-            List<FamilyInstance> createdColumns = null;
-
             try
             {
-                // 1. Tạo Cột
-                if (doCols)
+                if (_intersections.Count == 0)
+                    throw new InvalidOperationException("Không tìm thấy giao điểm lưới trục hợp lệ nào trong dự án.");
+                if (!doCols && !doBeams && !doFootings)
+                    throw new InvalidOperationException("Vui lòng chọn ít nhất một tác vụ mô hình hóa.");
+
+                var column = CboColumnType.SelectedItem as ElementItem<FamilySymbol>;
+                var columnBase = CboColumnBaseLevel.SelectedItem as ElementItem<Level>;
+                var columnTop = CboColumnTopLevel.SelectedItem as ElementItem<Level>;
+                var beam = CboBeamType.SelectedItem as ElementItem<FamilySymbol>;
+                var beamLevel = CboBeamLevel.SelectedItem as ElementItem<Level>;
+                var footing = CboFootingType.SelectedItem as ElementItem<FamilySymbol>;
+                var footingLevel = CboFootingLevel.SelectedItem as ElementItem<Level>;
+
+                if (doFootings && !doCols)
+                    throw new InvalidOperationException("Tạo móng yêu cầu bật tạo cột trong cùng một lần chạy để bảo đảm batch nguyên tử.");
+                if (doCols && (column == null || columnBase == null))
+                    throw new InvalidOperationException("Vui lòng chọn Loại Cột và Tầng cơ sở (Base Level).");
+                if (doBeams && (beam == null || beamLevel == null))
+                    throw new InvalidOperationException("Vui lòng chọn Loại Dầm và Tầng Dầm.");
+                if (doFootings && (footing == null || footingLevel == null))
+                    throw new InvalidOperationException("Vui lòng chọn Loại Móng và Tầng Móng.");
+
+                var request = new QuickStructureGenerationRequest
                 {
-                    var colItem = CboColumnType.SelectedItem as ElementItem<FamilySymbol>;
-                    var baseLvlItem = CboColumnBaseLevel.SelectedItem as ElementItem<Level>;
-                    var topLvlItem = CboColumnTopLevel.SelectedItem as ElementItem<Level>;
+                    Grids = _grids,
+                    Intersections = _intersections,
+                    CreateColumns = doCols,
+                    ColumnSymbol = column?.Item,
+                    ColumnBaseLevel = columnBase?.Item,
+                    ColumnTopLevel = columnTop?.Item,
+                    ColumnBaseOffsetMm = doCols ? ParseDouble(TxtColumnBaseOffset.Text) : 0,
+                    ColumnTopOffsetMm = doCols ? ParseDouble(TxtColumnTopOffset.Text) : 0,
+                    CreateBeams = doBeams,
+                    BeamSymbol = beam?.Item,
+                    BeamLevel = beamLevel?.Item,
+                    BeamZOffsetMm = doBeams ? ParseDouble(TxtBeamZOffset.Text) : 0,
+                    CreateFootings = doFootings,
+                    FootingSymbol = footing?.Item,
+                    FootingLevel = footingLevel?.Item,
+                    FootingOffsetMm = doFootings ? ParseDouble(TxtFootingOffset.Text) : 0
+                };
 
-                    if (colItem == null || baseLvlItem == null)
-                    {
-                        Autodesk.Revit.UI.TaskDialog.Show("Lỗi", "Vui lòng chọn Loại Cột và Tầng cơ sở (Base Level).");
-                        return;
-                    }
-
-                    double bOffset = ParseDouble(TxtColumnBaseOffset.Text);
-                    double tOffset = ParseDouble(TxtColumnTopOffset.Text);
-
-                    createdColumns = QuickStructureService.CreateColumnsAtPoints(
-                        _doc, _intersections, colItem.Item, baseLvlItem.Item, topLvlItem != null ? topLvlItem.Item : baseLvlItem.Item, bOffset, tOffset);
-
-                    colsCount = createdColumns.Count;
-                }
-
-                // 2. Tạo Dầm
-                if (doBeams)
-                {
-                    var beamItem = CboBeamType.SelectedItem as ElementItem<FamilySymbol>;
-                    var beamLvlItem = CboBeamLevel.SelectedItem as ElementItem<Level>;
-
-                    if (beamItem != null && beamLvlItem != null)
-                    {
-                        double zOffset = ParseDouble(TxtBeamZOffset.Text);
-                        var createdBeams = QuickStructureService.CreateBeamsAlongGridSpans(
-                            _doc, _grids, _intersections, beamItem.Item, beamLvlItem.Item, zOffset);
-
-                        beamsCount = createdBeams.Count;
-                    }
-                }
-
-                // 3. Tạo Móng dưới chân cột
-                if (doFootings && createdColumns != null && createdColumns.Count > 0)
-                {
-                    var footingItem = CboFootingType.SelectedItem as ElementItem<FamilySymbol>;
-                    var footingLvlItem = CboFootingLevel.SelectedItem as ElementItem<Level>;
-
-                    if (footingItem != null && footingLvlItem != null)
-                    {
-                        double fOffset = ParseDouble(TxtFootingOffset.Text);
-                        var createdFdns = QuickStructureService.CreateFootingsUnderColumns(
-                            _doc, createdColumns, footingItem.Item, footingLvlItem.Item, fOffset);
-
-                        footingsCount = createdFdns.Count;
-                    }
-                }
-
-                string msg = string.Format("Tạo thành công:\n• {0} Cột kết cấu\n• {1} Dầm kết cấu\n• {2} Móng đơn", 
+                QuickStructureGenerationResult result = QuickStructureService.Generate(_doc, request);
+                int colsCount = result.Columns.Count;
+                int beamsCount = result.Beams.Count;
+                int footingsCount = result.Footings.Count;
+                string msg = string.Format("Tạo thành công:\n• {0} Cột kết cấu\n• {1} Dầm kết cấu\n• {2} Móng đơn",
                     colsCount, beamsCount, footingsCount);
 
                 Autodesk.Revit.UI.TaskDialog.Show("K-TOOLS — Quick Structure", msg);
@@ -215,15 +193,17 @@ namespace KhimTools.Structural.QuickStructure.Forms
         private double ParseDouble(string text)
         {
             double val;
-            if (double.TryParse((text ?? "").Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out val))
+            string input = (text ?? "").Trim();
+            if (double.TryParse(input, NumberStyles.Any, CultureInfo.InvariantCulture, out val))
             {
                 return val;
             }
-            if (double.TryParse((text ?? "").Trim(), NumberStyles.Any, CultureInfo.CurrentCulture, out val))
+            if (double.TryParse(input, NumberStyles.Any, CultureInfo.CurrentCulture, out val))
             {
                 return val;
             }
-            return 0.0;
+            if (string.IsNullOrWhiteSpace(input)) return 0.0;
+            throw new FormatException("Invalid numeric input: " + input);
         }
 
         private void BtnClose_Click(object sender, RoutedEventArgs e)

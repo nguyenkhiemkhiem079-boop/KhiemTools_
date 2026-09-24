@@ -7,6 +7,7 @@ using Autodesk.Revit.UI;
 using KhimTools.CopyLink.Forms;
 using KhimTools.CopyLink.Services;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
 using DialogResult = System.Windows.Forms.DialogResult;
 
@@ -59,32 +60,33 @@ namespace KhimTools.CopyLink.Commands
                     return Result.Cancelled;
                 }
 
-                int totalCopied = 0;
-                var errorList = new List<string>();
-
-                using (var tx = new Transaction(doc, $"Copy Elements from Link: {linkInfo.LinkDocument.Title}"))
+                ICollection<ElementId> copiedIds = null;
+                List<string> errorList = null;
+                TransactionBoundary.ExecuteGroup(doc, $"Copy Elements from Link: {linkInfo.LinkDocument.Title}", () =>
                 {
-                    tx.Start();
-                    try
+                    var result = TransactionBoundary.Execute(doc, "Copy linked elements", () =>
                     {
-                        var res = LinkElementCopyService.CopyElements(
+                        var copy = LinkElementCopyService.CopyElements(
                             doc,
                             linkInfo.LinkDocument,
                             linkInfo.TotalTransform,
                             allElementIdsToCopy);
-
-                        totalCopied = res.copiedCount;
-                        errorList = res.errors;
-
-                        tx.Commit();
-                    }
-                    catch (Exception ex)
-                    {
-                        tx.RollBack();
-                        TaskDialog.Show("Lỗi sao chép", ex.Message);
-                        return Result.Failed;
-                    }
-                }
+                        if (copy.errors.Count > 0)
+                            throw new InvalidOperationException(string.Join(Environment.NewLine, copy.errors));
+                        if (copy.copiedIds.Count == 0)
+                            throw new InvalidOperationException("No linked elements were copied.");
+                        foreach (ElementId copiedId in copy.copiedIds)
+                        {
+                            if (doc.GetElement(copiedId) == null)
+                                throw new InvalidOperationException("Copy postcondition failed: a returned element is missing.");
+                        }
+                        return copy;
+                    });
+                    copiedIds = result.copiedIds;
+                    errorList = result.errors;
+                    return true;
+                });
+                int totalCopied = copiedIds?.Count ?? 0;
 
                 uidoc.RefreshActiveView();
 

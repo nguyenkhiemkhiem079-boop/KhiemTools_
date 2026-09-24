@@ -41,7 +41,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 45
+        ExpectedCount = 47
     },
     @{
         Name = "Phase 8 Rebar Layout Rendering QA"
@@ -56,9 +56,15 @@ $suites = @(
         Sta = $true
     },
     @{
+        Name = "Section Cut Layout Fixture"
+        Script = Join-Path $scriptDir "Tools\Verify-SectionCutLayout.ps1"
+        ExpectedCount = 105
+        Sta = $true
+    },
+    @{
         Name = "UI Command Contract Metadata Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
-        ExpectedCount = 123
+        ExpectedCount = 215
     },
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
@@ -69,6 +75,16 @@ $suites = @(
         Name = "Stage 3.1 Sheet Copy Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-SheetCopyStage31.ps1"
         ExpectedCount = 57
+    },
+    @{
+        Name = "SheetGen Wave 1.1 Production QA"
+        Script = Join-Path $scriptDir "Tools\Verify-SheetGenWave11.ps1"
+        ExpectedCount = 24
+    },
+    @{
+        Name = "Detail Number Wave 1.3 Production QA"
+        Script = Join-Path $scriptDir "Tools\Verify-DetailNumberWave13.ps1"
+        ExpectedCount = 58
     },
     @{
         Name = "Stage 3.2 Split Schedule Structural Audit"
@@ -103,7 +119,7 @@ $suites = @(
     @{
         Name = "Stage 4 Backend Consolidation Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-BackendConsolidationStage4.ps1"
-        ExpectedCount = 61
+        ExpectedCount = 75
     }
     @{
         Name = "Stage 4 Diagnostic Acceptance"
@@ -113,12 +129,22 @@ $suites = @(
     @{
         Name = "Stage 4 Transaction Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-Stage4TransactionAcceptance.ps1"
-        ExpectedCount = 17
+        ExpectedCount = 19
     },
     @{
         Name = "Stage 4.2 Slab Step Current Workflow Acceptance Audit"
         Script = Join-Path $scriptDir "Tools\Verify-SlabStep.ps1"
-        ExpectedCount = 40
+        ExpectedCount = 43
+    },
+    @{
+        Name = "Text Align Wave 1.4 Structural Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-TextAlignWave14.ps1"
+        ExpectedCount = 64
+    },
+    @{
+        Name = "Viewport Align Wave 1.2 Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-ViewportAlignWave12.ps1"
+        ExpectedCount = 67
     },
     @{
         Name = "K-Architectural Production Acceptance"
@@ -133,7 +159,7 @@ $suites = @(
     @{
         Name = "K-MEP Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KMepAcceptance.ps1"
-        ExpectedCount = 30
+        ExpectedCount = 31
     },
     @{
         Name = "K-MEP Domain QA"
@@ -148,7 +174,32 @@ $suites = @(
     @{
         Name = "K-QS Domain QA"
         Script = Join-Path $scriptDir "Tools\Verify-KQsDomain.ps1"
-        ExpectedCount = 16
+        ExpectedCount = 17
+    },
+    @{
+        Name = "Quick Structure Cross-Module Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-QuickStructureAcceptance.ps1"
+        ExpectedCount = 19
+    },
+    @{
+        Name = "Auto Grid & Plan Cross-Module Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-GridPlanAcceptance.ps1"
+        ExpectedCount = 17
+    },
+    @{
+        Name = "Element Tags Wave 1.5 Production QA"
+        Script = Join-Path $scriptDir "Tools\Verify-ElementTagsWave15.ps1"
+        ExpectedCount = 74
+    },
+    @{
+        Name = "Element Join Cross-Module Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-ElementJoinAcceptance.ps1"
+        ExpectedCount = 8
+    },
+    @{
+        Name = "CopyLink Cross-Module Production Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-CopyLinkAcceptance.ps1"
+        ExpectedCount = 8
     }
 )
 

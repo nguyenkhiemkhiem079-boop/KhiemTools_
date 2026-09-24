@@ -6,6 +6,73 @@ namespace KhimTools.Core.Revit
     /// <summary>Small guard for deterministic Revit transaction lifecycle outcomes.</summary>
     public static class TransactionBoundary
     {
+        /// <summary>
+        /// Executes a synchronous model mutation while this core boundary owns the
+        /// transaction lifecycle. The callback must not start or complete its own
+        /// transaction.
+        /// </summary>
+        public static T Execute<T>(Document document, string operation, Func<T> mutation,
+            Action<Transaction> configure = null, Predicate<T> shouldCommit = null)
+        {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            if (mutation == null) throw new ArgumentNullException(nameof(mutation));
+
+            using (var transaction = new Transaction(document, operation))
+            {
+                Start(transaction, operation);
+                try
+                {
+                    configure?.Invoke(transaction);
+                    T result = mutation();
+                    if (shouldCommit != null && !shouldCommit(result))
+                    {
+                        RollBack(transaction, operation);
+                        return result;
+                    }
+
+                    Commit(transaction, operation);
+                    return result;
+                }
+                catch
+                {
+                    if (transaction.GetStatus() == TransactionStatus.Started)
+                        RollBack(transaction, operation);
+                    throw;
+                }
+            }
+        }
+
+        public static void Execute(Document document, string operation, Action mutation,
+            Action<Transaction> configure = null)
+        {
+            if (mutation == null) throw new ArgumentNullException(nameof(mutation));
+            Execute(document, operation, () => { mutation(); return true; }, configure);
+        }
+
+        /// <summary>Executes a batch whose individual transactions are owned by their services.</summary>
+        public static T ExecuteGroup<T>(Document document, string operation, Func<T> mutation)
+        {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            if (mutation == null) throw new ArgumentNullException(nameof(mutation));
+
+            using (var group = new TransactionGroup(document, operation))
+            {
+                Start(group, operation);
+                try
+                {
+                    T result = mutation();
+                    Assimilate(group, operation);
+                    return result;
+                }
+                catch
+                {
+                    if (group.GetStatus() == TransactionStatus.Started)
+                        RollBack(group, operation);
+                    throw;
+                }
+            }
+        }
+
         public static void Start(Transaction transaction, string operation)
         {
             if (transaction == null) throw new ArgumentNullException(nameof(transaction));

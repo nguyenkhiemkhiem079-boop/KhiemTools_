@@ -63,6 +63,9 @@ Assert-True ($form -match 'ReloadDocumentState') 'Refresh does not reload docume
 Assert-True ($command -match 'doc\.GetElement\(item\.ViewportOrScheduleId\)') 'Targets are not re-resolved before execution.'
 Assert-True ($service -match 'SOURCE_REFERENCE') 'Source reference exclusion is missing.'
 Assert-True ($form -match 'ScheduleSelectionFilter') 'Schedule selection filter is missing.'
+Assert-True ($command -match 'TransactionBoundary\.ExecuteGroup' -and $command -match 'TransactionBoundary\.Execute\(doc' -and $command -notmatch 'new Transaction(Group)?\(') 'Viewport alignment transaction lifecycle is not checked and centrally owned.'
+Assert-True ($command -match 'shouldCommit:\s*result\s*=>' -and $command -match 'AlignmentExecutionStatus\.BLOCKED' -and $command -match 'AlignmentExecutionStatus\.FAILED') 'Blocked/failed alignment targets must return results and roll back their target transaction.'
+Assert-True ($command -match 'return summary\.Failed > 0 \? Result\.Failed : Result\.Succeeded') 'Revit command result must not report success when alignment targets failed.'
 
 # Deterministic geometry tests from the Wave 1.2 specification.
 $reference = @{ Left = 8.0; Right = 12.0; Bottom = 3.0; Top = 7.0 }

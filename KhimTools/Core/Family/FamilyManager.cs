@@ -112,9 +112,18 @@ namespace KhimTools.Core.Family
                 string txName = "K-TOOLS — Load Family: " + Path.GetFileNameWithoutExtension(rfaPath);
                 using (var tx = new Transaction(doc, txName))
                 {
-                    tx.Start();
-                    doc.LoadFamily(rfaPath, options, out loadedFamily);
-                    tx.Commit();
+                    const string operation = "FamilyManager.LoadFamily";
+                    KhimTools.Core.Revit.TransactionBoundary.Start(tx, operation);
+                    try
+                    {
+                        doc.LoadFamily(rfaPath, options, out loadedFamily);
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(tx, operation);
+                    }
+                    catch
+                    {
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, operation);
+                        throw;
+                    }
                 }
             }
 
@@ -177,11 +186,21 @@ namespace KhimTools.Core.Family
                 {
                     using (var tx = new Transaction(doc, "K-TOOLS — Activate Symbol: " + targetSymbol.Name))
                     {
-                        tx.Start();
-                        targetSymbol.Activate();
-                        tx.Commit();
+                        const string operation = "FamilyManager.ActivateSymbol";
+                        KhimTools.Core.Revit.TransactionBoundary.Start(tx, operation);
+                        try
+                        {
+                            targetSymbol.Activate();
+                            KhimTools.Core.Revit.TransactionBoundary.Commit(tx, operation);
+                        }
+                        catch
+                        {
+                            KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, operation);
+                            throw;
+                        }
                     }
                 }
+                if (!targetSymbol.IsActive) throw new InvalidOperationException("Family symbol activation failed its postcondition.");
             }
 
             return targetSymbol;

@@ -121,5 +121,16 @@ foreach ($inventoryField in @("MODULE | TOOL | PREVIEW EXISTS?", "CAN MUTATE MOD
     if ($inventory.IndexOf($inventoryField, [StringComparison]::OrdinalIgnoreCase) -lt 0) { throw "Phase 9 UI/preview inventory omits required audit field or surface: $inventoryField" }
 }
 $contractChecks++
+$matrixPath = Join-Path $root "Tools/CrossModuleProductionMatrix.md"
+$matrix = [IO.File]::ReadAllText($matrixPath)
+$missingMatrixCommands = @($commands | Where-Object {
+    $shortName = $_.Substring($_.LastIndexOf('.') + 1)
+    $matrix -notmatch ("\b" + [regex]::Escape($shortName) + "\b")
+})
+if ($missingMatrixCommands.Count -gt 0) {
+    throw "Cross-module matrix omits active command types: $($missingMatrixCommands -join ', ')"
+}
+$contractChecks += $commands.Count
 Write-Host "PASS: $($commands.Count) Revit command metadata checks; $($bindings.Count) workspace bindings; 4 ribbon ownership boundaries; $contractChecks contract assertions."
+Write-Host "Cross-module matrix inventory: $($commands.Count)/$($commands.Count) command types; status remains per matrix row."
 Write-Host "Metadata only: command Execute methods were NOT run."

@@ -115,7 +115,7 @@ namespace KhimTools.CopyLink.Services
         /// <summary>
         /// Thực hiện sao chép các Element từ Link Document sang Host Document theo đúng Transform.
         /// </summary>
-        public static (int copiedCount, List<string> errors) CopyElements(
+        public static (ICollection<ElementId> copiedIds, List<string> errors) CopyElements(
             Document hostDoc,
             Document linkDoc,
             Transform transform,
@@ -124,7 +124,7 @@ namespace KhimTools.CopyLink.Services
             var errors = new List<string>();
             if (hostDoc == null || linkDoc == null || elementIdsToCopy == null || !elementIdsToCopy.Any())
             {
-                return (0, errors);
+                return (new List<ElementId>(), errors);
             }
 
             var copyOptions = new CopyPasteOptions();
@@ -146,7 +146,7 @@ namespace KhimTools.CopyLink.Services
                 errors.Add(ex.Message);
             }
 
-            return (copiedIds?.Count ?? 0, errors);
+            return (copiedIds ?? new List<ElementId>(), errors);
         }
 
         private class CustomDuplicateTypeHandler : IDuplicateTypeNamesHandler

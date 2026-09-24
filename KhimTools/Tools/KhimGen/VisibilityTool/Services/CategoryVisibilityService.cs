@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Revit;
 using KhimTools.Core.Logging;
 
 namespace KhimTools.VisibilityTool.Services
@@ -42,17 +43,28 @@ namespace KhimTools.VisibilityTool.Services
             // isVisible = false => SetCategoryHidden(id, true)
             bool targetHidden = !isVisible;
 
-            using (var tx = new Transaction(doc, $"K-TOOLS - {(isVisible ? "Hiện" : "Ẩn")} {displayName}"))
+            try
             {
-                tx.Start();
-                foreach (var id in validCatIds)
+                TransactionBoundary.Execute(doc, $"K-TOOLS - {(isVisible ? "Hiện" : "Ẩn")} {displayName}", () =>
                 {
-                    view.SetCategoryHidden(id, targetHidden);
-                }
-                tx.Commit();
-            }
+                    foreach (var id in validCatIds)
+                        view.SetCategoryHidden(id, targetHidden);
+                });
 
-            return true;
+                if (validCatIds.All(id => view.GetCategoryHidden(id) == targetHidden))
+                    return true;
+
+                KToolsLog.Current.Log(KhimTools.Core.Workflow.WorkflowSeverity.Error,
+                    "Visibility.Category", "Category visibility postcondition failed for " + displayName + ".", "POSTCONDITION_FAILURE");
+                TaskDialog.Show("Hiển Thị / Ẩn Đối Tượng", "Revit could not verify the requested visibility change for '" + displayName + "'.");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("Visibility.Category", ex, "CATEGORY_VISIBILITY_FAILED");
+                TaskDialog.Show("Hiển Thị / Ẩn Đối Tượng", "Không thể cập nhật hiển thị '" + displayName + "'. Kiểm tra quyền chỉnh sửa và thử lại.");
+                return false;
+            }
         }
 
         public static bool SetTagVisibility(Document doc, View view, bool isVisible)

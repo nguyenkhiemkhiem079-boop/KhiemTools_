@@ -6,6 +6,7 @@ using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.SectionBox.Forms
 {
@@ -235,10 +236,8 @@ namespace KhimTools.SectionBox.Forms
                 }
 
                 // Thực thi tạo View
-                using (var tx = new Transaction(_doc, "K-TOOLS - Create Section Box View"))
+                View3D createdView = TransactionBoundary.Execute(_doc, "K-TOOLS - Create Section Box View", () =>
                 {
-                    tx.Start();
-
                     var viewFamilyType = new FilteredElementCollector(_doc)
                         .OfClass(typeof(ViewFamilyType))
                         .Cast<ViewFamilyType>()
@@ -247,8 +246,7 @@ namespace KhimTools.SectionBox.Forms
                     if (viewFamilyType == null)
                     {
                         MessageBox.Show("Không tìm thấy ViewFamilyType 3D trong dự án.");
-                        tx.RollBack();
-                        return;
+                        return null;
                     }
 
                     var view3d = View3D.CreateIsometric(_doc, viewFamilyType.Id);
@@ -278,11 +276,13 @@ namespace KhimTools.SectionBox.Forms
                         view3d.ViewTemplateId = selectedTemplate.Id;
                     }
 
-                    tx.Commit();
+                    return view3d;
+                }, shouldCommit: view => view != null);
 
-                    // Switch sang View mới
-                    _uidoc.ActiveView = view3d;
-                }
+                if (createdView == null) return;
+
+                // Switch sang View mới only after the creating transaction commits.
+                _uidoc.ActiveView = createdView;
 
                 Close();
             }

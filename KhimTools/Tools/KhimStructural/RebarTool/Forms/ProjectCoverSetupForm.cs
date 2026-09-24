@@ -19,6 +19,7 @@ using Label = System.Windows.Forms.Label;
 using CheckBox = System.Windows.Forms.CheckBox;
 
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.RebarTool.Forms
 {
@@ -178,51 +179,45 @@ namespace KhimTools.RebarTool.Forms
 
         private void BtnApply_Click(object sender, EventArgs e)
         {
-            using var tx = new Transaction(_doc, "Setup Project Concrete Cover");
-            tx.Start();
             try
             {
                 int totalApplied = 0;
                 string resultSummary = "";
 
-                if (_chkColumns.Checked)
+                TransactionBoundary.Execute(_doc, "Setup Project Concrete Cover", () =>
                 {
-                    var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numColumnCover.Value);
-                    int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralColumns, ct);
-                    totalApplied += n;
-                    resultSummary += $"• Cột (Structural Columns): {n} đối tượng -> Cover {(double)_numColumnCover.Value}mm\n";
-                }
+                    if (_chkColumns.Checked)
+                    {
+                        var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numColumnCover.Value);
+                        int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralColumns, ct);
+                        totalApplied += n;
+                        resultSummary += $"• Cột (Structural Columns): {n} đối tượng -> Cover {(double)_numColumnCover.Value}mm\n";
+                    }
 
-                if (_chkBeams.Checked)
-                {
-                    var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numBeamCover.Value);
-                    int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFraming, ct);
-                    totalApplied += n;
-                    resultSummary += $"• Dầm (Structural Framing): {n} đối tượng -> Cover {(double)_numBeamCover.Value}mm\n";
-                }
+                    if (_chkBeams.Checked)
+                    {
+                        var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numBeamCover.Value);
+                        int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFraming, ct);
+                        totalApplied += n;
+                        resultSummary += $"• Dầm (Structural Framing): {n} đối tượng -> Cover {(double)_numBeamCover.Value}mm\n";
+                    }
 
-                if (_chkSlabs.Checked)
-                {
-                    var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numSlabCover.Value);
-                    int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_Floors, ct);
-                    totalApplied += n;
-                    resultSummary += $"• Sàn (Structural Floors): {n} đối tượng -> Cover {(double)_numSlabCover.Value}mm\n";
-                }
+                    if (_chkSlabs.Checked)
+                    {
+                        var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numSlabCover.Value);
+                        int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_Floors, ct);
+                        totalApplied += n;
+                        resultSummary += $"• Sàn (Structural Floors): {n} đối tượng -> Cover {(double)_numSlabCover.Value}mm\n";
+                    }
 
-                if (_chkFoundations.Checked)
-                {
-                    var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numFoundationCover.Value);
-                    int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFoundation, ct);
-                    totalApplied += n;
-                    resultSummary += $"• Móng (Structural Foundations): {n} đối tượng -> Cover {(double)_numFoundationCover.Value}mm\n";
-                }
-
-                TransactionStatus commitStatus = tx.Commit();
-                if (commitStatus != TransactionStatus.Committed)
-                {
-                    throw new InvalidOperationException(
-                        $"Không thể commit cấu hình cover. Trạng thái transaction: {commitStatus}.");
-                }
+                    if (_chkFoundations.Checked)
+                    {
+                        var ct = RebarCoverHelper.GetOrCreateCoverType(_doc, (double)_numFoundationCover.Value);
+                        int n = RebarCoverHelper.ApplyCoverToCategory(_doc, BuiltInCategory.OST_StructuralFoundation, ct);
+                        totalApplied += n;
+                        resultSummary += $"• Móng (Structural Foundations): {n} đối tượng -> Cover {(double)_numFoundationCover.Value}mm\n";
+                    }
+                });
 
                 MessageBox.Show(this, $"Đã cập nhật Lớp bê tông bảo vệ thành công cho {totalApplied} đối tượng trong dự án:\n\n" + resultSummary,
                     "Hoàn thành Cấu hình Cover", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -232,7 +227,6 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
                 MessageBox.Show(this, "Lỗi khi cập nhật Cover cho dự án: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

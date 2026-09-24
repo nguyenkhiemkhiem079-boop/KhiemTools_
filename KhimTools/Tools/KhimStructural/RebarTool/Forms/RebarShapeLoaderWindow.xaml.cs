@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Forms
@@ -324,10 +325,8 @@ namespace KhimTools.RebarTool.Forms
 
             try
             {
-                using (var tx = new Transaction(_doc, "K-TOOLS: Load Rebar Shapes"))
+                TransactionBoundary.Execute(_doc, "K-TOOLS: Load Rebar Shapes", () =>
                 {
-                    tx.Start();
-
                     foreach (var item in itemsToLoad)
                     {
                         if (item.IsLoaded)
@@ -347,14 +346,7 @@ namespace KhimTools.RebarTool.Forms
                             failed++;
                         }
                     }
-
-                    TransactionStatus commitStatus = tx.Commit();
-                    if (commitStatus != TransactionStatus.Committed)
-                    {
-                        throw new InvalidOperationException(
-                            $"Không thể commit Rebar Shapes đã nạp. Trạng thái transaction: {commitStatus}.");
-                    }
-                }
+                });
 
                 foreach (var item in newlyLoadedItems)
                 {

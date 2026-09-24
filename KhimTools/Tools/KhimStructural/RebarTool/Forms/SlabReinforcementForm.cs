@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
@@ -837,13 +838,9 @@ namespace KhimTools.RebarTool.Forms
 
             var report = new RebarGenerationReport();
 
-            using (var trans = new Transaction(_doc, "KHIM TOOLS — Tạo Thép Sàn Theo Panel"))
+            try
             {
-                if (trans.Start() != TransactionStatus.Started) throw new InvalidOperationException("Unable to start slab reinforcement transaction.");
-                FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
-                failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
-                trans.SetFailureHandlingOptions(failOptions);
-                try
+                TransactionBoundary.Execute(_doc, "KHIM TOOLS — Tạo Thép Sàn Theo Panel", () =>
                 {
                     // Lặp qua từng panel và sinh thép theo cấu hình riêng của panel đó
                     foreach (var panel in selectedPanels)
@@ -853,22 +850,19 @@ namespace KhimTools.RebarTool.Forms
                         if (!RebarPreviewService.Matches(acceptedPreview, generator.GetPanelInputFingerprint(panel), generated))
                             throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview; the entire slab transaction was rolled back.");
                     }
-
-                    TransactionStatus commitStatus = trans.Commit();
-                    if (commitStatus != TransactionStatus.Committed)
-                    {
-                        throw new InvalidOperationException(
-                            $"Không thể commit thép sàn. Trạng thái transaction: {commitStatus}.");
-                    }
-                }
-                catch (Exception ex)
+                }, configure: transaction =>
                 {
-                    if (trans.GetStatus() == TransactionStatus.Started) trans.RollBack();
-                    KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
-                    _lastPreview = null;
-                    _previewLifecycle.Invalidate();
-                    return;
-                }
+                    FailureHandlingOptions failOptions = transaction.GetFailureHandlingOptions();
+                    failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                    transaction.SetFailureHandlingOptions(failOptions);
+                });
+            }
+            catch (Exception ex)
+            {
+                KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                return;
             }
 
             KhimDialogHelper.ShowRebarGenerationReport(report, "Tạo Thép Sàn (Slab Rebar Panel System)", selectedPanels.Count);
