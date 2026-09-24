@@ -15,8 +15,8 @@
         <ComponentRef Id="C_LegacyDlls" />
       </Feature>
 
-      <!-- Revit 2025-2028 (.NET 8.0) -->
-      <Feature Id="RevitModern" Title="K-TOOLS for Revit 2025-2028 (.NET 8.0)" Description="Binaries and components optimized for Autodesk Revit 2025 through 2028" Level="1">
+      <!-- Revit 2025-2026 (.NET 8.0) -->
+      <Feature Id="RevitModern" Title="K-TOOLS for Revit 2025-2026 (.NET 8.0)" Description="Binaries and components optimized for Autodesk Revit 2025 through 2026" Level="1">
         <Level Value="1" Condition="HAS_MODERN_REVIT = 1" />
         <ComponentRef Id="C_ModernAddin" />
         <ComponentRef Id="C_ModernDlls" />

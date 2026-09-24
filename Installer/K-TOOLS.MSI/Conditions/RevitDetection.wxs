@@ -14,18 +14,12 @@
       <RegistrySearch Id="SearchRevit2024" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2024" Name="InstallationPath" Type="raw" Bitness="always64" />
     </Property>
 
-    <!-- Revit 2025-2028 (Modern .NET 8.0) -->
+    <!-- Revit 2025-2026 (Modern .NET 8.0; later API targets are not currently built or supported) -->
     <Property Id="REVIT_2025_DETECTED">
       <RegistrySearch Id="SearchRevit2025" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2025" Name="InstallationPath" Type="raw" Bitness="always64" />
     </Property>
     <Property Id="REVIT_2026_DETECTED">
       <RegistrySearch Id="SearchRevit2026" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2026" Name="InstallationPath" Type="raw" Bitness="always64" />
-    </Property>
-    <Property Id="REVIT_2027_DETECTED">
-      <RegistrySearch Id="SearchRevit2027" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2027" Name="InstallationPath" Type="raw" Bitness="always64" />
-    </Property>
-    <Property Id="REVIT_2028_DETECTED">
-      <RegistrySearch Id="SearchRevit2028" Root="HKLM" Key="SOFTWARE\Autodesk\Revit\2028" Name="InstallationPath" Type="raw" Bitness="always64" />
     </Property>
 
     <!-- Custom Action / SetProperty to determine composite detection -->
@@ -33,7 +27,7 @@
                  Condition="REVIT_2022_DETECTED OR REVIT_2023_DETECTED OR REVIT_2024_DETECTED OR ALL_REVIT = 1" />
 
     <SetProperty Id="HAS_MODERN_REVIT" Value="1" After="AppSearch"
-                 Condition="REVIT_2025_DETECTED OR REVIT_2026_DETECTED OR REVIT_2027_DETECTED OR REVIT_2028_DETECTED OR ALL_REVIT = 1" />
+                 Condition="REVIT_2025_DETECTED OR REVIT_2026_DETECTED OR ALL_REVIT = 1" />
 
   </Fragment>
 </Wix>

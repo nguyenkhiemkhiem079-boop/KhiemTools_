@@ -125,7 +125,7 @@ $compCount = $components.Count
 Report-Result -Name "Test 03: Component Registration ($compCount registered components)" -Passed ($missingComponents.Count -eq 0) -Details ($missingComponents -join ", ")
 
 # -----------------------------------------------------------------------------
-# TEST 4: File Table Completeness (130 files registered)
+# TEST 4: File Table Completeness (includes both separately targeted domain assemblies)
 # -----------------------------------------------------------------------------
 $files = @{}
 $view = $db.OpenView("SELECT File, Component_, FileName, FileSize FROM File")
@@ -135,7 +135,7 @@ while ($rec = $view.Fetch()) {
 }
 $view.Close()
 $fileCount = $files.Count
-Report-Result -Name "Test 04: File Table Completeness ($fileCount files in MSI payload)" -Passed ($fileCount -ge 130) -Details "Count: $fileCount"
+Report-Result -Name "Test 04: File Table Completeness ($fileCount files in MSI payload)" -Passed ($fileCount -ge 132) -Details "Count: $fileCount; expected both legacy and modern domain assemblies"
 
 # -----------------------------------------------------------------------------
 # TEST 5: KeyPath Integrity for Self-Repair
@@ -232,7 +232,7 @@ while ($rec = $view.Fetch()) {
     $regCount++
 }
 $view.Close()
-Report-Result -Name "Test 10: Multi-Year Revit AppSearch Matrix ($regCount locator rules)" -Passed ($regCount -ge 9) -Details "Rules: $regCount"
+Report-Result -Name "Test 10: Supported Revit AppSearch Matrix ($regCount locator rules; 2022-2026)" -Passed ($regCount -ge 8) -Details "Rules: $regCount"
 
 # -----------------------------------------------------------------------------
 # TEST 11: Cabinet Stream Integrity (Media table)
@@ -266,6 +266,19 @@ $view.Close()
 $hasBundleFolder = ($dirs.ContainsKey("BUNDLEFOLDER") -and $dirs["BUNDLEFOLDER"].DefaultDir -like "*KhimTools.bundle*")
 $hasContentsFolder = ($dirs.ContainsKey("CONTENTSFOLDER") -and $dirs["CONTENTSFOLDER"].DefaultDir -like "*Contents*")
 Report-Result -Name "Test 12: Directory Tree Hierarchy (BUNDLEFOLDER\Contents mapping)" -Passed ($hasBundleFolder -and $hasContentsFolder)
+
+# -----------------------------------------------------------------------------
+# TEST 13: Current runtime dependencies and release payload hygiene
+# -----------------------------------------------------------------------------
+$payloadFiles = @($files.Values)
+$legacyDomain = @($payloadFiles | Where-Object { (([string]$_.FileName -split '\|')[-1]) -eq "KhimTools.Domain.dll" -and $_.Component -eq "C_LegacyDlls" }).Count -eq 1
+$modernDomain = @($payloadFiles | Where-Object { (([string]$_.FileName -split '\|')[-1]) -eq "KhimTools.Domain.dll" -and $_.Component -eq "C_ModernDlls" }).Count -eq 1
+$payloadNames = @($payloadFiles | ForEach-Object { ([string]$_.FileName -split '\|')[-1] })
+$forbiddenPayload = @($payloadNames | Where-Object { $_ -match '(?i)\.(pdb|cs|csproj|sln|rvt|phm|env|log|tmp)$' })
+$payloadHygiene = $legacyDomain -and $modernDomain -and $forbiddenPayload.Count -eq 0
+Report-Result -Name "Test 13: Runtime Dependency and Package Hygiene (both domain DLLs; no debug/source/model/temp files)" `
+    -Passed $payloadHygiene `
+    -Details "LegacyDomain=$legacyDomain, ModernDomain=$modernDomain, Forbidden=$($forbiddenPayload -join ', ')"
 
 # -----------------------------------------------------------------------------
 # SUMMARY

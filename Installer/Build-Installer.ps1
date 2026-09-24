@@ -13,7 +13,7 @@
 [CmdletBinding()]
 param(
     [string]$Configuration = "Release",
-    [string]$Version = "2.7.1",
+    [string]$Version = "2.7.2",
     [string]$CertThumbprint = "",
     [switch]$SkipBootstrapper,
     [switch]$UpdateManifest
@@ -25,6 +25,7 @@ $projectRoot = Resolve-Path "$scriptDir\.."
 $msiProjDir = Join-Path $scriptDir "K-TOOLS.MSI"
 $bootstrapperProjDir = Join-Path $scriptDir "K-TOOLS.Bootstrapper"
 $outputDir = Join-Path $scriptDir "Output"
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw "Version must be a three-part numeric version; received '$Version'." }
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "           K-TOOLS INSTALLER RELEASE PIPELINE             " -ForegroundColor Cyan
@@ -37,8 +38,19 @@ if (-not (Test-Path $outputDir)) {
     New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 }
 
-# 1. Check prerequisite binaries
-Write-Host "`n[Step 1/5] Checking compiled KhimTools assemblies..." -ForegroundColor Cyan
+# 1. Build the exact supported release targets from current source.
+Write-Host "`n[Step 1/5] Building current-source Revit 2024 and 2025 Release targets..." -ForegroundColor Cyan
+$project = Join-Path $projectRoot "KhimTools\KhimTools.csproj"
+foreach ($target in @(@{ Framework = "net48"; Revit = "2024" }, @{ Framework = "net8.0-windows"; Revit = "2025" })) {
+    & dotnet build $project -c $Configuration -f $target.Framework --nologo `
+        "-p:RevitRequestedVersion=$($target.Revit)" `
+        "-p:RevitVersionForReference=$($target.Revit)" `
+        -p:DeployKhimToolsBundle=false
+    if ($LASTEXITCODE -ne 0) { throw "Current-source Release build failed for Revit $($target.Revit) ($($target.Framework))." }
+}
+
+# 2. Check the fresh assemblies and explicit runtime dependency.
+Write-Host "`n[Step 2/5] Checking freshly compiled KhimTools assemblies..." -ForegroundColor Cyan
 $legacyDll = Join-Path $projectRoot "KhimTools\bin\$Configuration\net48\KhimTools.dll"
 $modernDll = Join-Path $projectRoot "KhimTools\bin\$Configuration\net8.0-windows\KhimTools.dll"
 
@@ -53,9 +65,15 @@ if (-not (Test-Path $modernDll)) {
 } else {
     Write-Host "  Found Modern assembly: $modernDll" -ForegroundColor Green
 }
+foreach ($domainDll in @(
+    (Join-Path $projectRoot "KhimTools\bin\$Configuration\net48\KhimTools.Domain.dll"),
+    (Join-Path $projectRoot "KhimTools\bin\$Configuration\net8.0-windows\KhimTools.Domain.dll")
+)) {
+    if (-not (Test-Path $domainDll)) { throw "Required project dependency is missing: $domainDll" }
+}
 
-# 2. Check WiX Toolset availability
-Write-Host "`n[Step 2/5] Verifying WiX CLI..." -ForegroundColor Cyan
+# 3. Check WiX Toolset availability
+Write-Host "`n[Step 3/5] Verifying WiX CLI..." -ForegroundColor Cyan
 $toolManifest = Join-Path $projectRoot ".config\dotnet-tools.json"
 $wixExe = $null
 $wixPrefix = @()
@@ -113,17 +131,19 @@ $utilExtension = Join-Path $wixExtensionRoot "WixToolset.Util.wixext\$wixExtensi
 $netfxExtension = Join-Path $wixExtensionRoot "WixToolset.Netfx.wixext\$wixExtensionVersion\wixext4\WixToolset.Netfx.wixext.dll"
 $balExtension = Join-Path $wixExtensionRoot "WixToolset.Bal.wixext\$wixExtensionVersion\wixext4\WixToolset.Bal.wixext.dll"
 
-# 3. Build K-TOOLS.msi
-Write-Host "`n[Step 3/5] Building K-TOOLS.msi..." -ForegroundColor Cyan
+# 4. Build K-TOOLS.msi and (unless skipped) the bootstrapper.
+Write-Host "`n[Step 4/5] Building K-TOOLS.msi..." -ForegroundColor Cyan
 $targetMsi = Join-Path $outputDir "K-TOOLS.msi"
 $targetBootstrapper = Join-Path $outputDir "K-TOOLS-Setup.exe"
+$builtArtifacts = @()
 if ($null -ne $wixExe) {
     Push-Location $msiProjDir
     try {
-        $sources = (Get-ChildItem -Recurse -Filter "*.wxs" | Select-Object -ExpandProperty FullName)
-        & $wixExe @wixPrefix build -arch x64 -ext $uiExtension -ext $utilExtension -ext $netfxExtension $sources -o $targetMsi
+        $sources = (Get-ChildItem -Recurse -Filter "*.wxs" | Sort-Object FullName | Select-Object -ExpandProperty FullName)
+        & $wixExe @wixPrefix build -arch x64 -d "ProductVersion=$Version" -ext $uiExtension -ext $utilExtension -ext $netfxExtension $sources -o $targetMsi
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  MSI built successfully: $targetMsi" -ForegroundColor Green
+            $builtArtifacts += $targetMsi
         } else {
             throw "WiX build for MSI failed with exit code $LASTEXITCODE"
         }
@@ -135,9 +155,10 @@ if ($null -ne $wixExe) {
         Write-Host "  Building K-TOOLS-Setup.exe (Burn Bootstrapper)..." -ForegroundColor Cyan
         Push-Location $bootstrapperProjDir
         try {
-            & $wixExe @wixPrefix build -arch x64 -ext $balExtension -ext $utilExtension "Bundle.wxs" -o $targetBootstrapper
+            & $wixExe @wixPrefix build -arch x64 -d "ProductVersion=$Version" -ext $balExtension -ext $utilExtension "Bundle.wxs" -o $targetBootstrapper
             if ($LASTEXITCODE -eq 0) {
                 Write-Host "  Bootstrapper built successfully: $targetBootstrapper" -ForegroundColor Green
+                $builtArtifacts += $targetBootstrapper
             } else {
                 throw "WiX build for Bootstrapper failed with exit code $LASTEXITCODE"
             }
@@ -146,30 +167,31 @@ if ($null -ne $wixExe) {
         }
     }
 } else {
-    Write-Host "  [SKIPPED] WiX CLI not available in current environment." -ForegroundColor Yellow
+    throw "WiX CLI is unavailable; refusing to treat any pre-existing installer artifact as current-source output."
 }
 
-# 4. SHA-256 Checksum Calculation
-Write-Host "`n[Step 4/5] Computing SHA-256 Checksums..." -ForegroundColor Cyan
-$manifestPath = Join-Path $projectRoot "update_info.json"
-$msiHash = ""
-if (Test-Path $targetMsi) {
-    $msiHash = (Get-FileHash -Path $targetMsi -Algorithm SHA256).Hash
-    Write-Host "  K-TOOLS.msi SHA-256: $msiHash" -ForegroundColor Green
+# 5. Write checksums for artifacts built in this invocation only.
+Write-Host "`n[Step 5/5] Writing local SHA-256 manifest..." -ForegroundColor Cyan
+if ($builtArtifacts.Count -eq 0) { throw "No installer artifact was built in this invocation." }
+$checksumPath = Join-Path $outputDir "SHA256SUMS.txt"
+$checksumLines = foreach ($artifact in ($builtArtifacts | Sort-Object)) {
+    $hash = (Get-FileHash -LiteralPath $artifact -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $([System.IO.Path]::GetFileName($artifact))"
+    Write-Host "  $([System.IO.Path]::GetFileName($artifact)) SHA-256: $hash" -ForegroundColor Green
 }
-if (Test-Path $targetBootstrapper) {
-    $bootHash = (Get-FileHash -Path $targetBootstrapper -Algorithm SHA256).Hash
-    Write-Host "  K-TOOLS-Setup.exe SHA-256: $bootHash" -ForegroundColor Green
-}
+[System.IO.File]::WriteAllLines($checksumPath, [string[]]$checksumLines, [System.Text.Encoding]::ASCII)
 
 # 5. Manifest Update (if requested)
+$manifestPath = Join-Path $projectRoot "update_info.json"
 if ($UpdateManifest -and (Test-Path $manifestPath)) {
     Write-Host "`n[Step 5/5] Updating update_info.json..." -ForegroundColor Cyan
     $jsonContent = Get-Content $manifestPath -Raw | ConvertFrom-Json
     
     # Add or update MSI release fields
     $jsonContent | Add-Member -Name "download_url_msi" -Value "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/download/v$Version/K-TOOLS.msi" -MemberType NoteProperty -Force
-    if ($msiHash) {
+    $msiArtifact = $builtArtifacts | Where-Object { [System.IO.Path]::GetFileName($_) -eq "K-TOOLS.msi" } | Select-Object -First 1
+    if ($msiArtifact) {
+        $msiHash = (Get-FileHash -LiteralPath $msiArtifact -Algorithm SHA256).Hash
         $jsonContent | Add-Member -Name "sha256_msi" -Value $msiHash -MemberType NoteProperty -Force
     }
 

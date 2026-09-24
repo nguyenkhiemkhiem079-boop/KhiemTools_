@@ -12,6 +12,7 @@
       <!-- Legacy Core Assembly & Dependencies -->
       <Component Id="C_LegacyDlls" Guid="{B2C3D4E5-F6A7-4B5C-9D8E-0F1A2B3C4D5E}">
         <File Id="File_Legacy_KhimTools" Source="..\..\KhimTools\bin\Release\net48\KhimTools.dll" KeyPath="yes" />
+        <File Id="File_Legacy_Domain" Source="..\..\KhimTools\bin\Release\net48\KhimTools.Domain.dll" />
         <File Id="File_Legacy_CommunityToolkit" Source="..\..\KhimTools\bin\Release\net48\CommunityToolkit.Mvvm.dll" />
         <File Id="File_Legacy_Newtonsoft" Source="..\..\KhimTools\bin\Release\net48\Newtonsoft.Json.dll" />
         <File Id="File_Legacy_BclAsync" Source="..\..\KhimTools\bin\Release\net48\Microsoft.Bcl.AsyncInterfaces.dll" />

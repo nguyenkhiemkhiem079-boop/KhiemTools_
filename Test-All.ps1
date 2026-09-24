@@ -31,7 +31,12 @@ $suites = @(
     @{
         Name = "MSI Lifecycle Install/Upgrade/Repair/Uninstall Audit (Phase 3)"
         Script = Join-Path $scriptDir "Installer\Test-MsiLifecycle.ps1"
-        ExpectedCount = 12
+        ExpectedCount = 13
+    },
+    @{
+        Name = "Phase 11 Deployment & Reproducible Package Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-DeploymentProduction.ps1"
+        ExpectedCount = 14
     },
     @{
         Name = "Revit Runtime QA & Manifest Verification Suite (Phase 9)"

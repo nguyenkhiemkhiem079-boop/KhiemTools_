@@ -77,12 +77,12 @@ try {
     [xml]$pkgXml = Get-Content $pkgXmlPath -Raw
     $components = $pkgXml.ApplicationPackage.Components
 
-    if ($components.Count -lt 7) {
-        throw "Expected at least 7 component entries for Revit 2022-2028, found $($components.Count)"
+    if ($components.Count -ne 5) {
+        throw "Expected exactly 5 supported component entries for Revit 2022-2026; found $($components.Count)"
     }
 
     $legacySeries = @("R2022", "R2023", "R2024")
-    $modernSeries = @("R2025", "R2026", "R2027", "R2028")
+    $modernSeries = @("R2025", "R2026")
 
     foreach ($s in $legacySeries) {
         $found = $components | Where-Object { $_.RuntimeRequirements.SeriesMin -eq $s }
@@ -100,7 +100,7 @@ try {
         }
     }
 
-    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) components spanning Revit 2022-2028"
+    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) supported components spanning Revit 2022-2026; no unsupported years"
 } catch {
     Report-Fail "Audit 02: PackageContents.xml Matrix" $_.Exception.Message
 }
