@@ -41,6 +41,8 @@ foreach ($fixture in @('RC-STATION', 'RC-FULL', 'CC', 'BR', 'SR', 'FR', 'RC-PREV
 
 $columnText = Get-Content -Raw (Join-Path $base 'Forms\RectangularColumnReinforcementForm.cs')
 Add-Check 'rectangular-column-2d-form-preview' ($columnText.Contains('PreviewPanel_Paint')) 'Form paints a responsive 2D schematic.'
+$columnPaintBody = [regex]::Match($columnText, '(?s)private void PreviewPanel_Paint\(.*?(?=\r?\n        private void ApplyLanguage\()').Value
+Add-Check 'rectangular-column-paint-uses-detached-host-summary' ($columnPaintBody.Contains('_previewWidthMm') -and $columnPaintBody.Contains('_previewHostError') -and $columnPaintBody -notmatch 'GetRectangularProfile|LookupParameter|_doc\.GetElement|UnitUtils\.') 'Paint reads the cached host summary only; Revit geometry and parameter access occur on selection changes, and unsupported hosts are shown as unavailable.'
 Add-Check 'rectangular-column-create-gated-by-current-preview' ($columnText.Contains('_previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null') -and $columnText.Contains('UpdatePreviewStateUi();') -and $columnText.Contains('_formGuard?.ValidateNow();')) 'Create stays disabled until a solver-backed preview is accepted and current.'
 $previewServicePath = Join-Path $base 'Core\RebarPreviewService.cs'
 $previewService = if (Test-Path -LiteralPath $previewServicePath) { Get-Content -Raw $previewServicePath } else { '' }

@@ -42,6 +42,13 @@ namespace KhimTools.RebarTool.Forms
         private Panel _previewPanel;
         private TabControl _workflowTabs;
         private readonly List<Button> _workflowNavigationButtons = new List<Button>();
+        private bool _isPopulatingColumnList;
+        private double _previewWidthMm;
+        private double _previewDepthMm;
+        private double _previewHeightMm;
+        private string _previewMark = "<not set>";
+        private string _previewLevelName;
+        private string _previewHostError;
 
         // Tab 1: Thép Chủ & Cover
         private NumericUpDown _numBarsB;
@@ -293,6 +300,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 UpdateSelectedCount();
                 MarkPreviewStale();
+                if (!_isPopulatingColumnList) RefreshSelectedHostPreview();
                 _previewPanel?.Invalidate();
             };
 
@@ -696,6 +704,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void PopulateColumnList()
         {
+            _isPopulatingColumnList = true;
             _columnListBox.Items.Clear();
             bool showSelectedOnly = _rdScopeSelected != null && _rdScopeSelected.Checked;
 
@@ -726,7 +735,44 @@ namespace KhimTools.RebarTool.Forms
                 }
             }
 
+            _isPopulatingColumnList = false;
             UpdateSelectedCount();
+            RefreshSelectedHostPreview();
+        }
+
+        private void RefreshSelectedHostPreview()
+        {
+            var item = _columnListBox?.SelectedItems.Count > 0
+                ? _columnListBox.SelectedItems[0] as ColumnListItem
+                : null;
+            var column = item?.Column;
+
+            _previewWidthMm = 0;
+            _previewDepthMm = 0;
+            _previewHeightMm = 0;
+            _previewMark = "<not set>";
+            _previewLevelName = null;
+            _previewHostError = null;
+
+            if (column == null || _doc == null)
+            {
+                _previewHostError = "Select a column to show host geometry.";
+                return;
+            }
+
+            try
+            {
+                var profile = RectangularColumnGeometryHelper.GetRectangularProfile(column);
+                _previewWidthMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters));
+                _previewDepthMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters));
+                _previewHeightMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.Height, UnitTypeId.Millimeters));
+                _previewMark = column.LookupParameter("Mark")?.AsString() ?? "<not set>";
+                _previewLevelName = _doc.GetElement(column.LevelId)?.Name;
+            }
+            catch (Exception ex)
+            {
+                _previewHostError = "Host geometry unavailable: " + ex.Message;
+            }
         }
 
         private void PopulateBarTypeCombos()
@@ -1231,27 +1277,11 @@ namespace KhimTools.RebarTool.Forms
             var cWarn    = Color.FromArgb(183, 28,  28);
 
             // Data from form controls
-            var sel = _columnListBox?.SelectedItem as ColumnListItem;
-            FamilyInstance col = sel?.Column
-                ?? _preSelectedColumns?.FirstOrDefault()
-                ?? _availableColumns?.FirstOrDefault();
-
-            double bMm = 500, hMm = 500, heightMm = 3600;
-            string mark = "<not set>";
-            string levelName = isEn ? "Level 1" : "Tang 1";
-            if (col != null)
-            {
-                try
-                {
-                    var p = RectangularColumnGeometryHelper.GetRectangularProfile(col);
-                    bMm      = Math.Round(UnitUtils.ConvertFromInternalUnits(p.B,      UnitTypeId.Millimeters));
-                    hMm      = Math.Round(UnitUtils.ConvertFromInternalUnits(p.H,      UnitTypeId.Millimeters));
-                    heightMm = Math.Round(UnitUtils.ConvertFromInternalUnits(p.Height, UnitTypeId.Millimeters));
-                    mark = col.LookupParameter("Mark")?.AsString() ?? "<not set>";
-                    if (_doc != null) levelName = _doc.GetElement(col.LevelId)?.Name ?? levelName;
-                }
-                catch { }
-            }
+            double bMm = _previewWidthMm;
+            double hMm = _previewDepthMm;
+            double heightMm = _previewHeightMm;
+            string mark = _previewMark;
+            string levelName = _previewLevelName ?? (isEn ? "Level unavailable" : "Cao do khong kha dung");
 
             int nB  = (int)(_numBarsB?.Value ?? 3);
             int nH  = (int)(_numBarsH?.Value ?? 3);
@@ -1280,6 +1310,15 @@ namespace KhimTools.RebarTool.Forms
             const int HDR = 18;
 
             g.Clear(cBg);
+
+            if (!string.IsNullOrEmpty(_previewHostError))
+            {
+                using var errorFont = new Font("Segoe UI", 9f, FontStyle.Bold);
+                using var errorBrush = new SolidBrush(cWarn);
+                g.DrawString(_previewHostError, errorFont, errorBrush,
+                    new RectangleF(8, HDR + 8, Math.Max(0, W - 16), Math.Max(0, H - HDR - 16)));
+                return;
+            }
 
             int topH  = Math.Max(200, (int)(H * 0.56));
             int leftW = Math.Max(200, (int)(W * 0.57));
