@@ -40,7 +40,7 @@ namespace KhimTools.RebarTool.Core
             profile.CoverBottomFeet = RebarCoverHelper.GetFloorCover(floor, RebarFace.Bottom);
 
             // 3. Trích xuất Face trên cùng & ranh giới (Top Face Boundary)
-            PlanarFace topFace = GetTopPlanarFace(floor);
+            PlanarFace topFace = GetTopPlanarFace(floor, profile.BoundingBox);
             if (topFace == null || !topFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ, 1e-6))
                 throw new InvalidOperationException("Slab reinforcement currently supports horizontal planar floors only; sloped or non-planar hosts require a host-specific detailing workflow.");
 
@@ -245,13 +245,14 @@ namespace KhimTools.RebarTool.Core
             return inside;
         }
 
-        private static PlanarFace GetTopPlanarFace(Floor floor)
+        private static PlanarFace GetTopPlanarFace(Floor floor, BoundingBoxXYZ bounds)
         {
             var options = new Options { ComputeReferences = true, DetailLevel = ViewDetailLevel.Fine };
             GeometryElement geomElem = floor.get_Geometry(options);
             if (geomElem == null) return null;
 
             var upwardFaces = new List<PlanarFace>();
+            var downwardFaces = new List<PlanarFace>();
 
             foreach (GeometryObject obj in geomElem)
             {
@@ -259,14 +260,21 @@ namespace KhimTools.RebarTool.Core
                 {
                     foreach (Face face in solid.Faces)
                     {
-                        if (face is PlanarFace pf && pf.FaceNormal.DotProduct(XYZ.BasisZ) >= 1.0 - 1e-6)
-                            upwardFaces.Add(pf);
+                        if (face is PlanarFace pf)
+                        {
+                            double verticalNormal = pf.FaceNormal.DotProduct(XYZ.BasisZ);
+                            if (verticalNormal >= 1.0 - 1e-6) upwardFaces.Add(pf);
+                            else if (verticalNormal <= -1.0 + 1e-6) downwardFaces.Add(pf);
+                        }
                     }
                 }
             }
 
-            if (upwardFaces.Count != 1)
-                throw new InvalidOperationException("Slab reinforcement currently requires one upward planar top face; stepped or multi-face floors require host-specific detailing.");
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (upwardFaces.Count != 1 || downwardFaces.Count != 1 ||
+                Math.Abs(upwardFaces[0].Origin.Z - bounds.Max.Z) > tolerance ||
+                Math.Abs(downwardFaces[0].Origin.Z - bounds.Min.Z) > tolerance)
+                throw new InvalidOperationException("Slab reinforcement currently requires one horizontal top face and one horizontal bottom face at the model bounds; stepped, tapered, or multi-face floors require host-specific detailing.");
             return upwardFaces[0];
         }
 
