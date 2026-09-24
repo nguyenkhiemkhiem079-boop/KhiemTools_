@@ -90,6 +90,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new BeamRebarRuntimeFixture());
             registry.RegisterFixture(new SlabRebarRuntimeFixture());
             registry.RegisterFixture(new FoundationRebarRuntimeFixture());
+            registry.RegisterFixture(new CircularColumnPreviewRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnPreviewRuntimeFixture());
             registry.RegisterFixture(new RectangularBeamPreviewRuntimeFixture());
             registry.RegisterFixture(new RotatedBeamPreviewRuntimeFixture());

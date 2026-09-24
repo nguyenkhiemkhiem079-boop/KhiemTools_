@@ -179,6 +179,51 @@ namespace KhimTools.RebarTool.Core
             });
         }
 
+        public static string Fingerprint(CircularColumnRebarInput input)
+        {
+            if (input == null || input.Column == null || input.MainBarType == null || input.StirrupBarType == null)
+                throw new ArgumentException("Circular column, main bar type and tie bar type are required for preview.", "input");
+            return WorkflowFingerprint.Compute(new[]
+            {
+                input.Column.UniqueId, input.Column.VersionGuid.ToString("D"),
+                TypeFingerprint(input.MainBarType), TypeFingerprint(input.StirrupBarType),
+                input.MainBarQty.ToString(CultureInfo.InvariantCulture),
+                input.StirrupSpacing.ToString("R", CultureInfo.InvariantCulture),
+                input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture),
+                input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
+                input.HasDowel.ToString(), input.HasTopAnchor.ToString(), input.IsFoundationColumn.ToString(),
+                input.IsTopRoofColumn.ToString(), input.EnableCrankedSplice.ToString(),
+                input.FootingAnchorMultiplier.ToString("R", CultureInfo.InvariantCulture),
+                input.TopRoofHookLengthMultiplier.ToString("R", CultureInfo.InvariantCulture),
+                input.CustomCoverFeet.HasValue ? input.CustomCoverFeet.Value.ToString("R", CultureInfo.InvariantCulture) : "auto-cover",
+                input.LapLengthMultiplier.ToString("R", CultureInfo.InvariantCulture), input.StaggeredSplice.ToString(),
+                input.DesignStandard.ToString(), input.ConcreteGrade.ToString(), input.SteelGrade.ToString(),
+                input.AdjacentColumnAbove == null ? "" : input.AdjacentColumnAbove.UniqueId,
+                input.AdjacentColumnAbove == null ? "" : input.AdjacentColumnAbove.VersionGuid.ToString("D"),
+                input.AdjacentColumnBelow == null ? "" : input.AdjacentColumnBelow.UniqueId,
+                input.AdjacentColumnBelow == null ? "" : input.AdjacentColumnBelow.VersionGuid.ToString("D")
+            });
+        }
+
+        public static IDictionary<string, string> Describe(CircularColumnRebarInput input)
+        {
+            CircularColumnGeometryHelper.ColumnProfile profile = CircularColumnGeometryHelper.GetCircularProfile(input.Column);
+            return new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["HostId"] = input.Column.UniqueId,
+                ["HostGeometry"] = "D=" + profile.Diameter.ToString("R", CultureInfo.InvariantCulture) + " @ " + profile.BaseCenter,
+                ["BarTypes"] = TypeFingerprint(input.MainBarType) + " | " + TypeFingerprint(input.StirrupBarType),
+                ["Diameters"] = input.MainBarType.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture) + " | " + input.StirrupBarType.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture),
+                ["Spacing"] = input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture) + " | " + input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
+                ["Cover"] = input.CustomCoverFeet.HasValue ? input.CustomCoverFeet.Value.ToString("R", CultureInfo.InvariantCulture) : "host cover",
+                ["Hooks"] = input.HasTopAnchor + ":" + input.HasDowel,
+                ["BarCount"] = input.MainBarQty.ToString(CultureInfo.InvariantCulture),
+                ["Zones"] = input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                ["Orientation"] = input.Column.HandOrientation.ToString() + " | " + input.Column.FacingOrientation.ToString()
+            };
+        }
+
         public static IDictionary<string, string> Describe(RectangularColumnRebarInput input)
         {
             RectangularColumnGeometryHelper.ColumnProfile profile = RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);

@@ -662,4 +662,118 @@ namespace KhimTools.RuntimeQa.Fixtures
         private static int CountHostedBars(Document document, Element host) =>
             new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>().Count(bar => bar.GetHostId() == host.Id);
     }
+
+    public sealed class CircularColumnPreviewRuntimeFixture : RuntimeQaFixtureBase
+    {
+        public override string Id { get { return "CC-PREVIEW"; } }
+        public override string Name { get { return "Circular Column rollback-only solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Verify circular-column preview refresh, non-destructive rollback, stale-input fingerprinting, duplicate detection and production centerline parity."; } }
+        public override bool IsCritical { get { return true; } }
+
+        protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
+        {
+            Document doc = context.Document;
+            FamilyInstance column = context.UiDocument.Selection.GetElementIds()
+                .Select(id => doc.GetElement(id) as FamilyInstance)
+                .FirstOrDefault(candidate => candidate != null && CmdColumnRebar.IsCircular(candidate));
+            if (column == null)
+                column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns)
+                    .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().FirstOrDefault(CmdColumnRebar.IsCircular);
+            RebarBarType main = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
+            RebarBarType tie = RuntimeQaFixtureHelpers.FindBarType(doc, 10);
+            if (column == null || main == null || tie == null)
+            {
+                Block(result, "CC-PREVIEW_RES", "Preview resources", "Circular column and compatible N16/N10 types",
+                    "BLOCKED: select or load a circular column and compatible RebarBarTypes.", QaSeverity.CRITICAL);
+                return;
+            }
+
+            var input = new CircularColumnRebarInput
+            {
+                Column = column, MainBarType = main, StirrupBarType = tie, MainBarQty = 8,
+                HasDowel = true, HasTopAnchor = true, StirrupSpacing = UnitUtils.ConvertToInternalUnits(150, UnitTypeId.Millimeters)
+            };
+            var generator = new CircularColumnRebarGenerator(doc);
+            string fingerprint = RebarPreviewService.Fingerprint(input);
+            int barsBefore = CountHostedBars(doc, column);
+            RebarPreviewRequest CreateRequest() => new RebarPreviewRequest(fingerprint, () =>
+            {
+                RebarShapeLibrary.PreloadCommonShapes(doc);
+                var report = new RebarGenerationReport();
+                List<Rebar> bars = generator.Generate(input, report);
+                if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
+                return bars;
+            }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+
+            RebarPreviewSnapshot preview;
+            try
+            {
+                preview = RebarPreviewService.Capture(doc, new[] { CreateRequest() });
+                RebarPreviewSnapshot refreshed = RebarPreviewService.Capture(doc, new[] { CreateRequest() });
+                RebarPreviewComponent component = preview.Find(fingerprint);
+                RebarPreviewComponent refreshedComponent = refreshed.Find(fingerprint);
+                Check(result, "CC-PREVIEW_REFRESH", "Detached circular-column solver paths refresh deterministically",
+                    component != null && component.BarCount > 0 && component.Paths.Count > 0 && refreshedComponent != null &&
+                    WorkflowFingerprint.Matches(component.GeometryFingerprint, refreshedComponent.GeometryFingerprint),
+                    "Same detached centerlines", component == null ? "No preview" : component.BarCount + " bars / " + component.Paths.Count + " paths",
+                    "The preview invokes CircularColumnRebarGenerator under rollback-only capture.", QaSeverity.CRITICAL);
+                Check(result, "CC-PREVIEW_CANCEL", "Capture/cancel leaves no hosted bars", CountHostedBars(doc, column) == barsBefore,
+                    barsBefore.ToString(), CountHostedBars(doc, column).ToString(),
+                    "The capture transaction rolls back and does not persist generated bars.", QaSeverity.CRITICAL);
+            }
+            catch (Exception ex)
+            {
+                Check(result, "CC-PREVIEW_CAPTURE", "Circular-column rollback-only solver capture", false,
+                    "Successful detached production preview", ex.Message, "Capture failed.", QaSeverity.CRITICAL);
+                return;
+            }
+
+            int originalQty = input.MainBarQty;
+            input.MainBarQty++;
+            bool staleRejected = preview.Find(RebarPreviewService.Fingerprint(input)) == null;
+            input.MainBarQty = originalQty;
+            Check(result, "CC-PREVIEW_STALE", "Changed circular-column inputs reject the prior plan", staleRejected,
+                "Changed fingerprint absent from old snapshot", staleRejected ? "Rejected" : "Matched old plan",
+                "The input fingerprint includes host, bar types, type versions and all generator settings.", QaSeverity.CRITICAL);
+
+            bool matched = false;
+            bool duplicate = false;
+            TransactionStatus status;
+            using (var tx = new Transaction(doc, "K-TOOLS Runtime QA circular column parity"))
+            {
+                if (tx.Start() != TransactionStatus.Started)
+                {
+                    Block(result, "CC-PREVIEW_TX", "Parity transaction", "Started transaction", "BLOCKED: Revit could not start the transaction.", QaSeverity.CRITICAL);
+                    return;
+                }
+                try
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(doc);
+                    var report = new RebarGenerationReport();
+                    List<Rebar> generated = generator.Generate(input, report);
+                    doc.Regenerate();
+                    matched = !report.HasErrors && RebarPreviewService.Matches(preview, fingerprint, generated);
+                    duplicate = RebarPreviewService.HasExistingDuplicateBar(doc, column, preview, fingerprint);
+                }
+                finally { if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack(); }
+                status = tx.GetStatus();
+            }
+            Check(result, "CC-PREVIEW_PARITY", "Preview/create centerline parity", matched,
+                "Production centerlines match detached preview", matched ? "Matched" : "Mismatch",
+                "The fixture regenerates inside a disposable transaction and rolls it back.", QaSeverity.CRITICAL);
+            Check(result, "CC-PREVIEW_DUPLICATE", "Equivalent circular-column bars are detected", duplicate,
+                "Existing planned bars detected", duplicate ? "Detected" : "Not detected",
+                "Duplicate detection runs while matching bars exist in the parity transaction.", QaSeverity.CRITICAL);
+            Check(result, "CC-PREVIEW_ROLLBACK", "Parity transaction rolls back", status == TransactionStatus.RolledBack,
+                TransactionStatus.RolledBack.ToString(), status.ToString(),
+                "Fixture does not persist test reinforcement.", QaSeverity.CRITICAL);
+            Check(result, "CC-PREVIEW_CLEAN", "Host bar count is unchanged", CountHostedBars(doc, column) == barsBefore,
+                barsBefore.ToString(), CountHostedBars(doc, column).ToString(),
+                "No duplicate or temporary bars remain after fixture completion.", QaSeverity.CRITICAL);
+        }
+
+        private static int CountHostedBars(Document document, Element host) =>
+            new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>().Count(bar => bar.GetHostId() == host.Id);
+    }
 }

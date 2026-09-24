@@ -11,6 +11,8 @@ using KhimTools.Core;
 using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
+using KhimTools.Core.Workflow;
+using KhimTools.Core.Preview;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
 using Control = System.Windows.Forms.Control;
@@ -97,6 +99,9 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnApplyTemplate;
         private Button _btnDeleteTemplate;
         private RebarFormGuard _formGuard;
+        private Button _btnPreview3D;
+        private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         public CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
             : this(doc, availableColumns, preSelectedColumns, true)
@@ -126,7 +131,9 @@ namespace KhimTools.RebarTool.Forms
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột tròn."),
                 RebarFormGuard.RequireCombo(_cmbMainDia, "Chọn loại thép chủ."),
-                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."));
+                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
+                new RebarValidationRule(_btnCreateRebar, () => HasCurrentAcceptedPreview(),
+                    "Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."));
         }
 
         private void BuildUi()
@@ -176,7 +183,9 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            var footer = RebarLayout.Footer(null, _btnCreateRebar, _btnClose);
+            _btnPreview3D = new Button { Text = "Solve Rebar preview (rollback only)", Enabled = _doc != null };
+            _btnPreview3D.Click += BtnPreview3D_Click;
+            var footer = RebarLayout.Footer(null, _btnPreview3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -510,29 +519,107 @@ namespace KhimTools.RebarTool.Forms
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
             var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            string text = _previewLifecycle.State == PreviewLifecycleState.Valid
+                ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry."
+                : "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry.";
+            TextRenderer.DrawText(g, text, Font, _previewPanel.ClientRectangle,
+                Color.FromArgb(71, 85, 105), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+        }
 
-            int cx = _previewPanel.Width / 2;
-            int cy = _previewPanel.Height / 2;
-            int r = Math.Min(_previewPanel.Width, _previewPanel.Height) / 2 - 20;
-            if (r <= 0) return;
-
-            using var penColumn = new Pen(Color.Gray, 2);
-            g.DrawEllipse(penColumn, cx - r, cy - r, 2 * r, 2 * r);
-
-            int count = (int)_numMainQty.Value;
-            if (count > 0)
+        private List<List<CircularColumnRebarInput>> BuildGenerationInputGroups(
+            IList<ColumnListItem> selectedItems, RebarBarType mainType, RebarBarType stirrupType, double? customCoverFeet)
+        {
+            var groups = RebarLapSpliceHelper.GroupColumnsByAxis(selectedItems.Select(item => item.Column).ToList(), _doc);
+            return groups.Select(group => group.Select((column, index) => new CircularColumnRebarInput
             {
-                using var brushBar = new SolidBrush(Color.DarkBlue);
-                int barR = r - 15;
-                for (int i = 0; i < count; i++)
+                Column = column,
+                MainBarType = mainType,
+                StirrupBarType = stirrupType,
+                MainBarQty = (int)_numMainQty.Value,
+                HasDowel = !_rdBaseFoundation.Checked,
+                IsFoundationColumn = _rdBaseFoundation.Checked,
+                EnableCrankedSplice = _chkCrankedSplice.Checked,
+                HasTopAnchor = _chkTopAnchor.Checked,
+                StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                CustomCoverFeet = customCoverFeet,
+                LapLengthMultiplier = (double)_numLapMultiplier.Value,
+                StaggeredSplice = _chkStaggeredSplice.Checked,
+                DesignStandard = GetSelectedDesignStandard(),
+                ConcreteGrade = GetSelectedConcreteGrade(),
+                SteelGrade = GetSelectedSteelGrade(),
+                AdjacentColumnBelow = index > 0 && RebarLapSpliceHelper.AreConsecutiveColumns(group[index - 1], column) ? group[index - 1] : null,
+                AdjacentColumnAbove = index < group.Count - 1 && RebarLapSpliceHelper.AreConsecutiveColumns(column, group[index + 1]) ? group[index + 1] : null
+            }).ToList()).ToList();
+        }
+
+        private string CurrentInputFingerprint()
+        {
+            var selected = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
+            RebarBarType main = FindBarType(_cmbMainDia.Text);
+            RebarBarType tie = FindBarType(_cmbStirrupDia.Text);
+            if (selected.Count == 0 || main == null || tie == null) return string.Empty;
+            double? cover = _chkCustomCover.Checked
+                ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
+                : (double?)null;
+            return RebarPreviewService.FingerprintInputs(BuildGenerationInputGroups(selected, main, tie, cover)
+                .SelectMany(group => group).Select(RebarPreviewService.Fingerprint));
+        }
+
+        private bool HasCurrentAcceptedPreview()
+        {
+            RebarPreviewSnapshot accepted;
+            return _doc != null && _lastPreview != null &&
+                _previewLifecycle.TryGetValid(CurrentInputFingerprint(), out accepted);
+        }
+
+        private void BtnPreview3D_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var selected = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
+                if (selected.Count == 0) throw new InvalidOperationException("Select at least one circular column first.");
+                RebarBarType main = FindBarType(_cmbMainDia.Text);
+                RebarBarType tie = FindBarType(_cmbStirrupDia.Text);
+                if (main == null || tie == null) throw new InvalidOperationException("Select both main and tie bar types.");
+                double? cover = _chkCustomCover.Checked
+                    ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
+                    : (double?)null;
+                var inputs = BuildGenerationInputGroups(selected, main, tie, cover).SelectMany(group => group).ToArray();
+                var generator = new CircularColumnRebarGenerator(_doc);
+                bool shapesLoaded = false;
+                var requests = inputs.Select(input =>
                 {
-                    double angle = 2 * Math.PI * i / count;
-                    int bx = cx + (int)(barR * Math.Cos(angle));
-                    int by = cy + (int)(barR * Math.Sin(angle));
-                    g.FillEllipse(brushBar, bx - 4, by - 4, 8, 8);
+                    string fingerprint = RebarPreviewService.Fingerprint(input);
+                    return new RebarPreviewRequest(fingerprint, () =>
+                    {
+                        if (!shapesLoaded)
+                        {
+                            RebarShapeLibrary.PreloadCommonShapes(_doc);
+                            shapesLoaded = true;
+                        }
+                        var report = new RebarGenerationReport();
+                        List<Rebar> bars = generator.Generate(input, report);
+                        if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
+                        return bars;
+                    }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+                }).ToArray();
+                _previewLifecycle.BeginGeneration();
+                _lastPreview = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(_lastPreview))
+                {
+                    if (preview.ShowDialog(this) == DialogResult.OK)
+                        _previewLifecycle.Complete(_lastPreview, RebarPreviewService.FingerprintInputs(inputs.Select(RebarPreviewService.Fingerprint)));
+                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
             }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                KhimDialogHelper.ShowError("Unable to create circular-column solver preview: " + ex.Message);
+            }
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
@@ -558,6 +645,29 @@ namespace KhimTools.RebarTool.Forms
                 ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
                 : null;
 
+            List<List<CircularColumnRebarInput>> inputGroups = BuildGenerationInputGroups(
+                selectedItems, mainType, stirrupType, customCoverFeet);
+            RebarPreviewSnapshot acceptedPreview;
+            string currentFingerprint = CurrentInputFingerprint();
+            if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) ||
+                inputGroups.SelectMany(group => group).Any(input => acceptedPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+            {
+                MessageBox.Show(this, "Create or refresh the solver-backed 3D preview for the current circular columns and settings before generating rebar.",
+                    "Preview required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _previewPanel?.Invalidate();
+                _formGuard?.ValidateNow();
+                return;
+            }
+            foreach (CircularColumnRebarInput input in inputGroups.SelectMany(group => group))
+            {
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, input.Column, acceptedPreview, RebarPreviewService.Fingerprint(input)))
+                {
+                    MessageBox.Show(this, "Equivalent reinforcement already exists on column " + input.Column.Id + ". Remove or edit existing bars before generating to avoid duplicates.",
+                        "Duplicate reinforcement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
             var report = new RebarGenerationReport();
             int axisGroupCount = 0;
             try
@@ -572,35 +682,17 @@ namespace KhimTools.RebarTool.Forms
                     var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
                     var view3DGen = new ColumnRebar3DViewGenerator(_doc);
 
-                    List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
-                    List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
-                    axisGroupCount = axisGroups.Count;
+                    axisGroupCount = inputGroups.Count;
 
-                    foreach (var group in axisGroups)
+                    foreach (var inputs in inputGroups)
                     {
-                        var inputs = group.Select(col => new CircularColumnRebarInput
+                        foreach (CircularColumnRebarInput input in inputs)
                         {
-                            Column = col,
-                            MainBarType = mainType,
-                            StirrupBarType = stirrupType,
-                            MainBarQty = (int)_numMainQty.Value,
-                            HasDowel = !_rdBaseFoundation.Checked,
-                            IsFoundationColumn = _rdBaseFoundation.Checked,
-                            EnableCrankedSplice = _chkCrankedSplice.Checked,
-                            HasTopAnchor = _chkTopAnchor.Checked,
-                            StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
-                            CustomCoverFeet = customCoverFeet,
-                            LapLengthMultiplier = (double)_numLapMultiplier.Value,
-                            StaggeredSplice = _chkStaggeredSplice.Checked,
-                            DesignStandard = GetSelectedDesignStandard(),
-                            ConcreteGrade = GetSelectedConcreteGrade(),
-                            SteelGrade = GetSelectedSteelGrade()
-                        }).ToList();
-
-                        var createdRebars = generator.GenerateMultiStory(inputs, report);
-
-                        foreach (var item in group)
-                        {
+                            List<Rebar> createdRebars = generator.Generate(input, report);
+                            _doc.Regenerate();
+                            if (!RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), createdRebars))
+                                throw new InvalidOperationException("Circular-column generated geometry differs from the accepted solver preview for host " + input.Column.Id + ".");
+                            FamilyInstance item = input.Column;
                             if (_chkAutoDrawing.Checked)
                             {
                                 try
@@ -660,9 +752,15 @@ namespace KhimTools.RebarTool.Forms
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine("Circular column Rebar creation failed: " + ex);
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
                 KhimDialogHelper.ShowError(errTitle, ex.Message);
             }
+            _lastPreview = null;
+            _previewLifecycle.Invalidate();
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
         }
 
         private RebarBarType FindBarType(string label) =>
