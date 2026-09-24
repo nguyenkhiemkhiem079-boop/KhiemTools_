@@ -73,7 +73,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 Width = 190,
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                AccessibleName = "Filter solver preview by reinforcement role"
+                AccessibleName = "Highlight solver preview by reinforcement role"
             };
             _roleSelector.Items.Add(new PreviewRoleOption(null, "All roles / Tất cả"));
             string[] availableRoles = snapshot.Components.SelectMany(component => component.Paths)
@@ -105,11 +105,12 @@ namespace KhimTools.RebarTool.Forms
                 BackColor = Color.FromArgb(241, 245, 249)
             };
             AddToolButton(toolbar, "FIT", () => Fit());
+            AddToolButton(toolbar, "FIT ALL", () => FitAll());
             AddToolButton(toolbar, "−", () => ChangeZoom(1f / 1.2f));
             AddToolButton(toolbar, "+", () => ChangeZoom(1.2f));
             if (availableRoles.Length > 0)
             {
-                toolbar.Controls.Add(new Label { Text = "Role:", AutoSize = true, Padding = new Padding(8, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
+                toolbar.Controls.Add(new Label { Text = "Highlight:", AutoSize = true, Padding = new Padding(8, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
                 toolbar.Controls.Add(_roleSelector);
             }
             toolbar.Controls.Add(new Label { Text = "Mouse wheel: zoom    Drag: pan", AutoSize = true, Padding = new Padding(10, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
@@ -153,6 +154,13 @@ namespace KhimTools.RebarTool.Forms
             _zoom = 1f;
             _pan = PointF.Empty;
             InvalidateCanvases();
+        }
+
+        private void FitAll()
+        {
+            if (_componentSelector.Items.Count > 0) _componentSelector.SelectedIndex = 0;
+            if (_roleSelector.Items.Count > 0) _roleSelector.SelectedIndex = 0;
+            Fit();
         }
 
         private void ChangeZoom(float factor)
