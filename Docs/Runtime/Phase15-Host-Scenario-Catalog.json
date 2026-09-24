@@ -39,6 +39,7 @@
   ],
   "manualScenarios": [
     { "id": "COLUMN_CREATE_UNDO", "domain": "REBAR", "scenario": "Preview, create column bars, undo once, compare prior model state, rerun", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
+    { "id": "COLUMN_GOLDEN_LAYOUT", "domain": "REBAR", "scenario": "On a disposable 350 x 1000 mm rectangular-prism column, solve the supported 16 x 25 mm longitudinal-bar configuration with 25 mm cover and explicit tie zones; compare solved preview paths and created bars for count, position, diameter, cover, ties, and model integrity", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "COLUMN_CANCEL", "domain": "REBAR", "scenario": "Cancel/close column preview and confirm no hosted bars or persistent preview elements", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "COLUMN_DUPLICATE", "domain": "REBAR", "scenario": "Create column bars, repeat identical request, verify no duplicate bars", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "CIRCULAR_COLUMN_CREATE_UNDO", "domain": "REBAR", "scenario": "Preview/create circular-column bars, undo once, compare prior model state, rerun", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },

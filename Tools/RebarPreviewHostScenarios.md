@@ -5,6 +5,7 @@ These are Autodesk Revit host checks. Registration is not evidence of execution;
 | Scenario | Class | Required host action and expected result | Status |
 |---|---|---|---|
 | COLUMN_UNDO | HOST_REQUIRED | Rectangular column: solve preview, accept, create, Undo once; compare prior bar count/model fingerprint, confirm no preview elements remain, then repeat preview/create successfully. | REGISTERED_NOT_EXECUTED |
+| COLUMN_GOLDEN_LAYOUT | HOST_REQUIRED | On a disposable 350 x 1000 mm rectangular-prism column, solve the supported 16 x 25 mm longitudinal-bar configuration with 25 mm cover and explicit tie zones; compare solved preview paths and created bars for count, position, diameter, cover, ties, and model integrity. This is a manual host scenario, not the generic C1 fixture. | REGISTERED_NOT_EXECUTED |
 | BEAM_UNDO | HOST_REQUIRED | Rectangular beam: solve preview, accept, create, Undo once; verify prior model state and successful rerun. Repeat with a horizontally rotated beam. | REGISTERED_NOT_EXECUTED |
 | BEAM_GEOMETRY_REJECTION | HOST_REQUIRED | On disposable I-shaped, tapered, curved, cutback, stepped, or multi-solid framing hosts, attempt preview/create and verify rejection before any Rebar is committed; verify a straight constant rectangular prism remains eligible in both axis-aligned and plan-rotated orientations. | REGISTERED_NOT_EXECUTED |
 | SLAB_UNDO | HOST_REQUIRED | Slab: solve preview, accept, create, Undo once; verify prior model state and successful rerun. Repeat for an opening slab where supported. | REGISTERED_NOT_EXECUTED |
