@@ -246,7 +246,16 @@ namespace KhimTools.RebarTool.Forms
             editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
 
             // ── LEFT: TabControl (Thông số cốt thép)
-            var tabControl = _workflowTabs = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F) };
+            var tabControl = _workflowTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Font = new Font("Segoe UI", 9F),
+                Appearance = TabAppearance.FlatButtons,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(0, 1),
+                AccessibleName = "Slab role-oriented settings"
+            };
 
             // TAB 1: 🔽 Lớp Dưới (Bottom Layer)
             var tabBottom = new TabPage("Lưới Đáy") { BackColor = KhimUiStyle.FormBg };

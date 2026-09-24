@@ -118,6 +118,14 @@ if ($rectangularColumnForm -notmatch 'AccessibleName\s*=\s*"Rectangular column p
     throw "Rectangular-column solver preview must be discoverable, visibly stateful, and gate Create until the current preview is accepted."
 }
 $contractChecks++
+$slabForm = $rebarForms[1]
+if ($slabForm -notmatch 'Appearance\s*=\s*TabAppearance\.FlatButtons' -or
+    $slabForm -notmatch 'ItemSize\s*=\s*new Size\(0,\s*1\)' -or
+    $slabForm -notmatch 'AddRoleSelector\(roles,' -or
+    $slabForm -notmatch '_workflowTabs\.SelectedIndex\s*=\s*index') {
+    throw "Slab daily settings must be navigated through the role-oriented selector without duplicative primary tab headers."
+}
+$contractChecks++
 $iconNames = @([regex]::Matches($ribbon, '"([^"\r\n]+\.png)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 foreach ($iconName in $iconNames) {
     if (!(Test-Path -LiteralPath (Join-Path $root ("KhimTools/Resources/" + $iconName)))) { throw "Ribbon icon resource is missing: $iconName" }
