@@ -10,6 +10,13 @@ namespace KhimTools.RebarTool.Forms
     internal sealed class RebarSolverPreviewForm : Form
     {
         private readonly RebarPreviewSnapshot _snapshot;
+        private float _zoom = 1f;
+        private PointF _pan = PointF.Empty;
+        private Point _dragStart;
+        private PointF _dragPanStart;
+        private bool _dragging;
+        private readonly System.Collections.Generic.List<Panel> _canvases = new System.Collections.Generic.List<Panel>();
+        private TabControl _tabs;
 
         public RebarSolverPreviewForm(RebarPreviewSnapshot snapshot)
         {
@@ -29,17 +36,32 @@ namespace KhimTools.RebarTool.Forms
                 Text = string.Format("Solved bars: {0}    Centerline paths: {1}    Rollback-only; model unchanged",
                     snapshot.Components.Sum(c => c.BarCount), snapshot.Components.Sum(c => c.Paths.Count))
             };
-            var tabs = new TabControl { Dock = DockStyle.Fill };
-            AddProjectionTab(tabs, "3D isometric", "iso");
-            AddProjectionTab(tabs, "Plan (XY)", "plan");
-            AddProjectionTab(tabs, "Elevation (XZ)", "elevation");
+            _tabs = new TabControl { Dock = DockStyle.Fill };
+            AddProjectionTab(_tabs, "ISO", "iso");
+            AddProjectionTab(_tabs, "TOP", "top");
+            AddProjectionTab(_tabs, "FRONT", "front");
+            AddProjectionTab(_tabs, "RIGHT", "right");
+
+            var toolbar = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 38,
+                WrapContents = false,
+                Padding = new Padding(8, 4, 8, 2),
+                BackColor = Color.FromArgb(241, 245, 249)
+            };
+            AddToolButton(toolbar, "FIT", () => Fit());
+            AddToolButton(toolbar, "−", () => ChangeZoom(1f / 1.2f));
+            AddToolButton(toolbar, "+", () => ChangeZoom(1.2f));
+            toolbar.Controls.Add(new Label { Text = "Mouse wheel: zoom    Drag: pan", AutoSize = true, Padding = new Padding(10, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
             var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
             var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
             var accept = new Button { Text = "Use this preview", AutoSize = true, DialogResult = DialogResult.OK };
             footer.Controls.Add(cancel);
             footer.Controls.Add(accept);
-            Controls.Add(tabs);
+            Controls.Add(_tabs);
             Controls.Add(footer);
+            Controls.Add(toolbar);
             Controls.Add(header);
             AcceptButton = accept;
             CancelButton = cancel;
@@ -49,7 +71,75 @@ namespace KhimTools.RebarTool.Forms
         {
             var canvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Tag = projection };
             canvas.Paint += PaintPreview;
+            canvas.MouseWheel += Canvas_MouseWheel;
+            canvas.MouseDown += Canvas_MouseDown;
+            canvas.MouseMove += Canvas_MouseMove;
+            canvas.MouseUp += Canvas_MouseUp;
+            canvas.Resize += (sender, args) => canvas.Invalidate();
+            canvas.TabStop = true;
+            canvas.Cursor = Cursors.SizeAll;
+            _canvases.Add(canvas);
             tabs.TabPages.Add(new TabPage(title) { Controls = { canvas } });
+        }
+
+        private static void AddToolButton(FlowLayoutPanel toolbar, string label, Action click)
+        {
+            var button = new Button { Text = label, Width = 52, Height = 28, Margin = new Padding(2, 0, 2, 0), FlatStyle = FlatStyle.System };
+            button.Click += (sender, args) => click();
+            toolbar.Controls.Add(button);
+        }
+
+        private void Fit()
+        {
+            _zoom = 1f;
+            _pan = PointF.Empty;
+            InvalidateCanvases();
+        }
+
+        private void ChangeZoom(float factor)
+        {
+            _zoom = Math.Max(0.25f, Math.Min(8f, _zoom * factor));
+            InvalidateCanvases();
+        }
+
+        private void InvalidateCanvases()
+        {
+            foreach (Panel canvas in _canvases) canvas.Invalidate();
+        }
+
+        private void Canvas_MouseWheel(object sender, MouseEventArgs e)
+        {
+            Panel canvas = (Panel)sender;
+            float previous = _zoom;
+            _zoom = Math.Max(0.25f, Math.Min(8f, _zoom * (e.Delta > 0 ? 1.15f : 1f / 1.15f)));
+            float ratio = _zoom / previous;
+            float anchorX = e.X - canvas.ClientSize.Width / 2f;
+            float anchorY = e.Y - canvas.ClientSize.Height / 2f;
+            _pan = new PointF(anchorX * (1f - ratio) + _pan.X * ratio, anchorY * (1f - ratio) + _pan.Y * ratio);
+            InvalidateCanvases();
+            canvas.Focus();
+        }
+
+        private void Canvas_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left && e.Button != MouseButtons.Middle) return;
+            _dragging = true;
+            _dragStart = e.Location;
+            _dragPanStart = _pan;
+            ((Panel)sender).Capture = true;
+        }
+
+        private void Canvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_dragging) return;
+            _pan = new PointF(_dragPanStart.X + e.X - _dragStart.X, _dragPanStart.Y + e.Y - _dragStart.Y);
+            InvalidateCanvases();
+        }
+
+        private void Canvas_MouseUp(object sender, MouseEventArgs e)
+        {
+            _dragging = false;
+            ((Panel)sender).Capture = false;
         }
 
         private void PaintPreview(object sender, PaintEventArgs e)
@@ -65,10 +155,10 @@ namespace KhimTools.RebarTool.Forms
             float maxY = projected.SelectMany(p => p).Max(p => p.Y);
             float width = Math.Max(1f, maxX - minX);
             float height = Math.Max(1f, maxY - minY);
-            float scale = Math.Min((canvas.ClientSize.Width - 64f) / width, (canvas.ClientSize.Height - 72f) / height);
+            float scale = Math.Min((canvas.ClientSize.Width - 48f) / width, (canvas.ClientSize.Height - 60f) / height) * 0.82f * _zoom;
             if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
-            float offsetX = (canvas.ClientSize.Width - width * scale) / 2f;
-            float offsetY = (canvas.ClientSize.Height - height * scale) / 2f;
+            float offsetX = (canvas.ClientSize.Width - width * scale) / 2f + _pan.X;
+            float offsetY = (canvas.ClientSize.Height - height * scale) / 2f + _pan.Y;
             PointF Map(PointF p) => new PointF(offsetX + (p.X - minX) * scale, offsetY + (maxY - p.Y) * scale);
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -76,8 +166,9 @@ namespace KhimTools.RebarTool.Forms
             using (var font = new Font("Segoe UI", 9f))
             using (var brush = new SolidBrush(Color.FromArgb(70, 82, 95)))
             {
-                string heading = projection == "plan" ? "PLAN (XY) — SOLVED REBAR CENTERLINES" :
-                    projection == "elevation" ? "ELEVATION (XZ) — SOLVED REBAR CENTERLINES" :
+                string heading = projection == "top" ? "TOP (XY) — SOLVED REBAR CENTERLINES" :
+                    projection == "front" ? "FRONT (XZ) — SOLVED REBAR CENTERLINES" :
+                    projection == "right" ? "RIGHT (YZ) — SOLVED REBAR CENTERLINES" :
                     "ISOMETRIC — SOLVED REBAR CENTERLINES";
                 e.Graphics.DrawString(heading, font, brush, 12, 10);
                 foreach (PointF[] path in projected)
@@ -90,8 +181,9 @@ namespace KhimTools.RebarTool.Forms
 
         private static PointF Project(RebarPreviewPoint point, string projection)
         {
-            if (projection == "plan") return new PointF((float)point.X, (float)point.Y);
-            if (projection == "elevation") return new PointF((float)point.X, (float)point.Z);
+            if (projection == "top") return new PointF((float)point.X, (float)point.Y);
+            if (projection == "front") return new PointF((float)point.X, (float)point.Z);
+            if (projection == "right") return new PointF((float)point.Y, (float)point.Z);
             return new PointF((float)((point.X - point.Y) * 0.8660254), (float)(point.Z - (point.X + point.Y) * 0.25));
         }
     }
