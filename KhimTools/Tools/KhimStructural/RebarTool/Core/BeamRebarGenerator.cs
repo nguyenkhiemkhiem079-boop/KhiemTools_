@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
@@ -151,7 +151,7 @@ namespace KhimTools.RebarTool.Core
             return created;
         }
 
-        // â”€â”€â”€ TOP CONTINUOUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== TOP CONTINUOUS =====
 
         private List<Rebar> CreateTopContinuousBars(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
@@ -199,7 +199,7 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ BOTTOM CONTINUOUS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== BOTTOM CONTINUOUS =====
 
         private List<Rebar> CreateBottomContinuousBars(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
@@ -246,7 +246,7 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ TOP EXTRA (LEFT & RIGHT) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== TOP EXTRA (LEFT & RIGHT) =====
 
         private List<Rebar> CreateTopLeftExtraBars(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
@@ -306,7 +306,7 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ BOTTOM MID EXTRA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== BOTTOM MID EXTRA =====
 
         private List<Rebar> CreateBottomMidExtraBars(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
@@ -337,7 +337,7 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ SIDE BARS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== SIDE BARS =====
 
         private List<Rebar> CreateSideBars(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, RebarBarType sideType)
@@ -372,7 +372,7 @@ namespace KhimTools.RebarTool.Core
             return bars;
         }
 
-        // â”€â”€â”€ STIRRUPS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ===== STIRRUPS =====
 
         private List<Rebar> CreateBeamStirrups(BeamRebarInput input,
             BeamGeometryHelper.BeamProfile profile, double halfB, double halfH)

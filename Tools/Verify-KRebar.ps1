@@ -61,8 +61,8 @@ Add-Check 'preview-runtime-fixture-registered' ($registryText.Contains('new Rect
 
 $beamText = Get-Content -Raw (Join-Path $base 'Forms\BeamReinforcementForm.cs')
 $slabText = Get-Content -Raw (Join-Path $base 'Forms\SlabReinforcementForm.cs')
-$beamGenerator = Get-Content -Raw (Join-Path $base 'Core\BeamRebarGenerator.cs')
-Add-Check 'beam-generator-vietnamese-encoding' ($beamGenerator -cnotmatch '(?:\u00C3.|\u00E1[\u00BA\u00BB]|\u00C4.|\u00E2\u20AC\u00A2|\uFFFD)') 'Beam generator comments and diagnostics contain no common UTF-8 mojibake signatures or replacement characters.'
+$beamGenerator = [System.IO.File]::ReadAllText((Join-Path $base 'Core\BeamRebarGenerator.cs'), [System.Text.Encoding]::UTF8)
+Add-Check 'beam-generator-vietnamese-encoding' ($beamGenerator -cnotmatch '(?:\u00C3.|\u00E1[\u00BA\u00BB]|\u00C4.|\u00E2(?:\u20AC|\u201C|\u201D|\u0080|\u0094)|\uFFFD)') 'Beam generator comments and diagnostics contain no common UTF-8 mojibake signatures or replacement characters.'
 $slabGenerator = Get-Content -Raw (Join-Path $base 'Core\SlabRebarGenerator.cs')
 $foundationText = Get-Content -Raw (Join-Path $base 'Forms\FoundationReinforcementForm.cs')
 $foundationRoleNavigation = $foundationText.Contains('Foundation role-oriented settings') -and $foundationText.Contains('AddRoleNavigation(roleNavigation') -and $foundationText.Contains('UpdateRoleNavigation();') -and $foundationText.Contains('ItemSize = new Size(0, 1)')
