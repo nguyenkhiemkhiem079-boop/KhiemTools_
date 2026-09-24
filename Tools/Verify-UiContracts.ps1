@@ -114,8 +114,12 @@ if ($rectangularColumnForm -notmatch 'AccessibleName\s*=\s*"Rectangular column p
     $rectangularColumnForm -notmatch 'MarkPreviewStale\(\)' -or
     $rectangularColumnForm -notmatch 'RebarLayout\.Footer\(_cmbLanguage,\s*_btnPreview3D,\s*_btnCreateRebar' -or
     $rectangularColumnForm -notmatch 'PreviewLifecycleState\.Valid\s*&&\s*_lastPreview\s*!=\s*null' -or
-    $rectangularColumnForm -notmatch '_formGuard\?\.ValidateNow\(\)') {
-    throw "Rectangular-column solver preview must be discoverable, visibly stateful, and gate Create until the current preview is accepted."
+    $rectangularColumnForm -notmatch '_formGuard\?\.ValidateNow\(\)' -or
+    $rectangularColumnForm -notmatch 'AccessibleName\s*=\s*"Rectangular column workflow settings"' -or
+    $rectangularColumnForm -notmatch 'ItemSize\s*=\s*new Size\(0,\s*1\)' -or
+    $rectangularColumnForm -notmatch 'AddWorkflowNavigation\(workflowNavigation,\s*0\)' -or
+    $rectangularColumnForm -notmatch 'UpdateWorkflowNavigation\(\)') {
+    throw "Rectangular-column workflow must use compact primary navigation; solver preview must remain visible, stateful, and required before Create."
 }
 $contractChecks++
 $slabForm = $rebarForms[1]
