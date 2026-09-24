@@ -17,6 +17,8 @@ namespace KhimTools.RebarTool.Forms
         private bool _dragging;
         private readonly System.Collections.Generic.List<Panel> _canvases = new System.Collections.Generic.List<Panel>();
         private TabControl _tabs;
+        private ComboBox _componentSelector;
+        private Label _summary;
 
         public RebarSolverPreviewForm(RebarPreviewSnapshot snapshot)
         {
@@ -27,15 +29,40 @@ namespace KhimTools.RebarTool.Forms
             Size = new Size(860, 650);
             BackColor = Color.White;
 
-            var header = new Label
+            var header = new TableLayoutPanel
             {
                 Dock = DockStyle.Top,
                 Height = 44,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 0, 8, 0),
-                Text = string.Format("Solved bars: {0}    Centerline paths: {1}    Rollback-only; model unchanged",
-                    snapshot.Components.Sum(c => c.BarCount), snapshot.Components.Sum(c => c.Paths.Count))
+                Padding = new Padding(12, 3, 8, 3),
+                ColumnCount = 2,
+                RowCount = 1
             };
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _summary = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft };
+            _componentSelector = new ComboBox
+            {
+                Width = 300,
+                Dock = DockStyle.Right,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                AccessibleName = "Filter solver preview by host"
+            };
+            _componentSelector.Items.Add("All hosts (" + snapshot.Components.Count + ")");
+            for (int index = 0; index < snapshot.Components.Count; index++)
+            {
+                RebarPreviewComponent component = snapshot.Components[index];
+                string host = string.IsNullOrWhiteSpace(component.HostId) ? "Component " + (index + 1) : "Host " + component.HostId;
+                _componentSelector.Items.Add(host + " · " + component.BarCount + " bars");
+            }
+            _componentSelector.SelectedIndex = 0;
+            _componentSelector.SelectedIndexChanged += (sender, args) =>
+            {
+                UpdateSummary();
+                InvalidateCanvases();
+            };
+            header.Controls.Add(_summary, 0, 0);
+            header.Controls.Add(_componentSelector, 1, 0);
+            UpdateSummary();
             _tabs = new TabControl { Dock = DockStyle.Fill };
             AddProjectionTab(_tabs, "ISO", "iso");
             AddProjectionTab(_tabs, "TOP", "top");
@@ -107,6 +134,25 @@ namespace KhimTools.RebarTool.Forms
             foreach (Panel canvas in _canvases) canvas.Invalidate();
         }
 
+        private RebarPreviewComponent[] GetVisibleComponents()
+        {
+            int selected = _componentSelector == null ? 0 : _componentSelector.SelectedIndex;
+            return selected <= 0
+                ? _snapshot.Components.ToArray()
+                : _snapshot.Components.Skip(selected - 1).Take(1).ToArray();
+        }
+
+        private void UpdateSummary()
+        {
+            if (_summary == null) return;
+            RebarPreviewComponent[] components = GetVisibleComponents();
+            string scope = _componentSelector == null || _componentSelector.SelectedIndex <= 0
+                ? "all hosts"
+                : _componentSelector.SelectedItem.ToString();
+            _summary.Text = string.Format("{0}    Solved bars: {1}    Centerline paths: {2}    Rollback-only; model unchanged",
+                scope, components.Sum(component => component.BarCount), components.Sum(component => component.Paths.Count));
+        }
+
         private void Canvas_MouseWheel(object sender, MouseEventArgs e)
         {
             Panel canvas = (Panel)sender;
@@ -144,7 +190,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void PaintPreview(object sender, PaintEventArgs e)
         {
-            var paths = _snapshot.Components.SelectMany(c => c.Paths).ToArray();
+            var paths = GetVisibleComponents().SelectMany(c => c.Paths).ToArray();
             if (paths.Length == 0) return;
             Panel canvas = (Panel)sender;
             string projection = (string)canvas.Tag;
