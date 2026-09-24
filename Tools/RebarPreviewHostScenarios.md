@@ -9,6 +9,7 @@ These are Autodesk Revit host checks. Registration is not evidence of execution;
 | SLAB_UNDO | HOST_REQUIRED | Slab: solve preview, accept, create, Undo once; verify prior model state and successful rerun. Repeat for an opening slab where supported. | REGISTERED_NOT_EXECUTED |
 | FOUNDATION_UNDO | HOST_REQUIRED | Foundation: solve preview, create, Undo once; verify prior model state and successful rerun. | REGISTERED_NOT_EXECUTED |
 | COLUMN_CANCEL | HOST_REQUIRED | Open solver preview and Cancel/close; verify no persistent Rebar or preview element and no committed transaction. | REGISTERED_NOT_EXECUTED |
+| COLUMN_GEOMETRY_REJECTION | HOST_REQUIRED | On disposable stepped, tapered, irregular, tilted, or multi-solid rectangular-column families, attempt preview/create and verify rejection before any Rebar is committed; verify a single straight vertical rectangular prism, including plan-rotated instances, remains eligible. | REGISTERED_NOT_EXECUTED |
 | BEAM_CANCEL | HOST_REQUIRED | Open solver preview and Cancel/close; verify no persistent Rebar or preview element and no committed transaction. | REGISTERED_NOT_EXECUTED |
 | SLAB_CANCEL | HOST_REQUIRED | Open solver preview and Cancel/close; verify no persistent Rebar or preview element and no committed transaction. | REGISTERED_NOT_EXECUTED |
 | FOUNDATION_CANCEL | HOST_REQUIRED | Solve foundation preview and close the detached 3D viewer; verify the preview capture left no persistent Rebar or mutation. | REGISTERED_NOT_EXECUTED |
