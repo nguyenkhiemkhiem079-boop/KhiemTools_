@@ -11,6 +11,99 @@ using KhimTools.RebarTool.Commands;
 
 namespace KhimTools.RuntimeQa.Fixtures
 {
+    public sealed class RectangularColumnPreviewRuntimeFixture : RuntimeQaFixtureBase
+    {
+        public override string Id { get { return "RC-PREVIEW"; } }
+        public override string Name { get { return "Rectangular Column rollback-only solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Capture Revit-solved centerlines, prove rollback leaves the model unchanged, then compare preview geometry with the production generator before rollback."; } }
+        public override bool IsCritical { get { return true; } }
+
+        protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
+        {
+            Document doc = context.Document;
+            FamilyInstance column = context.UiDocument.Selection.GetElementIds()
+                .Select(id => doc.GetElement(id) as FamilyInstance)
+                .FirstOrDefault(c => c != null && !CmdColumnRebar.IsCircular(c));
+            if (column == null)
+                column = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralColumns)
+                    .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().FirstOrDefault(c => !CmdColumnRebar.IsCircular(c));
+            RebarBarType main = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
+            RebarBarType tie = RuntimeQaFixtureHelpers.FindBarType(doc, 10);
+            if (column == null || main == null || tie == null)
+            {
+                Block(result, "RC-PREVIEW_RES", "Preview resources", "Rectangular column and compatible N16/N10 types",
+                    "BLOCKED: select or load a rectangular column and compatible RebarBarTypes.", QaSeverity.CRITICAL);
+                return;
+            }
+
+            var input = new RectangularColumnRebarInput
+            {
+                Column = column,
+                MainBarType = main,
+                StirrupBarType = tie,
+                BarsAlongB = 7,
+                BarsAlongH = 3,
+                TieLayout = ColumnTieLayoutType.MultiCellClosed
+            };
+            var generator = new RectangularColumnRebarGenerator(doc);
+            string fingerprint = RebarPreviewService.Fingerprint(input);
+            RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(doc, new[]
+            {
+                new RebarPreviewRequest(fingerprint, () =>
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(doc);
+                    var previewReport = new RebarGenerationReport();
+                    List<Rebar> bars = generator.Generate(input, previewReport);
+                    if (previewReport.HasErrors) throw new InvalidOperationException(previewReport.Errors[0].ErrorReason);
+                    return bars;
+                })
+            });
+            RebarPreviewComponent component = snapshot.Find(fingerprint);
+            Check(result, "RC-PREVIEW01", "Detached solver paths", component != null && component.BarCount > 0 && component.Paths.Count > 0,
+                "Revit-solved bar paths", component == null ? "missing" : component.Paths.Count + " paths",
+                "Capture returned detached curve coordinates after rollback-only generation.", QaSeverity.CRITICAL);
+
+            int originalBars = input.BarsAlongB;
+            input.BarsAlongB = originalBars + 1;
+            Check(result, "RC-PREVIEW02", "Stale input rejection", snapshot.Find(RebarPreviewService.Fingerprint(input)) == null,
+                "Changed inputs rejected", "Changed input not found in preview snapshot",
+                "Input fingerprints include host/type identity and generation settings.", QaSeverity.CRITICAL);
+            input.BarsAlongB = originalBars;
+
+            bool matched = false;
+            TransactionStatus finalStatus;
+            using (var tx = new Transaction(doc, "K-TOOLS Runtime QA Rebar preview parity"))
+            {
+                if (tx.Start() != TransactionStatus.Started)
+                {
+                    Block(result, "RC-PREVIEW_TX", "Preview parity transaction", "A started transaction",
+                        "BLOCKED: Revit returned transaction status " + tx.GetStatus() + ".", QaSeverity.CRITICAL);
+                    return;
+                }
+                try
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(doc);
+                    var executionReport = new RebarGenerationReport();
+                    List<Rebar> generated = generator.Generate(input, executionReport);
+                    doc.Regenerate();
+                    matched = !executionReport.HasErrors && RebarPreviewService.Matches(snapshot, fingerprint, generated);
+                }
+                finally
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                }
+                finalStatus = tx.GetStatus();
+            }
+            Check(result, "RC-PREVIEW03", "Preview/execution centerline parity", matched,
+                "Same solved centerlines", matched ? "Matched" : "Mismatch",
+                "Production output is compared with the reviewed detached solver result before any commit.", QaSeverity.CRITICAL);
+            Check(result, "RC-PREVIEW04", "Execution parity rollback", finalStatus == TransactionStatus.RolledBack,
+                TransactionStatus.RolledBack.ToString(), finalStatus.ToString(),
+                "The QA fixture never leaves generated reinforcement in the user's model.", QaSeverity.CRITICAL);
+        }
+    }
+
     public sealed class RebarCoreRuntimeFixture : RuntimeQaFixtureBase
     {
         public override string Id { get { return "RC"; } }

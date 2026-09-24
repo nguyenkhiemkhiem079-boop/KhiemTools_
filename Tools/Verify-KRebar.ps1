@@ -35,17 +35,25 @@ foreach ($relative in $required) {
 
 $runtimePath = Join-Path $repoRoot 'KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\RebarRuntimeFixtures.cs'
 $runtimeText = if (Test-Path -LiteralPath $runtimePath) { Get-Content -Raw $runtimePath } else { '' }
-foreach ($fixture in @('RC-STATION', 'RC-FULL', 'CC', 'BR', 'SR', 'FR')) {
+foreach ($fixture in @('RC-STATION', 'RC-FULL', 'CC', 'BR', 'SR', 'FR', 'RC-PREVIEW')) {
     Add-Check "runtime-fixture:$fixture" ($runtimeText.Contains('"' + $fixture + '"')) $runtimePath
 }
 
 $columnText = Get-Content -Raw (Join-Path $base 'Forms\RectangularColumnReinforcementForm.cs')
-$commonPreview = Get-ChildItem -LiteralPath $base -Recurse -File -Filter '*Preview*' |
-    Where-Object { $_.Name -notmatch 'Reference|Drawing|View' }
-$hasDetachedPreviewPipeline = $false
 Add-Check 'rectangular-column-2d-form-preview' ($columnText.Contains('PreviewPanel_Paint')) 'Form paints a responsive 2D schematic.'
-Add-Check 'common-detached-preview-pipeline' $hasDetachedPreviewPipeline 'No shared detached preview/request/execution pipeline was found.'
-Add-Check 'solver-derived-precommit-3d-preview' $false 'Persistent post-generation inspection views are not a non-destructive preview.'
+$previewServicePath = Join-Path $base 'Core\RebarPreviewService.cs'
+$previewService = if (Test-Path -LiteralPath $previewServicePath) { Get-Content -Raw $previewServicePath } else { '' }
+$previewFormPath = Join-Path $base 'Forms\RebarSolverPreviewForm.cs'
+$previewForm = if (Test-Path -LiteralPath $previewFormPath) { Get-Content -Raw $previewFormPath } else { '' }
+$registryPath = Join-Path $repoRoot 'KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs'
+$registryText = if (Test-Path -LiteralPath $registryPath) { Get-Content -Raw $registryPath } else { '' }
+Add-Check 'common-detached-preview-pipeline' ($previewService.Contains('class RebarPreviewService') -and $previewService.Contains('class RebarPreviewSnapshot')) $previewServicePath
+Add-Check 'rollback-only-solver-capture' ($previewService.Contains('transaction.RollBack()') -and $previewService.Contains('WorkflowFingerprint') -and $previewService.Contains('RolledBack')) 'Capture rolls back and verifies pre/post document fingerprints.'
+Add-Check 'solver-derived-centerline-geometry' ($previewService.Contains('GetCenterlineCurves') -and $previewService.Contains('Tessellate')) 'Detached path coordinates are captured from Revit-solved centerlines.'
+Add-Check 'stable-input-fingerprints' ($previewService.Contains('VersionGuid') -and $previewService.Contains('BarsAlongB') -and $previewService.Contains('TieLayout') -and $previewService.Contains('AdjacentColumnAbove.VersionGuid') -and $previewService.Contains('AdjacentColumnBelow.VersionGuid')) 'Fingerprint includes host/type/adjacent-host versions and generation settings.'
+Add-Check 'preview-ui-wired' ($columnText.Contains('RebarPreviewService.Capture') -and $columnText.Contains('new RebarSolverPreviewForm') -and $previewForm.Contains('RebarPreviewSnapshot') -and $previewForm.Contains('DrawLines')) 'Rectangular-column UI renders detached solver paths in a disposable preview form.'
+Add-Check 'precommit-preview-parity' ($columnText.Contains('RebarPreviewService.Matches') -and $columnText.Contains('_lastPreview')) 'Generation rejects missing/stale preview and compares solved geometry before commit.'
+Add-Check 'preview-runtime-fixture-registered' ($registryText.Contains('new RectangularColumnPreviewRuntimeFixture()')) $registryPath
 
 $wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Filter '*Wall*Rebar*.cs'
 $wallGenerator = Get-ChildItem -LiteralPath (Join-Path $base 'Core') -File -Filter '*Wall*Rebar*.cs'
@@ -55,7 +63,7 @@ $passCount = @($checks | Where-Object Pass).Count
 $failures = @($checks | Where-Object { -not $_.Pass })
 foreach ($check in $checks) {
     $status = if ($check.Pass) { 'PASS' } else { 'BLOCKED' }
-    Write-Output ("{0} {1} — {2}" -f $status, $check.Name, $check.Evidence)
+    Write-Output ("{0} {1} - {2}" -f $status, $check.Name, $check.Evidence)
 }
 Write-Output ("KREBAR_STATIC_CHECKS={0}/{1}" -f $passCount, $checks.Count)
 if ($failures.Count -gt 0) {

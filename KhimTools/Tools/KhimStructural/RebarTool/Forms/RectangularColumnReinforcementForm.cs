@@ -89,7 +89,9 @@ namespace KhimTools.RebarTool.Forms
         private CheckBox _chkAutoDrawing;
         private CheckBox _chkAutoSection3D;
         private Button _btnCreateRebar;
+        private Button _btnPreview3D;
         private Button _btnClose;
+        private RebarPreviewSnapshot _lastPreview;
 
         private ComboBox _cmbLanguage;
         private Label _lblColTitle;
@@ -500,8 +502,11 @@ namespace KhimTools.RebarTool.Forms
             var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
             _chkAutoSection3D = new CheckBox { Text = "Tự động tạo View xem thép 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
+            _btnPreview3D = new Button { Text = "Solve and preview 3D layout (rollback only)", AutoSize = true, Enabled = _doc != null };
+            _btnPreview3D.Click += BtnPreview3D_Click;
             pnlViews.Controls.Add(_chkAutoDrawing);
             pnlViews.Controls.Add(_chkAutoSection3D);
+            pnlViews.Controls.Add(_btnPreview3D);
             _grpViews.Controls.Add(pnlViews);
 
             _tabViews.Controls.Add(_grpViews);
@@ -636,8 +641,17 @@ namespace KhimTools.RebarTool.Forms
                 ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
                 : null;
 
-            List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
-            List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
+            List<List<RectangularColumnRebarInput>> inputGroups = BuildGenerationInputGroups(
+                selectedItems, mainType, stirrupType, customCoverFeet);
+            if (_lastPreview == null || inputGroups.SelectMany(g => g).Any(input =>
+                _lastPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+            {
+                MessageBox.Show(this, "Create or refresh the solver-backed 3D preview for the current columns and settings before generating rebar.",
+                    "Preview required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int axisGroupCount = inputGroups.Count;
             var report = new RebarGenerationReport();
             int committedColumnCount = 0;
             int rolledBackColumnCount = 0;
@@ -657,42 +671,16 @@ namespace KhimTools.RebarTool.Forms
                 var view3DGen = new ColumnRebar3DViewGenerator(_doc);
                 ColumnTieLayoutType tieLayoutType = GetSelectedTieLayoutType();
 
-                foreach (var axisGroup in axisGroups)
+                foreach (List<RectangularColumnRebarInput> inputs in inputGroups)
                 {
-                    var inputs = axisGroup.Select(col => new RectangularColumnRebarInput
-                    {
-                        Column = col,
-                        MainBarType = mainType,
-                        StirrupBarType = stirrupType,
-                        BarsAlongB = (int)_numBarsB.Value,
-                        BarsAlongH = (int)_numBarsH.Value,
-                        StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA1.Value, UnitTypeId.Millimeters),
-                        StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA2.Value, UnitTypeId.Millimeters),
-                        ZoneA1Length = UnitUtils.ConvertToInternalUnits((double)_numZoneA1Length.Value, UnitTypeId.Millimeters),
-                        TieLayout = tieLayoutType,
-                        HasInnerDiamondStirrup = tieLayoutType == ColumnTieLayoutType.DiamondLegacy,
-                        HasCrossLinks = tieLayoutType == ColumnTieLayoutType.CrossTie,
-                        HasDowel = !_rdBaseFoundation.Checked,
-                        IsFoundationColumn = _rdBaseFoundation.Checked,
-                        EnableCrankedSplice = _chkCrankedSplice.Checked,
-                        HasTopAnchor = _chkTopAnchor.Checked,
-                        CustomCoverFeet = customCoverFeet,
-                        DesignStandard = GetSelectedDesignStandard(),
-                        ConcreteGrade = GetSelectedConcreteGrade(),
-                        SteelGrade = GetSelectedSteelGrade(),
-                        LapLengthMultiplier = (double)_numLapMultiplier.Value,
-                        StaggeredSplice = _chkStaggeredSplice.Checked
-                    }).ToList();
-
-                    ConfigureAdjacentColumns(inputs);
-
                     foreach (var input in inputs)
                     {
                         if (!TryGenerateRectangularColumn(
                                 generator,
                                 input,
                                 report,
-                                ref commonShapesPreloaded))
+                                ref commonShapesPreloaded,
+                                _lastPreview))
                         {
                             rolledBackColumnCount++;
                             continue;
@@ -732,8 +720,87 @@ namespace KhimTools.RebarTool.Forms
             }
             else
             {
-                KhimDialogHelper.ShowColumnRebarSuccess(committedColumnCount, axisGroups.Count, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
+                KhimDialogHelper.ShowColumnRebarSuccess(committedColumnCount, axisGroupCount, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
             }
+            _lastPreview = null;
+        }
+
+        private void BtnPreview3D_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var selectedItems = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
+                if (selectedItems.Count == 0) throw new InvalidOperationException("Select at least one rectangular column first.");
+                RebarBarType mainType = FindBarType(_cmbMainDia.Text);
+                RebarBarType stirrupType = FindBarType(_cmbStirrupDia.Text);
+                if (mainType == null || stirrupType == null) throw new InvalidOperationException("Select both main and tie bar types.");
+                double? customCoverFeet = _chkCustomCover.Checked
+                    ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
+                    : (double?)null;
+                List<List<RectangularColumnRebarInput>> groups = BuildGenerationInputGroups(selectedItems, mainType, stirrupType, customCoverFeet);
+                var generator = new RectangularColumnRebarGenerator(_doc);
+                bool shapesLoaded = false;
+                var requests = groups.SelectMany(group => group).Select(input => new RebarPreviewRequest(
+                    RebarPreviewService.Fingerprint(input),
+                    () =>
+                    {
+                        if (!shapesLoaded)
+                        {
+                            RebarShapeLibrary.PreloadCommonShapes(_doc);
+                            shapesLoaded = true;
+                        }
+                        var report = new RebarGenerationReport();
+                        List<Rebar> bars = generator.Generate(input, report);
+                        if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
+                        return bars;
+                    })).ToArray();
+                _lastPreview = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(_lastPreview)) preview.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                KhimDialogHelper.ShowError("Unable to create Rebar solver preview: " + ex.Message);
+            }
+        }
+
+        private List<List<RectangularColumnRebarInput>> BuildGenerationInputGroups(
+            IList<ColumnListItem> selectedItems, RebarBarType mainType, RebarBarType stirrupType, double? customCoverFeet)
+        {
+            List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(
+                selectedItems.Select(i => i.Column).ToList(), _doc);
+            var result = new List<List<RectangularColumnRebarInput>>();
+            ColumnTieLayoutType tieLayoutType = GetSelectedTieLayoutType();
+            foreach (List<FamilyInstance> axisGroup in axisGroups)
+            {
+                var inputs = axisGroup.Select(column => new RectangularColumnRebarInput
+                {
+                    Column = column,
+                    MainBarType = mainType,
+                    StirrupBarType = stirrupType,
+                    BarsAlongB = (int)_numBarsB.Value,
+                    BarsAlongH = (int)_numBarsH.Value,
+                    StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA1.Value, UnitTypeId.Millimeters),
+                    StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacingA2.Value, UnitTypeId.Millimeters),
+                    ZoneA1Length = UnitUtils.ConvertToInternalUnits((double)_numZoneA1Length.Value, UnitTypeId.Millimeters),
+                    TieLayout = tieLayoutType,
+                    HasInnerDiamondStirrup = tieLayoutType == ColumnTieLayoutType.DiamondLegacy,
+                    HasCrossLinks = tieLayoutType == ColumnTieLayoutType.CrossTie,
+                    HasDowel = !_rdBaseFoundation.Checked,
+                    IsFoundationColumn = _rdBaseFoundation.Checked,
+                    EnableCrankedSplice = _chkCrankedSplice.Checked,
+                    HasTopAnchor = _chkTopAnchor.Checked,
+                    CustomCoverFeet = customCoverFeet,
+                    DesignStandard = GetSelectedDesignStandard(),
+                    ConcreteGrade = GetSelectedConcreteGrade(),
+                    SteelGrade = GetSelectedSteelGrade(),
+                    LapLengthMultiplier = (double)_numLapMultiplier.Value,
+                    StaggeredSplice = _chkStaggeredSplice.Checked
+                }).ToList();
+                ConfigureAdjacentColumns(inputs);
+                result.Add(inputs);
+            }
+            return result;
         }
 
         private ColumnTieLayoutType GetSelectedTieLayoutType()
@@ -764,7 +831,8 @@ namespace KhimTools.RebarTool.Forms
             RectangularColumnRebarGenerator generator,
             RectangularColumnRebarInput input,
             RebarGenerationReport aggregateReport,
-            ref bool commonShapesPreloaded)
+            ref bool commonShapesPreloaded,
+            RebarPreviewSnapshot preview)
         {
             var columnReport = new RebarGenerationReport();
             var failurePreprocessor = new RebarGenerationFailurePreprocessor();
@@ -794,6 +862,15 @@ namespace KhimTools.RebarTool.Forms
                 // or commit. Force that validation while the rollback-only failure
                 // preprocessor is attached to this individual column transaction.
                 _doc.Regenerate();
+
+                if (!RebarPreviewService.Matches(preview, RebarPreviewService.Fingerprint(input), createdRebars))
+                {
+                    columnReport.AddError(input.Column, "Preview parity",
+                        new InvalidOperationException("Generated centerlines differ from the reviewed solver preview; this column was rolled back."));
+                    RollBackTransactionIfStarted(transaction);
+                    AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, null);
+                    return false;
+                }
 
                 if (createdRebars == null || createdRebars.Count == 0)
                 {

@@ -39,6 +39,28 @@ $suites = @(
         ExpectedCount = 9
     },
     @{
+        Name = "Phase 8 Rebar Preview Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
+        ExpectedCount = 32
+    },
+    @{
+        Name = "Phase 8 Rebar Layout Rendering QA"
+        Script = Join-Path $scriptDir "Tools\Verify-RebarLayout.ps1"
+        ExpectedCount = 1
+        Sta = $true
+    },
+    @{
+        Name = "Phase 8 WPF UI Layout Rendering QA"
+        Script = Join-Path $scriptDir "Tools\Verify-UiLayout.ps1"
+        ExpectedCount = 1
+        Sta = $true
+    },
+    @{
+        Name = "UI Command Contract Metadata Acceptance"
+        Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
+        ExpectedCount = 115
+    },
+    @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-RuntimeQaHarness.ps1"
         ExpectedCount = 14
@@ -139,7 +161,11 @@ foreach ($suite in $suites) {
     $startTime = [System.Diagnostics.Stopwatch]::StartNew()
     
     try {
-        & powershell -ExecutionPolicy Bypass -File $suite.Script
+        if ($suite.Sta) {
+            & powershell -STA -ExecutionPolicy Bypass -File $suite.Script
+        } else {
+            & powershell -ExecutionPolicy Bypass -File $suite.Script
+        }
         $exitCode = $LASTEXITCODE
         $startTime.Stop()
         
