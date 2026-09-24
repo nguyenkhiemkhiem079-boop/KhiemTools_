@@ -224,6 +224,7 @@ namespace KhimTools.RebarTool.Forms
             _columnListBox.SelectedIndexChanged += (s, e) =>
             {
                 UpdateSelectedCount();
+                MarkPreviewStale();
                 _previewPanel?.Invalidate();
             };
 
@@ -450,6 +451,7 @@ namespace KhimTools.RebarTool.Forms
             workflowWorkspace.Controls.Add(workflowNavigation);
             Controls.Add(workflowWorkspace);
             workflowWorkspace.BringToFront();
+            AttachPreviewInvalidationHandlers(tabControl);
             UpdateWorkflowNavigation();
             RebarLayout.FitColumnGroups(tabControl);
             RebarLayout.Stack(pnlMainLeft, grpMainSection, grpCover, grpMainAnchor);
@@ -583,9 +585,32 @@ namespace KhimTools.RebarTool.Forms
             var g = e.Graphics;
             string text = _previewLifecycle.State == PreviewLifecycleState.Valid
                 ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry."
-                : "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry.";
+                : _previewLifecycle.State == PreviewLifecycleState.Stale
+                    ? "Inputs changed — solve again before Create. The previous preview is stale."
+                    : "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry.";
             TextRenderer.DrawText(g, text, Font, _previewPanel.ClientRectangle,
                 Color.FromArgb(71, 85, 105), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is RadioButton radio) radio.CheckedChanged += (s, e) => { if (radio.Checked) MarkPreviewStale(); };
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid)
+                _previewLifecycle.MarkStale();
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
         }
 
         private List<List<CircularColumnRebarInput>> BuildGenerationInputGroups(
