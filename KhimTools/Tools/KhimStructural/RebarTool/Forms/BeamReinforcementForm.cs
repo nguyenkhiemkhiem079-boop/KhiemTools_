@@ -152,6 +152,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnOk;
         private Button _btnClose;
         private Button _btnPreview;
+        private Label _lblPreviewState;
         private RebarPreviewSnapshot _lastPreview;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
         private RebarFormGuard _formGuard;
@@ -192,12 +193,16 @@ namespace KhimTools.RebarTool.Forms
             InitializeLayoutCustom();
             RebarLayout.EnableFullTypeNames(this);
             SwitchSettingTab(0);
+            AttachPreviewInvalidationHandlers(this);
             _formGuard = RebarFormGuard.Attach(this, _btnOk,
                 new RebarValidationRule(this, () => _currentBeam != null, "Chọn một dầm hợp lệ."),
                 RebarFormGuard.RequireCombo(_cmbMainTopDia, "Chọn loại thép chủ phía trên."),
                 RebarFormGuard.RequireCombo(_cmbMainBotDia, "Chọn loại thép chủ phía dưới."),
                 RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
-                RebarFormGuard.RequireNumericTextBoxes(this, "Các thông số chiều dài và khoảng cách phải là số không âm."));
+                RebarFormGuard.RequireNumericTextBoxes(this, "Các thông số chiều dài và khoảng cách phải là số không âm."),
+                new RebarValidationRule(_btnOk, HasCurrentAcceptedPreview,
+                    "Solve or refresh the beam preview for the current inputs before Create."));
+            UpdatePreviewStateUi();
         }
 
         private void LoadRebarTypes()
@@ -1183,16 +1188,6 @@ namespace KhimTools.RebarTool.Forms
         {
             var pnl = new Panel { Dock = DockStyle.Bottom, Height = 60, BackColor = Color.White, Padding = new Padding(16, 11, 15, 11) };
 
-            pnl.Controls.Add(new Label
-            {
-                Text = "1  Chọn nhịp     2  Cấu hình thép     3  Kiểm tra neo và đai     4  Tạo thép",
-                AutoSize = true,
-                Left = 16,
-                Top = 22,
-                ForeColor = KhimUiStyle.TextSecondary,
-                Font = new Font("Segoe UI Semibold", 9F)
-            });
-
             _btnOk = new Button
             {
                 Text = "Tạo thép dầm",
@@ -1222,8 +1217,77 @@ namespace KhimTools.RebarTool.Forms
             };
 
             var footer = RebarLayout.Footer(null, _btnPreview, _btnOk, _btnClose);
+            _lblPreviewState = new Label
+            {
+                AutoSize = true,
+                Left = 14,
+                Top = 23,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                AccessibleName = "Beam solver preview state"
+            };
+            footer.Controls.Add(_lblPreviewState);
             pnl.Dispose();
             return footer;
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control == _lblPreviewState || control == _btnPreview || control == _btnOk || control == _btnClose) continue;
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is RadioButton radio) radio.CheckedChanged += (s, e) => { if (radio.Checked) MarkPreviewStale(); };
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid)
+                _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+        }
+
+        private bool HasCurrentAcceptedPreview()
+        {
+            if (_doc == null || _lastPreview == null || _selectedBeams == null || _selectedBeams.Count == 0) return false;
+            try
+            {
+                BeamRebarInput[] inputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                string fingerprint = RebarPreviewService.FingerprintInputs(inputs.Select(RebarPreviewService.Fingerprint));
+                return _previewLifecycle.TryGetValid(fingerprint, out RebarPreviewSnapshot accepted) &&
+                    inputs.All(input => accepted.Find(RebarPreviewService.Fingerprint(input)) != null);
+            }
+            catch { return false; }
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = "PREVIEW · Valid — current inputs solved";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = "PREVIEW · Inputs changed — solve again";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = "PREVIEW · Solve failed — review inputs";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = "PREVIEW · Not solved — solve before Create";
+                    _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
+                    break;
+            }
+            _formGuard?.ValidateNow();
         }
         #endregion
 
@@ -1847,6 +1911,7 @@ namespace KhimTools.RebarTool.Forms
                         () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
+                UpdatePreviewStateUi();
                 RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
                 using (var preview = new RebarSolverPreviewForm(snapshot))
                 {
@@ -1857,11 +1922,13 @@ namespace KhimTools.RebarTool.Forms
                     }
                     else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
+                UpdatePreviewStateUi();
             }
             catch (Exception ex)
             {
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
                 KhimDialogHelper.ShowError("Unable to create solver-backed beam preview: " + ex.Message);
             }
         }
@@ -1926,6 +1993,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 _lastPreview = null;
                 _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
                 System.Diagnostics.Debug.WriteLine("Beam Rebar creation failed: " + ex);
                 KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message);
             }
