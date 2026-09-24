@@ -36,7 +36,8 @@ namespace KhimTools.RebarTool.Models
         public bool TopYHookDown { get; set; } = true;
 
         // ── 3. Thép Đai Mép Móng / Thép Chữ U Gia Cường (Side Ties & Perimeter Edge U-Bars) ────────
-        public bool EnableSideTies { get; set; } = true;
+        // Not generated until the engineering detail is defined; keep old template values readable but fail closed.
+        public bool EnableSideTies { get; set; } = false;
         public string SideTieDiaLabel { get; set; } = "d10";
         public double SideTieSpacingMm { get; set; } = 200;
 

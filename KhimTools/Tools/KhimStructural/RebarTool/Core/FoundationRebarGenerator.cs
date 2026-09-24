@@ -28,6 +28,10 @@ namespace KhimTools.RebarTool.Core
             if (profile == null || profile.FoundationElement == null || settings == null)
                 return new List<Rebar>();
 
+            if (settings.EnableSideTies)
+                throw new InvalidOperationException(
+                    "Foundation side ties are not implemented because their engineering detail is unresolved. Disable EnableSideTies or provide an approved detailing definition before generating reinforcement.");
+
             var createdRebars = new List<Rebar>();
 
             var barTypes = new FilteredElementCollector(_doc)
@@ -41,7 +45,6 @@ namespace KhimTools.RebarTool.Core
             RebarBarType botYType = FindBarType(barTypes, settings.BotYDiaLabel);
             RebarBarType topXType = FindBarType(barTypes, settings.TopXDiaLabel);
             RebarBarType topYType = FindBarType(barTypes, settings.TopYDiaLabel);
-            RebarBarType sideType = FindBarType(barTypes, settings.SideTieDiaLabel);
             RebarBarType dowelType = FindBarType(barTypes, settings.DowelDiaLabel);
 
             BoundingBoxXYZ bb = profile.BoundingBox;
