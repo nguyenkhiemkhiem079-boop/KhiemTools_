@@ -36,6 +36,8 @@ namespace KhimTools.RebarTool.Core
         {
             if (panel == null || panel.HostFloor == null)
                 return new List<Rebar>();
+            if (panel.Boundary == null)
+                throw new InvalidOperationException("Slab reinforcement requires the actual analyzed host boundary; a bounding-box fallback is not supported.");
 
             var createdRebars = new List<Rebar>();
 
@@ -234,7 +236,7 @@ namespace KhimTools.RebarTool.Core
             {
                 RebarBarType trimType = botXType ?? topMeshXType ?? barTypes.FirstOrDefault();
                 double zOpeningTop = cfg.TopLayer.Enabled ? zTopX : zHatX;
-                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Openings, zBot1, zOpeningTop, report);
+                var trimmers = CreateOpeningTrimmerBars(panel.HostFloor, trimType, panel.Boundary, panel.Openings, coverOffset, zBot1, zOpeningTop, report);
                 createdRebars.AddRange(trimmers);
             }
 
@@ -332,15 +334,13 @@ namespace KhimTools.RebarTool.Core
         }
 
         private List<Rebar> CreateOpeningTrimmerBars(Floor floor, RebarBarType barType,
-            List<CurveLoop> openings, double zBot, double zTop, RebarGenerationReport report = null)
+            CurveLoop boundary, List<CurveLoop> openings, double coverFeet, double zBot, double zTop, RebarGenerationReport report = null)
         {
             var list = new List<Rebar>();
             if (barType == null || openings == null || !openings.Any()) return list;
 
             double barDia = barType.BarModelDiameter;
             double anchLen = barDia * 40; // Lb = 40d theo Eurocode 2
-            double cover = ToFeet(25);
-
             foreach (var op in openings)
             {
                 if (!TryGetAxisAlignedRectangularOpeningBounds(op, out double minX, out double maxX,
@@ -357,33 +357,55 @@ namespace KhimTools.RebarTool.Core
                 double height = maxY - minY;
                 if (width < 0.5 || height < 0.5) continue; // Bỏ qua lỗ quá nhỏ < 150mm
 
+                bool fullAnchorageFits =
+                    ContainsFullInterval(boundary, openings, minY - coverFeet, true, minX - anchLen, maxX + anchLen) &&
+                    ContainsFullInterval(boundary, openings, maxY + coverFeet, true, minX - anchLen, maxX + anchLen) &&
+                    ContainsFullInterval(boundary, openings, minX - coverFeet, false, minY - anchLen, maxY + anchLen) &&
+                    ContainsFullInterval(boundary, openings, maxX + coverFeet, false, minY - anchLen, maxY + anchLen);
+                if (!fullAnchorageFits)
+                {
+                    var unsupported = new InvalidOperationException(
+                        "Opening trim bars require full 40d anchorage inside the concrete boundary on all four sides; this opening is too close to a slab edge or another void.");
+                    if (report == null) throw unsupported;
+                    report.AddError(floor, "Opening trim anchorage", unsupported);
+                    continue;
+                }
+
                 // Thép gia cường 4 cạnh lỗ mở (Bottom & Top)
                 double[] zLevels = new double[] { zBot, zTop };
                 foreach (double z in zLevels)
                 {
                     // 2 thanh song song cạnh dưới
-                    XYZ b1 = new XYZ(minX - anchLen, minY - cover, z);
-                    XYZ b2 = new XYZ(maxX + anchLen, minY - cover, z);
+                    XYZ b1 = new XYZ(minX - anchLen, minY - coverFeet, z);
+                    XYZ b2 = new XYZ(maxX + anchLen, minY - coverFeet, z);
                     CreateSingleStraightBar(floor, barType, b1, b2, list, report, "Gia cường lỗ mở cạnh dưới");
 
                     // 2 thanh song song cạnh trên
-                    XYZ t1 = new XYZ(minX - anchLen, maxY + cover, z);
-                    XYZ t2 = new XYZ(maxX + anchLen, maxY + cover, z);
+                    XYZ t1 = new XYZ(minX - anchLen, maxY + coverFeet, z);
+                    XYZ t2 = new XYZ(maxX + anchLen, maxY + coverFeet, z);
                     CreateSingleStraightBar(floor, barType, t1, t2, list, report, "Gia cường lỗ mở cạnh trên");
 
                     // 2 thanh song song cạnh trái
-                    XYZ l1 = new XYZ(minX - cover, minY - anchLen, z);
-                    XYZ l2 = new XYZ(minX - cover, maxY + anchLen, z);
+                    XYZ l1 = new XYZ(minX - coverFeet, minY - anchLen, z);
+                    XYZ l2 = new XYZ(minX - coverFeet, maxY + anchLen, z);
                     CreateSingleStraightBar(floor, barType, l1, l2, list, report, "Gia cường lỗ mở cạnh trái");
 
                     // 2 thanh song song cạnh phải
-                    XYZ r1 = new XYZ(maxX + cover, minY - anchLen, z);
-                    XYZ r2 = new XYZ(maxX + cover, maxY + anchLen, z);
+                    XYZ r1 = new XYZ(maxX + coverFeet, minY - anchLen, z);
+                    XYZ r2 = new XYZ(maxX + coverFeet, maxY + anchLen, z);
                     CreateSingleStraightBar(floor, barType, r1, r2, list, report, "Gia cường lỗ mở cạnh phải");
                 }
             }
 
             return list;
+        }
+
+        private static bool ContainsFullInterval(CurveLoop boundary, List<CurveLoop> openings,
+            double fixedCoord, bool isXDirection, double start, double end)
+        {
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            return SlabGeometryHelper.GetSlabIntervalsAtCoord(fixedCoord, isXDirection, boundary, openings, 0, 0)
+                .Any(interval => interval.Start <= start + tolerance && interval.End >= end - tolerance);
         }
 
         private static bool TryGetAxisAlignedRectangularOpeningBounds(CurveLoop opening,
