@@ -31,6 +31,8 @@ namespace KhimTools.RebarTool.Core
             if (settings.EnableSideTies)
                 throw new InvalidOperationException(
                     "Foundation side ties are not implemented because their engineering detail is unresolved. Disable EnableSideTies or provide an approved detailing definition before generating reinforcement.");
+            if (settings.EnableColumnDowels && settings.EnableDowelStirrups && settings.DowelStirrupQty < 2)
+                throw new InvalidOperationException("At least two dowel-confainment stirrups are required when enabled.");
 
             var createdRebars = new List<Rebar>();
 
@@ -253,7 +255,7 @@ namespace KhimTools.RebarTool.Core
                 double halfBx = colSizeX / 2.0;
                 double halfBy = colSizeY / 2.0;
 
-                int qty = Math.Max(2, settings.DowelStirrupQty);
+                int qty = settings.DowelStirrupQty;
                 double stepZ = (zTopFdn - zBot) / (qty + 1);
 
                 XYZ center = profile.Center;

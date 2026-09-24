@@ -320,7 +320,7 @@ namespace KhimTools.RebarTool.Forms
             _chkStaggeredDowels = new CheckBox { Text = "Bố trí nối so le 50% thép chờ (50% Staggered)", Left = 250, Top = 145, AutoSize = true, Checked = true };
 
             _chkEnableDowelStirrups = new CheckBox { Text = "Đặt Thép Đai lồng móng cố định chân cột", Left = 15, Top = 180, AutoSize = true, Checked = true };
-            _numDowelStirrupQty = new NumericUpDown { Left = 380, Top = 175, Width = 100, Minimum = 1, Maximum = 10, Value = 3 };
+            _numDowelStirrupQty = new NumericUpDown { Left = 380, Top = 175, Width = 100, Minimum = 2, Maximum = 10, Value = 3 };
 
             grpDowel.Controls.Add(new Label { Text = "Đường kính thép chờ:", Left = 15, Top = 28, AutoSize = true });
             grpDowel.Controls.Add(_cmbDowelDia);

@@ -57,7 +57,7 @@ namespace KhimTools.RebarTool.Models
 
         public bool EnableDowelStirrups { get; set; } = true;
         public string DowelStirrupDiaLabel { get; set; } = "d10";
-        public int DowelStirrupQty { get; set; } = 3; // Đai lồng cố định chân cột nằm trong lòng móng
+        public int DowelStirrupQty { get; set; } = 3; // At least two are required when enabled.
 
         // ── 5. Tiêu Chuẩn Thiết Kế & Vật Liệu ──────────────────────────────
         public string DesignCode { get; set; } = "TCVN 5574:2018"; // TCVN 5574:2018 hoặc Eurocode 2
