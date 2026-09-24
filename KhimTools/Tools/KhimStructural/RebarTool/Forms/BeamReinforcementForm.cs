@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
@@ -1915,8 +1916,14 @@ namespace KhimTools.RebarTool.Forms
                 RebarPreviewRequest[] requests = inputs.Select(input =>
                 {
                     string fingerprint = RebarPreviewService.Fingerprint(input);
-                    return new RebarPreviewRequest(fingerprint, () => generator.Generate(input),
-                        () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                    return new RebarPreviewRequest(fingerprint, () => generator.Generate(input, null, roleByBarId),
+                        () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input),
+                        bar =>
+                        {
+                            string role;
+                            return roleByBarId.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                        });
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
                 UpdatePreviewStateUi();

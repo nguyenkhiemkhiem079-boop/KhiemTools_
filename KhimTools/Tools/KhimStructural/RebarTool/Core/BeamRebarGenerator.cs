@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -86,7 +87,8 @@ namespace KhimTools.RebarTool.Core
             if (input.BottomMidExtraBarType == null) input.BottomMidExtraBarType = input.MainBottomBarType;
         }
 
-        public List<Rebar> Generate(BeamRebarInput input, RebarGenerationReport report = null)
+        public List<Rebar> Generate(BeamRebarInput input, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             if (input?.Beam == null) return new List<Rebar>();
             if (input.TopContinuousQty < 2 || input.BottomContinuousQty < 2)
@@ -118,34 +120,56 @@ namespace KhimTools.RebarTool.Core
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu.
             // 1. Thép chủ trên chạy suốt.
-            created.AddRange(CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia));
+            List<Rebar> topContinuous = CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia);
+            created.AddRange(topContinuous);
+            RecordRoles(topContinuous, "top-continuous", roleByBarId);
 
             // 2. Thép chủ dưới chạy suốt.
-            created.AddRange(CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia));
+            List<Rebar> bottomContinuous = CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia);
+            created.AddRange(bottomContinuous);
+            RecordRoles(bottomContinuous, "bottom-continuous", roleByBarId);
 
             // 3. Thép tăng cường gối trái và gối phải (Top Extra).
             if (input.TopLeftExtraQty > 0)
-                created.AddRange(CreateTopLeftExtraBars(input, profile, cover, stirrupDia, topMainDia));
+            {
+                List<Rebar> bars = CreateTopLeftExtraBars(input, profile, cover, stirrupDia, topMainDia);
+                created.AddRange(bars);
+                RecordRoles(bars, "top-left-extra", roleByBarId);
+            }
             if (input.TopRightExtraQty > 0)
-                created.AddRange(CreateTopRightExtraBars(input, profile, cover, stirrupDia, topMainDia));
+            {
+                List<Rebar> bars = CreateTopRightExtraBars(input, profile, cover, stirrupDia, topMainDia);
+                created.AddRange(bars);
+                RecordRoles(bars, "top-right-extra", roleByBarId);
+            }
 
             // 4. Thép tăng cường bụng (Bottom Mid Extra).
             if (input.BottomMidExtraQty > 0)
-                created.AddRange(CreateBottomMidExtraBars(input, profile, cover, stirrupDia, botMainDia));
+            {
+                List<Rebar> bars = CreateBottomMidExtraBars(input, profile, cover, stirrupDia, botMainDia);
+                created.AddRange(bars);
+                RecordRoles(bars, "bottom-mid-extra", roleByBarId);
+            }
 
             // 5. Thép sườn dầm (Side/Skin Bars).
             double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
             if ((input.AutoSideBars && hMm >= input.SideBarThresholdMm) || input.SideBarQty > 0)
             {
                 RebarBarType sideType = input.SideBarType ?? input.StirrupBarType;
-                created.AddRange(CreateSideBars(input, profile, cover, stirrupDia, sideType));
+                List<Rebar> bars = CreateSideBars(input, profile, cover, stirrupDia, sideType);
+                created.AddRange(bars);
+                RecordRoles(bars, "side-bars", roleByBarId);
             }
 
             // 6. Thép đai phân vùng A1 / A2 / A1.
-            created.AddRange(CreateBeamStirrups(input, profile, halfB, halfH));
+            List<Rebar> stirrups = CreateBeamStirrups(input, profile, halfB, halfH);
+            created.AddRange(stirrups);
+            RecordRoles(stirrups, "stirrup", roleByBarId);
 
             // 7. Thép đai treo chống giật tại vị trí dầm phụ giao dầm chính (Gap 7b).
-            created.AddRange(CreateHangerStirrups(input, profile, halfB, halfH, report));
+            List<Rebar> hangerStirrups = CreateHangerStirrups(input, profile, halfB, halfH, report);
+            created.AddRange(hangerStirrups);
+            RecordRoles(hangerStirrups, "hanger-stirrup", roleByBarId);
 
             var containment = RebarSafetyValidator.CheckRebarContainment(input.Beam, created);
             if (containment.outCount > 0)
@@ -154,6 +178,13 @@ namespace KhimTools.RebarTool.Core
             }
             report?.AddSuccess(created.Count);
             return created;
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
+                if (bar != null) roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         // ===== TOP CONTINUOUS =====

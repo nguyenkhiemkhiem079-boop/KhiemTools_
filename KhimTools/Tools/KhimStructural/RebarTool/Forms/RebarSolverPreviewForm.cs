@@ -206,6 +206,14 @@ namespace KhimTools.RebarTool.Forms
                 case "support-y": return "Support Y / Mũ gối Y";
                 case "opening": return "Opening trim / Gia cường lỗ mở";
                 case "spacer": return "Spacer / Con kê";
+                case "top-continuous": return "Top continuous / Thép trên suốt";
+                case "bottom-continuous": return "Bottom continuous / Thép dưới suốt";
+                case "top-left-extra": return "Top left support / Tăng cường gối trái";
+                case "top-right-extra": return "Top right support / Tăng cường gối phải";
+                case "bottom-mid-extra": return "Bottom span / Tăng cường giữa nhịp";
+                case "side-bars": return "Side bars / Thép sườn";
+                case "stirrup": return "Stirrups / Đai";
+                case "hanger-stirrup": return "Hanger stirrups / Đai treo";
                 default: return role;
             }
         }
