@@ -30,7 +30,9 @@ The first commit localizes shared validation status, action text and error messa
 | Standalone Rebar layout under PowerShell 7 | PASS; 18,327 control checks, 384 renders |
 | UI layout acceptance | PASS; 100 embedded icons, 10 XAML surfaces, 43 renders |
 | UI contracts | PASS; 218 assertions |
+| Rebar and Join input-state audit | PASS; 60 checks |
 | Rebar configuration persistence | PASS; 37 checks |
+| Rebar reference rendering | PASS; 40 schematic renders; not geometry/compliance validation |
 | Runtime QA harness audit | PASS; 25 checks; this audits harness structure only |
 | Canonical `Test-All.ps1` | PASS; 2,653/2,653 configured audits; Rebar acceptance is explicitly budgeted as 107 checks |
 | `git diff --check` | PASS |
