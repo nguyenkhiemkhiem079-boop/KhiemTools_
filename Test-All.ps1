@@ -56,7 +56,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 87
+        ExpectedCount = 88
     },
     @{
         Name = "Rebar Configuration Persistence & Recovery"

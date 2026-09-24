@@ -49,6 +49,9 @@ namespace KhimTools.RebarTool.Forms
         private string _previewMark = "<not set>";
         private string _previewLevelName;
         private string _previewHostError;
+        private string ColumnSchematicDisclosure => LanguageManager.IsEnglish
+            ? "CONFIG SKETCH · NOT SOLVER OUTPUT"
+            : "SƠ ĐỒ MINH HỌA · KHÔNG PHẢI KẾT QUẢ GIẢI";
 
         // Tab 1: Thép Chủ & Cover
         private NumericUpDown _numBarsB;
@@ -1331,7 +1334,7 @@ namespace KhimTools.RebarTool.Forms
                 g.FillRectangle(hb, 0,     topH, W,         HDR);
             }
 
-            string secTitle = isEn ? "CONFIGURATION SCHEMATIC  B x H (solve preview for exact bars)" : "SO DO CAU HINH  B x H (xem truoc solver de thay thep chinh xac)";
+            string secTitle = ColumnSchematicDisclosure;
             string infoTitle = isEn ? "ENGINEERING DATA" : "DU LIEU KY THUAT";
             string elvTitle  = isEn ? "COLUMN ELEVATION  -  Stirrup Zones A1 / A2 / A1"
                                     : "MAT DUNG COT  -  Vung dai A1 / A2 / A1";
