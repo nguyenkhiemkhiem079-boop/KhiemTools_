@@ -251,8 +251,7 @@ namespace KhimTools.RebarTool.Core
             GeometryElement geomElem = floor.get_Geometry(options);
             if (geomElem == null) return null;
 
-            PlanarFace topFace = null;
-            double maxZ = -double.MaxValue;
+            var upwardFaces = new List<PlanarFace>();
 
             foreach (GeometryObject obj in geomElem)
             {
@@ -260,19 +259,15 @@ namespace KhimTools.RebarTool.Core
                 {
                     foreach (Face face in solid.Faces)
                     {
-                        if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ, 0.5))
-                        {
-                            if (pf.Origin.Z > maxZ)
-                            {
-                                maxZ = pf.Origin.Z;
-                                topFace = pf;
-                            }
-                        }
+                        if (face is PlanarFace pf && pf.FaceNormal.DotProduct(XYZ.BasisZ) >= 1.0 - 1e-6)
+                            upwardFaces.Add(pf);
                     }
                 }
             }
 
-            return topFace;
+            if (upwardFaces.Count != 1)
+                throw new InvalidOperationException("Slab reinforcement currently requires one upward planar top face; stepped or multi-face floors require host-specific detailing.");
+            return upwardFaces[0];
         }
 
         /// <summary>
