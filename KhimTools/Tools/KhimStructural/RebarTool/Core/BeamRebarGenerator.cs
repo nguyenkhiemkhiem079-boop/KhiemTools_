@@ -93,6 +93,9 @@ namespace KhimTools.RebarTool.Core
                 throw new InvalidOperationException("Beam reinforcement requires at least two continuous top bars and two continuous bottom bars.");
             if (input.SideBarQty < 0 || input.SideBarQty % 2 != 0)
                 throw new InvalidOperationException("Beam side-bar quantity must be a non-negative even number because side bars are placed in symmetric pairs.");
+            if (input.HangerStirrupQty < 0 || (input.HangerStirrupQty > 0 &&
+                (double.IsNaN(input.HangerStirrupSpacingMm) || double.IsInfinity(input.HangerStirrupSpacingMm) || input.HangerStirrupSpacingMm <= 0)))
+                throw new InvalidOperationException("Beam hanger-stirrup quantity must be non-negative, and enabled hanger stirrups require a finite positive spacing.");
             EnsureBarTypes(input);
             if (input?.Beam == null) return new List<Rebar>();
 
@@ -406,8 +409,9 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 var interPts = FindIntersectingSecondaryBeams(input.Beam);
-                int qty = Math.Max(input.HangerStirrupQty, 1);
-                double spacingFeet = ToFeet(input.HangerStirrupSpacingMm > 0 ? input.HangerStirrupSpacingMm : 50.0);
+                int qty = input.HangerStirrupQty;
+                if (qty == 0) return hoops;
+                double spacingFeet = ToFeet(input.HangerStirrupSpacingMm);
 
                 foreach (var pt in interPts)
                 {
