@@ -248,9 +248,12 @@ namespace KhimTools.RebarTool.Core
             if (input == null || input.Beam == null) throw new ArgumentException("A beam host is required for preview.", "input");
             BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(input.Beam);
             if (profile == null) throw new InvalidOperationException("Beam geometry is unavailable for preview.");
+            string reinforcementContext = new BeamRebarGenerator(input.Beam.Document)
+                .GetReinforcementContextFingerprint(input.Beam);
             return WorkflowFingerprint.Compute(new[]
             {
                 input.Beam.UniqueId, input.Beam.VersionGuid.ToString("D"),
+                reinforcementContext,
                 TypeFingerprint(input.MainTopBarType), TypeFingerprint(input.MainBottomBarType),
                 TypeFingerprint(input.TopLeftExtraBarType), TypeFingerprint(input.TopRightExtraBarType),
                 TypeFingerprint(input.BottomMidExtraBarType), TypeFingerprint(input.StirrupBarType), TypeFingerprint(input.SideBarType),

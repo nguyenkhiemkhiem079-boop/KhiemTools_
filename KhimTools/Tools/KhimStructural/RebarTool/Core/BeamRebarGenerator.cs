@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
+using KhimTools.Core.Workflow;
 
 namespace KhimTools.RebarTool.Core
 {
@@ -689,7 +690,8 @@ namespace KhimTools.RebarTool.Core
             return BeamEndCondition.Unsupported;
         }
 
-        private List<XYZ> FindIntersectingSecondaryBeams(FamilyInstance primaryBeam)
+        private List<XYZ> FindIntersectingSecondaryBeams(FamilyInstance primaryBeam,
+            ICollection<FamilyInstance> intersectingSecondaryBeams = null)
         {
             var intersectionPoints = new List<XYZ>();
             var beams = new FilteredElementCollector(_doc)
@@ -717,13 +719,47 @@ namespace KhimTools.RebarTool.Core
 
                 if (intersect == SetComparisonResult.Overlap && results != null)
                 {
+                    bool foundIntersection = false;
                     foreach (IntersectionResult r in results)
                     {
                         intersectionPoints.Add(r.XYZPoint);
+                        foundIntersection = true;
                     }
+                    if (foundIntersection) intersectingSecondaryBeams?.Add(bm);
                 }
             }
             return intersectionPoints;
+        }
+
+        /// <summary>
+        /// Captures the surrounding structural elements that influence anchorage
+        /// and intersection-based beam reinforcement. Kept on the generator so
+        /// preview invalidation uses the same support-discovery rules as solving.
+        /// </summary>
+        internal string GetReinforcementContextFingerprint(FamilyInstance beam)
+        {
+            if (beam == null) throw new ArgumentNullException(nameof(beam));
+            BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(beam);
+            if (profile == null) throw new InvalidOperationException("Beam geometry is unavailable for support-context fingerprinting.");
+
+            var related = new Dictionary<string, Element>(StringComparer.Ordinal);
+            foreach (XYZ endPoint in new[] { profile.StartPoint, profile.EndPoint })
+            {
+                FamilyInstance column = FindSupportingColumn(endPoint);
+                if (column != null) related[column.UniqueId] = column;
+
+                FamilyInstance supportingBeam = FindSupportingBeam(endPoint, beam);
+                if (supportingBeam != null) related[supportingBeam.UniqueId] = supportingBeam;
+            }
+
+            var intersectingBeams = new List<FamilyInstance>();
+            FindIntersectingSecondaryBeams(beam, intersectingBeams);
+            foreach (FamilyInstance supportingBeam in intersectingBeams)
+                related[supportingBeam.UniqueId] = supportingBeam;
+
+            return WorkflowFingerprint.Compute(related.Values
+                .OrderBy(element => element.UniqueId, StringComparer.Ordinal)
+                .Select(element => element.UniqueId + ":" + element.VersionGuid.ToString("D")));
         }
 
         private static double ToFeet(double mm) => UnitUtils.ConvertToInternalUnits(mm, UnitTypeId.Millimeters);
