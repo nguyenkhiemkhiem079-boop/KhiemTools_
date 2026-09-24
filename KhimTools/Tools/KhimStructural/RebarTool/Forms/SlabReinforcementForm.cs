@@ -251,8 +251,8 @@ namespace KhimTools.RebarTool.Forms
             pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             var editorAndPanels = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2 };
             editorAndPanels.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
-            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
+            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 72));
+            editorAndPanels.RowStyles.Add(new RowStyle(SizeType.Percent, 28));
 
             // ── LEFT: TabControl (Thông số cốt thép)
             var tabControl = _workflowTabs = new TabControl
