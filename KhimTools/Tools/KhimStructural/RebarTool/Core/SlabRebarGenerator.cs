@@ -343,17 +343,14 @@ namespace KhimTools.RebarTool.Core
 
             foreach (var op in openings)
             {
-                double minX = double.MaxValue, maxX = double.MinValue;
-                double minY = double.MaxValue, maxY = double.MinValue;
-
-                foreach (Curve c in op)
+                if (!TryGetAxisAlignedRectangularOpeningBounds(op, out double minX, out double maxX,
+                    out double minY, out double maxY))
                 {
-                    XYZ p0 = c.GetEndPoint(0);
-                    XYZ p1 = c.GetEndPoint(1);
-                    minX = Math.Min(minX, Math.Min(p0.X, p1.X));
-                    maxX = Math.Max(maxX, Math.Max(p0.X, p1.X));
-                    minY = Math.Min(minY, Math.Min(p0.Y, p1.Y));
-                    maxY = Math.Max(maxY, Math.Max(p0.Y, p1.Y));
+                    var unsupported = new InvalidOperationException(
+                        "Automatic opening trim bars currently support axis-aligned rectangular openings only. Other opening shapes require an explicit reinforcement detail.");
+                    if (report == null) throw unsupported;
+                    report.AddError(floor, "Opening trim geometry", unsupported);
+                    continue;
                 }
 
                 double width = maxX - minX;
@@ -387,6 +384,53 @@ namespace KhimTools.RebarTool.Core
             }
 
             return list;
+        }
+
+        private static bool TryGetAxisAlignedRectangularOpeningBounds(CurveLoop opening,
+            out double minX, out double maxX, out double minY, out double maxY)
+        {
+            minX = maxX = minY = maxY = 0;
+            if (opening == null) return false;
+            Curve[] edges = opening.ToArray();
+            if (edges.Length != 4 || edges.Any(edge => !(edge is Line))) return false;
+
+            XYZ[] endpoints = edges.SelectMany(edge => new[] { edge.GetEndPoint(0), edge.GetEndPoint(1) }).ToArray();
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (endpoints.Max(point => point.Z) - endpoints.Min(point => point.Z) > tolerance) return false;
+
+            double[] xValues = DistinctCoordinates(endpoints.Select(point => point.X), tolerance);
+            double[] yValues = DistinctCoordinates(endpoints.Select(point => point.Y), tolerance);
+            if (xValues.Length != 2 || yValues.Length != 2) return false;
+            minX = xValues[0]; maxX = xValues[1]; minY = yValues[0]; maxY = yValues[1];
+            if (maxX - minX <= tolerance || maxY - minY <= tolerance) return false;
+
+            foreach (XYZ point in endpoints)
+            {
+                bool isCorner = (Math.Abs(point.X - minX) <= tolerance || Math.Abs(point.X - maxX) <= tolerance) &&
+                    (Math.Abs(point.Y - minY) <= tolerance || Math.Abs(point.Y - maxY) <= tolerance);
+                if (!isCorner) return false;
+            }
+
+            foreach (Curve edge in edges)
+            {
+                XYZ start = edge.GetEndPoint(0);
+                XYZ end = edge.GetEndPoint(1);
+                bool horizontal = Math.Abs(start.Y - end.Y) <= tolerance && Math.Abs(start.X - end.X) > tolerance;
+                bool vertical = Math.Abs(start.X - end.X) <= tolerance && Math.Abs(start.Y - end.Y) > tolerance;
+                if (!horizontal && !vertical) return false;
+            }
+            return true;
+        }
+
+        private static double[] DistinctCoordinates(IEnumerable<double> coordinates, double tolerance)
+        {
+            var distinct = new List<double>();
+            foreach (double coordinate in coordinates.OrderBy(value => value))
+            {
+                if (distinct.Count == 0 || Math.Abs(coordinate - distinct[distinct.Count - 1]) > tolerance)
+                    distinct.Add(coordinate);
+            }
+            return distinct.ToArray();
         }
 
         private void CreateSingleStraightBar(Floor floor, RebarBarType barType, XYZ p1, XYZ p2,

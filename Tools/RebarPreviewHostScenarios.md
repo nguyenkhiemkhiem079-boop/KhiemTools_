@@ -15,6 +15,7 @@ These are Autodesk Revit host checks. Registration is not evidence of execution;
 | COLUMN_DUPLICATE | HOST_REQUIRED | Preview, refresh unchanged input, accept and create; rerun the identical request and confirm it is rejected without adding bars. | REGISTERED_NOT_EXECUTED |
 | BEAM_DUPLICATE | HOST_REQUIRED | Axis-aligned and rotated beam: preview, refresh unchanged input, create, then rerun identical request and confirm rejection without adding bars. | REGISTERED_NOT_EXECUTED |
 | SLAB_DUPLICATE | HOST_REQUIRED | Preview, refresh unchanged input, create, then rerun identical panel configuration and confirm rejection without adding bars; include opening slab when supported. | REGISTERED_NOT_EXECUTED |
+| SLAB_OPENING_SHAPE_REJECTION | HOST_REQUIRED | On a disposable slab with a rotated or non-rectangular opening, attempt preview/create; verify the unsupported trim geometry is reported and no Rebar is committed. | REGISTERED_NOT_EXECUTED |
 | FOUNDATION_DUPLICATE | HOST_REQUIRED | Preview and create a foundation, then rerun the identical host/settings request and confirm rejection without adding bars. | REGISTERED_NOT_EXECUTED |
 | CIRCULAR_COLUMN_UNDO | HOST_REQUIRED | Circular column: solve preview, accept, create, Undo once; verify original bar count/model state, no temporary preview elements, and a clean successful rerun. | REGISTERED_NOT_EXECUTED |
 | CIRCULAR_COLUMN_CANCEL | HOST_REQUIRED | Open the circular-column solver preview and Cancel/close; confirm no persistent Rebar or model mutation. | REGISTERED_NOT_EXECUTED |
