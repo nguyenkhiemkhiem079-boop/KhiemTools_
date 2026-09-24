@@ -100,6 +100,8 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnDeleteTemplate;
         private RebarFormGuard _formGuard;
         private Button _btnPreview3D;
+        private TabControl _workflowTabs;
+        private readonly List<Button> _workflowNavigationButtons = new List<Button>();
         private RebarPreviewSnapshot _lastPreview;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
@@ -252,7 +254,15 @@ namespace KhimTools.RebarTool.Forms
             templatePanel.Controls.Add(_btnDeleteTemplate);
             Controls.Add(templatePanel);
 
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
+            var tabControl = _workflowTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Point(12, 6),
+                Appearance = TabAppearance.FlatButtons,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(0, 1),
+                AccessibleName = "Circular column workflow settings"
+            };
 
             var tabMain = new TabPage { Text = "Thép Chủ & Cover", Padding = new Padding(12), BackColor = Color.White };
             var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 400, AutoScroll = true };
@@ -423,13 +433,65 @@ namespace KhimTools.RebarTool.Forms
                 RebarConfigurationField.Flag("Column.UseCustomCover", "Dùng cover tùy chỉnh", _chkCustomCover),
                 RebarConfigurationField.Number("Column.CoverMm", "Cover tùy chỉnh (mm)", _numCustomCover)));
             tabControl.Multiline = true;
-            Controls.Add(tabControl);
-            tabControl.BringToFront();
+            var workflowWorkspace = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            var workflowNavigation = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(8, 5, 8, 3),
+                BackColor = Color.White
+            };
+            for (int pageIndex = 0; pageIndex < tabControl.TabPages.Count; pageIndex++)
+                AddWorkflowNavigation(workflowNavigation, pageIndex);
+            tabControl.SelectedIndexChanged += (s, e) => UpdateWorkflowNavigation();
+            workflowWorkspace.Controls.Add(tabControl);
+            workflowWorkspace.Controls.Add(workflowNavigation);
+            Controls.Add(workflowWorkspace);
+            workflowWorkspace.BringToFront();
+            UpdateWorkflowNavigation();
             RebarLayout.FitColumnGroups(tabControl);
             RebarLayout.Stack(pnlMainLeft, grpMainSection, grpCover, grpMainAnchor);
             RebarLayout.ColumnEditor(tabMain, pnlMainLeft, previewViewport);
             footer.SendToBack();
             RebarLayout.PresetBar(templatePanel, _lblTemplate, _cmbTemplate, _btnApplyTemplate, _btnSaveTemplate, _btnDeleteTemplate);
+        }
+
+        private void AddWorkflowNavigation(FlowLayoutPanel host, int pageIndex)
+        {
+            var button = new Button
+            {
+                Tag = pageIndex,
+                AutoSize = true,
+                Height = 30,
+                AccessibleName = "Show circular column workflow page " + (pageIndex + 1),
+                Margin = new Padding(3, 0, 3, 0)
+            };
+            button.Click += (s, e) =>
+            {
+                if (_workflowTabs != null && pageIndex >= 0 && pageIndex < _workflowTabs.TabPages.Count)
+                    _workflowTabs.SelectedIndex = pageIndex;
+            };
+            _workflowNavigationButtons.Add(button);
+            KhimUiStyle.ApplySecondaryButton(button);
+            host.Controls.Add(button);
+        }
+
+        private void UpdateWorkflowNavigation()
+        {
+            bool isEn = LanguageManager.IsEnglish;
+            string[] vietnamese = { "Thép chủ", "Đai tròn", "Neo & nối", "Bản vẽ", "Tham khảo", "Cấu hình" };
+            string[] english = { "Main bars", "Round ties", "Anchorage & splice", "Drawings", "Reference", "Configuration" };
+            for (int index = 0; index < _workflowNavigationButtons.Count; index++)
+            {
+                Button button = _workflowNavigationButtons[index];
+                button.Text = (isEn ? english : vietnamese)[index];
+                if (_workflowTabs != null && _workflowTabs.SelectedIndex == (int)button.Tag)
+                    KhimUiStyle.ApplyPrimaryButton(button);
+                else
+                    KhimUiStyle.ApplySecondaryButton(button);
+            }
         }
 
         private void AddRowToLayout(TableLayoutPanel table, string labelText, Control inputControl)

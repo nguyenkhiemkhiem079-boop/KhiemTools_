@@ -130,6 +130,14 @@ if ($slabForm -notmatch 'Appearance\s*=\s*TabAppearance\.FlatButtons' -or
     throw "Slab daily settings must be navigated through the role-oriented selector without duplicative primary tab headers."
 }
 $contractChecks++
+$circularColumnForm = [IO.File]::ReadAllText((Join-Path $root "KhimTools/Tools/KhimStructural/RebarTool/Forms/CircularColumnReinforcementForm.cs"))
+if ($circularColumnForm -notmatch 'AccessibleName\s*=\s*"Circular column workflow settings"' -or
+    $circularColumnForm -notmatch 'ItemSize\s*=\s*new Size\(0,\s*1\)' -or
+    $circularColumnForm -notmatch 'AddWorkflowNavigation\(workflowNavigation,\s*pageIndex\)' -or
+    $circularColumnForm -notmatch '_workflowTabs\.SelectedIndex\s*=\s*pageIndex') {
+    throw "Circular-column workflow pages must be accessible through the compact primary navigation without duplicate tab headers."
+}
+$contractChecks++
 $iconNames = @([regex]::Matches($ribbon, '"([^"\r\n]+\.png)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
 foreach ($iconName in $iconNames) {
     if (!(Test-Path -LiteralPath (Join-Path $root ("KhimTools/Resources/" + $iconName)))) { throw "Ribbon icon resource is missing: $iconName" }
