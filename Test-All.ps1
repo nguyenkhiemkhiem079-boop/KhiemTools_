@@ -94,7 +94,7 @@ $suites = @(
     @{
         Name = "Phase 15 Host Scenario Catalog & Registration"
         Script = Join-Path $scriptDir "Tools\Verify-Phase15ScenarioCatalog.ps1"
-        ExpectedCount = 217
+        ExpectedCount = 234
     },
     @{
         Name = "Phase 16 Reliability & Security Static Audit"

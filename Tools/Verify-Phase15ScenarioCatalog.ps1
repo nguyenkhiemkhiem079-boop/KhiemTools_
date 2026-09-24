@@ -54,11 +54,11 @@ foreach ($row in $catalog.deploymentScenarios) {
 
 $allDomains = @($catalog.fixtureScenarios.domain) + @($catalog.manualScenarios.domain) + @($catalog.deploymentScenarios.domain)
 foreach ($domain in $catalog.requiredDomains) { Assert ($allDomains -contains $domain) "Required host domain $domain has scenario coverage" }
-Assert ($catalog.fixtureScenarios.Count -eq 30) 'All 30 registered Revit runtime fixtures have scenario rows'
-Assert ($catalog.manualScenarios.id -contains 'COLUMN_CREATE_UNDO' -and $catalog.manualScenarios.id -contains 'BEAM_CANCEL' -and $catalog.manualScenarios.id -contains 'SLAB_DUPLICATE') 'Column, beam, and slab create/cancel/undo/duplicate scenarios are covered'
+Assert ($catalog.fixtureScenarios.Count -eq 31) 'All 31 registered Revit runtime fixtures have scenario rows'
+Assert ($catalog.manualScenarios.id -contains 'COLUMN_CREATE_UNDO' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_CREATE_UNDO' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_CANCEL' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_DUPLICATE' -and $catalog.manualScenarios.id -contains 'BEAM_CANCEL' -and $catalog.manualScenarios.id -contains 'SLAB_DUPLICATE') 'Rectangular/circular column, beam, and slab create/cancel/undo/duplicate scenarios are covered'
 Assert ($catalog.manualScenarios.id -contains 'REBAR_PREVIEW_REFRESH' -and $catalog.manualScenarios.id -contains 'REBAR_MODEL_INTEGRITY') 'Preview refresh and model integrity scenarios are covered'
-Assert ($catalog.manualScenarios.Count -eq 11) 'All eleven mandatory Rebar manual scenarios are registered'
-$requiredRebarScenarios = @('COLUMN_CREATE_UNDO', 'COLUMN_CANCEL', 'COLUMN_DUPLICATE', 'BEAM_CREATE_UNDO', 'BEAM_CANCEL', 'BEAM_DUPLICATE', 'SLAB_CREATE_UNDO', 'SLAB_CANCEL', 'SLAB_DUPLICATE')
+Assert ($catalog.manualScenarios.Count -eq 14) 'All fourteen mandatory Rebar manual scenarios are registered'
+$requiredRebarScenarios = @('COLUMN_CREATE_UNDO', 'COLUMN_CANCEL', 'COLUMN_DUPLICATE', 'CIRCULAR_COLUMN_CREATE_UNDO', 'CIRCULAR_COLUMN_CANCEL', 'CIRCULAR_COLUMN_DUPLICATE', 'BEAM_CREATE_UNDO', 'BEAM_CANCEL', 'BEAM_DUPLICATE', 'SLAB_CREATE_UNDO', 'SLAB_CANCEL', 'SLAB_DUPLICATE')
 foreach ($scenarioId in $requiredRebarScenarios) { Assert ($catalog.manualScenarios.id -contains $scenarioId) "Required Rebar action $scenarioId is registered" }
 
 Write-Host "PASS: Phase 15 host scenario catalog ($checks checks; $($catalog.fixtureScenarios.Count) fixtures, $($catalog.manualScenarios.Count) Rebar manual, $($catalog.deploymentScenarios.Count) deployment scenarios; no host execution claimed)" -ForegroundColor Green

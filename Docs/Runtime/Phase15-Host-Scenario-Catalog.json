@@ -32,6 +32,7 @@
     { "id": "RC-STATION", "domain": "REBAR", "scenario": "Rectangular column station/cage host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "RC-FULL", "domain": "REBAR", "scenario": "Rectangular column full-cage host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "CC", "domain": "REBAR", "scenario": "Circular column production generator host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
+    { "id": "CC-PREVIEW", "domain": "REBAR", "scenario": "Circular column solver-preview refresh, stale-input, parity, duplicate, and rollback fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "BR", "domain": "REBAR", "scenario": "Beam production generator host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "SR", "domain": "REBAR", "scenario": "Slab production generator host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "FR", "domain": "REBAR", "scenario": "Foundation production generator host fixture", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } }
@@ -40,6 +41,9 @@
     { "id": "COLUMN_CREATE_UNDO", "domain": "REBAR", "scenario": "Preview, create column bars, undo once, compare prior model state, rerun", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "COLUMN_CANCEL", "domain": "REBAR", "scenario": "Cancel/close column preview and confirm no hosted bars or persistent preview elements", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "COLUMN_DUPLICATE", "domain": "REBAR", "scenario": "Create column bars, repeat identical request, verify no duplicate bars", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
+    { "id": "CIRCULAR_COLUMN_CREATE_UNDO", "domain": "REBAR", "scenario": "Preview/create circular-column bars, undo once, compare prior model state, rerun", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
+    { "id": "CIRCULAR_COLUMN_CANCEL", "domain": "REBAR", "scenario": "Cancel/close circular-column solver preview and confirm no hosted bars or persistent preview elements", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
+    { "id": "CIRCULAR_COLUMN_DUPLICATE", "domain": "REBAR", "scenario": "Create circular-column bars, repeat identical request, verify no duplicate bars", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "BEAM_CREATE_UNDO", "domain": "REBAR", "scenario": "Preview/create axis-aligned and rotated beam bars, undo, compare and rerun", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "BEAM_CANCEL", "domain": "REBAR", "scenario": "Cancel/close beam preview and confirm no hosted bars or persistent preview elements", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "BEAM_DUPLICATE", "domain": "REBAR", "scenario": "Create beam bars, repeat identical request for axis-aligned and rotated beams, verify no duplicates", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
