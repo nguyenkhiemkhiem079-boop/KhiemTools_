@@ -14,7 +14,7 @@ Checkpoint: 2026-09-25, local-only. This records code-side evidence and open hos
   - `9452cab fix(rebar): fail closed on candidate rollback errors`
 - No push, merge, installer action, machine-wide deployment, or Revit model operation was performed.
 
-The first commit localizes shared validation status, action text and error messages across Beam, rectangular Column, Slab and Foundation. The second adds a bilingual selector and complete UI-state localization to Circular Column, including preview/count text, reference/configuration pages, validation feedback and bilingual layout coverage. Circular Column was previously mixed-language and did not expose the global selector.
+The first commit localizes shared validation status, action text and error messages across Beam, rectangular Column, Slab and Foundation. The second adds a bilingual selector and complete UI-state localization to Circular Column, including preview/count text, reference/configuration pages, validation feedback and bilingual layout coverage. Circular Column was previously mixed-language and did not expose the global selector. The third hardening commit verifies every candidate `SubTransaction.RollBack` result and aborts to the owner if rollback cannot be confirmed; it also aligns the canonical suite's Rebar expected count with the direct 106-check verifier result.
 
 ## Current reproducible code-side evidence
 
