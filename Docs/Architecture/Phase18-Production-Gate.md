@@ -14,7 +14,7 @@ installer install, upgrade, repair, uninstall, publication, push, or merge was r
 | Stage 4 transaction acceptance | PASS, 17 checks |
 | Phase 15 runtime harness/catalog | PASS, 25 harness checks and 217 catalog checks |
 | Phase 16 reliability/security | PASS, 13 static checks; dependency vulnerability scan reported none |
-| Phase 17 domain goldens/edge/performance/stress | PASS, 36 executable assertions for QS/MEP/Architectural domain calculations |
+| Phase 17 domain goldens/edge/performance/stress | PARTIAL: 36 assertions cover QS/MEP/Architectural only; required Rebar semantic goldens and Rebar edge cases are not implemented/executed |
 | MCP serialization stress | PASS, 100/1,000/10,000 requests; 10,000 completed in about 0.67 s |
 | MSI implementation acceptance | PASS, 14/14 |
 | Fresh local package structural/lifecycle validation | PASS; MSI 13/13; no installation was executed |
@@ -44,15 +44,35 @@ versions, and four deployment scenarios × two versions. All Revit fixtures/manu
 centerlines and Rebar-specific geometry edge cases are still host-required. `REVIT_HOST_RUNTIME`
 remains **DEFERRED**, not PASS.
 
+## Release decision
+
+The Phase 17 executable explicitly reports `REBAR_HOST_GOLDEN=HOST_REQUIRED / NOT_EXECUTED` and
+`REBAR_EDGE_CASE_STATUS=HOST_REQUIRED / NOT_EXECUTED`. Its semantic-bar comparator is exercised
+with synthetic DTO values; it does not compare output from the production Rebar generators. The
+current Rebar runtime fixtures check refresh, stale-input rejection, rollback, duplicates, and
+preview/execution parity, but they are not semantic golden fixtures and have not run in Revit.
+Therefore the Phase 17 exit criteria for Rebar golden regression and Rebar edge acceptance are not
+met. This is a real gate gap, not a failed Revit run, and no expected Rebar geometry has been
+invented to make it appear green.
+
+The current environment has no isolated disposable Revit model or supported host runner available
+for producing and validating those outputs. The active Revit session is a user model and was not
+used. Closing this gap requires a controlled fixture model/runner and actual Revit 2024/2025
+evidence, or a separately justified Revit-free production planning seam with its own valid golden
+expectations.
+
 ## Debt and decision
 
-The reconciled debt register has `TECH_DEBT_P0 = 0`, `P1 = 7`, `P2 = 3`, `P3 = 0`. TD-003 remains
+The reconciled debt register has `TECH_DEBT_P0 = 0`, `P1 = 8`, `P2 = 3`, `P3 = 0`. TD-003 remains
 P1: 59 empty catches are inventoried but not fully classified path-by-path. No P0 transaction,
 threading, secret, security-boundary, package-structure, or model-corruption issue was identified
 by the completed code-side audits. Host behavior remains unproven, as separately recorded above.
 
-`CATEGORY_C_WARNINGS = NONE_IDENTIFIED`. Code-side gates and the working tree are green, so
-`CODE_SIDE_PRODUCTION_READY = YES` and `READY_FOR_MANUAL_REVIT_QA = YES`; this does not imply
-host-runtime PASS, signing, publication, or permission to install on a user workstation.
+`CATEGORY_C_WARNINGS = NONE_IDENTIFIED`. The builds and current implemented code-side suites are
+green, but the complete Phase 17 exit gate is not. Accordingly `PHASE18_PRODUCTION_GATE = BLOCKED`,
+`CODE_SIDE_PRODUCTION_READY = NO`, `READY_FOR_MANUAL_REVIT_QA = NO`, and
+`SAFE_TO_PUSH_FOR_REVIEW = NO`. These values do not imply a Revit host failure: host evidence
+remains `DEFERRED`; rather, required Rebar golden/edge acceptance has not been supplied. Package
+signing, publication, and workstation installation also remain outside this checkpoint.
 
 Branch: `phase18/production-gate`. No push or merge was performed.
