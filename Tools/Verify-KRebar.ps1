@@ -55,6 +55,7 @@ $coverHelper = Get-Content -Raw (Join-Path $base 'Core\RebarCoverHelper.cs')
 $coverHelperSource = $coverHelper
 $circularGeometry = Get-Content -Raw (Join-Path $base 'Core\CircularColumnGeometryHelper.cs')
 $circularGenerator = Get-Content -Raw (Join-Path $base 'Core\CircularColumnRebarGenerator.cs')
+$rectangularGenerator = Get-Content -Raw (Join-Path $base 'Core\RectangularColumnRebarGenerator.cs')
 $rectangularGeometry = Get-Content -Raw (Join-Path $base 'Core\RectangularColumnGeometryHelper.cs')
 $beamGeometry = Get-Content -Raw (Join-Path $base 'Core\BeamGeometryHelper.cs')
 Add-Check 'common-detached-preview-pipeline' ($previewService.Contains('class RebarPreviewService') -and $previewService.Contains('class RebarPreviewSnapshot')) $previewServicePath
@@ -93,6 +94,7 @@ $foundationGeometry = Get-Content -Raw (Join-Path $base 'Core\FoundationGeometry
 $foundationSettings = Get-Content -Raw (Join-Path $base 'Models\FoundationRebarSettings.cs')
 $foundationRuntime = Get-Content -Raw $runtimePath
 $circularText = Get-Content -Raw (Join-Path $base 'Forms\CircularColumnReinforcementForm.cs')
+Add-Check 'column-solver-preview-retains-role-identity' ($rectangularGenerator.Contains('RecordRoles(mainBars, "longitudinal"') -and $rectangularGenerator.Contains('GetTieRole(tie, stationBars, input)') -and $rectangularGenerator.Contains('"outer-tie"') -and $rectangularGenerator.Contains('"inner-tie-left"') -and $rectangularGenerator.Contains('"inner-tie-right"') -and $rectangularGenerator.Contains('"diamond-tie"') -and $rectangularGenerator.Contains('"cross-tie"') -and $circularGenerator.Contains('RecordRoles(mainBars, "longitudinal"') -and $circularGenerator.Contains('RecordRoles(ties, "tie"') -and $columnText.Contains('generator.Generate(input, report, roleByBarId)') -and $circularText.Contains('generator.Generate(input, report, roleByBarId)') -and $previewForm.Contains('Filter solver preview by reinforcement role') -and $previewForm.Contains('selectedRole == null || rolePath.Role == selectedRole')) 'Rectangular and circular column modal previews retain roles assigned by the production generator and highlight only the selected solver path group.'
 $circularRuntime = $runtimeText
 Add-Check 'beam-solver-preview-calls-production-generator' ($beamText.Contains('RebarPreviewService.Capture') -and $beamText.Contains('generator.Generate(input)') -and $beamText.Contains('RebarPreviewService.Matches')) 'Beam preview and pre-commit verification invoke BeamRebarGenerator.'
 Add-Check 'beam-static-schematic-is-not-mislabeled-as-solved-preview' ($beamText.Contains('ILLUSTRATIVE_ONLY_NOT_SOLVED_GEOMETRY') -and $beamText.Contains('BeamSchematicDisclosure') -and $beamText.Contains('DrawString(BeamSchematicDisclosure')) 'The hard-coded beam elevation sketch is visibly identified as illustrative; the solver-backed dialog remains the only geometry preview claim.'

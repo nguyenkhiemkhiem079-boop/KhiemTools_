@@ -18,7 +18,16 @@ namespace KhimTools.RebarTool.Forms
         private readonly System.Collections.Generic.List<Panel> _canvases = new System.Collections.Generic.List<Panel>();
         private TabControl _tabs;
         private ComboBox _componentSelector;
+        private ComboBox _roleSelector;
         private Label _summary;
+
+        private sealed class PreviewRoleOption
+        {
+            public string Key { get; private set; }
+            public string Label { get; private set; }
+            public PreviewRoleOption(string key, string label) { Key = key; Label = label; }
+            public override string ToString() => Label;
+        }
 
         public RebarSolverPreviewForm(RebarPreviewSnapshot snapshot)
         {
@@ -60,6 +69,24 @@ namespace KhimTools.RebarTool.Forms
                 UpdateSummary();
                 InvalidateCanvases();
             };
+            _roleSelector = new ComboBox
+            {
+                Width = 190,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                AccessibleName = "Filter solver preview by reinforcement role"
+            };
+            _roleSelector.Items.Add(new PreviewRoleOption(null, "All roles / Tất cả"));
+            string[] availableRoles = snapshot.Components.SelectMany(component => component.Paths)
+                .Select(path => path.Role).Where(role => !string.IsNullOrWhiteSpace(role))
+                .Distinct(StringComparer.Ordinal).OrderBy(role => role, StringComparer.Ordinal).ToArray();
+            foreach (string role in availableRoles)
+                _roleSelector.Items.Add(new PreviewRoleOption(role, RoleLabel(role)));
+            _roleSelector.SelectedIndex = 0;
+            _roleSelector.SelectedIndexChanged += (sender, args) =>
+            {
+                UpdateSummary();
+                InvalidateCanvases();
+            };
             header.Controls.Add(_summary, 0, 0);
             header.Controls.Add(_componentSelector, 1, 0);
             UpdateSummary();
@@ -80,6 +107,11 @@ namespace KhimTools.RebarTool.Forms
             AddToolButton(toolbar, "FIT", () => Fit());
             AddToolButton(toolbar, "−", () => ChangeZoom(1f / 1.2f));
             AddToolButton(toolbar, "+", () => ChangeZoom(1.2f));
+            if (availableRoles.Length > 0)
+            {
+                toolbar.Controls.Add(new Label { Text = "Role:", AutoSize = true, Padding = new Padding(8, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
+                toolbar.Controls.Add(_roleSelector);
+            }
             toolbar.Controls.Add(new Label { Text = "Mouse wheel: zoom    Drag: pan", AutoSize = true, Padding = new Padding(10, 7, 0, 0), ForeColor = Color.FromArgb(71, 85, 105) });
             var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
             var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
@@ -146,11 +178,36 @@ namespace KhimTools.RebarTool.Forms
         {
             if (_summary == null) return;
             RebarPreviewComponent[] components = GetVisibleComponents();
+            string role = (_roleSelector?.SelectedItem as PreviewRoleOption)?.Key;
+            int pathCount = components.Sum(component => component.Paths.Count(path => role == null || path.Role == role));
             string scope = _componentSelector == null || _componentSelector.SelectedIndex <= 0
                 ? "all hosts"
                 : _componentSelector.SelectedItem.ToString();
-            _summary.Text = string.Format("{0}    Solved bars: {1}    Centerline paths: {2}    Rollback-only; model unchanged",
-                scope, components.Sum(component => component.BarCount), components.Sum(component => component.Paths.Count));
+            _summary.Text = string.Format("{0}    Solved bars: {1}    Paths in role: {2}    Rollback-only; model unchanged",
+                scope, components.Sum(component => component.BarCount), pathCount);
+        }
+
+        private static string RoleLabel(string role)
+        {
+            switch (role)
+            {
+                case "longitudinal": return "Longitudinal / Thép dọc";
+                case "outer-tie": return "Outer tie / Đai ngoài";
+                case "inner-tie-left": return "Inner tie left / Đai trong trái";
+                case "inner-tie-right": return "Inner tie right / Đai trong phải";
+                case "diamond-tie": return "Diamond tie / Đai thoi";
+                case "cross-tie": return "Cross-tie / Đai phụ";
+                case "tie": return "Ties / Đai";
+                case "bottom-x": return "Bottom X / Lưới đáy X";
+                case "bottom-y": return "Bottom Y / Lưới đáy Y";
+                case "top-x": return "Top X / Lưới trên X";
+                case "top-y": return "Top Y / Lưới trên Y";
+                case "support-x": return "Support X / Mũ gối X";
+                case "support-y": return "Support Y / Mũ gối Y";
+                case "opening": return "Opening trim / Gia cường lỗ mở";
+                case "spacer": return "Spacer / Con kê";
+                default: return role;
+            }
         }
 
         private void Canvas_MouseWheel(object sender, MouseEventArgs e)
@@ -194,11 +251,16 @@ namespace KhimTools.RebarTool.Forms
             if (paths.Length == 0) return;
             Panel canvas = (Panel)sender;
             string projection = (string)canvas.Tag;
-            PointF[][] projected = paths.Select(path => path.Points.Select(point => Project(point, projection)).ToArray()).ToArray();
-            float minX = projected.SelectMany(p => p).Min(p => p.X);
-            float maxX = projected.SelectMany(p => p).Max(p => p.X);
-            float minY = projected.SelectMany(p => p).Min(p => p.Y);
-            float maxY = projected.SelectMany(p => p).Max(p => p.Y);
+            string selectedRole = (_roleSelector?.SelectedItem as PreviewRoleOption)?.Key;
+            var projected = paths.Select(path => new
+            {
+                Role = path.Role,
+                Points = path.Points.Select(point => Project(point, projection)).ToArray()
+            }).ToArray();
+            float minX = projected.SelectMany(path => path.Points).Min(point => point.X);
+            float maxX = projected.SelectMany(path => path.Points).Max(point => point.X);
+            float minY = projected.SelectMany(path => path.Points).Min(point => point.Y);
+            float maxY = projected.SelectMany(path => path.Points).Max(point => point.Y);
             float width = Math.Max(1f, maxX - minX);
             float height = Math.Max(1f, maxY - minY);
             float scale = Math.Min((canvas.ClientSize.Width - 48f) / width, (canvas.ClientSize.Height - 60f) / height) * 0.82f * _zoom;
@@ -209,6 +271,7 @@ namespace KhimTools.RebarTool.Forms
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             using (var pen = new Pen(Color.FromArgb(21, 101, 192), 2f))
+            using (var subduedPen = new Pen(Color.FromArgb(180, 190, 198), 1f))
             using (var font = new Font("Segoe UI", 9f))
             using (var brush = new SolidBrush(Color.FromArgb(70, 82, 95)))
             {
@@ -217,10 +280,12 @@ namespace KhimTools.RebarTool.Forms
                     projection == "right" ? "RIGHT (YZ) — SOLVED REBAR CENTERLINES" :
                     "ISOMETRIC — SOLVED REBAR CENTERLINES";
                 e.Graphics.DrawString(heading, font, brush, 12, 10);
-                foreach (PointF[] path in projected)
+                foreach (var rolePath in projected)
                 {
+                    Pen pathPen = selectedRole == null || rolePath.Role == selectedRole ? pen : subduedPen;
+                    PointF[] path = rolePath.Points;
                     if (path.Length < 2) continue;
-                    e.Graphics.DrawLines(pen, path.Select(Map).ToArray());
+                    e.Graphics.DrawLines(pathPen, path.Select(Map).ToArray());
                 }
             }
         }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -60,7 +61,8 @@ namespace KhimTools.RebarTool.Core
             _doc = doc;
         }
 
-        public List<Rebar> Generate(CircularColumnRebarInput input, RebarGenerationReport report = null)
+        public List<Rebar> Generate(CircularColumnRebarInput input, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             var created = new List<Rebar>();
 
@@ -81,11 +83,22 @@ namespace KhimTools.RebarTool.Core
                     "Đường kính cột quá nhỏ so với cover + đường kính thép đã chọn. Kiểm tra lại D cột hoặc cỡ thép.");
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu
-            created.AddRange(CreateMainBars(input, profile, mainBarRadius, report));
-            created.AddRange(CreateStirrups(input, profile, stirrupRadius, report));
+            List<Rebar> mainBars = CreateMainBars(input, profile, mainBarRadius, report);
+            created.AddRange(mainBars);
+            RecordRoles(mainBars, "longitudinal", roleByBarId);
+            List<Rebar> ties = CreateStirrups(input, profile, stirrupRadius, report);
+            created.AddRange(ties);
+            RecordRoles(ties, "tie", roleByBarId);
 
             report?.AddSuccess(created.Count);
             return created;
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
+                if (bar != null) roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private List<Rebar> CreateMainBars(CircularColumnRebarInput input,

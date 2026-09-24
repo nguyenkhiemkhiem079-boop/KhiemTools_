@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
@@ -677,6 +678,7 @@ namespace KhimTools.RebarTool.Forms
                 var requests = inputs.Select(input =>
                 {
                     string fingerprint = RebarPreviewService.Fingerprint(input);
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
                     return new RebarPreviewRequest(fingerprint, () =>
                     {
                         if (!shapesLoaded)
@@ -685,10 +687,15 @@ namespace KhimTools.RebarTool.Forms
                             shapesLoaded = true;
                         }
                         var report = new RebarGenerationReport();
-                        List<Rebar> bars = generator.Generate(input, report);
+                        List<Rebar> bars = generator.Generate(input, report, roleByBarId);
                         if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
                         return bars;
-                    }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+                    }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input),
+                    bar =>
+                    {
+                        string role;
+                        return roleByBarId.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                    });
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();
                 _lastPreview = RebarPreviewService.Capture(_doc, requests);
