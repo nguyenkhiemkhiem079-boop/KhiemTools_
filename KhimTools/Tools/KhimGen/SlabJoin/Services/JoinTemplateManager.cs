@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.SlabJoin.Models;
-using Newtonsoft.Json;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.SlabJoin.Services
 {
@@ -20,22 +20,32 @@ namespace KhimTools.SlabJoin.Services
 
         public static void Save(JoinTemplate template)
         {
+            if (template != null && template.SchemaVersion == 0) template.SchemaVersion = 1;
+            if (!IsValid(template)) throw new InvalidDataException("Join template is invalid.");
             Directory.CreateDirectory(TemplateDir);
             string filePath = GetFilePath(template.Name);
-            string json = JsonConvert.SerializeObject(template, Formatting.Indented);
-            File.WriteAllText(filePath, json);
+            JsonSettingsPersistence.Save(filePath, template, IsValid);
         }
 
         public static JoinTemplate Load(string name)
         {
+            if (string.IsNullOrWhiteSpace(name)) return null;
             string filePath = GetFilePath(name);
             if (!File.Exists(filePath)) return null;
-            string json = File.ReadAllText(filePath);
-            return JsonConvert.DeserializeObject<JoinTemplate>(json);
+            return JsonSettingsPersistence.Load<JoinTemplate>(filePath,
+                () => null, IsValid,
+                value =>
+                {
+                    // Legacy templates did not carry a schema marker.
+                    if (value.SchemaVersion != 0) return false;
+                    value.SchemaVersion = 1;
+                    return true;
+                });
         }
 
         public static void Delete(string name)
         {
+            if (string.IsNullOrWhiteSpace(name)) return;
             string filePath = GetFilePath(name);
             if (File.Exists(filePath)) File.Delete(filePath);
         }
@@ -80,6 +90,16 @@ namespace KhimTools.SlabJoin.Services
 
         private static string GetFilePath(string name) =>
             Path.Combine(TemplateDir, SanitizeFileName(name) + ".json");
+
+        private static bool IsValid(JoinTemplate template)
+        {
+            if (template == null || template.SchemaVersion != 1 || string.IsNullOrWhiteSpace(template.Name) ||
+                template.Name.Length > 100 || !Enum.IsDefined(typeof(ScopeMode), template.DefaultScope) ||
+                template.Rules == null || template.Rules.Count > 500) return false;
+            return template.Rules.TrueForAll(rule => rule != null &&
+                Enum.TryParse(rule.CategoryA, out BuiltInCategory a) && Enum.IsDefined(typeof(BuiltInCategory), a) &&
+                Enum.TryParse(rule.CategoryB, out BuiltInCategory b) && Enum.IsDefined(typeof(BuiltInCategory), b));
+        }
 
         private static string SanitizeFileName(string name) =>
             string.Join("_", name.Split(Path.GetInvalidFileNameChars()));

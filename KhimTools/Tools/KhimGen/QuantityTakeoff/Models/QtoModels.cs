@@ -65,6 +65,7 @@ namespace KhimTools.QuantityTakeoff.Models
 
     public sealed class QtoRuleProfile
     {
+        public int SchemaVersion { get; set; }
         public string ProfileId { get; set; } = "K-QS-DEFAULT";
         public int Version { get; set; } = 1;
         public string Name { get; set; } = "K-QS Default Rules";

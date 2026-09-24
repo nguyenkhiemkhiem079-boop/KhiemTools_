@@ -23,6 +23,12 @@ Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "Regi
 Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaReportWriter.cs" "Report writer exists" | Out-Null
 Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Safety guard exists" | Out-Null
 Require-File "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "Existing Rebar fixture still exists" | Out-Null
+Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "Settings recovery host fixture exists" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SettingsRecoveryRuntimeFixture()" "Settings recovery fixture is registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" 'Id = "SETTINGS"' "Settings recovery suite is selectable" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "TryReplacePayload" "Settings fixture injects corruption only inside rollback group" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback" "Fixture result requires transaction-group rollback" | Out-Null
 
 $status = Get-Content (Join-Path $Root "KhimTools\Tools\KhimGen\RuntimeQa\Models\QaStatus.cs") -Raw
 if ($status -match "PASS" -and $status -match "FAIL" -and $status -match "BLOCKED" -and $status -match "SKIPPED" -and $status -match "NOT_RUN") { Pass "Status enum contains PASS/FAIL/BLOCKED/SKIPPED/NOT_RUN" } else { Fail "Status enum" "Required statuses are incomplete" }

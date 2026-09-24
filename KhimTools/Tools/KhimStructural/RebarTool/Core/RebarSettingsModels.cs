@@ -50,6 +50,7 @@ namespace KhimTools.RebarTool.Core
 
     public class ColumnRebarSettings
     {
+        public int SchemaVersion { get; set; }
         public string Name { get; set; }
         public string DesignStandard { get; set; } = "TCVN";
         public string ConcreteGrade { get; set; } = "Auto";
@@ -76,6 +77,7 @@ namespace KhimTools.RebarTool.Core
 
     public class BeamRebarSettings
     {
+        public int SchemaVersion { get; set; }
         public string Name { get; set; }
         public string DesignStandard { get; set; } = "TCVN";
         public string ConcreteGrade { get; set; } = "Auto";

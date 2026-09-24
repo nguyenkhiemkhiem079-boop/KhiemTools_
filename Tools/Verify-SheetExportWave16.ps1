@@ -42,6 +42,12 @@ $qa = Read-SheetFile 'Services\QaReportService.cs'
 $retry = Read-SheetFile 'Services\ExportRetryQueue.cs'
 $post = Read-SheetFile 'Services\PdfPostProcessService.cs'
 $history = Read-SheetFile 'Services\ExportHistoryService.cs'
+$extensibleStorage = Read-SheetFile 'Services\ExtensibleStorageService.cs'
+Assert-Text $extensibleStorage 'SnapshotBackupSchemaGuid' 'document snapshot backup uses a separate additive schema'
+Assert-Text $extensibleStorage 'NamingBackupSchemaGuid' 'document naming backup uses a separate additive schema'
+Assert-Text $extensibleStorage 'ReadLatestValidPayload' 'document payload reads primary then recovery copy'
+Assert-Text $extensibleStorage 'SaveWithBackup' 'document payload writes backup and primary in one owned transaction'
+Assert-Text $extensibleStorage 'previousValid == null) return false' 'corrupt document payload cannot be silently overwritten'
 
 foreach ($name in @('ExportJobOptions','ExportItemResult','ExportBatchResult','ExportPreflightItem','ExportProgress','TemporaryViewStateSnapshot','SheetIssueFingerprint')) {
     Assert-Text $models $name "structured model $name"

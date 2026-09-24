@@ -81,19 +81,32 @@ namespace KhimTools.RuntimeQa.Core
             }
             finally
             {
+                bool groupRollbackSucceeded = !groupStarted;
                 try
                 {
                     if (groupStarted && group != null && group.GetStatus() == TransactionStatus.Started)
-                        group.RollBack();
+                        groupRollbackSucceeded = group.RollBack() == TransactionStatus.RolledBack;
                 }
                 catch (Exception rollbackException)
                 {
+                    groupRollbackSucceeded = false;
                     result.RollbackVerified = false;
                     result.Errors.Add("Rollback failed: " + rollbackException.Message);
                 }
-                string rollbackMessage;
-                bool rollback = RuntimeQaSafetyGuard.VerifyRollback(context.Document, before,
+                string rollbackMessage = groupRollbackSucceeded ? string.Empty : "Transaction group rollback was not confirmed.";
+                bool rollback = groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback(context.Document, before,
                     context.CreatedElementIds, out rollbackMessage);
+                string additionalRollbackMessage;
+                bool additionalRollback;
+                try { additionalRollback = VerifyAdditionalRollbackState(context, out additionalRollbackMessage); }
+                catch (Exception rollbackException)
+                {
+                    additionalRollback = false;
+                    additionalRollbackMessage = "Additional rollback verification threw " + rollbackException.GetType().Name + ".";
+                }
+                rollback = rollback && additionalRollback;
+                if (!string.IsNullOrWhiteSpace(additionalRollbackMessage))
+                    rollbackMessage += " " + additionalRollbackMessage;
                 RuntimeQaSafetyGuard.AddRollbackCheck(result, rollback, rollbackMessage);
                 result.CreatedElementCount = Math.Max(0, context.CreatedElementIds.Count - initialCreated);
                 if (!rollback) result.Status = QaStatus.FAIL;
@@ -106,6 +119,12 @@ namespace KhimTools.RuntimeQa.Core
         }
 
         protected abstract void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result);
+
+        protected virtual bool VerifyAdditionalRollbackState(RuntimeQaContext context, out string message)
+        {
+            message = string.Empty;
+            return true;
+        }
 
         protected static void Check(QaFixtureResult result, string id, string name, bool passed,
             string expected, string actual, string message, QaSeverity severity = QaSeverity.INFO)

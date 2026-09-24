@@ -8,6 +8,7 @@ using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
+using KhimTools.Core.Settings;
 using KhimTools.SheetExport.Models;
 using KhimTools.SheetExport.Services;
 using Color = System.Drawing.Color;
@@ -1600,9 +1601,8 @@ namespace KhimTools.SheetExport.Forms
             try
             {
                 string configFile = GetLocalConfigPath();
-                var settings = new SheetExportLocalSettings { LastSelectionFilePath = path };
-                string json = Newtonsoft.Json.JsonConvert.SerializeObject(settings);
-                File.WriteAllText(configFile, json, System.Text.Encoding.UTF8);
+                var settings = new SheetExportLocalSettings { SchemaVersion = 1, LastSelectionFilePath = path ?? "" };
+                JsonSettingsPersistence.Save(configFile, settings, IsValidLocalSettings);
             }
             catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] export summary cleanup failed: " + ex); }
         }
@@ -1612,16 +1612,18 @@ namespace KhimTools.SheetExport.Forms
             try
             {
                 string configFile = GetLocalConfigPath();
-                if (File.Exists(configFile))
-                {
-                    string json = File.ReadAllText(configFile, System.Text.Encoding.UTF8);
-                    var settings = Newtonsoft.Json.JsonConvert.DeserializeObject<SheetExportLocalSettings>(json);
-                    return settings?.LastSelectionFilePath ?? "";
-                }
+                var settings = JsonSettingsPersistence.Load(configFile,
+                    () => new SheetExportLocalSettings { SchemaVersion = 1 }, IsValidLocalSettings,
+                    value => { if (value.SchemaVersion != 0) return false; value.SchemaVersion = 1; return true; });
+                return settings?.LastSelectionFilePath ?? "";
             }
             catch (Exception ex) { Debug.WriteLine("[K-TOOLS][SheetExport] export summary state cleanup failed: " + ex); }
             return "";
         }
+        private static bool IsValidLocalSettings(SheetExportLocalSettings settings) =>
+            settings != null && settings.SchemaVersion == 1 && settings.LastSelectionFilePath != null &&
+            settings.LastSelectionFilePath.Length <= 32767;
+
         #endregion
 
         private void SetAllGridItems(bool state)
@@ -1961,6 +1963,7 @@ namespace KhimTools.SheetExport.Forms
 
     public class SheetExportLocalSettings
     {
+        public int SchemaVersion { get; set; }
         public string LastSelectionFilePath { get; set; } = "";
     }
 }

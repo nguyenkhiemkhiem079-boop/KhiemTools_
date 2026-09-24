@@ -6,6 +6,7 @@ $files = @{
     rules = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Services/QtoRuleEngine.cs') -Raw
     snapshots = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Services/QtoSnapshotService.cs') -Raw
     profile = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Services/QtoRuleProfileService.cs') -Raw
+    settingsStore = Get-Content (Join-Path $root 'KhimTools/Core/Settings/JsonSettingsPersistence.cs') -Raw
     boq = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Services/QsBoqService.cs') -Raw
     form = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Forms/QuantityTakeoffForm.cs') -Raw
     importer = Get-Content (Join-Path $root 'KhimTools/Tools/KhimGen/QuantityTakeoff/Services/CubicostImportService.cs') -Raw
@@ -53,7 +54,9 @@ Assert ($files.domain.Contains('MidpointRounding.AwayFromZero')) 'deterministic-
 Assert ($files.domain.Contains('!IsFinite(wastePercent) || wastePercent < 0')) 'invalid-waste-rejected'
 Assert ($files.snapshots.Contains('SchemaVersion = 2') -and $files.snapshots.Contains('BuildLegacyKey')) 'snapshot-key-schema-preserves-old-issues'
 Assert ($files.snapshots.Contains('File.Move(temporaryPath, path)')) 'snapshot-write-uses-atomic-rename'
-Assert ($files.profile.Contains('File.Replace(temporaryPath, path, backupPath)')) 'rule-profile-save-is-atomic-and-keeps-backup'
+Assert ($files.snapshots.Contains('OrderByDescending(x => x)') -and $files.snapshots.Contains('IsValidSnapshot(snapshot)') -and $files.snapshots.Contains('MaximumSnapshotBytes')) 'snapshot-load-skips-corrupt-records-and-bounds-input'
+Assert ($files.profile.Contains('JsonSettingsPersistence.Save(path, profile, IsValid)') -and $files.settingsStore.Contains('File.Replace(temporary, path, backup, true)')) 'rule-profile-save-is-atomic-and-keeps-backup'
+Assert ($files.profile.Contains('JsonSettingsPersistence.Load(path, CreateDefault, IsValid') -and $files.profile.Contains('value.SchemaVersion = 1')) 'rule-profile-has-schema-migration-and-backup-recovery'
 Assert ($files.boq.Contains('MatchText(r.FamilyPattern, x.FamilyName)') -and $files.boq.Contains('MatchText(r.TypePattern, x.TypeName)')) 'boq-family-and-type-match-separately'
 Assert ($files.form.Contains('SaveFileDialog') -and $files.form.Contains('DialogResult.OK')) 'export-dialog-cancel-is-safe'
 Assert ($files.form.Contains('CultureInfo.InvariantCulture')) 'export-number-culture-invariant'

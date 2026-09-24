@@ -3,8 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using KhimTools.QuantityTakeoff.Models;
-using KhimTools.Core.Logging;
-using Newtonsoft.Json;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.QuantityTakeoff.Services
 {
@@ -13,18 +12,14 @@ namespace KhimTools.QuantityTakeoff.Services
         public static QtoRuleProfile Load(string documentTitle)
         {
             string path = GetRulesPath(documentTitle);
-            QtoRuleProfile profile = null;
-            try
+            QtoRuleProfile profile = JsonSettingsPersistence.Load(path, CreateDefault, IsValid, value =>
             {
-                if (File.Exists(path))
-                    profile = JsonConvert.DeserializeObject<QtoRuleProfile>(File.ReadAllText(path));
-            }
-            catch (Exception ex)
-            {
-                KToolsLog.Current.Exception("QTO.RuleProfile.Load", ex, "RULE_PROFILE_LOAD");
-            }
-
-            profile = profile ?? CreateDefault();
+                if (value.SchemaVersion != 0) return false;
+                value.SchemaVersion = 1;
+                value.Rules = value.Rules ?? new List<QtoMeasurementRule>();
+                MergeMissingDefaults(value);
+                return true;
+            });
             MergeMissingDefaults(profile);
             return profile;
         }
@@ -33,25 +28,18 @@ namespace KhimTools.QuantityTakeoff.Services
         {
             if (profile == null) throw new ArgumentNullException(nameof(profile));
             string path = GetRulesPath(documentTitle);
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            profile.SchemaVersion = 1;
+            if (!IsValid(profile)) throw new InvalidDataException("QTO rule profile is invalid.");
             int priorVersion = profile.Version;
             profile.Version = Math.Max(1, profile.Version + 1);
-            string temporaryPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-            string backupPath = path + ".bak-" + DateTime.UtcNow.ToString("yyyyMMddHHmmssfff") + "-" + Guid.NewGuid().ToString("N");
             try
             {
-                File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(profile, Formatting.Indented));
-                if (File.Exists(path)) File.Replace(temporaryPath, path, backupPath);
-                else File.Move(temporaryPath, path);
+                JsonSettingsPersistence.Save(path, profile, IsValid);
             }
             catch
             {
                 profile.Version = priorVersion;
                 throw;
-            }
-            finally
-            {
-                if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
             }
         }
 
@@ -65,7 +53,7 @@ namespace KhimTools.QuantityTakeoff.Services
 
         private static QtoRuleProfile CreateDefault()
         {
-            var profile = new QtoRuleProfile();
+            var profile = new QtoRuleProfile { SchemaVersion = 1 };
             profile.Rules.AddRange(DefaultRules());
             return profile;
         }
@@ -76,6 +64,17 @@ namespace KhimTools.QuantityTakeoff.Services
             foreach (QtoMeasurementRule rule in DefaultRules())
                 if (!profile.Rules.Any(x => string.Equals(x.Code, rule.Code, StringComparison.OrdinalIgnoreCase)))
                     profile.Rules.Add(rule);
+        }
+
+        private static bool IsValid(QtoRuleProfile profile)
+        {
+            return profile != null && profile.SchemaVersion == 1 && profile.Version >= 1 &&
+                !string.IsNullOrWhiteSpace(profile.ProfileId) && profile.ProfileId.Length <= 200 &&
+                !string.IsNullOrWhiteSpace(profile.Name) && profile.Name.Length <= 200 && profile.Rules != null &&
+                profile.Rules.Count <= 1000 && profile.Rules.TrueForAll(rule => rule != null &&
+                    !string.IsNullOrWhiteSpace(rule.Code) && rule.Code.Length <= 120 &&
+                    !double.IsNaN(rule.WastePercent) && !double.IsInfinity(rule.WastePercent) &&
+                    rule.WastePercent >= 0 && rule.WastePercent <= 10000 && rule.RoundingDigits >= 0 && rule.RoundingDigits <= 8);
         }
 
         private static IEnumerable<QtoMeasurementRule> DefaultRules()

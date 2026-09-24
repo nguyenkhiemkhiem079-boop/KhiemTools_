@@ -11,6 +11,7 @@ using KhimTools.Structural.QuickStructure.Models;
 using KhimTools.Architectural.QuickArchi.Models;
 using KhimTools.RebarTool.Core;
 using KhimTools.Core.Preview;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.Tests
 {
@@ -98,6 +99,7 @@ namespace KhimTools.Tests
                 RunTest("Test 47: Preview lifecycle rejects and clears stale payloads", Test_47_PreviewLifecycle_Stale);
                 RunTest("Test 48: Preview lifecycle invalidation clears payload and fingerprint", Test_48_PreviewLifecycle_Invalidate);
                 RunTest("Test 49: Host-verification state cannot be consumed as a valid preview", Test_49_PreviewLifecycle_HostRequired);
+                RunTest("Test 50: Settings defaults, backup recovery, migration and corrupt-file recovery", Test_50_SettingsRecovery);
             }
             finally
             {
@@ -141,6 +143,56 @@ namespace KhimTools.Tests
             {
                 InstallationClassifier.MsiDetectionOverride = previousMsiDetection;
             }
+        }
+
+        private static void Test_50_SettingsRecovery()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "KToolsSettingsTest-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "settings.json");
+            Func<TestSettings> defaults = () => new TestSettings { SchemaVersion = 2, Value = "default" };
+            Func<TestSettings, bool> valid = value => value != null && value.SchemaVersion == 2 && !string.IsNullOrEmpty(value.Value);
+            Func<TestSettings, bool> migrate = value =>
+            {
+                if (value.SchemaVersion != 1) return false;
+                value.SchemaVersion = 2;
+                return true;
+            };
+            try
+            {
+                TestSettings fresh = JsonSettingsPersistence.Load(path, defaults, valid);
+                if (fresh.Value != "default") throw new Exception("Missing settings did not use defaults.");
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "good" }, valid);
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "new" }, valid);
+                File.WriteAllText(path, "{broken json");
+                TestSettings recovered = JsonSettingsPersistence.Load(path, defaults, valid);
+                if (recovered.Value != "good") throw new Exception("Corrupt settings did not recover the last-known-good backup.");
+                File.WriteAllText(path, "{\"SchemaVersion\":1,\"Value\":\"legacy\"}");
+                TestSettings migrated = JsonSettingsPersistence.Load(path, defaults, valid, migrate);
+                if (migrated.Value != "legacy" || migrated.SchemaVersion != 2 || !File.Exists(path + ".bak"))
+                    throw new Exception("Legacy settings migration or preservation failed.");
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "migrated" }, valid);
+                File.WriteAllText(path, "{\"SchemaVersion\":99,\"Value\":\"future\"}");
+                TestSettings future = JsonSettingsPersistence.Load(path, defaults, valid, migrate);
+                if (future.Value != "legacy") throw new Exception("Future/corrupt settings failed backup recovery.");
+                bool rejected = false;
+                try { JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 99, Value = "invalid" }, valid); }
+                catch (InvalidDataException) { rejected = true; }
+                if (!rejected) throw new Exception("Invalid settings were written.");
+                string failedMigrationPath = Path.Combine(directory, "migration-failure.json");
+                File.WriteAllText(failedMigrationPath, "{\"SchemaVersion\":1,\"Value\":\"legacy\"}");
+                TestSettings failedMigration = JsonSettingsPersistence.Load(failedMigrationPath, defaults, valid,
+                    value => { throw new InvalidDataException("Injected migration failure."); });
+                if (failedMigration.Value != "default" || !File.Exists(failedMigrationPath))
+                    throw new Exception("Migration failure did not safely recover defaults while preserving input.");
+            }
+            finally { try { Directory.Delete(directory, true); } catch { } }
+        }
+
+        private sealed class TestSettings
+        {
+            public int SchemaVersion { get; set; }
+            public string Value { get; set; }
         }
 
         private static string CreateSandbox(string name)

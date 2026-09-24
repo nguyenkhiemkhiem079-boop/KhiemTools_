@@ -11,6 +11,7 @@ namespace KhimTools.QuantityTakeoff.Services
 {
     public static class QtoSnapshotService
     {
+        private const long MaximumSnapshotBytes = 20L * 1024L * 1024L;
         public static string Issue(QtoResult result, QtoRuleProfile profile)
         {
             if (result == null) throw new ArgumentNullException(nameof(result));
@@ -41,10 +42,30 @@ namespace KhimTools.QuantityTakeoff.Services
         {
             string folder = GetFolder(documentTitle);
             if (!Directory.Exists(folder)) return null;
-            string path = Directory.GetFiles(folder, "*.json").OrderByDescending(x => x).FirstOrDefault();
-            if (path == null) return null;
-            try { return JsonConvert.DeserializeObject<QtoSnapshot>(File.ReadAllText(path)); }
-            catch { return null; }
+            foreach (string path in Directory.GetFiles(folder, "*.json").OrderByDescending(x => x))
+            {
+                try
+                {
+                    var file = new FileInfo(path);
+                    if (file.Length <= 0 || file.Length > MaximumSnapshotBytes) continue;
+                    QtoSnapshot snapshot = JsonConvert.DeserializeObject<QtoSnapshot>(File.ReadAllText(path),
+                        new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None, MaxDepth = 32 });
+                    if (IsValidSnapshot(snapshot)) return snapshot;
+                }
+                catch { /* Immutable snapshots: skip a damaged record and try the preceding one. */ }
+            }
+            return null;
+        }
+
+        private static bool IsValidSnapshot(QtoSnapshot snapshot)
+        {
+            if (snapshot == null || (snapshot.SchemaVersion != 1 && snapshot.SchemaVersion != 2) ||
+                string.IsNullOrWhiteSpace(snapshot.SnapshotId) || snapshot.SnapshotId.Length > 100 ||
+                string.IsNullOrWhiteSpace(snapshot.DocumentTitle) || snapshot.CreatedAt == DateTime.MinValue ||
+                snapshot.ProfileVersion < 0 || snapshot.Lines == null || snapshot.Lines.Count > 100000) return false;
+            return snapshot.Lines.All(line => line != null && !double.IsNaN(line.Quantity) &&
+                !double.IsInfinity(line.Quantity) && line.Quantity >= 0 && line.ElementUniqueIds != null &&
+                line.ElementUniqueIds.Count <= 100000);
         }
 
         public static List<QtoVarianceLine> Compare(QtoResult current, QtoSnapshot previous)

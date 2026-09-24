@@ -21,7 +21,7 @@ $suites = @(
     @{
         Name = "Deployment Security & Rebar Engineering Suite (Phase 0, 4, 5, 6, 7, 8)"
         Script = Join-Path $scriptDir "KhimTools\Tests\RunTests.ps1"
-        ExpectedCount = 49
+        ExpectedCount = 50
     },
     @{
         Name = "MSI Implementation Structural Audit (Phase 2)"
@@ -49,6 +49,11 @@ $suites = @(
         ExpectedCount = 47
     },
     @{
+        Name = "Rebar Configuration Persistence & Recovery"
+        Script = Join-Path $scriptDir "Tools\Verify-RebarConfiguration.ps1"
+        ExpectedCount = 37
+    },
+    @{
         Name = "Phase 8 Rebar Layout Rendering QA"
         Script = Join-Path $scriptDir "Tools\Verify-RebarLayout.ps1"
         ExpectedCount = 1
@@ -74,7 +79,7 @@ $suites = @(
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-RuntimeQaHarness.ps1"
-        ExpectedCount = 14
+        ExpectedCount = 20
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
@@ -85,6 +90,11 @@ $suites = @(
         Name = "SheetGen Wave 1.1 Production QA"
         Script = Join-Path $scriptDir "Tools\Verify-SheetGenWave11.ps1"
         ExpectedCount = 24
+    },
+    @{
+        Name = "Sheet Export Wave 1.6 Production QA"
+        Script = Join-Path $scriptDir "Tools\Verify-SheetExportWave16.ps1"
+        ExpectedCount = 138
     },
     @{
         Name = "Detail Number Wave 1.3 Production QA"
@@ -174,7 +184,7 @@ $suites = @(
     @{
         Name = "K-QS Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KQsAcceptance.ps1"
-        ExpectedCount = 47
+        ExpectedCount = 49
     },
     @{
         Name = "K-QS Domain QA"

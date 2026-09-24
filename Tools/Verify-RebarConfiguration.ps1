@@ -41,6 +41,17 @@ $rejected = $false
 try { $store.Save($stale) } catch { $rejected = $true }
 Assert $rejected 'Reject stale save'
 Assert ($store.Load().Members['Beam']['Ld'] -eq 55) 'Stale save did not overwrite'
+$recoveryStore = [Activator]::CreateInstance($storeType,@($directory,'project-recovery'))
+$recoveryConfig = [Activator]::CreateInstance($configType)
+$recoveryConfig.ProjectKey = 'project-recovery'
+$recoveryConfig.Project['Ld'] = 41
+$recoveryStore.Save($recoveryConfig)
+$recoveryConfig.Project['Ld'] = 42
+$recoveryStore.Save($recoveryConfig)
+$storePath = $storeType.GetField('_path',[Reflection.BindingFlags]'NonPublic,Instance').GetValue($recoveryStore)
+[IO.File]::WriteAllText($storePath,'{corrupt')
+$restored = $recoveryStore.Load()
+Assert ($restored.Project['Ld'] -eq 41) 'Corrupt project settings recover the latest valid revision backup'
 $other = [Activator]::CreateInstance($storeType,@($directory,'project-2'))
 Assert ($other.Load().Revision -eq 0) 'Project isolation'
 foreach ($json in @('null','{"SchemaVersion":99}','{"Project":{"x":-1}}','{"Project":{"x":1000001}}','{"Members":{"Beam":null}}','not json')) {

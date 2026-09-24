@@ -9,6 +9,7 @@ namespace KhimTools.SlabJoin.Models
     /// </summary>
     public class JoinTemplate
     {
+        public int SchemaVersion { get; set; }
         public string Name { get; set; } = "Default";
         public ScopeMode DefaultScope { get; set; } = ScopeMode.CurrentView;
         public List<JoinTemplateRule> Rules { get; set; } = new List<JoinTemplateRule>();

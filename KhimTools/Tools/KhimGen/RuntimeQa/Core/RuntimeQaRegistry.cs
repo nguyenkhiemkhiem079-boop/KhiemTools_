@@ -47,6 +47,7 @@ namespace KhimTools.RuntimeQa.Core
                 new QaSuiteDefinition { Id = "ARCHITECTURAL", Name = "K-Architectural", Description = "Production architectural workflow host fixtures; currently Room 3D view creation and transaction-group rollback." },
                 new QaSuiteDefinition { Id = "MEP", Name = "K-MEP", Description = "Production MEP solid-clash analysis and elevation-note host fixture." },
                 new QaSuiteDefinition { Id = "QS", Name = "K-QS", Description = "Production quantity takeoff scope and read-only host fixture." },
+                new QaSuiteDefinition { Id = "SETTINGS", Name = "Settings Recovery", Description = "Project-owned Extensible Storage settings backup, corruption recovery and preservation fixture (rollback-only)." },
                 new QaSuiteDefinition { Id = "FULL", Name = "Full", Description = "All registered runtime fixtures." }
             };
             foreach (QaSuiteDefinition suite in suites)
@@ -81,6 +82,7 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new KArchitecturalRuntimeFixture());
             registry.RegisterFixture(new KMepProductionRuntimeFixture());
             registry.RegisterFixture(new KQsProductionRuntimeFixture());
+            registry.RegisterFixture(new SettingsRecoveryRuntimeFixture());
             registry.RegisterFixture(new RebarCoreRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnRuntimeFixture());
             registry.RegisterFixture(new RectangularColumnFullCageRuntimeFixture());

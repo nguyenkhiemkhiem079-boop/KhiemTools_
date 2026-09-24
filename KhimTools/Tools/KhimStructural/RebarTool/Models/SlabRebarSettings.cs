@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using System.Linq;
+using System.Reflection;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.RebarTool.Models
 {
     public class SlabRebarSettings
     {
+        public int SchemaVersion { get; set; }
         public string TemplateName { get; set; } = "Mặc định Sàn 2 Lớp (150mm)";
 
         // ── 1. Bottom Mat (Lớp Dưới) ─────────────────────────────────────────
@@ -68,9 +71,10 @@ namespace KhimTools.RebarTool.Models
             try
             {
                 settings.TemplateName = templateName.Trim();
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{settings.TemplateName}.json");
-                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                File.WriteAllText(filePath, json);
+                settings.SchemaVersion = 1;
+                if (!IsValid(settings)) return false;
+                string filePath = GetTemplatePath(templateName);
+                JsonSettingsPersistence.Save(filePath, settings, IsValid);
                 return true;
             }
             catch { return false; }
@@ -81,10 +85,10 @@ namespace KhimTools.RebarTool.Models
             if (string.IsNullOrWhiteSpace(templateName)) return null;
             try
             {
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{templateName.Trim()}.json");
+                string filePath = GetTemplatePath(templateName);
                 if (!File.Exists(filePath)) return null;
-                string json = File.ReadAllText(filePath);
-                return JsonConvert.DeserializeObject<SlabRebarSettings>(json);
+                return JsonSettingsPersistence.Load<SlabRebarSettings>(filePath, () => null, IsValid,
+                    value => { if (value.SchemaVersion != 0) return false; value.SchemaVersion = 1; return true; });
             }
             catch { return null; }
         }
@@ -109,6 +113,33 @@ namespace KhimTools.RebarTool.Models
                 list.Add(defaultSetting.TemplateName);
             }
             return list;
+        }
+
+        private static string GetTemplatePath(string name)
+        {
+            string safe = string.Concat(name.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            if (string.IsNullOrWhiteSpace(safe) || safe == "." || safe == "..") throw new InvalidDataException("Invalid template name.");
+            return Path.Combine(GetTemplateDirectory(), safe + ".json");
+        }
+
+        private static bool IsValid(SlabRebarSettings settings)
+        {
+            if (settings == null || settings.SchemaVersion != 1 || string.IsNullOrWhiteSpace(settings.TemplateName) ||
+                settings.TemplateName.Length > 100 || (settings.DesignCode != "TCVN 5574:2018" && settings.DesignCode != "Eurocode 2")) return false;
+            foreach (PropertyInfo property in settings.GetType().GetProperties())
+            {
+                if (property.PropertyType == typeof(double))
+                {
+                    double value = (double)property.GetValue(settings, null);
+                    if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1000000) return false;
+                }
+                if (property.PropertyType == typeof(int))
+                {
+                    int value = (int)property.GetValue(settings, null);
+                    if (value < 0 || value > 1000000) return false;
+                }
+            }
+            return true;
         }
     }
 }

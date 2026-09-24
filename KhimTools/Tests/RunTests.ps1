@@ -3,6 +3,8 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Resolve-Path "$scriptDir\.."
 $outputExe = Join-Path $scriptDir "DeploymentTests.exe"
+$newtonsoft = Join-Path $env:USERPROFILE ".nuget\packages\newtonsoft.json\13.0.3\lib\net45\Newtonsoft.Json.dll"
+if (-not (Test-Path $newtonsoft)) { throw "Newtonsoft.Json test dependency not found: $newtonsoft" }
 
 $csc = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if (-not (Test-Path $csc)) {
@@ -26,11 +28,12 @@ $sourceFiles = @(
     (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs"),
     (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\IRebarDesignStandard.cs"),
     (Join-Path $projectRoot "Core\Preview\PreviewLifecycleSession.cs"),
+    (Join-Path $projectRoot "Core\Settings\JsonSettingsPersistence.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 
 Write-Host "Compiling Deployment Security Test Suite..." -ForegroundColor Cyan
-& $csc /target:exe /out:$outputExe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Xml.dll /r:System.Net.Http.dll /nologo $sourceFiles
+& $csc /target:exe /out:$outputExe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Xml.dll /r:System.Net.Http.dll /r:$newtonsoft /nologo $sourceFiles
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Compilation failed!" -ForegroundColor Red
@@ -38,6 +41,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 try {
+    Copy-Item $newtonsoft (Join-Path $scriptDir "Newtonsoft.Json.dll") -Force
     & $outputExe "$projectRoot"
     $testExitCode = $LASTEXITCODE
 } catch {
@@ -50,5 +54,6 @@ try {
 }
 
 Remove-Item $outputExe -Force -ErrorAction SilentlyContinue
+Remove-Item (Join-Path $scriptDir "Newtonsoft.Json.dll") -Force -ErrorAction SilentlyContinue
 
 exit $testExitCode
