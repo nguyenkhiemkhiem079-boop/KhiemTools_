@@ -12,6 +12,7 @@ using KhimTools.Architectural.QuickArchi.Models;
 using KhimTools.RebarTool.Core;
 using KhimTools.Core.Preview;
 using KhimTools.Core.Settings;
+using KhimTools.Core.Automation;
 
 namespace KhimTools.Tests
 {
@@ -100,6 +101,12 @@ namespace KhimTools.Tests
                 RunTest("Test 48: Preview lifecycle invalidation clears payload and fingerprint", Test_48_PreviewLifecycle_Invalidate);
                 RunTest("Test 49: Host-verification state cannot be consumed as a valid preview", Test_49_PreviewLifecycle_HostRequired);
                 RunTest("Test 50: Settings defaults, backup recovery, migration and corrupt-file recovery", Test_50_SettingsRecovery);
+                RunTest("Test 51: Internal API typed request and dry-run dispatch", Test_51_AutomationValidDryRun);
+                RunTest("Test 52: Internal API rejects null, missing and unknown requests", Test_52_AutomationInvalidRequests);
+                RunTest("Test 53: Internal API rejects unspecified units", Test_53_AutomationBadUnit);
+                RunTest("Test 54: Internal API enforces host requirement", Test_54_AutomationHostRequired);
+                RunTest("Test 55: Internal API enforces successful postconditions", Test_55_AutomationPostcondition);
+                RunTest("Test 56: Internal API converts handler exceptions to failed results", Test_56_AutomationException);
             }
             finally
             {
@@ -1831,6 +1838,87 @@ namespace KhimTools.Tests
         {
             var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); session.RequireHostVerification(); object actual;
             if (session.TryGetValid("plan-1", out actual) || session.State != PreviewLifecycleState.HostVerificationRequired) throw new Exception("Host-required previews must not be reported as executable code-side previews.");
+        }
+
+        private sealed class AutomationTestRequest : AutomationRequest { public string Value { get; set; } }
+
+        private sealed class AutomationTestHandler : IAutomationCapabilityHandler
+        {
+            private readonly bool _requiresHost;
+            private readonly bool _throws;
+            private readonly bool _postcondition;
+            public AutomationCapabilityMetadata Metadata { get; private set; }
+
+            public AutomationTestHandler(string id, bool requiresHost, bool throws, bool postcondition)
+            {
+                _requiresHost = requiresHost; _throws = throws; _postcondition = postcondition;
+                Metadata = new AutomationCapabilityMetadata(id, "Test", "Test", "Test handler", true, false,
+                    requiresHost, false, false, true, true, "AutomationTestRequest", "AutomationResult");
+            }
+
+            public AutomationResult Execute(AutomationRequest request)
+            {
+                var typed = request as AutomationTestRequest;
+                if (typed == null || string.IsNullOrEmpty(typed.Value))
+                    return new AutomationResult { Status = AutomationStatus.Rejected, Summary = "Typed request is required.", Failed = 1, Postcondition = false };
+                if (_throws) throw new InvalidOperationException("fixture exception");
+                return new AutomationResult { Status = AutomationStatus.Succeeded, Summary = "ok", Requested = 1, Postcondition = _postcondition };
+            }
+        }
+
+        private static InternalAutomationApi CreateAutomationTestApi(bool requiresHost, bool throws, bool postcondition, bool hostAvailable = false)
+        {
+            return new InternalAutomationApi(new IAutomationCapabilityHandler[]
+            {
+                new AutomationTestHandler("test.capability", requiresHost, throws, postcondition)
+            }, hostAvailable);
+        }
+
+        private static AutomationTestRequest ValidAutomationRequest(string capabilityId = "test.capability")
+        {
+            return new AutomationTestRequest { CapabilityId = capabilityId, UnitSystem = AutomationUnitSystem.NotApplicable, DryRun = true, Value = "typed" };
+        }
+
+        private static void Test_51_AutomationValidDryRun()
+        {
+            var result = CreateAutomationTestApi(false, false, true).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Succeeded || result.Requested != 1 || !result.Postcondition) throw new Exception("Valid typed dry-run request must return a successful postcondition.");
+        }
+
+        private static void Test_52_AutomationInvalidRequests()
+        {
+            var api = CreateAutomationTestApi(false, false, true);
+            if (api.Invoke(null).Status != AutomationStatus.Rejected) throw new Exception("Null request must be rejected.");
+            if (api.Invoke(new AutomationTestRequest { UnitSystem = AutomationUnitSystem.NotApplicable }).Status != AutomationStatus.Rejected) throw new Exception("Missing capability id must be rejected.");
+            if (api.Invoke(ValidAutomationRequest("unknown")).Status != AutomationStatus.Rejected) throw new Exception("Unknown capability must be rejected.");
+            var wrongType = new OtherAutomationRequest { CapabilityId = "test.capability", UnitSystem = AutomationUnitSystem.NotApplicable };
+            if (api.Invoke(wrongType).Status != AutomationStatus.Rejected) throw new Exception("A request that violates the typed input contract must be rejected.");
+        }
+
+        private sealed class OtherAutomationRequest : AutomationRequest { }
+
+        private static void Test_53_AutomationBadUnit()
+        {
+            var request = ValidAutomationRequest(); request.UnitSystem = AutomationUnitSystem.Unspecified;
+            if (CreateAutomationTestApi(false, false, true).Invoke(request).Status != AutomationStatus.Rejected) throw new Exception("Unspecified units must be rejected.");
+        }
+
+        private static void Test_54_AutomationHostRequired()
+        {
+            if (CreateAutomationTestApi(true, false, true).Invoke(ValidAutomationRequest()).Status != AutomationStatus.Rejected) throw new Exception("Host-required capability must not run without the host.");
+            if (CreateAutomationTestApi(true, false, true, true).Invoke(ValidAutomationRequest()).Status != AutomationStatus.Succeeded) throw new Exception("Host-required capability should run when host availability is declared.");
+        }
+
+        private static void Test_55_AutomationPostcondition()
+        {
+            var result = CreateAutomationTestApi(false, false, false).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Failed || result.Failed != 1 || result.Postcondition) throw new Exception("A false postcondition must downgrade success to failure.");
+        }
+
+        private static void Test_56_AutomationException()
+        {
+            var result = CreateAutomationTestApi(false, true, true).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Failed || result.Postcondition || result.Diagnostics.Count == 0) throw new Exception("Handler exceptions must return a failed result with diagnostics.");
         }
     }
 }

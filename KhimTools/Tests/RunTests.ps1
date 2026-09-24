@@ -29,11 +29,13 @@ $sourceFiles = @(
     (Join-Path $projectRoot "Tools\KhimStructural\RebarTool\Core\IRebarDesignStandard.cs"),
     (Join-Path $projectRoot "Core\Preview\PreviewLifecycleSession.cs"),
     (Join-Path $projectRoot "Core\Settings\JsonSettingsPersistence.cs"),
+    (Join-Path $projectRoot "Core\Automation\AutomationContracts.cs"),
+    (Join-Path $projectRoot "Core\Automation\InternalAutomationApi.cs"),
     (Join-Path $scriptDir "DeploymentTests.cs")
 )
 
 Write-Host "Compiling Deployment Security Test Suite..." -ForegroundColor Cyan
-& $csc /target:exe /out:$outputExe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Xml.dll /r:System.Net.Http.dll /r:$newtonsoft /nologo $sourceFiles
+& $csc /define:AUTOMATION_CONTRACT_TESTS /target:exe /out:$outputExe /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll /r:System.Xml.dll /r:System.Net.Http.dll /r:$newtonsoft /nologo $sourceFiles
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Compilation failed!" -ForegroundColor Red

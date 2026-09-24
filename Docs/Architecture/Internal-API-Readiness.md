@@ -1,5 +1,19 @@
 # Internal API Readiness
 
+## Phase 13 implementation boundary
+
+The in-process allow-list now exposes one verified capability: `sheet-export.naming-preview`.
+Its typed `SheetNamingPreviewRequest` delegates filename expansion and validation to
+`NamingPlanService.Expand`, the same service used by the Sheet Export UI and workflow. It is
+read-only, performs no filesystem or document mutation, and requires `UnitSystem.NotApplicable`
+explicitly. The dispatcher rejects unknown IDs, missing/unspecified units, unavailable host
+requirements, handler exceptions, and failed postconditions. It provides no network listener,
+reflection-based dispatch, shell, PowerShell, or arbitrary code execution surface.
+
+This is a deliberately small Phase 13 internal API implementation, not a claim that the modules
+below are all API-ready or that Revit-host execution has been verified. Add further capabilities
+only when their production service and contract have independent acceptance coverage.
+
 Readiness is assessed against a small internal adapter contract: stable request, deterministic
 plan/fingerprint, preflight gate, explicit transaction policy, observable diagnostics, and
 verification against the same document identity. `READY` does not imply runtime acceptance.
