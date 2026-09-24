@@ -36,5 +36,5 @@ Assert-NotText $protocol 'HttpListener' 'No HTTP/remote server is exposed'
 
 & dotnet run --project $project -c Release
 if ($LASTEXITCODE -ne 0) { throw "MCP contract tests failed with exit code $LASTEXITCODE" }
-Write-Host "PASS: MCP protocol, security and local transport acceptance ($($checks + 25) checks total; $checks structural, 25 executable)" -ForegroundColor Green
+Write-Host "PASS: MCP protocol, security and local transport acceptance ($($checks + 34) checks total; $checks structural, 34 executable)" -ForegroundColor Green
 exit 0

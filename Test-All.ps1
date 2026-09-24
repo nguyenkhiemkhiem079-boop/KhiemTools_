@@ -51,7 +51,7 @@ $suites = @(
     @{
         Name = "Phase 14 MCP Protocol & Local Transport Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-McpAcceptance.ps1"
-        ExpectedCount = 42
+        ExpectedCount = 51
     },
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
@@ -100,6 +100,11 @@ $suites = @(
         Name = "Phase 16 Reliability & Security Static Audit"
         Script = Join-Path $scriptDir "Tools\Verify-Phase16ReliabilitySecurity.ps1"
         ExpectedCount = 13
+    },
+    @{
+        Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
+        Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
+        ExpectedCount = 36
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"

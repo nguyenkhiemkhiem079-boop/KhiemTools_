@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text;
 using KhimTools.Core.Automation;
 using Newtonsoft.Json.Linq;
 
@@ -139,6 +140,26 @@ namespace KhimTools.Mcp.ContractTests
             Check(boundedLines.Length == 1 && (int)JObject.Parse(boundedLines[0])["error"]["code"] == -32600, "oversized stdio frame returns error and stops without consuming later data");
         }
 
+        private static void TestSerializationStress()
+        {
+            foreach (int requestCount in new[] { 100, 1000, 10000 })
+            {
+                string request = Message("tools/list").ToString(Newtonsoft.Json.Formatting.None);
+                var input = new StringBuilder(request.Length * requestCount + requestCount);
+                for (int i = 0; i < requestCount; i++) input.Append(request).Append('\n');
+                var output = new StringWriter();
+                var timer = System.Diagnostics.Stopwatch.StartNew();
+                McpStdioTransport.Run(CreateAdapter(), new StringReader(input.ToString()), output);
+                timer.Stop();
+                string[] lines = output.ToString().Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                Check(lines.Length == requestCount, "MCP JSON serialization stress preserves all " + requestCount + " requests");
+                Check(((JArray)JObject.Parse(lines[lines.Length - 1])["result"]["tools"]).Count == 1,
+                    "MCP JSON serialization stress retains canonical response at " + requestCount);
+                Check(timer.Elapsed < TimeSpan.FromSeconds(15), "MCP JSON serialization stress stays bounded at " + requestCount);
+                Console.WriteLine("MCP_STRESS_REQUESTS=" + requestCount + "; ELAPSED_MS=" + timer.ElapsedMilliseconds);
+            }
+        }
+
         public static int Main()
         {
             try
@@ -151,7 +172,8 @@ namespace KhimTools.Mcp.ContractTests
                 TestCanonicalRegexTimeout();
                 TestMessageLimitsAndMalformedInput();
                 TestStdioFraming();
-                Console.WriteLine("PASS: MCP protocol, canonical service and local stdio contract (25 checks)");
+                TestSerializationStress();
+                Console.WriteLine("PASS: MCP protocol, canonical service and local stdio contract (34 checks)");
                 return 0;
             }
             catch (Exception ex)
