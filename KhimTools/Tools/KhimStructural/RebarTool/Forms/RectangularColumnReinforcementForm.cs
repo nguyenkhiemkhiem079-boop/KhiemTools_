@@ -530,6 +530,15 @@ namespace KhimTools.RebarTool.Forms
             pnlSlabBeam.Controls.Add(_lblDefaultHd); pnlSlabBeam.Controls.Add(_numDefaultBeamHd);
             _grpSlabBeam.Controls.Add(pnlSlabBeam);
 
+            // These legacy controls are not mapped into RectangularColumnRebarInput.
+            // Keep them visible for roadmap context, but do not present them as active settings.
+            _grpHook.Enabled = false;
+            _grpBendCut.Enabled = false;
+            _grpTopRoof.Enabled = false;
+            _grpSplicePos.Enabled = false;
+            _grpAssignInfo.Enabled = false;
+            _grpSlabBeam.Enabled = false;
+
             layoutGenSettings.Controls.Add(_grpHook, 0, 0); layoutGenSettings.Controls.Add(_grpBendCut, 1, 0);
             layoutGenSettings.Controls.Add(_grpTopRoof, 0, 1); layoutGenSettings.Controls.Add(_grpSplicePos, 1, 1);
             layoutGenSettings.Controls.Add(_grpAssignInfo, 0, 2); layoutGenSettings.Controls.Add(_grpSlabBeam, 1, 2);
@@ -1723,26 +1732,26 @@ namespace KhimTools.RebarTool.Forms
             if (_chkCrossLinks != null) _chkCrossLinks.Text = isEn ? "Advanced — crosslinks / C-links JP_T68" : "Nâng cao — đai móc phụ / Crosslink JP_T68";
 
             // Tab 3 General Settings
-            if (_grpHook != null) _grpHook.Text = isEn ? "REBAR HOOK BENDING SECTION" : "CẤU TẠO UỐN MÓC THÉP";
+            if (_grpHook != null) _grpHook.Text = (isEn ? "REBAR HOOK BENDING SECTION" : "CẤU TẠO UỐN MÓC THÉP") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_rdHookLengthFixed != null) _rdHookLengthFixed.Text = isEn ? "By fixed length L (mm):" : "Theo chiều dài cố định L (mm):";
             if (_rdHookLengthDia != null) _rdHookLengthDia.Text = isEn ? "By diameter (xD):" : "Theo đường kính thanh (xD):";
 
-            if (_grpBendCut != null) _grpBendCut.Text = isEn ? "REBAR BENDING OR CUTTING CONDITIONS" : "ĐIỀU KIỆN UỐN HOẶC CẮT THÉP";
+            if (_grpBendCut != null) _grpBendCut.Text = (isEn ? "REBAR BENDING OR CUTTING CONDITIONS" : "ĐIỀU KIỆN UỐN HOẶC CẮT THÉP") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_lblBendE != null) _lblBendE.Text = isEn ? "Bend rebar if offset e ≤ (mm):" : "Uốn thép nếu độ lệch e ≤ (mm):";
             if (_lblBendRatio != null) _lblBendRatio.Text = isEn ? "Bend slope ratio Hd/e ≥:" : "Tỷ lệ độ dốc uốn Hd/e ≥:";
 
-            if (_grpTopRoof != null) _grpTopRoof.Text = isEn ? "SET TOP ROOF REBAR" : "KẾT THÚC THÉP ĐỈNH MÁI";
+            if (_grpTopRoof != null) _grpTopRoof.Text = (isEn ? "SET TOP ROOF REBAR" : "KẾT THÚC THÉP ĐỈNH MÁI") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_rdTopRoofHook != null) _rdTopRoofHook.Text = isEn ? "Bend hook for top floor rebar" : "Bẻ móc cho thép tầng đỉnh mái";
             if (_rdTopRoofContinue != null) _rdTopRoofContinue.Text = isEn ? "Continue straight for next level" : "Chờ thẳng cho tầng tiếp theo";
 
-            if (_grpSplicePos != null) _grpSplicePos.Text = isEn ? "REBAR SPLICE POSITION" : "VỊ TRÍ NỐI THÉP CỘT";
+            if (_grpSplicePos != null) _grpSplicePos.Text = (isEn ? "REBAR SPLICE POSITION" : "VỊ TRÍ NỐI THÉP CỘT") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_lblSpliceDist != null) _lblSpliceDist.Text = isEn ? "Splice distance from column base L = (mm):" : "Khoảng cách nối từ chân cột L = (mm):";
 
-            if (_grpAssignInfo != null) _grpAssignInfo.Text = isEn ? "ASSIGN ADDITIONAL INFORMATION TO REBAR" : "GÁN THÔNG TIN BỔ SUNG CHO THÉP";
+            if (_grpAssignInfo != null) _grpAssignInfo.Text = (isEn ? "ASSIGN ADDITIONAL INFORMATION TO REBAR" : "GÁN THÔNG TIN BỔ SUNG CHO THÉP") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_chkAssignElevation != null) _chkAssignElevation.Text = isEn ? "Assign column elevation to rebar" : "Gán cao độ cột vào thông số thép";
             if (_chkAssignPartition != null) _chkAssignPartition.Text = isEn ? "Automatically assign Partition to rebar" : "Tự động gán Phân vùng (Partition) cho thép";
 
-            if (_grpSlabBeam != null) _grpSlabBeam.Text = isEn ? "OPTION AT SLAB BEAM POSITION" : "TÙY CHỌN TẠI VỊ TRÍ DẦM / SÀN";
+            if (_grpSlabBeam != null) _grpSlabBeam.Text = (isEn ? "OPTION AT SLAB BEAM POSITION" : "TÙY CHỌN TẠI VỊ TRÍ DẦM / SÀN") + (isEn ? " (not applied)" : " (chưa áp dụng)");
             if (_lblDefaultHd != null) _lblDefaultHd.Text = isEn ? "Default beam height Hd (mm):" : "Chiều cao dầm mặc định Hd (mm):";
 
             // Tab 4 Drawing
