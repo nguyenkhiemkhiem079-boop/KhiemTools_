@@ -88,27 +88,38 @@ namespace KhimTools.RebarTool.Core
         /// </summary>
         public static RebarCoverType GetOrCreateCoverType(Document doc, double coverMm)
         {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
+            if (double.IsNaN(coverMm) || double.IsInfinity(coverMm) || coverMm <= 0)
+                throw new ArgumentOutOfRangeException(nameof(coverMm), "Concrete cover must be a finite positive distance in millimeters.");
+
             double coverFeet = ToFeet(coverMm);
+            double matchTolerance = ToFeet(0.1);
             string coverName = $"{coverMm:0} mm";
 
             var existing = new FilteredElementCollector(doc)
                 .OfClass(typeof(RebarCoverType))
                 .Cast<RebarCoverType>()
-                .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) < 0.001);
+                .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) <= matchTolerance);
 
             if (existing != null) return existing;
 
             try
             {
-                return RebarCoverType.Create(doc, coverName, coverFeet);
+                RebarCoverType created = RebarCoverType.Create(doc, coverName, coverFeet);
+                if (created != null && Math.Abs(created.CoverDistance - coverFeet) <= matchTolerance)
+                    return created;
             }
-            catch
+            catch (Exception creationException)
             {
-                return new FilteredElementCollector(doc)
+                RebarCoverType createdByRevit = new FilteredElementCollector(doc)
                     .OfClass(typeof(RebarCoverType))
                     .Cast<RebarCoverType>()
-                    .FirstOrDefault();
+                    .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) <= matchTolerance);
+                if (createdByRevit != null) return createdByRevit;
+                throw new InvalidOperationException("Revit could not create or resolve a concrete cover type at the requested distance of " + coverMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " mm.", creationException);
             }
+
+            throw new InvalidOperationException("Revit did not create a concrete cover type at the requested distance of " + coverMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
         }
 
         /// <summary>
@@ -129,15 +140,8 @@ namespace KhimTools.RebarTool.Core
                 RebarHostData hostData = RebarHostData.GetRebarHostData(elem);
                 if (hostData != null)
                 {
-                    try
-                    {
-                        hostData.SetCommonCoverType(coverType);
-                        count++;
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[RebarCoverHelper] SetCommonCoverType failed on element {elem.Id}: {ex.Message}");
-                    }
+                    hostData.SetCommonCoverType(coverType);
+                    count++;
                 }
             }
             return count;
