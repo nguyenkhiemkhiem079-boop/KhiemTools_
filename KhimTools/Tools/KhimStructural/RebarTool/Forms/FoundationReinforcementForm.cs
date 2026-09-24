@@ -43,6 +43,8 @@ namespace KhimTools.RebarTool.Forms
         private ListBox _foundationListBox;
         private Panel _previewPanel;
         private Label _lblPreviewState;
+        private TabControl _workflowTabs;
+        private readonly List<Button> _roleNavigationButtons = new List<Button>();
         private readonly Dictionary<int, FoundationPreviewOutline> _previewOutlines = new Dictionary<int, FoundationPreviewOutline>();
         private readonly Dictionary<string, string> _previewFingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
         private RebarPreviewSnapshot _lastPreview;
@@ -211,7 +213,17 @@ namespace KhimTools.RebarTool.Forms
             Controls.Add(rightPanel);
 
             // Center Tab Control
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F), Padding = new Point(12, 6) };
+            var tabControl = _workflowTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Font = new Font("Segoe UI", 9F),
+                Padding = new Point(12, 6),
+                Appearance = TabAppearance.FlatButtons,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(0, 1),
+                AccessibleName = "Foundation role-oriented settings"
+            };
 
             // TAB 1: Lớp Thép Dưới (Bottom Mesh)
             var tabBot = new TabPage("Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
@@ -427,9 +439,62 @@ namespace KhimTools.RebarTool.Forms
                 RebarConfigurationField.Flag("Foundation.BottomXHook", "Móc lưới dưới X", _chkBotXHook),
                 RebarConfigurationField.Flag("Foundation.BottomYHook", "Móc lưới dưới Y", _chkBotYHook),
                 RebarConfigurationField.Flag("Foundation.TopMesh", "Tạo lưới trên", _chkEnableTopMesh)));
-            Controls.Add(tabControl);
-            tabControl.BringToFront();
+            var workspace = new Panel { Dock = DockStyle.Fill, BackColor = KhimUiStyle.FormBg };
+            var roleNavigation = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(8, 5, 8, 3),
+                BackColor = Color.White
+            };
+            AddRoleNavigation(roleNavigation, "Lưới dưới", 0);
+            AddRoleNavigation(roleNavigation, "Lưới trên", 1);
+            AddRoleNavigation(roleNavigation, "Thép chờ & đai cổ", 2);
+            AddRoleNavigation(roleNavigation, "Thiết lập", 3);
+            AddRoleNavigation(roleNavigation, "Tham khảo", 4);
+            AddRoleNavigation(roleNavigation, "Cấu hình", 5);
+            tabControl.SelectedIndexChanged += (s, e) => UpdateRoleNavigation();
+            workspace.Controls.Add(tabControl);
+            workspace.Controls.Add(roleNavigation);
+            Controls.Add(workspace);
+            workspace.BringToFront();
+            UpdateRoleNavigation();
             footer.SendToBack();
+        }
+
+        private void AddRoleNavigation(FlowLayoutPanel host, string label, int pageIndex)
+        {
+            var button = new Button
+            {
+                Text = label,
+                Tag = pageIndex,
+                AutoSize = true,
+                Height = 30,
+                AccessibleName = "Show foundation " + label + " settings",
+                Margin = new Padding(3, 0, 3, 0)
+            };
+            button.Click += (s, e) =>
+            {
+                if (_workflowTabs != null && pageIndex >= 0 && pageIndex < _workflowTabs.TabPages.Count)
+                    _workflowTabs.SelectedIndex = pageIndex;
+            };
+            _roleNavigationButtons.Add(button);
+            KhimUiStyle.ApplySecondaryButton(button);
+            host.Controls.Add(button);
+        }
+
+        private void UpdateRoleNavigation()
+        {
+            for (int index = 0; index < _roleNavigationButtons.Count; index++)
+            {
+                Button button = _roleNavigationButtons[index];
+                if (_workflowTabs != null && _workflowTabs.SelectedIndex == (int)button.Tag)
+                    KhimUiStyle.ApplyPrimaryButton(button);
+                else
+                    KhimUiStyle.ApplySecondaryButton(button);
+            }
         }
 
         private void PopulateBarCombos()

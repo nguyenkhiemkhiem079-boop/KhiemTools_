@@ -65,6 +65,8 @@ $beamGenerator = Get-Content -Raw (Join-Path $base 'Core\BeamRebarGenerator.cs')
 Add-Check 'beam-generator-vietnamese-encoding' ($beamGenerator -cnotmatch '(?:\u00C3.|\u00E1[\u00BA\u00BB]|\u00C4.|\u00E2\u20AC\u00A2|\uFFFD)') 'Beam generator comments and diagnostics contain no common UTF-8 mojibake signatures or replacement characters.'
 $slabGenerator = Get-Content -Raw (Join-Path $base 'Core\SlabRebarGenerator.cs')
 $foundationText = Get-Content -Raw (Join-Path $base 'Forms\FoundationReinforcementForm.cs')
+$foundationRoleNavigation = $foundationText.Contains('Foundation role-oriented settings') -and $foundationText.Contains('AddRoleNavigation(roleNavigation') -and $foundationText.Contains('UpdateRoleNavigation();') -and $foundationText.Contains('ItemSize = new Size(0, 1)')
+Add-Check 'foundation-role-navigation-replaces-duplicate-tabs' $foundationRoleNavigation 'Foundation settings use a compact role navigator with the duplicate tab strip hidden.'
 $foundationGenerator = Get-Content -Raw (Join-Path $base 'Core\FoundationRebarGenerator.cs')
 $foundationRuntime = Get-Content -Raw $runtimePath
 $circularText = Get-Content -Raw (Join-Path $base 'Forms\CircularColumnReinforcementForm.cs')
