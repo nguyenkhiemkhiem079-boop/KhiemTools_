@@ -15,6 +15,7 @@ namespace KhimTools.RuntimeQa.Core
         public string OutputDirectory { get; private set; }
         public bool PreserveArtifacts { get; set; }
         public bool StopOnCriticalFailure { get; set; }
+        public bool IsDisposableQaCopyConfirmed { get; private set; }
         public Func<bool> IsCancellationRequested { get; set; }
         public ElementId OriginalActiveViewId { get; private set; }
         public IList<ElementId> OriginalSelection { get; private set; } = new List<ElementId>();
@@ -35,6 +36,11 @@ namespace KhimTools.RuntimeQa.Core
         public void TrackCreated(ElementId id)
         {
             if (id != null && id != ElementId.InvalidElementId && !CreatedElementIds.Contains(id)) CreatedElementIds.Add(id);
+        }
+
+        public void ConfirmDisposableQaCopy(bool confirmed)
+        {
+            IsDisposableQaCopyConfirmed = confirmed;
         }
 
         internal void RestoreUiState()

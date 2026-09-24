@@ -17,7 +17,7 @@ namespace KhimTools.RuntimeQa.Core
 
         public virtual bool CanRun(RuntimeQaContext context, out string reason)
         {
-            return RuntimeQaSafetyGuard.CanRun(context == null ? null : context.Document, out reason);
+            return RuntimeQaSafetyGuard.CanRun(context, out reason);
         }
 
         public QaFixtureResult Run(RuntimeQaContext context)

@@ -29,6 +29,11 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" 'Id 
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "TryReplacePayload" "Settings fixture injects corruption only inside rollback group" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback" "Fixture result requires transaction-group rollback" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsDisposableQaCopyConfirmed" "Runtime context records disposable QA-copy confirmation" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm that this is a disposable detached QA copy" "Safety guard blocks unconfirmed models" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "RuntimeQaSafetyGuard.CanRun(context, out reason)" "Every fixture checks model consent before transaction start" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "I confirm this is a detached disposable QA copy" "Dashboard presents explicit disposable-model consent" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "confirm a detached disposable QA copy before running any fixture" "Dashboard blocks fixture launch without consent" | Out-Null
 
 $status = Get-Content (Join-Path $Root "KhimTools\Tools\KhimGen\RuntimeQa\Models\QaStatus.cs") -Raw
 if ($status -match "PASS" -and $status -match "FAIL" -and $status -match "BLOCKED" -and $status -match "SKIPPED" -and $status -match "NOT_RUN") { Pass "Status enum contains PASS/FAIL/BLOCKED/SKIPPED/NOT_RUN" } else { Fail "Status enum" "Required statuses are incomplete" }

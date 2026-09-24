@@ -29,17 +29,27 @@ namespace KhimTools.RuntimeQa.Forms
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
 
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(12) };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, Padding = new Padding(12) };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
             Controls.Add(root);
 
             var header = new Label { Dock = DockStyle.Fill, Text = "K-TOOLS RUNTIME QA\nRevit: " + (context?.Document?.Application?.VersionNumber ?? "unknown") + "    Document: " + (context?.Document?.Title ?? "<none>"), Font = new Font(Font, FontStyle.Bold), AutoEllipsis = true };
             root.Controls.Add(header, 0, 0);
-            var warning = new Label { Dock = DockStyle.Fill, Text = "Warning: fixtures create temporary Revit elements and roll them back. Use a detached/test model where possible.", ForeColor = Color.DarkOrange, AutoEllipsis = true };
+            var warning = new Label { Dock = DockStyle.Fill, Text = "Host QA writes temporary model data before rollback. Only a detached disposable QA copy is supported; workshared/read-only models are blocked.", ForeColor = Color.DarkOrange, AutoEllipsis = true };
             root.Controls.Add(warning, 0, 1);
+
+            var consent = new CheckBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "I confirm this is a detached disposable QA copy; its current state can be discarded after testing.",
+                AutoEllipsis = true
+            };
+            consent.CheckedChanged += (s, e) => _context?.ConfirmDisposableQaCopy(consent.Checked);
+            root.Controls.Add(consent, 0, 2);
 
             _grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoGenerateColumns = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = "Status", Width = 90 });
@@ -47,7 +57,7 @@ namespace KhimTools.RuntimeQa.Forms
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ID", DataPropertyName = "FixtureId", Width = 120 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Checks", DataPropertyName = "CheckCount", Width = 70 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Duration", DataPropertyName = "DurationText", Width = 90 });
-            root.Controls.Add(_grid, 0, 2);
+            root.Controls.Add(_grid, 0, 3);
 
             var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
             AddButton(footer, "Run All", (s, e) => Run(() => _runner.RunAll(_context)));
@@ -61,7 +71,7 @@ namespace KhimTools.RuntimeQa.Forms
             AddButton(footer, "Close", (s, e) => Close());
             _status = new Label { AutoSize = true, Padding = new Padding(12, 8, 0, 0), Text = "Ready. Choose a suite to begin." };
             footer.Controls.Add(_status);
-            root.Controls.Add(footer, 0, 3);
+            root.Controls.Add(footer, 0, 4);
         }
 
         private void AddButton(Control parent, string text, EventHandler handler)
@@ -73,6 +83,11 @@ namespace KhimTools.RuntimeQa.Forms
 
         private void Run(Func<QaRunResult> action)
         {
+            if (_context == null || !_context.IsDisposableQaCopyConfirmed)
+            {
+                _status.Text = "BLOCKED: confirm a detached disposable QA copy before running any fixture.";
+                return;
+            }
             try
             {
                 Cursor = Cursors.WaitCursor;

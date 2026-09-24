@@ -8,6 +8,17 @@ namespace KhimTools.RuntimeQa.Core
 {
     public static class RuntimeQaSafetyGuard
     {
+        public static bool CanRun(RuntimeQaContext context, out string reason)
+        {
+            if (context == null) { reason = "No runtime QA context."; return false; }
+            if (!context.IsDisposableQaCopyConfirmed)
+            {
+                reason = "BLOCKED_UNSAFE_DOCUMENT: confirm that this is a disposable detached QA copy before running fixtures.";
+                return false;
+            }
+            return CanRun(context.Document, out reason);
+        }
+
         public static bool CanRun(Document doc, out string reason)
         {
             reason = string.Empty;
