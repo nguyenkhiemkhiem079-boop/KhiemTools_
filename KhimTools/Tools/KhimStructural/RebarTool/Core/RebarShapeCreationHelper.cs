@@ -14,6 +14,12 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public static class RebarShapeCreationHelper
     {
+        private sealed class RebarSubTransactionRollbackException : InvalidOperationException
+        {
+            public RebarSubTransactionRollbackException(string message, Exception innerException)
+                : base(message, innerException) { }
+        }
+
         [ThreadStatic]
         private static string _lastFailureReason;
 
@@ -77,7 +83,7 @@ namespace KhimTools.RebarTool.Core
                         "CreateFromCurves", out validationFailure))
                     {
                         attempts.Add(validationFailure);
-                        sub.RollBack();
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves candidate");
                         continue;
                     }
 
@@ -85,7 +91,7 @@ namespace KhimTools.RebarTool.Core
                     if (status != TransactionStatus.Committed || candidate == null || !candidate.IsValidObject)
                     {
                         attempts.Add("Revit rolled back the curve candidate.");
-                        if (sub.HasStarted()) sub.RollBack();
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves candidate");
                         continue;
                     }
 
@@ -93,10 +99,14 @@ namespace KhimTools.RebarTool.Core
                         "CreateFromCurves", "Committed");
                     return candidate;
                 }
+                catch (RebarSubTransactionRollbackException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     attempts.Add(ex.Message);
-                    try { if (sub != null && sub.HasStarted()) sub.RollBack(); } catch { }
+                    RollbackCandidateOrThrow(sub, "CreateFromCurves candidate", ex);
                 }
             }
 
@@ -118,17 +128,21 @@ namespace KhimTools.RebarTool.Core
                             "CreateFromCurves (hooks removed)", out validationFailure))
                         {
                             attempts.Add(validationFailure);
-                            sub.RollBack();
+                            RollbackCandidateOrThrow(sub, "CreateFromCurves hooks-removed fallback");
                             continue;
                         }
                         if (sub.Commit() == TransactionStatus.Committed && candidate.IsValidObject)
                             return candidate;
-                        if (sub.HasStarted()) sub.RollBack();
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves hooks-removed fallback");
+                    }
+                    catch (RebarSubTransactionRollbackException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
                         attempts.Add(ex.Message);
-                        try { if (sub != null && sub.HasStarted()) sub.RollBack(); } catch { }
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves hooks-removed fallback", ex);
                     }
                 }
             }
@@ -151,17 +165,21 @@ namespace KhimTools.RebarTool.Core
                             "CreateFromCurves (legacy Standard fallback)", out validationFailure))
                         {
                             attempts.Add(validationFailure);
-                            sub.RollBack();
+                            RollbackCandidateOrThrow(sub, "CreateFromCurves Standard fallback");
                             continue;
                         }
                         if (sub.Commit() == TransactionStatus.Committed && candidate.IsValidObject)
                             return candidate;
-                        if (sub.HasStarted()) sub.RollBack();
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves Standard fallback");
+                    }
+                    catch (RebarSubTransactionRollbackException)
+                    {
+                        throw;
                     }
                     catch (Exception ex)
                     {
                         attempts.Add(ex.Message);
-                        try { if (sub != null && sub.HasStarted()) sub.RollBack(); } catch { }
+                        RollbackCandidateOrThrow(sub, "CreateFromCurves Standard fallback", ex);
                     }
                 }
             }
@@ -250,14 +268,14 @@ namespace KhimTools.RebarTool.Core
                 Rebar rebar = Rebar.CreateFromRebarShape(doc, shape, barType, host, lowerLeft, x, y);
                 if (rebar == null)
                 {
-                    sub.RollBack();
+                    RollbackCandidateOrThrow(sub, diagnosticContext + " null shape candidate");
                     return Fail(diagnosticContext + ": Rebar.CreateFromRebarShape returned null.");
                 }
 
                 RebarShapeDrivenAccessor accessor = rebar.GetShapeDrivenAccessor();
                 if (accessor == null || !accessor.IsValidObject)
                 {
-                    sub.RollBack();
+                    RollbackCandidateOrThrow(sub, diagnosticContext + " invalid accessor candidate");
                     return Fail(diagnosticContext + ": created Rebar has no valid shape-driven accessor.");
                 }
 
@@ -269,14 +287,14 @@ namespace KhimTools.RebarTool.Core
                     true, diagnosticContext, out validationFailure))
                 {
                     if (!string.IsNullOrWhiteSpace(validationFailure)) errors.Add(validationFailure);
-                    sub.RollBack();
+                    RollbackCandidateOrThrow(sub, diagnosticContext + " invalid shape candidate");
                     return Fail(diagnosticContext + ": " + string.Join(" | ", errors));
                 }
 
                 TransactionStatus status = sub.Commit();
                 if (status != TransactionStatus.Committed || !rebar.IsValidObject)
                 {
-                    if (sub.HasStarted()) sub.RollBack();
+                    RollbackCandidateOrThrow(sub, diagnosticContext + " uncommitted shape candidate");
                     return Fail(diagnosticContext + ": Revit rolled back the candidate.");
                 }
 
@@ -284,9 +302,13 @@ namespace KhimTools.RebarTool.Core
                     XYZ.BasisZ, null, "CreateFromRebarShape/ScaleToBox", "Committed");
                 return rebar;
             }
+            catch (RebarSubTransactionRollbackException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                try { if (sub != null && sub.HasStarted()) sub.RollBack(); } catch { }
+                RollbackCandidateOrThrow(sub, diagnosticContext, ex);
                 return Fail(diagnosticContext + ": " + ex.Message);
             }
         }
@@ -410,6 +432,27 @@ namespace KhimTools.RebarTool.Core
             _lastFailureReason = string.IsNullOrWhiteSpace(reason) ? "Rebar creation failed." : reason;
             Debug.WriteLine("[K-TOOLS][Rebar] " + _lastFailureReason);
             return null;
+        }
+
+        private static void RollbackCandidateOrThrow(SubTransaction sub, string context, Exception operationFailure = null)
+        {
+            if (sub == null) return;
+            try
+            {
+                if (!sub.HasStarted()) return;
+                TransactionStatus status = sub.RollBack();
+                if (status != TransactionStatus.RolledBack)
+                    throw new InvalidOperationException("SubTransaction.RollBack returned " + status + ".");
+            }
+            catch (Exception rollbackFailure)
+            {
+                if (rollbackFailure is RebarSubTransactionRollbackException) throw;
+                Exception cause = operationFailure == null
+                    ? rollbackFailure
+                    : new AggregateException(operationFailure, rollbackFailure);
+                throw new RebarSubTransactionRollbackException(
+                    context + ": candidate rollback could not be confirmed; abort the enclosing transaction.", cause);
+            }
         }
 
         private static XYZ NormalizeNormal(XYZ normal)
