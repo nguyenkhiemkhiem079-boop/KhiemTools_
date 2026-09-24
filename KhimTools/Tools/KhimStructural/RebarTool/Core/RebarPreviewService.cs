@@ -461,7 +461,7 @@ namespace KhimTools.RebarTool.Core
             RebarHookType hook = document.GetElement(elementId) as RebarHookType;
             return hook == null
                 ? "<unresolved-hook>"
-                : hook.Name + ":" + hook.HookAngle.ToString("R", CultureInfo.InvariantCulture);
+                : hook.Name + ":" + hook.Style + ":" + hook.HookAngle.ToString("R", CultureInfo.InvariantCulture);
         }
 
         internal static string FingerprintBars(IEnumerable<string> fingerprints) =>
