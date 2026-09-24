@@ -742,6 +742,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void RefreshSelectedHostPreview()
         {
+            bool isEn = LanguageManager.IsEnglish;
             var item = _columnListBox?.SelectedItems.Count > 0
                 ? _columnListBox.SelectedItems[0] as ColumnListItem
                 : null;
@@ -756,7 +757,7 @@ namespace KhimTools.RebarTool.Forms
 
             if (column == null || _doc == null)
             {
-                _previewHostError = "Select a column to show host geometry.";
+                _previewHostError = isEn ? "Select a column to show host geometry." : "Hãy chọn cột để hiển thị hình học.";
                 return;
             }
 
@@ -771,7 +772,7 @@ namespace KhimTools.RebarTool.Forms
             }
             catch (Exception ex)
             {
-                _previewHostError = "Host geometry unavailable: " + ex.Message;
+                _previewHostError = (isEn ? "Host geometry unavailable: " : "Hình học cấu kiện không khả dụng: ") + ex.Message;
             }
         }
 
