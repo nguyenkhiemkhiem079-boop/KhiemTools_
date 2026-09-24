@@ -339,7 +339,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabMain);
 
             var tabStirrup = new TabPage { Text = "Thép Đai Tròn (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
-            var grpStirrup = new GroupBox { Text = "Đai tròn: khoảng cách đều A1/A2; vùng A1 cố định 600 mm", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
+            var grpStirrup = new GroupBox { Text = "Đai tròn: khoảng cách đều A1/A2; A1 tối thiểu 600 mm, tự tăng theo chiều cao/đường kính", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var layoutStirrup = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
