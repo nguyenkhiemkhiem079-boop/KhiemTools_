@@ -178,6 +178,8 @@ $columnDrawingPath = Join-Path $base 'Commands\CmdColumnDrawing.cs'
 $columnDrawing = Get-Content -Raw $columnDrawingPath
 Add-Check 'column-drawing-checked-transaction-ownership' ($columnDrawing.Contains('TransactionBoundary.ExecuteGroup') -and $columnDrawing.Contains('TransactionBoundary.Execute(doc') -and $columnDrawing -notmatch 'new Transaction\(|tx\.Start\(\)|tx\.Commit\(\)') $columnDrawingPath
 Add-Check 'column-drawing-three-view-postconditions' ($columnDrawing.Contains('ViewDrafting drawingView') -and $columnDrawing.Contains('ViewPlan sectionView') -and $columnDrawing.Contains('View3D inspectionView') -and $columnDrawing.Contains('generatedViewIds.Any') -and $columnDrawing.Contains('doc.GetElement(id)')) 'Drafting, section, and 3D views are checked before transaction-group assimilation.'
+$existingRebarReader = Get-Content -Raw (Join-Path $base 'Core\ExistingRebarReader.cs')
+Add-Check 'existing-column-rebar-reader-counts-solved-positions' ($existingRebarReader.Contains('rebar.DoesBarExistAtPosition(positionIndex)') -and $existingRebarReader.Contains('mainBars.Sum(CountExistingPositions)') -and $existingRebarReader.Contains('stirrups.Sum(CountExistingPositions)') -and $existingRebarReader.Contains('GetCenterlineCurves(false, true, false,') -and $existingRebarReader.Contains('MultiplanarOption.IncludeAllMultiplanarCurves, positionIndex') -and $existingRebarReader.Contains('its shape is missing or unresolved')) 'Column drawing summaries count included bars within Rebar sets, derive tie spacing from indexed solver centerlines, and fail visibly when shape identity is unknown.'
 
 $passCount = @($checks | Where-Object Pass).Count
 $failures = @($checks | Where-Object { -not $_.Pass })
