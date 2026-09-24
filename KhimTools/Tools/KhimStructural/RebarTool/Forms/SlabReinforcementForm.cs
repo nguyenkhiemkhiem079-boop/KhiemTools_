@@ -335,7 +335,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbPreviewView.SelectedIndex = 0;
             _cmbPreviewView.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
             _cmbPreviewRole = new ComboBox { Width = 155, DropDownStyle = ComboBoxStyle.DropDownList, AccessibleName = "Slab reinforcement role filter" };
-            _cmbPreviewRole.Items.AddRange(new object[] { "Tất cả", "Lưới dưới", "Dưới X", "Dưới Y", "Lưới trên", "Trên X", "Trên Y", "Mũ gối", "Mũ X", "Mũ Y", "Lỗ mở", "Con kê" });
+            _cmbPreviewRole.Items.AddRange(new object[] { "Tất cả", "Lưới dưới", "Dưới X", "Dưới Y", "Lưới trên", "Trên X", "Trên Y", "Phương X", "Phương Y", "Mũ gối", "Mũ X", "Mũ Y", "Lỗ mở", "Con kê" });
             _cmbPreviewRole.SelectedIndex = 0;
             _cmbPreviewRole.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
             var fitButton = new Button { Text = "Fit All", AutoSize = true, Height = 28 };
@@ -386,7 +386,7 @@ namespace KhimTools.RebarTool.Forms
                     _workflowTabs.SelectedIndex = index;
                 if (_cmbPreviewRole != null)
                 {
-                    int filterIndex = index == 0 ? 1 : index == 1 ? 4 : index == 2 ? 7 : 0;
+                    int filterIndex = index == 0 ? 1 : index == 1 ? 4 : index == 2 ? 9 : 0;
                     _cmbPreviewRole.SelectedIndex = filterIndex;
                 }
             };
@@ -611,11 +611,13 @@ namespace KhimTools.RebarTool.Forms
                 case 4: return role == "top-x" || role == "top-y";
                 case 5: return role == "top-x";
                 case 6: return role == "top-y";
-                case 7: return role == "support-x" || role == "support-y";
-                case 8: return role == "support-x";
-                case 9: return role == "support-y";
-                case 10: return role == "opening";
-                case 11: return role == "spacer";
+                case 7: return role.EndsWith("-x", StringComparison.Ordinal);
+                case 8: return role.EndsWith("-y", StringComparison.Ordinal);
+                case 9: return role == "support-x" || role == "support-y";
+                case 10: return role == "support-x";
+                case 11: return role == "support-y";
+                case 12: return role == "opening";
+                case 13: return role == "spacer";
                 default: return true;
             }
         }
