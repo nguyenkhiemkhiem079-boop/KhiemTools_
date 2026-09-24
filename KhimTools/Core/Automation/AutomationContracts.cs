@@ -14,6 +14,7 @@ namespace KhimTools.Core.Automation
     }
 
     public enum AutomationStatus { Succeeded, Rejected, Failed }
+    public enum AutomationOperationClass { ReadOnly, PreviewOnly, Mutating }
 
     public sealed class AutomationCapabilityMetadata
     {
@@ -28,12 +29,13 @@ namespace KhimTools.Core.Automation
         public bool RequiresActiveView { get; private set; }
         public bool SupportsPreview { get; private set; }
         public bool SupportsDryRun { get; private set; }
+        public AutomationOperationClass OperationClass { get; private set; }
         public string InputContract { get; private set; }
         public string OutputContract { get; private set; }
 
         public AutomationCapabilityMetadata(string capabilityId, string module, string name, string description,
             bool readOnly, bool mutatesDocument, bool requiresRevitHost, bool requiresSelection,
-            bool requiresActiveView, bool supportsPreview, bool supportsDryRun, string inputContract, string outputContract)
+            bool requiresActiveView, bool supportsPreview, bool supportsDryRun, AutomationOperationClass operationClass, string inputContract, string outputContract)
         {
             if (capabilityId == null) throw new ArgumentNullException("capabilityId");
             if (module == null) throw new ArgumentNullException("module");
@@ -50,6 +52,7 @@ namespace KhimTools.Core.Automation
             RequiresActiveView = requiresActiveView;
             SupportsPreview = supportsPreview;
             SupportsDryRun = supportsDryRun;
+            OperationClass = operationClass;
             if (inputContract == null) throw new ArgumentNullException("inputContract");
             if (outputContract == null) throw new ArgumentNullException("outputContract");
             InputContract = inputContract;
@@ -62,6 +65,7 @@ namespace KhimTools.Core.Automation
         public string CapabilityId { get; set; }
         public AutomationUnitSystem UnitSystem { get; set; }
         public bool DryRun { get; set; }
+        public bool ExplicitExecute { get; set; }
     }
 
     public sealed class SheetNamingPreviewRequest : AutomationRequest

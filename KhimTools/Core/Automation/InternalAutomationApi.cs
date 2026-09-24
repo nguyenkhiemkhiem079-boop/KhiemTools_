@@ -42,6 +42,8 @@ namespace KhimTools.Core.Automation
             IAutomationCapabilityHandler handler;
             if (!_handlers.TryGetValue(request.CapabilityId, out handler)) return Reject("Unknown capability: " + request.CapabilityId);
             if (handler.Metadata.RequiresRevitHost && !_revitHostAvailable) return Reject("This capability requires an active Revit host.");
+            if (handler.Metadata.OperationClass == AutomationOperationClass.PreviewOnly && !request.DryRun) return Reject("Preview-only capability requires DryRun=true.");
+            if (handler.Metadata.OperationClass == AutomationOperationClass.Mutating && !request.DryRun && !request.ExplicitExecute) return Reject("Mutating capability requires a separate ExplicitExecute=true confirmation.");
             if (request.DryRun && !handler.Metadata.SupportsDryRun) return Reject("DryRun is not supported by this capability.");
             try
             {

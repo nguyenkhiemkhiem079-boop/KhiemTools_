@@ -11,8 +11,10 @@ requirements, handler exceptions, and failed postconditions. It provides no netw
 reflection-based dispatch, shell, PowerShell, or arbitrary code execution surface.
 
 This is a deliberately small Phase 13 internal API implementation, not a claim that the modules
-below are all API-ready or that Revit-host execution has been verified. Add further capabilities
-only when their production service and contract have independent acceptance coverage.
+below are all API-ready or that Revit-host execution has been verified. Phase 14 wraps this
+allow-list with the stateless MCP JSON-RPC and bounded local stdio adapters; no listener or remote
+service is published. Add further capabilities only when their production service and contract
+have independent acceptance coverage.
 
 Readiness is assessed against a small internal adapter contract: stable request, deterministic
 plan/fingerprint, preflight gate, explicit transaction policy, observable diagnostics, and

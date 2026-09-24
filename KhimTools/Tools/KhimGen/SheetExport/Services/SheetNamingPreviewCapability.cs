@@ -10,7 +10,7 @@ namespace KhimTools.SheetExport.Services
         public const string Id = "sheet-export.naming-preview";
         public AutomationCapabilityMetadata Metadata { get; } = new AutomationCapabilityMetadata(
             Id, "Sheet Export", "Preview output filename", "Expands and validates a sheet export name without changing the document or filesystem.",
-            true, false, false, false, false, true, true, nameof(SheetNamingPreviewRequest), nameof(AutomationResult));
+            true, false, false, false, false, true, true, AutomationOperationClass.PreviewOnly, nameof(SheetNamingPreviewRequest), nameof(AutomationResult));
 
         public AutomationResult Execute(AutomationRequest request)
         {
@@ -19,6 +19,10 @@ namespace KhimTools.SheetExport.Services
             if (input.UnitSystem != AutomationUnitSystem.NotApplicable) return Rejected("UnitSystem must be explicitly NotApplicable for filename preview.");
             if (string.IsNullOrWhiteSpace(input.SheetNumber)) return Rejected("SheetNumber is required.");
             if (input.SheetName == null) return Rejected("SheetName is required; use an empty string when the sheet has no name.");
+            if (ExceedsLimit(input.SheetNumber) || ExceedsLimit(input.SheetName) || ExceedsLimit(input.Revision) ||
+                ExceedsLimit(input.RevisionDate) || ExceedsLimit(input.PaperSize) || ExceedsLimit(input.Orientation) ||
+                ExceedsLimit(input.ProjectCode) || ExceedsLimit(input.Expression) || ExceedsLimit(input.RegexPattern))
+                return Rejected("Text inputs are limited to 256 characters.");
 
             var item = new SheetExportItem
             {
@@ -56,5 +60,7 @@ namespace KhimTools.SheetExport.Services
             result.Diagnostics.Add(diagnostic);
             return result;
         }
+
+        private static bool ExceedsLimit(string value) { return value != null && value.Length > 256; }
     }
 }

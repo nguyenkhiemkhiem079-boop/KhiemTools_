@@ -107,6 +107,7 @@ namespace KhimTools.Tests
                 RunTest("Test 54: Internal API enforces host requirement", Test_54_AutomationHostRequired);
                 RunTest("Test 55: Internal API enforces successful postconditions", Test_55_AutomationPostcondition);
                 RunTest("Test 56: Internal API converts handler exceptions to failed results", Test_56_AutomationException);
+                RunTest("Test 57: Internal API requires explicit execute for mutation", Test_57_AutomationMutationConsent);
             }
             finally
             {
@@ -1853,7 +1854,7 @@ namespace KhimTools.Tests
             {
                 _requiresHost = requiresHost; _throws = throws; _postcondition = postcondition;
                 Metadata = new AutomationCapabilityMetadata(id, "Test", "Test", "Test handler", true, false,
-                    requiresHost, false, false, true, true, "AutomationTestRequest", "AutomationResult");
+                    requiresHost, false, false, true, true, AutomationOperationClass.PreviewOnly, "AutomationTestRequest", "AutomationResult");
             }
 
             public AutomationResult Execute(AutomationRequest request)
@@ -1920,5 +1921,29 @@ namespace KhimTools.Tests
             var result = CreateAutomationTestApi(false, true, true).Invoke(ValidAutomationRequest());
             if (result.Status != AutomationStatus.Failed || result.Postcondition || result.Diagnostics.Count == 0) throw new Exception("Handler exceptions must return a failed result with diagnostics.");
         }
+
+        private sealed class MutatingAutomationHandler : IAutomationCapabilityHandler
+        {
+            public AutomationCapabilityMetadata Metadata { get; private set; }
+            public MutatingAutomationHandler()
+            {
+                Metadata = new AutomationCapabilityMetadata("test.mutating", "Test", "Mutation", "Test mutation", false, true,
+                    false, false, false, true, true, AutomationOperationClass.Mutating, "AutomationTestRequest", "AutomationResult");
+            }
+            public AutomationResult Execute(AutomationRequest request)
+            {
+                return new AutomationResult { Status = AutomationStatus.Succeeded, Summary = "explicitly invoked", Requested = 1, Affected = 1, Postcondition = true };
+            }
+        }
+
+        private static void Test_57_AutomationMutationConsent()
+        {
+            var api = new InternalAutomationApi(new IAutomationCapabilityHandler[] { new MutatingAutomationHandler() }, false);
+            var request = new AutomationTestRequest { CapabilityId = "test.mutating", UnitSystem = AutomationUnitSystem.NotApplicable, DryRun = false };
+            if (api.Invoke(request).Status != AutomationStatus.Rejected) throw new Exception("Mutation must not execute from a plain request.");
+            request.ExplicitExecute = true;
+            if (api.Invoke(request).Status != AutomationStatus.Succeeded) throw new Exception("Mutation requires and accepts only an explicit execute confirmation.");
+        }
+
     }
 }

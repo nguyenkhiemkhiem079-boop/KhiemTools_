@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\KhimTools\Core\Automation\AutomationContracts.cs" Link="AutomationContracts.cs" />
+    <Compile Include="..\..\KhimTools\Core\Automation\InternalAutomationApi.cs" Link="InternalAutomationApi.cs" />
+    <Compile Include="..\..\KhimTools\Core\Automation\McpJsonRpcAdapter.cs" Link="McpJsonRpcAdapter.cs" />
+    <Compile Include="..\..\KhimTools\Core\Automation\McpStdioTransport.cs" Link="McpStdioTransport.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Models\SheetExportItem.cs" Link="SheetExportItem.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Models\NamingTemplate.cs" Link="NamingTemplate.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Models\ExportOptions.cs" Link="ExportOptions.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Models\ExportWorkflowModels.cs" Link="ExportWorkflowModels.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Services\NamingPlanService.cs" Link="NamingPlanService.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimGen\SheetExport\Services\SheetNamingPreviewCapability.cs" Link="SheetNamingPreviewCapability.cs" />
+  </ItemGroup>
+</Project>

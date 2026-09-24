@@ -5,6 +5,7 @@ $api = Get-Content (Join-Path $root 'KhimTools\Core\Automation\InternalAutomatio
 $capability = Get-Content (Join-Path $root 'KhimTools\Tools\KhimGen\SheetExport\Services\SheetNamingPreviewCapability.cs') -Raw
 $ui = Get-Content (Join-Path $root 'KhimTools\Tools\KhimGen\SheetExport\Forms\SheetExportForm.cs') -Raw
 $tests = Get-Content (Join-Path $root 'KhimTools\Tests\DeploymentTests.cs') -Raw
+$naming = Get-Content (Join-Path $root 'KhimTools\Tools\KhimGen\SheetExport\Services\NamingPlanService.cs') -Raw
 $checks = 0
 function Assert-Text([string]$text, [string]$needle, [string]$label) {
     if ($text.IndexOf($needle, [StringComparison]::Ordinal) -lt 0) { throw "FAIL: $label" }
@@ -37,6 +38,7 @@ Assert-Text $tests 'Test_53_AutomationBadUnit' 'Bad unit test exists'
 Assert-Text $tests 'Test_54_AutomationHostRequired' 'Host-required test exists'
 Assert-Text $tests 'Test_55_AutomationPostcondition' 'Postcondition test exists'
 Assert-Text $tests 'Test_56_AutomationException' 'Failure diagnostic test exists'
+Assert-Text $naming 'TimeSpan.FromMilliseconds(100)' 'Naming regex evaluation has a hard timeout'
 
 Write-Host "PASS: Internal Automation API acceptance ($checks checks)" -ForegroundColor Green
 exit 0
