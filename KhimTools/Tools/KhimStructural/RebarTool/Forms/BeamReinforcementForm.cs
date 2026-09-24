@@ -1968,10 +1968,11 @@ namespace KhimTools.RebarTool.Forms
                             $"Create Rebar for Beam {beam.Id.ToLongValue()}", () =>
                             {
                                 var generator = new BeamRebarGenerator(_doc);
-                                List<Rebar> generated = generator.Generate(input);
+                                var report = new RebarGenerationReport();
+                                List<Rebar> generated = generator.Generate(input, report);
                                 _doc.Regenerate();
-                                if (!RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), generated))
-                                    throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview; the beam transaction was rolled back.");
+                                if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), generated))
+                                    throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview, or a generator error occurred; the beam transaction was rolled back.");
                                 return generated;
                             }, configure: transaction =>
                             {

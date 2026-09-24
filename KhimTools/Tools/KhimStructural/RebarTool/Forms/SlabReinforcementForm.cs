@@ -1206,8 +1206,8 @@ namespace KhimTools.RebarTool.Forms
                     {
                         List<Rebar> generated = generator.GeneratePanel(panel, report);
                         _doc.Regenerate();
-                        if (!RebarPreviewService.Matches(acceptedPreview, generator.GetPanelInputFingerprint(panel), generated))
-                            throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview; the entire slab transaction was rolled back.");
+                        if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, generator.GetPanelInputFingerprint(panel), generated))
+                            throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview, or a generator error occurred; the entire slab transaction was rolled back.");
                     }
                 }, configure: transaction =>
                 {

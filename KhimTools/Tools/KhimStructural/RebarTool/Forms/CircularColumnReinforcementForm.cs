@@ -777,8 +777,8 @@ namespace KhimTools.RebarTool.Forms
                         {
                             List<Rebar> createdRebars = generator.Generate(input, report);
                             _doc.Regenerate();
-                            if (!RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), createdRebars))
-                                throw new InvalidOperationException("Circular-column generated geometry differs from the accepted solver preview for host " + input.Column.Id + ".");
+                            if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), createdRebars))
+                                throw new InvalidOperationException("Circular-column generated geometry differs from the accepted solver preview, or a generator error occurred, for host " + input.Column.Id + ".");
                             FamilyInstance item = input.Column;
                             if (_chkAutoDrawing.Checked)
                             {
