@@ -124,6 +124,7 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
+            ApplyLanguage();
             RebarLayout.EnableFullTypeNames(this);
             if (loadDocument) PopulateBarCombos();
             PopulateFoundationList();
@@ -167,6 +168,12 @@ namespace KhimTools.RebarTool.Forms
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
+            _cmbLanguage.SelectedIndexChanged += (s, e) =>
+            {
+                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1
+                    ? AppLanguage.English : AppLanguage.Vietnamese;
+                ApplyLanguage();
+            };
 
             _btnCreateRebar = new Button { Text = "Tạo thép móng", Width = 148, Height = 38, Top = 13 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
@@ -498,6 +505,121 @@ namespace KhimTools.RebarTool.Forms
             workspace.BringToFront();
             UpdateRoleNavigation();
             footer.SendToBack();
+        }
+
+        private void ApplyLanguage()
+        {
+            bool isEnglish = LanguageManager.IsEnglish;
+            Text = isEnglish ? "Foundation Reinforcement" : "Rebar - Móng";
+            AccessibleName = isEnglish ? "Foundation Reinforcement" : "Rebar - Móng - Lưới thép, thép chờ cột và cấu tạo biên";
+
+            var vietnameseToEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["1  Chọn móng     2  Cấu hình lưới     3  Kiểm tra thép chờ     4  Tạo thép"] = "1  Select footing     2  Configure reinforcement     3  Review dowels     4  Create",
+                ["Ngôn ngữ"] = "Language",
+                ["Tạo thép móng"] = "Create Foundation Rebar",
+                ["Giải / Cập nhật"] = "Solve / Refresh",
+                ["Xem 3D"] = "View 3D",
+                ["Đóng"] = "Close",
+                ["CẤU KIỆN ÁP DỤNG"] = "SELECTED FOUNDATIONS",
+                ["Thép Lưới Dưới"] = "Bottom Mat",
+                ["Thép Lưới Trên"] = "Top Mat",
+                ["Thép chữ U mép móng"] = "Perimeter U-bars",
+                ["Thép Chờ & Thép Đai"] = "Column Dowels & Ties",
+                ["Tiêu Chuẩn & Template"] = "Design & Templates",
+                ["Cấu hình dự án"] = "Project Settings",
+                ["Phương X (Dưới)"] = "X Direction (Bottom)",
+                ["Phương Y (Dưới)"] = "Y Direction (Bottom)",
+                ["Phương X (Trên)"] = "X Direction (Top)",
+                ["Phương Y (Trên)"] = "Y Direction (Top)",
+                ["Đường kính:"] = "Bar diameter:",
+                ["Đường kính"] = "Bar diameter",
+                ["Khoảng cách a (mm):"] = "Spacing (mm):",
+                ["Khoảng cách (mm)"] = "Spacing (mm)",
+                ["Uốn bẻ móc đứng 90° lên đỉnh móng"] = "Bend 90° hooks up to the footing top",
+                ["Bật bố trí Thép Lớp Trên (Cho Đài Móng / Móng Sâu)"] = "Enable top mat (pile cap / deep footing)",
+                ["Móc bẻ 90° xuống đáy móng"] = "Bend 90° hooks down to footing bottom",
+                ["Tạo thép chữ U gia cường mép móng (4 cạnh)"] = "Create perimeter U-bars (all four edges)",
+                ["Cấu hình thép U theo chu vi"] = "Perimeter U-bar settings",
+                ["Chiều dài chân U do solver chọn: min(40% chiều dày móng, 366 mm)."] = "U-leg length is solver-controlled: min(40% footing depth, 366 mm).",
+                ["Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)"] = "Enable column dowels and confining ties",
+                ["Thông Số Thép Chờ Cột & Đai Lồng Chân Cột"] = "Column Dowels & Confining Ties",
+                ["Đường kính thép chờ:"] = "Dowel bar diameter:",
+                ["Số thanh phương X:"] = "Bars along X:",
+                ["Số thanh phương Y:"] = "Bars along Y:",
+                ["Chân quỳ 90° (mm):"] = "90° footing leg (mm):",
+                ["Đoạn chờ L0 (mm):"] = "Dowel extension L0 (mm):",
+                ["Bẻ chân quỳ úp vào trong lòng cột"] = "Bend dowel legs inward toward the column",
+                ["Bố trí nối so le 50% thép chờ (50% Staggered)"] = "Stagger 50% of dowel extensions",
+                ["Đặt Thép Đai lồng móng cố định chân cột"] = "Add confining ties around column dowels",
+                ["Số đai lồng:"] = "Number of confining ties:",
+                ["Tiêu Chuẩn Thiết Kế & Cấp Độ Bền"] = "Design Code & Material Grades",
+                ["Tiêu chuẩn:"] = "Design code:",
+                ["Mác bê tông:"] = "Concrete grade:",
+                ["Mác thép:"] = "Reinforcement grade:",
+                ["Cover (mm):"] = "Concrete cover (mm):",
+                ["Quản Lý Template JSON"] = "JSON Template Management",
+                ["Mẫu thiết lập"] = "Template",
+                ["Lưu mẫu"] = "Save Template",
+                ["Nạp mẫu"] = "Load Template",
+                ["Chân neo thép chờ (mm)"] = "Dowel anchorage leg (mm)",
+                ["Chiều dài thép chờ (mm)"] = "Dowel extension (mm)",
+                ["Lớp bảo vệ (mm)"] = "Concrete cover (mm)",
+                ["Lưới đáy X (mm)"] = "Bottom mat X spacing (mm)",
+                ["Lưới đáy Y (mm)"] = "Bottom mat Y spacing (mm)",
+                ["Thép U mép - khoảng cách (mm)"] = "Perimeter U-bar spacing (mm)",
+                ["Tạo thép chờ"] = "Create column dowels",
+                ["Tạo thép chữ U mép móng"] = "Create perimeter U-bars",
+                ["Thép chờ so le"] = "Stagger dowels",
+                ["Chân neo hướng vào"] = "Dowel legs point inward",
+                ["Móc lưới dưới X"] = "Bottom mat X hooks",
+                ["Móc lưới dưới Y"] = "Bottom mat Y hooks",
+                ["Tạo lưới trên"] = "Create top mat",
+                ["Lưới dưới"] = "Bottom mat",
+                ["Lưới trên"] = "Top mat",
+                ["Thép U mép"] = "Edge U-bars",
+                ["Thép chờ & đai cổ"] = "Dowels & ties",
+                ["Thiết lập"] = "Design",
+                ["Tham khảo"] = "Reference",
+                ["Cấu hình"] = "Settings"
+            };
+
+            var englishToVietnamese = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> entry in vietnameseToEnglish)
+                if (!englishToVietnamese.ContainsKey(entry.Value)) englishToVietnamese.Add(entry.Value, entry.Key);
+
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                string translated;
+                if (isEnglish && vietnameseToEnglish.TryGetValue(control.Text, out translated))
+                    control.Text = translated;
+                else if (!isEnglish && englishToVietnamese.TryGetValue(control.Text, out translated))
+                    control.Text = translated;
+            }
+
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 5)
+            {
+                int selectedIndex = _workflowTabs.SelectedIndex;
+                TabPage oldReferencePage = _workflowTabs.TabPages[5];
+                _workflowTabs.TabPages.RemoveAt(5);
+                oldReferencePage.Dispose();
+                _workflowTabs.TabPages.Insert(5, RebarReferenceViews.CreatePage(RebarReferenceKind.Foundation));
+                _workflowTabs.SelectedIndex = Math.Max(0, Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1));
+            }
+
+            UpdateRoleNavigation();
+            UpdatePreviewStateUi();
+            _previewPanel?.Invalidate();
+        }
+
+        private static IEnumerable<Control> EnumerateDescendantControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateDescendantControls(child))
+                    yield return descendant;
+            }
         }
 
         private void AddRoleNavigation(FlowLayoutPanel host, string label, int pageIndex)

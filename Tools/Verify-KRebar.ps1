@@ -91,6 +91,7 @@ $slabGenerator = Get-Content -Raw (Join-Path $base 'Core\SlabRebarGenerator.cs')
 $foundationText = Get-Content -Raw (Join-Path $base 'Forms\FoundationReinforcementForm.cs')
 $foundationRoleNavigation = $foundationText.Contains('Foundation role-oriented settings') -and $foundationText.Contains('AddRoleNavigation(roleNavigation') -and $foundationText.Contains('UpdateRoleNavigation();') -and $foundationText.Contains('ItemSize = new Size(0, 1)')
 Add-Check 'foundation-role-navigation-replaces-duplicate-tabs' $foundationRoleNavigation 'Foundation settings use a compact role navigator with the duplicate tab strip hidden.'
+Add-Check 'foundation-language-selector-applies-global-language' ($foundationText.Contains('_cmbLanguage.SelectedIndexChanged') -and $foundationText.Contains('LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1') -and $foundationText.Contains('private void ApplyLanguage()') -and $foundationText.Contains('vietnameseToEnglish') -and $foundationText.Contains('RebarReferenceViews.CreatePage(RebarReferenceKind.Foundation)')) 'Foundation language selection updates the shared setting, translates form controls in both directions and rebuilds the localized reference page.'
 $foundationGenerator = Get-Content -Raw (Join-Path $base 'Core\FoundationRebarGenerator.cs')
 $foundationGeometry = Get-Content -Raw (Join-Path $base 'Core\FoundationGeometryHelper.cs')
 $foundationSettings = Get-Content -Raw (Join-Path $base 'Models\FoundationRebarSettings.cs')

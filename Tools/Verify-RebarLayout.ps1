@@ -112,14 +112,15 @@ foreach ($name in $Forms) {
                     Prepare-Controls $root
                 }
                 $tabs = @(Get-Controls $root | Where-Object { $_ -is [Windows.Forms.TabControl] })
-                $states = if ($name -eq "Beam") { 6 } elseif ($name -eq "RectangularColumn") { $tabs[0].TabCount * 2 } elseif ($tabs.Count) { $tabs[0].TabCount } else { 1 }
+                $states = if ($name -eq "Beam") { 6 } elseif ($name -in @("RectangularColumn", "Foundation")) { $tabs[0].TabCount * 2 } elseif ($tabs.Count) { $tabs[0].TabCount } else { 1 }
                 for ($state = 0; $state -lt $states; $state++) {
                     if ($name -eq "Beam") {
                         $type.GetMethod("SwitchSettingTab", $flags).Invoke($form, @($state)) | Out-Null
                     } elseif ($tabs.Count) {
-                        if ($name -eq "RectangularColumn") {
+                        if ($name -in @("RectangularColumn", "Foundation")) {
                             $language = if ($state -lt $tabs[0].TabCount) { "Vietnamese" } else { "English" }
                             $languageType.GetField("_currentLanguage", $languageFlags).SetValue($null, [Enum]::Parse($languageValue,$language))
+                            $languageType.GetField("_isLoaded", $languageFlags).SetValue($null, $true)
                             $type.GetMethod("ApplyLanguage", $flags).Invoke($form, @()) | Out-Null
                         }
                         $tabs[0].SelectedIndex = $state % $tabs[0].TabCount
