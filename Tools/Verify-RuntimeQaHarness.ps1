@@ -29,6 +29,8 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" 'Id 
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "TryReplacePayload" "Settings fixture injects corruption only inside rollback group" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback" "Fixture result requires transaction-group rollback" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!before.ElementIds.SetEquals(after.ElementIds)" "Rollback verification compares exact element-ID sets" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Could not capture an exact element-ID snapshot" "Incomplete model snapshots fail closed" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsDisposableQaCopyConfirmed" "Runtime context records disposable QA-copy confirmation" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm that this is a disposable detached QA copy" "Safety guard blocks unconfirmed models" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "RuntimeQaSafetyGuard.CanRun(context, out reason)" "Every fixture checks model consent before transaction start" | Out-Null
@@ -37,6 +39,8 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "confir
 
 $status = Get-Content (Join-Path $Root "KhimTools\Tools\KhimGen\RuntimeQa\Models\QaStatus.cs") -Raw
 if ($status -match "PASS" -and $status -match "FAIL" -and $status -match "BLOCKED" -and $status -match "SKIPPED" -and $status -match "NOT_RUN") { Pass "Status enum contains PASS/FAIL/BLOCKED/SKIPPED/NOT_RUN" } else { Fail "Status enum" "Required statuses are incomplete" }
+$safety = Get-Content (Join-Path $qaRoot "Core\RuntimeQaSafetyGuard.cs") -Raw
+if ($safety -notmatch "catch\s*\{\s*\}") { Pass "Model snapshot and temporary-ID read failures are not swallowed" } else { Fail "Safety guard exception handling" "A model-integrity read failure could be mistaken for a clean rollback" }
 
 $allQa = Get-ChildItem $qaRoot -Recurse -Filter "*.cs" | Get-Content -Raw
 if ($allQa -match "TransactionGroup" -and $allQa -match "\.RollBack\(\)") { Pass "TransactionGroup rollback pattern exists" } else { Fail "TransactionGroup rollback" "Fixture rollback boundary missing" }

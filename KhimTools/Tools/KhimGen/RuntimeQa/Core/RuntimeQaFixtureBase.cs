@@ -50,7 +50,26 @@ namespace KhimTools.RuntimeQa.Core
                 return result;
             }
 
-            RuntimeQaModelFingerprint before = RuntimeQaSafetyGuard.CaptureFingerprint(context.Document);
+            RuntimeQaModelFingerprint before;
+            try { before = RuntimeQaSafetyGuard.CaptureFingerprint(context.Document); }
+            catch (Exception ex)
+            {
+                result.Status = QaStatus.FAIL;
+                result.Errors.Add("Could not establish a complete pre-fixture model snapshot: " + ex.Message);
+                result.Checks.Add(new QaCheckResult
+                {
+                    CheckId = Id + "_BASELINE_SNAPSHOT",
+                    Name = "Complete pre-fixture model snapshot",
+                    Status = QaStatus.FAIL,
+                    Severity = QaSeverity.CRITICAL,
+                    Expected = "Exact element IDs and model counts captured before fixture transaction",
+                    Actual = ex.GetType().Name,
+                    Message = ex.Message,
+                    ExceptionType = ex.GetType().FullName
+                });
+                Finish(result, timer);
+                return result;
+            }
             int initialCreated = context.CreatedElementIds.Count;
             bool groupStarted = false;
             TransactionGroup group = null;

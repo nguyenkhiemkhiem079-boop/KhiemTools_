@@ -31,17 +31,16 @@ namespace KhimTools.RuntimeQa.Core
 
         public static RuntimeQaModelFingerprint CaptureFingerprint(Document doc)
         {
+            if (doc == null) throw new ArgumentNullException("doc");
             var fingerprint = new RuntimeQaModelFingerprint();
-            if (doc == null) return fingerprint;
-            try
-            {
-                IList<Element> elements = new FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements();
-                fingerprint.ElementCount = elements.Count;
-                foreach (Element element in elements) if (element != null) fingerprint.ElementIds.Add(element.Id);
-                fingerprint.SheetCount = elements.Count(e => e is ViewSheet);
-                fingerprint.ViewCount = elements.Count(e => e is View && !(e is ViewSheet));
-            }
-            catch { }
+            IList<Element> elements = new FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements();
+            fingerprint.ElementCount = elements.Count;
+            foreach (Element element in elements)
+                if (element != null) fingerprint.ElementIds.Add(element.Id);
+            fingerprint.SheetCount = elements.Count(e => e is ViewSheet);
+            fingerprint.ViewCount = elements.Count(e => e is View && !(e is ViewSheet));
+            if (fingerprint.ElementIds.Count != fingerprint.ElementCount)
+                throw new InvalidOperationException("Could not capture an exact element-ID snapshot for runtime QA safety verification.");
             return fingerprint;
         }
 
@@ -52,14 +51,32 @@ namespace KhimTools.RuntimeQa.Core
             var leftovers = new List<ElementId>();
             foreach (ElementId id in createdIds ?? Enumerable.Empty<ElementId>())
             {
-                try { if (id != null && id != ElementId.InvalidElementId && doc.GetElement(id) != null) leftovers.Add(id); } catch { }
+                if (id == null || id == ElementId.InvalidElementId) continue;
+                try
+                {
+                    if (doc.GetElement(id) != null) leftovers.Add(id);
+                }
+                catch (Exception ex)
+                {
+                    message = "Could not verify whether temporary element " + id + " remains: " + ex.GetType().Name + ".";
+                    return false;
+                }
             }
-            RuntimeQaModelFingerprint after = CaptureFingerprint(doc);
-            if (leftovers.Count > 0) { message = "Temporary element IDs still exist: " + string.Join(", ", leftovers); return false; }
-            if (after.ElementCount != before.ElementCount || after.SheetCount != before.SheetCount || after.ViewCount != before.ViewCount)
+            RuntimeQaModelFingerprint after;
+            try { after = CaptureFingerprint(doc); }
+            catch (Exception ex)
             {
-                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}).",
-                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount);
+                message = "Could not capture the post-rollback model snapshot: " + ex.GetType().Name + ".";
+                return false;
+            }
+            if (leftovers.Count > 0) { message = "Temporary element IDs still exist: " + string.Join(", ", leftovers); return false; }
+            if (after.ElementCount != before.ElementCount || after.SheetCount != before.SheetCount || after.ViewCount != before.ViewCount ||
+                before.ElementIds == null || after.ElementIds == null || !before.ElementIds.SetEquals(after.ElementIds))
+            {
+                int changedIds = before.ElementIds == null || after.ElementIds == null ? -1 :
+                    before.ElementIds.Except(after.ElementIds).Count() + after.ElementIds.Except(before.ElementIds).Count();
+                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}, differing element IDs {6}).",
+                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount, changedIds);
                 return false;
             }
             return true;

@@ -20,7 +20,13 @@ namespace KhimTools.RuntimeQa.Commands
             }
             // No QA starts at Revit startup. The user explicitly selects Run All,
             // Run Suite or a fixture from the dashboard.
-            var context = new RuntimeQaContext(uidoc);
+            RuntimeQaContext context;
+            try { context = new RuntimeQaContext(uidoc); }
+            catch (System.Exception ex)
+            {
+                message = "K-TOOLS Runtime QA could not capture a complete model safety snapshot: " + ex.Message;
+                return Result.Failed;
+            }
             using (var form = new RuntimeQaForm(context, RuntimeQaRegistry.CreateDefault()))
             {
                 form.ShowDialog();
