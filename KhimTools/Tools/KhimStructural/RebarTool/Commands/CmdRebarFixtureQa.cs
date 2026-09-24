@@ -146,7 +146,7 @@ namespace KhimTools.RebarTool.Commands
             FamilyInstance column = uidoc?.Selection?.GetElementIds()
                 .Select(id => doc.GetElement(id) as FamilyInstance)
                 .FirstOrDefault(x => x != null && x.Category != null &&
-                    x.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralColumns);
+                    x.Category.Id.Value == (long)BuiltInCategory.OST_StructuralColumns);
             if (column == null)
             {
                 Require(false, "COLUMN_FIXTURE_SELECTION", "Chọn một cột chữ nhật C1 trước khi chạy fixture để kiểm tra 3 đai đa ô.", checks);
