@@ -28,12 +28,17 @@ namespace KhimTools.RebarTool.Core
             if (profile.BoundingBox == null)
                 throw new InvalidOperationException("Slab model bounds are unavailable; reinforcement cannot be safely planned.");
 
-            // 1. Độ dày sàn
-            double thicknessFeet = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
+            // This generator places bars using the host's overall top/bottom bounds. Only accept
+            // floors where those bounds describe the structural core itself, not finish layers.
+            double physicalThickness = profile.BoundingBox.Max.Z - profile.BoundingBox.Min.Z;
+            double structuralCoreThickness = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
                                   ?? floor.FloorType.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
-                                  ?? 0.5;
-            profile.ThicknessFeet = thicknessFeet;
-            profile.ThicknessMm = UnitUtils.ConvertFromInternalUnits(thicknessFeet, UnitTypeId.Millimeters);
+                                  ?? 0.0;
+            double thicknessTolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (structuralCoreThickness <= 0 || Math.Abs(physicalThickness - structuralCoreThickness) > thicknessTolerance)
+                throw new InvalidOperationException("Slab reinforcement currently requires the overall host thickness to match its structural core; floors with finish layers need a core-specific detailing workflow.");
+            profile.ThicknessFeet = physicalThickness;
+            profile.ThicknessMm = UnitUtils.ConvertFromInternalUnits(physicalThickness, UnitTypeId.Millimeters);
 
             // 2. Lớp bê tông bảo vệ
             profile.CoverTopFeet = RebarCoverHelper.GetFloorCover(floor, RebarFace.Top);
