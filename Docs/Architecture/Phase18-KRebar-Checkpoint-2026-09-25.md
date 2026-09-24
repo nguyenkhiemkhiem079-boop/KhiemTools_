@@ -6,7 +6,7 @@ Checkpoint: 2026-09-25, local-only. This records code-side evidence and open hos
 
 - Start of this continuation: `phase18/production-gate` at `309dccb`.
 - Current code branch / source HEAD: `phase18/production-gate` / `b6198a6`.
-- Worktree: code changes committed; this checkpoint update is the only remaining local edit pending its documentation commit.
+- Worktree: clean following local source and checkpoint documentation commits.
 - Local commits in this continuation:
   - `2c94c86 fix(rebar): localize shared validation feedback`
   - `0be0caf fix(rebar): localize circular column workflow`
