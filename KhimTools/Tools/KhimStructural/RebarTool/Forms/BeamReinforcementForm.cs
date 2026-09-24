@@ -45,6 +45,9 @@ namespace KhimTools.RebarTool.Forms
     /// </summary>
     public class BeamReinforcementForm : KTBaseForm
     {
+        // ILLUSTRATIVE_ONLY_NOT_SOLVED_GEOMETRY
+        private const string BeamSchematicDisclosure = "Sơ đồ minh họa đầu vào — không phải hình học Revit đã solve. Dùng Solve 3D preview để kiểm tra hình học thực.";
+
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableBeams;
         private readonly List<FamilyInstance> _selectedBeams;
@@ -302,7 +305,7 @@ namespace KhimTools.RebarTool.Forms
             var footerBar = BuildFooterBar();
 
             var previewTabs = new TabControl { Dock = DockStyle.Fill };
-            var livePreview = new TabPage("Bố trí dầm");
+            var livePreview = new TabPage("Sơ đồ minh họa — không phải preview đã solve");
             livePreview.Controls.Add(RebarLayout.ScrollPreview(_pnlElevationCanvas, new Size(900, 280)));
             previewTabs.TabPages.Add(livePreview);
             previewTabs.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Beam));
@@ -1647,6 +1650,10 @@ namespace KhimTools.RebarTool.Forms
             var g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(Color.White);
+
+            using (var disclosureFont = new Font("Segoe UI", 8.5F, FontStyle.Bold))
+            using (var disclosureBrush = new SolidBrush(Color.FromArgb(146, 64, 14)))
+                g.DrawString(BeamSchematicDisclosure, disclosureFont, disclosureBrush, 10, 8);
 
             int w = _pnlElevationCanvas.Width;
             int h = _pnlElevationCanvas.Height;
