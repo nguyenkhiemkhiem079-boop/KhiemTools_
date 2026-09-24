@@ -229,6 +229,51 @@ namespace KhimTools.RebarTool.Forms
             }
         }
 
+        private static Color RoleColor(string role)
+        {
+            switch (role)
+            {
+                case "longitudinal":
+                case "top-continuous":
+                case "bottom-continuous":
+                    return Color.FromArgb(21, 101, 192);
+                case "top-left-extra":
+                case "top-right-extra":
+                case "bottom-mid-extra":
+                case "top-x":
+                case "top-y":
+                    return Color.FromArgb(0, 137, 123);
+                case "bottom-x":
+                case "bottom-y":
+                    return Color.FromArgb(2, 119, 189);
+                case "outer-tie":
+                case "stirrup":
+                case "hanger-stirrup":
+                    return Color.FromArgb(229, 81, 0);
+                case "inner-tie-left":
+                case "inner-tie-right":
+                case "diamond-tie":
+                case "cross-tie":
+                    return Color.FromArgb(123, 31, 162);
+                case "support-x":
+                case "support-y":
+                    return Color.FromArgb(245, 124, 0);
+                case "dowel":
+                case "dowel-stirrup":
+                    return Color.FromArgb(94, 53, 177);
+                case "perimeter-u":
+                    return Color.FromArgb(46, 125, 50);
+                case "opening":
+                    return Color.FromArgb(194, 24, 91);
+                case "spacer":
+                    return Color.FromArgb(96, 125, 139);
+                case "side-bars":
+                    return Color.FromArgb(0, 121, 107);
+                default:
+                    return Color.FromArgb(21, 101, 192);
+            }
+        }
+
         private void Canvas_MouseWheel(object sender, MouseEventArgs e)
         {
             Panel canvas = (Panel)sender;
@@ -289,23 +334,36 @@ namespace KhimTools.RebarTool.Forms
             PointF Map(PointF p) => new PointF(offsetX + (p.X - minX) * scale, offsetY + (maxY - p.Y) * scale);
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using (var pen = new Pen(Color.FromArgb(21, 101, 192), 2f))
-            using (var subduedPen = new Pen(Color.FromArgb(180, 190, 198), 1f))
-            using (var font = new Font("Segoe UI", 9f))
-            using (var brush = new SolidBrush(Color.FromArgb(70, 82, 95)))
+            var rolePens = new System.Collections.Generic.Dictionary<string, Pen>(StringComparer.Ordinal);
+            try
             {
-                string heading = projection == "top" ? "TOP (XY) — SOLVED REBAR CENTERLINES" :
-                    projection == "front" ? "FRONT (XZ) — SOLVED REBAR CENTERLINES" :
-                    projection == "right" ? "RIGHT (YZ) — SOLVED REBAR CENTERLINES" :
-                    "ISOMETRIC — SOLVED REBAR CENTERLINES";
-                e.Graphics.DrawString(heading, font, brush, 12, 10);
-                foreach (var rolePath in projected)
+                foreach (string role in projected.Select(path => path.Role ?? string.Empty).Distinct(StringComparer.Ordinal))
+                    rolePens.Add(role, new Pen(RoleColor(role), 2f));
+
+                using (var subduedPen = new Pen(Color.FromArgb(180, 190, 198), 1f))
+                using (var font = new Font("Segoe UI", 9f))
+                using (var brush = new SolidBrush(Color.FromArgb(70, 82, 95)))
                 {
-                    Pen pathPen = selectedRole == null || rolePath.Role == selectedRole ? pen : subduedPen;
-                    PointF[] path = rolePath.Points;
-                    if (path.Length < 2) continue;
-                    e.Graphics.DrawLines(pathPen, path.Select(Map).ToArray());
+                    string heading = projection == "top" ? "TOP (XY) — SOLVED REBAR CENTERLINES" :
+                        projection == "front" ? "FRONT (XZ) — SOLVED REBAR CENTERLINES" :
+                        projection == "right" ? "RIGHT (YZ) — SOLVED REBAR CENTERLINES" :
+                        "ISOMETRIC — SOLVED REBAR CENTERLINES";
+                    e.Graphics.DrawString(heading, font, brush, 12, 10);
+                    foreach (var rolePath in projected)
+                    {
+                        PointF[] path = rolePath.Points;
+                        if (path.Length < 2) continue;
+                        bool isSelectedRole = selectedRole == null || rolePath.Role == selectedRole;
+                        if (!isSelectedRole)
+                            e.Graphics.DrawLines(subduedPen, path.Select(Map).ToArray());
+                        else
+                            e.Graphics.DrawLines(rolePens[rolePath.Role ?? string.Empty], path.Select(Map).ToArray());
+                    }
                 }
+            }
+            finally
+            {
+                foreach (Pen rolePen in rolePens.Values) rolePen.Dispose();
             }
         }
 
