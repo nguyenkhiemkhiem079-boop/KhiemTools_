@@ -27,12 +27,15 @@ namespace KhimTools.RebarTool.Commands
 
             var checks = new List<FixtureCheck>();
             string reportPath = null;
+            bool rollbackConfirmed = false;
 
             using (var group = new TransactionGroup(doc, "K-TOOLS Rebar QA Fixture (rollback)"))
             {
-                group.Start();
                 try
                 {
+                    if (group.Start() != TransactionStatus.Started)
+                        throw new InvalidOperationException("Could not start the Rebar QA fixture transaction group.");
+
                     Level level = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().FirstOrDefault();
                     FloorType floorType = new FilteredElementCollector(doc).OfClass(typeof(FloorType)).Cast<FloorType>()
                         .FirstOrDefault(x => !x.IsFoundationSlab);
@@ -117,15 +120,42 @@ namespace KhimTools.RebarTool.Commands
                 }
                 finally
                 {
-                    if (group.GetStatus() == TransactionStatus.Started) group.RollBack();
+                    try
+                    {
+                        TransactionStatus status = group.GetStatus();
+                        if (status == TransactionStatus.Started) status = group.RollBack();
+                        rollbackConfirmed = status == TransactionStatus.RolledBack;
+                    }
+                    catch (Exception rollbackException)
+                    {
+                        checks.Add(new FixtureCheck
+                        {
+                            Id = "FIXTURE_ROLLBACK",
+                            Passed = false,
+                            Detail = "TransactionGroup rollback failed: " + rollbackException.Message
+                        });
+                    }
+                    if (!rollbackConfirmed && !checks.Any(x => x.Id == "FIXTURE_ROLLBACK"))
+                    {
+                        checks.Add(new FixtureCheck
+                        {
+                            Id = "FIXTURE_ROLLBACK",
+                            Passed = false,
+                            Detail = "TransactionGroup rollback was not confirmed; inspect the QA model for fixture changes."
+                        });
+                    }
                 }
             }
 
+            reportPath = WriteReport(doc, checks);
             bool passed = checks.Count > 0 && checks.All(x => x.Passed);
             TaskDialog.Show("K-TOOLS - Rebar QA Fixture",
                 $"Kết quả: {(passed ? "PASS" : "FAIL")} ({checks.Count(x => x.Passed)}/{checks.Count})\n\n" +
                 string.Join("\n", checks.Select(x => $"[{(x.Passed ? "PASS" : "FAIL")}] {x.Id}: {x.Detail}")) +
-                $"\n\nBáo cáo: {reportPath}\nFixture đã rollback, model không bị thay đổi.");
+                $"\n\nBáo cáo: {reportPath}\n" +
+                (rollbackConfirmed
+                    ? "Fixture rollback đã được xác nhận."
+                    : "CẢNH BÁO: Không xác nhận được rollback. Hãy kiểm tra model QA trước khi tiếp tục."));
             return passed ? Result.Succeeded : Result.Failed;
         }
 
