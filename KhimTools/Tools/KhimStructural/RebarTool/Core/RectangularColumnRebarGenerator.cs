@@ -389,7 +389,8 @@ namespace KhimTools.RebarTool.Core
                     catch (Exception ex)
                     {
                         report?.AddError(input.Column, zone.ZoneType + " Tie Set", ex);
-                        if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                        RebarShapeCreationHelper.RollbackCandidateOrThrow(
+                            stationTransaction, zone.ZoneType + " tie station", ex);
                         throw;
                     }
                 }
@@ -432,7 +433,8 @@ namespace KhimTools.RebarTool.Core
                 catch (Exception ex)
                 {
                     report?.AddError(input.Column, "Single Tie Station", ex);
-                    if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                    RebarShapeCreationHelper.RollbackCandidateOrThrow(
+                        stationTransaction, "single tie station", ex);
                     return new List<Rebar>();
                 }
             }

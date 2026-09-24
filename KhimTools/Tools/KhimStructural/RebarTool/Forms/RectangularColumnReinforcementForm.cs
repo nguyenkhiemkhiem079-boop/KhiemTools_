@@ -1117,6 +1117,12 @@ namespace KhimTools.RebarTool.Forms
                 aggregateReport.Merge(columnReport);
                 return true;
             }
+            catch (RebarShapeCreationHelper.RebarSubTransactionRollbackException ex)
+            {
+                abortBatch = true;
+                AddRolledBackColumnDiagnostic(aggregateReport, input, columnReport, failurePreprocessor, ex);
+                throw;
+            }
             catch (Exception ex)
             {
                 if (abortBatch) throw;

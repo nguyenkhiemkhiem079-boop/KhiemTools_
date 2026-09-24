@@ -14,7 +14,7 @@ namespace KhimTools.RebarTool.Core
     /// </summary>
     public static class RebarShapeCreationHelper
     {
-        private sealed class RebarSubTransactionRollbackException : InvalidOperationException
+        internal sealed class RebarSubTransactionRollbackException : InvalidOperationException
         {
             public RebarSubTransactionRollbackException(string message, Exception innerException)
                 : base(message, innerException) { }
@@ -434,7 +434,7 @@ namespace KhimTools.RebarTool.Core
             return null;
         }
 
-        private static void RollbackCandidateOrThrow(SubTransaction sub, string context, Exception operationFailure = null)
+        internal static void RollbackCandidateOrThrow(SubTransaction sub, string context, Exception operationFailure = null)
         {
             if (sub == null) return;
             try
