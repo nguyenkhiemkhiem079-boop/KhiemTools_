@@ -59,6 +59,7 @@ namespace KhimTools.RebarTool.Forms
             ["Khoảng cách đai vùng A1 phải nhỏ hơn hoặc bằng A2."] = "A1 tie spacing must be less than or equal to A2.",
             ["Bố trí đai đa ô cần ít nhất 5 thanh chủ theo cạnh B."] = "The multi-cell tie layout requires at least five main bars along side B.",
             ["Giải Preview cho cột và thông số hiện tại trước khi tạo thép."] = "Solve the preview for the current column inputs before creating rebar.",
+            ["Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."] = "Solve a new 3D preview for the current column inputs before creating rebar.",
             ["Giải và kiểm tra Preview cho cấu hình hiện tại trước khi tạo thép."] = "Solve and verify the preview for the current settings before creating rebar.",
             ["Chọn một dầm hợp lệ."] = "Select a valid beam.",
             ["Chọn loại thép chủ phía trên."] = "Select a top main bar type.",

@@ -92,6 +92,7 @@ namespace KhimTools.RebarTool.Forms
 
         private Button _btnCreateRebar;
         private Button _btnClose;
+        private ComboBox _cmbLanguage;
 
         // Configuration Templates
         private Label _lblTemplate;
@@ -137,6 +138,7 @@ namespace KhimTools.RebarTool.Forms
                 RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
                 new RebarValidationRule(_btnCreateRebar, () => HasCurrentAcceptedPreview(),
                     "Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."));
+            ApplyLanguage();
         }
 
         private void BuildUi()
@@ -188,7 +190,16 @@ namespace KhimTools.RebarTool.Forms
             };
             _btnPreview3D = new Button { Text = "Solve Rebar preview (rollback only)", Enabled = _doc != null };
             _btnPreview3D.Click += BtnPreview3D_Click;
-            var footer = RebarLayout.Footer(null, _btnPreview3D, _btnCreateRebar, _btnClose);
+            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
+            _cmbLanguage.Items.AddRange(new object[] { "Tiếng Việt", "English" });
+            _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
+            _cmbLanguage.SelectedIndexChanged += (s, e) =>
+            {
+                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1
+                    ? AppLanguage.English : AppLanguage.Vietnamese;
+                ApplyLanguage();
+            };
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnPreview3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -387,7 +398,7 @@ namespace KhimTools.RebarTool.Forms
             pnlSplicePos.Controls.Add(new Label { Text = "Splice distance from column base L = (mm):", AutoSize = true });
             _numSpliceDistBase = new NumericUpDown { Minimum = 0, Maximum = 1000, Value = 50, Width = 70 };
             pnlSplicePos.Controls.Add(_numSpliceDistBase);
-            _rdSpliceTwoPos = new RadioButton { Text = "Splice rebar at two positions (Nối so le 50%)", Checked = true, AutoSize = true };
+            _rdSpliceTwoPos = new RadioButton { Text = "Nối thép tại hai vị trí (so le 50%)", Checked = true, AutoSize = true };
             pnlSplicePos.Controls.Add(_rdSpliceTwoPos);
             grpSplicePos.Controls.Add(pnlSplicePos);
 
@@ -511,6 +522,107 @@ namespace KhimTools.RebarTool.Forms
             }
         }
 
+        private void ApplyLanguage()
+        {
+            SetFormTitle(
+                LanguageManager.IsEnglish ? "Rebar - Circular Column" : "Rebar - Cột tròn",
+                LanguageManager.IsEnglish ? "Main bars, round ties, anchorage and floor splices" : "Thép chủ, đai tròn, neo và nối tầng");
+            var vietnameseToEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["Rebar - Cột tròn"] = "Rebar - Circular Column",
+                ["Thép chủ, đai tròn, neo và nối tầng"] = "Main bars, round ties, anchorage and floor splices",
+                ["Tạo thép"] = "Create Rebar", ["Đóng"] = "Close",
+                ["Solve Rebar preview (rollback only)"] = "Solve Rebar Preview (rollback only)",
+                ["Danh Sách Cột"] = "Column List", ["Chọn tất cả"] = "Select All", ["Bỏ chọn"] = "Clear",
+                ["Mẫu Thiết Lập:"] = "Template:", ["Lưu thành..."] = "Save As...", ["Áp dụng"] = "Apply", ["Xóa"] = "Delete",
+                ["Thép Chủ & Cover"] = "Main Bars & Cover", ["Bố trí Thép Chủ Tiết Diện Cột Tròn"] = "Circular Column Main Bar Layout",
+                ["Số lượng thanh chủ:"] = "Number of main bars:", ["Đường kính thép chủ:"] = "Main bar type:",
+                ["Lớp Bê Tông Bảo Vệ (Concrete Cover)"] = "Concrete Cover", ["Nhập cover tùy chỉnh"] = "Use custom cover",
+                ["Cover Dự Án"] = "Project Cover", ["Cover tùy chỉnh (mm):"] = "Custom cover (mm):",
+                ["Cấu tạo Neo & Nối Thép"] = "Anchorage & Splice Details",
+                ["Cột tầng móng (Nối chân quỳ 90° vào móng)"] = "Foundation-level column (90° bent starter into footing)",
+                ["Cột tầng sàn / điển hình (Thép chờ nối tầng)"] = "Typical floor column (starter bars for floor splice)",
+                ["Nhấn vắt nghiêng 1:6 vị trí nối (Ảnh 1)"] = "Crank bars 1:6 at splice (Image 1)",
+                ["Neo uốn móc 90° đỉnh mái (Ảnh 2)"] = "90° hook anchorage at roof (Image 2)",
+                ["Nối so le 50% (Staggered 1.3 Ls)"] = "50% staggered splice (1.3 Ls)",
+                ["Ls = n × d:"] = "Ls = n × d:", ["d (30d/40d)"] = "d (30d/40d)",
+                ["Thép Đai Tròn (Stirrups)"] = "Round Ties (Stirrups)",
+                ["Đai tròn: khoảng cách đều A1/A2; A1 tối thiểu 600 mm, tự tăng theo chiều cao/đường kính"] = "Round ties: uniform A1/A2 spacing; A1 minimum 600 mm, increased as required by height/diameter",
+                ["Đường kính thép đai:"] = "Tie bar type:", ["Khoảng cách đai (mm):"] = "Tie spacing (mm):",
+                ["Cài đặt chung"] = "General Settings", ["MỤC UỐN MÓC THÉP"] = "REBAR HOOK BENDING SECTION",
+                ["Theo chiều dài cố định L (mm):"] = "By fixed length L (mm):", ["Theo đường kính (xD):"] = "By diameter (xD):",
+                ["ĐIỀU KIỆN UỐN HOẶC CẮT THÉP"] = "REBAR BENDING OR CUTTING CONDITIONS",
+                ["Uốn thép nếu e ≤ (mm):"] = "Bend rebar if e ≤ (mm):", ["Uốn theo tỷ lệ Hd/e ≥:"] = "Bend by ratio Hd/e ≥:",
+                ["BỐ TRÍ THÉP ĐỈNH MÁI"] = "SET TOP ROOF REBAR", ["Uốn móc thép tầng trên cùng"] = "Bend hook for top floor rebar",
+                ["Chờ thép tầng trên cùng"] = "Continue waiting for top floor rebar",
+                ["VỊ TRÍ NỐI THÉP"] = "REBAR SPLICE POSITION", ["Khoảng cách nối từ chân cột L = (mm):"] = "Splice distance from column base L = (mm):",
+                ["Nối thép tại hai vị trí (so le 50%)"] = "Splice rebar at two positions (50% staggered)",
+                ["GÁN THÔNG TIN BỔ SUNG CHO THÉP"] = "ASSIGN ADDITIONAL INFORMATION TO REBAR",
+                ["Gán cao độ cột cho thép"] = "Assign column elevation to rebar", ["Tự động gán Phân khu cho thép"] = "Automatically assign Partition to rebar",
+                ["TÙY CHỌN TẠI VỊ TRÍ DẦM SÀN"] = "OPTION AT SLAB BEAM POSITION", ["Chiều cao mặc định Hd (mm):"] = "Default height Hd (mm):",
+                ["Bản Vẽ & View 3D"] = "Drawings & 3D Views", ["Tự động Tạo View & Triển khai Bản vẽ"] = "Automatic Views & Drawings",
+                ["Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)"] = "Automatically create 2D drawings (sections & rebar schedule)",
+                ["Tự động tạo View xem thép 3D (Plan View + 3D View)"] = "Automatically create 3D rebar views (plan + 3D view)",
+                ["Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."] = "Solve a new 3D preview for the current column inputs before creating rebar.",
+                ["Chọn ít nhất một cột tròn."] = "Select at least one circular column.", ["Chọn loại thép chủ."] = "Select a main bar type.",
+                ["Chọn loại thép đai."] = "Select a tie bar type."
+            };
+            var englishToVietnamese = vietnameseToEnglish.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                if (control == _cmbLanguage) continue;
+                string translated;
+                if (LanguageManager.IsEnglish && vietnameseToEnglish.TryGetValue(control.Text, out translated)) control.Text = translated;
+                else if (!LanguageManager.IsEnglish && englishToVietnamese.TryGetValue(control.Text, out translated)) control.Text = translated;
+                else if (control is GroupBox && (control.Text.EndsWith(" (not applied)", StringComparison.Ordinal) || control.Text.EndsWith(" (chưa áp dụng)", StringComparison.Ordinal)))
+                {
+                    string oldSuffix = control.Text.EndsWith(" (not applied)", StringComparison.Ordinal) ? " (not applied)" : " (chưa áp dụng)";
+                    string suffix = LanguageManager.IsEnglish ? " (not applied)" : " (chưa áp dụng)";
+                    string baseText = control.Text.Substring(0, control.Text.Length - oldSuffix.Length);
+                    if (LanguageManager.IsEnglish && vietnameseToEnglish.TryGetValue(baseText, out translated)) control.Text = translated + suffix;
+                    else if (!LanguageManager.IsEnglish && englishToVietnamese.TryGetValue(baseText, out translated)) control.Text = translated + suffix;
+                }
+            }
+            _btnCreateRebar.Text = LanguageManager.IsEnglish ? "Create Rebar" : "Tạo thép";
+            _btnClose.Text = LanguageManager.IsEnglish ? "Close" : "Đóng";
+            _btnPreview3D.Text = LanguageManager.IsEnglish ? "Solve Rebar Preview (rollback only)" : "Giải Preview thép (chỉ rollback)";
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                if (control.Text == "Select All") control.Text = LanguageManager.IsEnglish ? "Select All" : "Chọn tất cả";
+                else if (control.Text == "Clear") control.Text = LanguageManager.IsEnglish ? "Clear" : "Bỏ chọn";
+                else if (control.Text == "Apply") control.Text = LanguageManager.IsEnglish ? "Apply" : "Áp dụng";
+                else if (control.Text == "Save As...") control.Text = LanguageManager.IsEnglish ? "Save As..." : "Lưu thành...";
+                else if (control.Text == "Delete") control.Text = LanguageManager.IsEnglish ? "Delete" : "Xóa";
+            }
+            _rdScopeSelected.Text = LanguageManager.IsEnglish ? $"Selected columns only ({_preSelectedColumns.Count})" : $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})";
+            _rdScopeAll.Text = LanguageManager.IsEnglish ? $"All columns ({_availableColumns.Count})" : $"Tất cả cột ({_availableColumns.Count})";
+            UpdateSelectedCount();
+            UpdateWorkflowNavigation();
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 4)
+            {
+                int selectedIndex = _workflowTabs.SelectedIndex;
+                TabPage oldReference = _workflowTabs.TabPages[4];
+                _workflowTabs.TabPages.RemoveAt(4);
+                oldReference.Dispose();
+                _workflowTabs.TabPages.Insert(4, RebarReferenceViews.CreatePage(RebarReferenceKind.CircularColumn));
+                _workflowTabs.SelectedIndex = Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1);
+            }
+            TabPage configurationPage = _workflowTabs?.TabPages.Cast<TabPage>()
+                .FirstOrDefault(page => page.Name == "RebarConfigurationPage");
+            if (configurationPage != null) RebarConfigurationPage.ApplyLanguage(configurationPage);
+            _formGuard?.ApplyLanguage();
+            _previewPanel?.Invalidate();
+        }
+
+        private static IEnumerable<Control> EnumerateDescendantControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateDescendantControls(child)) yield return descendant;
+            }
+        }
+
         private void AddRowToLayout(TableLayoutPanel table, string labelText, Control inputControl)
         {
             var lbl = new Label { Text = labelText, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(3, 5, 3, 3) };
@@ -532,12 +644,16 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Preselected: {count} columns from Revit"
+                    : $"Đã chọn sẵn: {count} cột từ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Selected: {count} / {_columnListBox.Items.Count} columns"
+                    : $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }
@@ -599,10 +715,10 @@ namespace KhimTools.RebarTool.Forms
         {
             var g = e.Graphics;
             string text = _previewLifecycle.State == PreviewLifecycleState.Valid
-                ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry."
+                ? (LanguageManager.IsEnglish ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry." : "Kết quả solver đã tách khỏi Revit. Mở lại Solve Rebar Preview để xem hình học đã chấp nhận.")
                 : _previewLifecycle.State == PreviewLifecycleState.Stale
-                    ? "Inputs changed — solve again before Create. The previous preview is stale."
-                    : "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry.";
+                    ? (LanguageManager.IsEnglish ? "Inputs changed — solve again before Create. The previous preview is stale." : "Thông số đã đổi — hãy giải lại trước khi tạo. Preview trước đã cũ.")
+                    : (LanguageManager.IsEnglish ? "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry." : "Chưa có hình học đã giải. Dùng Solve Rebar Preview để tạo hình học 2D / 3D chỉ trong rollback.");
             TextRenderer.DrawText(g, text, Font, _previewPanel.ClientRectangle,
                 Color.FromArgb(71, 85, 105), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
         }
