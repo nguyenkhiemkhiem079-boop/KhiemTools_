@@ -41,7 +41,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 32
+        ExpectedCount = 45
     },
     @{
         Name = "Phase 8 Rebar Layout Rendering QA"

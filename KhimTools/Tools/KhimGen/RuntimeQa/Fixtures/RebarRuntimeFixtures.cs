@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
+using KhimTools.Core.Workflow;
 using KhimTools.RuntimeQa.Core;
 using KhimTools.RuntimeQa.Models;
 using KhimTools.RebarTool.Core;
@@ -11,6 +12,277 @@ using KhimTools.RebarTool.Commands;
 
 namespace KhimTools.RuntimeQa.Fixtures
 {
+    public abstract class BeamPreviewRuntimeFixtureBase : RuntimeQaFixtureBase
+    {
+        protected abstract bool IsRotated(BeamGeometryHelper.BeamProfile profile);
+        protected abstract string ScenarioLabel { get; }
+
+        protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
+        {
+            Document doc = context.Document;
+            FamilyInstance beam = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+                .FirstOrDefault(candidate =>
+                {
+                    BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(candidate);
+                    return profile != null && IsRotated(profile);
+                });
+            RebarBarType barType = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
+            if (beam == null || barType == null)
+            {
+                Block(result, Id + "_RES", ScenarioLabel + " beam resources", "Compatible beam host and N16 RebarBarType",
+                    "BLOCKED: load the required " + ScenarioLabel + " beam fixture and N16 type.", QaSeverity.CRITICAL);
+                return;
+            }
+
+            var input = new BeamRebarInput
+            {
+                Beam = beam,
+                MainTopBarType = barType,
+                MainBottomBarType = barType,
+                TopLeftExtraBarType = barType,
+                TopRightExtraBarType = barType,
+                BottomMidExtraBarType = barType,
+                StirrupBarType = barType,
+                SideBarType = barType,
+                TopContinuousQty = 2,
+                BottomContinuousQty = 2,
+                TopLeftExtraQty = 1,
+                TopRightExtraQty = 1,
+                BottomMidExtraQty = 1,
+                SideBarQty = 0,
+                AutoSideBars = false
+            };
+            var generator = new BeamRebarGenerator(doc);
+            string fingerprint = RebarPreviewService.Fingerprint(input);
+            var request = new RebarPreviewRequest(fingerprint, () => generator.Generate(input),
+                () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+            int barsBefore = CountHostedBars(doc, beam);
+            RebarPreviewSnapshot first = RebarPreviewService.Capture(doc, new[] { request });
+            RebarPreviewSnapshot refreshed = RebarPreviewService.Capture(doc, new[] { request });
+            RebarPreviewComponent expected = first.Find(fingerprint);
+            RebarPreviewComponent repeated = refreshed.Find(fingerprint);
+            Check(result, Id + "_REFRESH", "Repeated refresh is deterministic",
+                expected != null && repeated != null && expected.BarCount == repeated.BarCount &&
+                WorkflowFingerprint.Matches(expected.GeometryFingerprint, repeated.GeometryFingerprint),
+                "Identical plan and centerlines", repeated == null ? "No preview" : repeated.BarCount.ToString(),
+                "Refresh uses the same production BeamRebarGenerator and canonical input.", QaSeverity.CRITICAL);
+            double originalSpacing = input.StirrupSpacingA1;
+            input.StirrupSpacingA1 = originalSpacing + 0.125;
+            string changedFingerprint = RebarPreviewService.Fingerprint(input);
+            bool staleRejected = refreshed.Find(changedFingerprint) == null;
+            RebarPreviewSnapshot afterRefresh = RebarPreviewService.Capture(doc, new[]
+            {
+                new RebarPreviewRequest(changedFingerprint, () => generator.Generate(input),
+                    () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input))
+            });
+            bool refreshedPlanAvailable = afterRefresh.Find(changedFingerprint) != null;
+            input.StirrupSpacingA1 = originalSpacing;
+            Check(result, Id + "_STALE", "Changed beam input invalidates preview", staleRejected,
+                "Changed spacing requires refresh", staleRejected ? "Stale" : "Still executable",
+                "Input fingerprints cover spacing, geometry, type and generation settings.", QaSeverity.CRITICAL);
+            Check(result, Id + "_REFRESH_CHANGED", "Refreshing changed beam input creates a new plan",
+                refreshedPlanAvailable, changedFingerprint, afterRefresh.PlanFingerprint,
+                "The changed request is re-solved after the old snapshot rejects it.", QaSeverity.CRITICAL);
+            Check(result, Id + "_CANCEL", "Preview capture leaves no hosted bars", CountHostedBars(doc, beam) == barsBefore,
+                barsBefore.ToString(), CountHostedBars(doc, beam).ToString(),
+                "Closing/canceling the detached review cannot persist rollback-only generated bars.", QaSeverity.CRITICAL);
+
+            bool matched = false;
+            bool duplicateDetected = false;
+            TransactionStatus rolledBack = TransactionStatus.Uninitialized;
+            using (var tx = new Transaction(doc, "K-TOOLS QA " + ScenarioLabel + " beam preview parity"))
+            {
+                if (tx.Start() != TransactionStatus.Started)
+                {
+                    Block(result, Id + "_TX", "Beam parity transaction", "A started transaction",
+                        "HOST_VERIFICATION_REQUIRED: transaction could not start (" + tx.GetStatus() + ").", QaSeverity.CRITICAL);
+                    return;
+                }
+                try
+                {
+                    List<Rebar> bars = generator.Generate(input);
+                    doc.Regenerate();
+                    matched = RebarPreviewService.Matches(refreshed, fingerprint, bars);
+                    duplicateDetected = RebarPreviewService.HasExistingDuplicateBar(doc, beam, refreshed, fingerprint);
+                    foreach (Rebar bar in bars ?? new List<Rebar>()) context.TrackCreated(bar.Id);
+                }
+                finally
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                    rolledBack = tx.GetStatus();
+                }
+            }
+            Check(result, Id + "_PARITY", "Beam preview/execution parity", matched,
+                "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
+                "Production plan is regenerated in a disposable transaction and always rolled back.", QaSeverity.CRITICAL);
+            Check(result, Id + "_DUPLICATE", "Equivalent generated beam bars are detected", duplicateDetected,
+                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
+            Check(result, Id + "_ROLLBACK", "Beam parity rollback", rolledBack == TransactionStatus.RolledBack,
+                TransactionStatus.RolledBack.ToString(), rolledBack.ToString(),
+                "RuntimeQaFixtureBase also verifies the enclosing TransactionGroup rollback.", QaSeverity.CRITICAL);
+        }
+
+        private static int CountHostedBars(Document document, Element host) =>
+            new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>().Count(bar => bar.GetHostId() == host.Id);
+    }
+
+    public sealed class RectangularBeamPreviewRuntimeFixture : BeamPreviewRuntimeFixtureBase
+    {
+        public override string Id { get { return "BR-PREVIEW-RECT"; } }
+        public override string Name { get { return "Rectangular beam solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Exercise preview refresh, stale-input rejection, model-preserving cancel and production parity for an axis-aligned rectangular beam."; } }
+        public override bool IsCritical { get { return true; } }
+        protected override bool IsRotated(BeamGeometryHelper.BeamProfile profile) =>
+            Math.Abs(profile.Direction.X) > 0.999 || Math.Abs(profile.Direction.Y) > 0.999;
+        protected override string ScenarioLabel => "axis-aligned rectangular";
+    }
+
+    public sealed class RotatedBeamPreviewRuntimeFixture : BeamPreviewRuntimeFixtureBase
+    {
+        public override string Id { get { return "BR-PREVIEW-ROTATED"; } }
+        public override string Name { get { return "Rotated beam solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Exercise local-axis aware preview refresh, stale-input rejection, cancel and production parity for a horizontally rotated beam."; } }
+        public override bool IsCritical { get { return true; } }
+        protected override bool IsRotated(BeamGeometryHelper.BeamProfile profile) =>
+            Math.Abs(profile.Direction.X) > 0.1 && Math.Abs(profile.Direction.Y) > 0.1;
+        protected override string ScenarioLabel => "rotated";
+    }
+
+    public abstract class SlabPreviewRuntimeFixtureBase : RuntimeQaFixtureBase
+    {
+        protected abstract bool RequiresOpening { get; }
+        protected abstract string ScenarioLabel { get; }
+
+        protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
+        {
+            Document doc = context.Document;
+            Floor floor = new FilteredElementCollector(doc).OfClass(typeof(Floor)).Cast<Floor>()
+                .FirstOrDefault(candidate =>
+                {
+                    try
+                    {
+                        SlabProfile profile = SlabGeometryHelper.AnalyzeSlab(doc, candidate);
+                        bool hasOpening = profile != null && profile.InnerOpenings != null && profile.InnerOpenings.Count > 0;
+                        return profile != null && hasOpening == RequiresOpening;
+                    }
+                    catch { return false; }
+                });
+            if (floor == null)
+            {
+                Block(result, Id + "_RES", ScenarioLabel + " slab resources", RequiresOpening ? "A slab with at least one supported opening" : "A rectangular slab without openings",
+                    "BLOCKED: load the required " + ScenarioLabel + " slab fixture.", QaSeverity.CRITICAL);
+                return;
+            }
+            var manager = new SlabPanelManager();
+            manager.InitializeFromFloors(doc, new List<Floor> { floor });
+            SlabPanel panel = manager.Panels.FirstOrDefault();
+            if (panel == null)
+            {
+                Block(result, Id + "_PANEL", "Slab panel analysis", "A production-analyzed slab panel",
+                    "BLOCKED: the selected floor did not produce a supported slab panel.", QaSeverity.CRITICAL);
+                return;
+            }
+            var generator = new SlabRebarGenerator(doc);
+            string fingerprint = generator.GetPanelInputFingerprint(panel);
+            var report = new RebarGenerationReport();
+            var request = new RebarPreviewRequest(fingerprint, () => generator.GeneratePanel(panel, report),
+                () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes));
+            int barsBefore = CountHostedBars(doc, floor);
+            RebarPreviewSnapshot first = RebarPreviewService.Capture(doc, new[] { request });
+            RebarPreviewSnapshot refreshed = RebarPreviewService.Capture(doc, new[] { request });
+            RebarPreviewComponent expected = first.Find(fingerprint);
+            RebarPreviewComponent repeated = refreshed.Find(fingerprint);
+            Check(result, Id + "_REFRESH", "Repeated refresh is deterministic",
+                expected != null && repeated != null && expected.BarCount == repeated.BarCount &&
+                WorkflowFingerprint.Matches(expected.GeometryFingerprint, repeated.GeometryFingerprint),
+                "Identical panel plan and centerlines", repeated == null ? "No preview" : repeated.BarCount.ToString(),
+                "Refresh uses the production SlabRebarGenerator with the same panel configuration.", QaSeverity.CRITICAL);
+            panel.Config.BottomLayer.SpacingXMm += 10;
+            string changedFingerprint = generator.GetPanelInputFingerprint(panel);
+            bool staleRejected = refreshed.Find(changedFingerprint) == null;
+            RebarPreviewSnapshot afterRefresh = RebarPreviewService.Capture(doc, new[]
+            {
+                new RebarPreviewRequest(changedFingerprint, () => generator.GeneratePanel(panel, new RebarGenerationReport()),
+                    () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes))
+            });
+            bool refreshedPlanAvailable = afterRefresh.Find(changedFingerprint) != null;
+            panel.Config.BottomLayer.SpacingXMm -= 10;
+            Check(result, Id + "_STALE", "Changed slab spacing invalidates preview", staleRejected,
+                "Changed spacing requires refresh", staleRejected ? "Stale" : "Still executable",
+                "Fingerprint includes X/Y settings, type identities, boundary, openings and cover.", QaSeverity.CRITICAL);
+            Check(result, Id + "_REFRESH_CHANGED", "Refreshing changed slab input creates a new plan",
+                refreshedPlanAvailable, changedFingerprint, afterRefresh.PlanFingerprint,
+                "The changed request is re-solved after the old snapshot rejects it.", QaSeverity.CRITICAL);
+            Check(result, Id + "_CANCEL", "Preview capture leaves no hosted bars", CountHostedBars(doc, floor) == barsBefore,
+                barsBefore.ToString(), CountHostedBars(doc, floor).ToString(),
+                "Cancel/close after rollback-only capture cannot persist preview bars.", QaSeverity.CRITICAL);
+
+            bool matched = false;
+            bool duplicateDetected = false;
+            TransactionStatus rolledBack = TransactionStatus.Uninitialized;
+            using (var tx = new Transaction(doc, "K-TOOLS QA " + ScenarioLabel + " slab preview parity"))
+            {
+                if (tx.Start() != TransactionStatus.Started)
+                {
+                    Block(result, Id + "_TX", "Slab parity transaction", "A started transaction",
+                        "HOST_VERIFICATION_REQUIRED: transaction could not start (" + tx.GetStatus() + ").", QaSeverity.CRITICAL);
+                    return;
+                }
+                try
+                {
+                    List<Rebar> bars = generator.GeneratePanel(panel, new RebarGenerationReport());
+                    doc.Regenerate();
+                    matched = RebarPreviewService.Matches(refreshed, fingerprint, bars);
+                    duplicateDetected = RebarPreviewService.HasExistingDuplicateBar(doc, floor, refreshed, fingerprint);
+                    foreach (Rebar bar in bars ?? new List<Rebar>()) context.TrackCreated(bar.Id);
+                }
+                finally
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                    rolledBack = tx.GetStatus();
+                }
+            }
+            Check(result, Id + "_PARITY", "Slab preview/execution parity", matched,
+                "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
+                "Production layout is regenerated in a disposable transaction and always rolled back.", QaSeverity.CRITICAL);
+            Check(result, Id + "_DUPLICATE", "Equivalent generated slab bars are detected", duplicateDetected,
+                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
+            Check(result, Id + "_ROLLBACK", "Slab parity rollback", rolledBack == TransactionStatus.RolledBack,
+                TransactionStatus.RolledBack.ToString(), rolledBack.ToString(),
+                "RuntimeQaFixtureBase verifies the enclosing TransactionGroup rollback.", QaSeverity.CRITICAL);
+        }
+
+        private static int CountHostedBars(Document document, Element host) =>
+            new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>().Count(bar => bar.GetHostId() == host.Id);
+    }
+
+    public sealed class RectangularSlabPreviewRuntimeFixture : SlabPreviewRuntimeFixtureBase
+    {
+        public override string Id { get { return "SR-PREVIEW-RECT"; } }
+        public override string Name { get { return "Rectangular slab solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Exercise refresh, cancellation, stale-input protection and production parity for a supported slab without openings."; } }
+        public override bool IsCritical { get { return true; } }
+        protected override bool RequiresOpening => false;
+        protected override string ScenarioLabel => "rectangular";
+    }
+
+    public sealed class SlabOpeningPreviewRuntimeFixture : SlabPreviewRuntimeFixtureBase
+    {
+        public override string Id { get { return "SR-PREVIEW-OPENING"; } }
+        public override string Name { get { return "Slab opening solver preview"; } }
+        public override string Suite { get { return "REBAR"; } }
+        public override string Description { get { return "Exercise production opening-trim geometry, refresh, cancellation, stale-input protection and preview parity."; } }
+        public override bool IsCritical { get { return true; } }
+        protected override bool RequiresOpening => true;
+        protected override string ScenarioLabel => "opening";
+    }
+
     public sealed class RectangularColumnPreviewRuntimeFixture : RuntimeQaFixtureBase
     {
         public override string Id { get { return "RC-PREVIEW"; } }
@@ -57,21 +329,47 @@ namespace KhimTools.RuntimeQa.Fixtures
                     List<Rebar> bars = generator.Generate(input, previewReport);
                     if (previewReport.HasErrors) throw new InvalidOperationException(previewReport.Errors[0].ErrorReason);
                     return bars;
-                })
+                }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input))
+            });
+            RebarPreviewSnapshot repeatedSnapshot = RebarPreviewService.Capture(doc, new[]
+            {
+                new RebarPreviewRequest(fingerprint, () =>
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(doc);
+                    var previewReport = new RebarGenerationReport();
+                    List<Rebar> bars = generator.Generate(input, previewReport);
+                    if (previewReport.HasErrors) throw new InvalidOperationException(previewReport.Errors[0].ErrorReason);
+                    return bars;
+                }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input))
             });
             RebarPreviewComponent component = snapshot.Find(fingerprint);
-            Check(result, "RC-PREVIEW01", "Detached solver paths", component != null && component.BarCount > 0 && component.Paths.Count > 0,
+            RebarPreviewComponent repeatedComponent = repeatedSnapshot.Find(fingerprint);
+            Check(result, "RC-PREVIEW01", "Detached solver paths and deterministic refresh", component != null && component.BarCount > 0 && component.Paths.Count > 0 && repeatedComponent != null && component.BarCount == repeatedComponent.BarCount && WorkflowFingerprint.Matches(component.GeometryFingerprint, repeatedComponent.GeometryFingerprint),
                 "Revit-solved bar paths", component == null ? "missing" : component.Paths.Count + " paths",
                 "Capture returned detached curve coordinates after rollback-only generation.", QaSeverity.CRITICAL);
 
             int originalBars = input.BarsAlongB;
             input.BarsAlongB = originalBars + 1;
-            Check(result, "RC-PREVIEW02", "Stale input rejection", snapshot.Find(RebarPreviewService.Fingerprint(input)) == null,
+            string changedFingerprint = RebarPreviewService.Fingerprint(input);
+            bool staleRejected = snapshot.Find(changedFingerprint) == null;
+            RebarPreviewSnapshot changedPlan = RebarPreviewService.Capture(doc, new[]
+            {
+                new RebarPreviewRequest(changedFingerprint, () =>
+                {
+                    RebarShapeLibrary.PreloadCommonShapes(doc);
+                    var refreshedReport = new RebarGenerationReport();
+                    List<Rebar> bars = generator.Generate(input, refreshedReport);
+                    if (refreshedReport.HasErrors) throw new InvalidOperationException(refreshedReport.Errors[0].ErrorReason);
+                    return bars;
+                }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input))
+            });
+            Check(result, "RC-PREVIEW02", "Stale rejection and refreshed plan", staleRejected && changedPlan.Find(changedFingerprint) != null,
                 "Changed inputs rejected", "Changed input not found in preview snapshot",
                 "Input fingerprints include host/type identity and generation settings.", QaSeverity.CRITICAL);
             input.BarsAlongB = originalBars;
 
             bool matched = false;
+            bool duplicateDetected = false;
             TransactionStatus finalStatus;
             using (var tx = new Transaction(doc, "K-TOOLS Runtime QA Rebar preview parity"))
             {
@@ -88,6 +386,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                     List<Rebar> generated = generator.Generate(input, executionReport);
                     doc.Regenerate();
                     matched = !executionReport.HasErrors && RebarPreviewService.Matches(snapshot, fingerprint, generated);
+                    duplicateDetected = RebarPreviewService.HasExistingDuplicateBar(doc, column, snapshot, fingerprint);
                 }
                 finally
                 {
@@ -98,6 +397,9 @@ namespace KhimTools.RuntimeQa.Fixtures
             Check(result, "RC-PREVIEW03", "Preview/execution centerline parity", matched,
                 "Same solved centerlines", matched ? "Matched" : "Mismatch",
                 "Production output is compared with the reviewed detached solver result before any commit.", QaSeverity.CRITICAL);
+            Check(result, "RC-PREVIEW_DUPLICATE", "Equivalent generated column bars are detected", duplicateDetected,
+                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             Check(result, "RC-PREVIEW04", "Execution parity rollback", finalStatus == TransactionStatus.RolledBack,
                 TransactionStatus.RolledBack.ToString(), finalStatus.ToString(),
                 "The QA fixture never leaves generated reinforcement in the user's model.", QaSeverity.CRITICAL);
