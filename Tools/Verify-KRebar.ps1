@@ -68,6 +68,7 @@ $foundationText = Get-Content -Raw (Join-Path $base 'Forms\FoundationReinforceme
 $foundationRoleNavigation = $foundationText.Contains('Foundation role-oriented settings') -and $foundationText.Contains('AddRoleNavigation(roleNavigation') -and $foundationText.Contains('UpdateRoleNavigation();') -and $foundationText.Contains('ItemSize = new Size(0, 1)')
 Add-Check 'foundation-role-navigation-replaces-duplicate-tabs' $foundationRoleNavigation 'Foundation settings use a compact role navigator with the duplicate tab strip hidden.'
 $foundationGenerator = Get-Content -Raw (Join-Path $base 'Core\FoundationRebarGenerator.cs')
+$foundationGeometry = Get-Content -Raw (Join-Path $base 'Core\FoundationGeometryHelper.cs')
 $foundationSettings = Get-Content -Raw (Join-Path $base 'Models\FoundationRebarSettings.cs')
 $foundationRuntime = Get-Content -Raw $runtimePath
 $circularText = Get-Content -Raw (Join-Path $base 'Forms\CircularColumnReinforcementForm.cs')
@@ -102,7 +103,8 @@ Add-Check 'circular-column-visible-stale-preview-state' ($circularText.Contains(
 Add-Check 'all-host-runtime-fixtures-registered' ($registryText.Contains('new RectangularColumnPreviewRuntimeFixture()') -and $registryText.Contains('new CircularColumnPreviewRuntimeFixture()') -and $registryText.Contains('new RectangularBeamPreviewRuntimeFixture()') -and $registryText.Contains('new RotatedBeamPreviewRuntimeFixture()') -and $registryText.Contains('new RectangularSlabPreviewRuntimeFixture()') -and $registryText.Contains('new SlabOpeningPreviewRuntimeFixture()')) $registryPath
 $hostScenariosPath = Join-Path $repoRoot 'Tools\RebarPreviewHostScenarios.md'
 $hostScenarios = if (Test-Path -LiteralPath $hostScenariosPath) { Get-Content -Raw $hostScenariosPath } else { '' }
-Add-Check 'column-beam-slab-foundation-undo-scenarios-registered' (@('COLUMN_UNDO', 'CIRCULAR_COLUMN_UNDO', 'CIRCULAR_COLUMN_CANCEL', 'CIRCULAR_COLUMN_DUPLICATE', 'BEAM_UNDO', 'BEAM_SUPPORT_STALE', 'SLAB_UNDO', 'SLAB_OPENING_SHAPE_REJECTION', 'FOUNDATION_UNDO', 'FOUNDATION_CANCEL', 'FOUNDATION_DUPLICATE' | Where-Object { -not $hostScenarios.Contains($_) }).Count -eq 0) 'Tools/RebarPreviewHostScenarios.md registers host-only column/circular-column/beam/slab/foundation create/Undo/cancel/duplicate/stale-support scenarios as NOT_EXECUTED.'
+Add-Check 'column-beam-slab-foundation-undo-scenarios-registered' (@('COLUMN_UNDO', 'CIRCULAR_COLUMN_UNDO', 'CIRCULAR_COLUMN_CANCEL', 'CIRCULAR_COLUMN_DUPLICATE', 'BEAM_UNDO', 'BEAM_SUPPORT_STALE', 'SLAB_UNDO', 'SLAB_OPENING_SHAPE_REJECTION', 'FOUNDATION_UNDO', 'FOUNDATION_CANCEL', 'FOUNDATION_DUPLICATE', 'FOUNDATION_ROTATION_REJECTION' | Where-Object { -not $hostScenarios.Contains($_) }).Count -eq 0) 'Tools/RebarPreviewHostScenarios.md registers host-only column/circular-column/beam/slab/foundation create/Undo/cancel/duplicate/stale-support/rotation-rejection scenarios as NOT_EXECUTED.'
+Add-Check 'foundation-rotation-unsupported-host-fails-closed' ($foundationGeometry.Contains('HasAxisAlignedPlanBasis(foundation.GetTransform())') -and $foundationGeometry.Contains('Foundation reinforcement currently supports axis-aligned plan hosts only') -and $hostScenarios.Contains('FOUNDATION_ROTATION_REJECTION')) 'Foundation bounding-box generation rejects rotated plan hosts before solver capture and records a manual host scenario.'
 
 $wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Filter '*Wall*Rebar*.cs'
 $wallGenerator = Get-ChildItem -LiteralPath (Join-Path $base 'Core') -File -Filter '*Wall*Rebar*.cs'
