@@ -96,7 +96,9 @@ namespace KhimTools.RebarTool.Forms
         private ComboBox _cmbLanguage;
         private Button _btnAssignData;
         private Button _btnCreateRebar;
+        private Button _btnPreviewRebar;
         private Button _btnClose;
+        private RebarPreviewSnapshot _lastPreview;
         private RebarFormGuard _formGuard;
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
@@ -171,6 +173,9 @@ namespace KhimTools.RebarTool.Forms
             _btnCreateRebar = new Button { Text = "Tạo thép sàn", Width = 142, Height = 38, Top = 13, Left = 760 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
             _btnCreateRebar.Click += BtnCreateRebar_Click;
+            _btnPreviewRebar = new Button { Text = "Solve 3D preview", Width = 142, Height = 38, Top = 13, Left = 600 };
+            KhimUiStyle.ApplySecondaryButton(_btnPreviewRebar);
+            _btnPreviewRebar.Click += BtnPreviewRebar_Click;
 
             _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13, Left = 915 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
@@ -182,7 +187,7 @@ namespace KhimTools.RebarTool.Forms
             bottomPanel.Controls.Add(_btnAssignData);
             bottomPanel.Controls.Add(_btnCreateRebar);
             bottomPanel.Controls.Add(_btnClose);
-            var footer = RebarLayout.Footer(_cmbLanguage, _btnAssignData, _btnCreateRebar, _btnClose);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnAssignData, _btnPreviewRebar, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -697,14 +702,23 @@ namespace KhimTools.RebarTool.Forms
 
         private void BtnAssignData_Click(object sender, EventArgs e)
         {
-            int assigned = 0;
-            for (int i = 0; i < _gridPanels.Rows.Count; i++)
+            List<SlabPanel> selectedPanels = GetSelectedPanelsFromGrid();
+            AssignSettingsToPanels(selectedPanels);
+            KhimDialogHelper.ShowInfo($"Đã gán thành công thông số cấu hình cốt thép cho {selectedPanels.Count} panel.");
+        }
+
+        private List<SlabPanel> GetSelectedPanelsFromGrid()
+        {
+            for (int i = 0; i < _gridPanels.Rows.Count && i < _panelManager.Panels.Count; i++)
+                _panelManager.Panels[i].IsSelected = Convert.ToBoolean(_gridPanels.Rows[i].Cells["colCheck"].Value);
+            return _panelManager.Panels.Where(panel => panel.IsSelected).ToList();
+        }
+
+        private void AssignSettingsToPanels(IList<SlabPanel> selectedPanels)
+        {
+            foreach (SlabPanel panel in selectedPanels)
             {
-                bool isChecked = Convert.ToBoolean(_gridPanels.Rows[i].Cells["colCheck"].Value);
-                if (isChecked && i < _panelManager.Panels.Count)
-                {
-                    var panel = _panelManager.Panels[i];
-                    var cfg = panel.Config;
+                var cfg = panel.Config;
 
                     // Bottom Layer
                     cfg.BottomLayer.Enabled = _chkBotDraw.Checked;
@@ -751,40 +765,71 @@ namespace KhimTools.RebarTool.Forms
                     cfg.Tolerances.RoundingMm = (double)_numRounding.Value;
                     cfg.Tolerances.MinSpanMm = (double)_numMinSpan.Value;
 
-                    assigned++;
+            }
+        }
+
+        private void BtnPreviewRebar_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                List<SlabPanel> selectedPanels = GetSelectedPanelsFromGrid();
+                if (selectedPanels.Count == 0) throw new InvalidOperationException("Select at least one slab panel before previewing.");
+                AssignSettingsToPanels(selectedPanels);
+                var generator = new SlabRebarGenerator(_doc);
+                RebarPreviewRequest[] requests = selectedPanels.Select(panel =>
+                {
+                    string fingerprint = generator.GetPanelInputFingerprint(panel);
+                    return new RebarPreviewRequest(fingerprint, () =>
+                    {
+                        var report = new RebarGenerationReport();
+                        List<Rebar> bars = generator.GeneratePanel(panel, report);
+                        if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
+                        return bars;
+                    }, () => generator.GetPanelInputFingerprint(panel), RebarPreviewService.Describe(panel, generator.BarTypes));
+                }).ToArray();
+                RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(snapshot))
+                {
+                    if (preview.ShowDialog(this) == DialogResult.OK) _lastPreview = snapshot;
+                    else _lastPreview = null;
                 }
             }
-
-            KhimDialogHelper.ShowInfo($"Đã gán thành công thông số cấu hình cốt thép cho {assigned} panel.");
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                KhimDialogHelper.ShowError("Unable to create solver-backed slab preview: " + ex.Message);
+            }
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
         {
-            // Đồng bộ trạng thái chọn từ DataGridView trước
-            for (int i = 0; i < _gridPanels.Rows.Count; i++)
-            {
-                if (i < _panelManager.Panels.Count)
-                {
-                    _panelManager.Panels[i].IsSelected = Convert.ToBoolean(_gridPanels.Rows[i].Cells["colCheck"].Value);
-                }
-            }
-
-            var selectedPanels = _panelManager.Panels.Where(p => p.IsSelected).ToList();
+            var selectedPanels = GetSelectedPanelsFromGrid();
             if (!selectedPanels.Any())
             {
                 KhimDialogHelper.ShowWarning("Vui lòng chọn ít nhất 1 Panel sàn để tạo thép.");
                 return;
             }
 
-            // Tự động gán settings hiện tại trước khi tạo
-            BtnAssignData_Click(sender, e);
+            AssignSettingsToPanels(selectedPanels);
+            var generator = new SlabRebarGenerator(_doc);
+            if (_lastPreview == null || selectedPanels.Any(panel =>
+                _lastPreview.Find(generator.GetPanelInputFingerprint(panel)) == null))
+            {
+                KhimDialogHelper.ShowWarning("Create or refresh the solver-backed preview for the current slab panels and settings before generating.");
+                return;
+            }
+            foreach (SlabPanel panel in selectedPanels)
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, panel.HostFloor, _lastPreview, generator.GetPanelInputFingerprint(panel)))
+                {
+                    KhimDialogHelper.ShowWarning("Equivalent reinforcement already exists on slab " + panel.HostFloor.Id + ". Remove or edit existing bars before generating to avoid duplicates.");
+                    return;
+                }
 
             var report = new RebarGenerationReport();
-            var generator = new SlabRebarGenerator(_doc);
 
             using (var trans = new Transaction(_doc, "KHIM TOOLS — Tạo Thép Sàn Theo Panel"))
             {
-                trans.Start();
+                if (trans.Start() != TransactionStatus.Started) throw new InvalidOperationException("Unable to start slab reinforcement transaction.");
                 FailureHandlingOptions failOptions = trans.GetFailureHandlingOptions();
                 failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
                 trans.SetFailureHandlingOptions(failOptions);
@@ -793,7 +838,10 @@ namespace KhimTools.RebarTool.Forms
                     // Lặp qua từng panel và sinh thép theo cấu hình riêng của panel đó
                     foreach (var panel in selectedPanels)
                     {
-                        generator.GeneratePanel(panel, report);
+                        List<Rebar> generated = generator.GeneratePanel(panel, report);
+                        _doc.Regenerate();
+                        if (!RebarPreviewService.Matches(_lastPreview, generator.GetPanelInputFingerprint(panel), generated))
+                            throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview; the entire slab transaction was rolled back.");
                     }
 
                     TransactionStatus commitStatus = trans.Commit();
@@ -807,11 +855,13 @@ namespace KhimTools.RebarTool.Forms
                 {
                     if (trans.GetStatus() == TransactionStatus.Started) trans.RollBack();
                     KhimDialogHelper.ShowError($"Lỗi khi tạo thép sàn: {ex.Message}");
+                    _lastPreview = null;
                     return;
                 }
             }
 
             KhimDialogHelper.ShowRebarGenerationReport(report, "Tạo Thép Sàn (Slab Rebar Panel System)", selectedPanels.Count);
+            _lastPreview = null;
         }
 
         private void PopulateBarCombos()

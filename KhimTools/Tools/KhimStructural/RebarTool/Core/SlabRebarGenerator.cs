@@ -20,11 +20,17 @@ namespace KhimTools.RebarTool.Core
     public class SlabRebarGenerator
     {
         private readonly Document _doc;
+        private readonly List<RebarBarType> _barTypes;
 
         public SlabRebarGenerator(Document doc)
         {
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
+            _barTypes = new FilteredElementCollector(_doc)
+                .OfClass(typeof(RebarBarType)).Cast<RebarBarType>().ToList();
         }
+
+        public string GetPanelInputFingerprint(SlabPanel panel) => RebarPreviewService.Fingerprint(panel, _barTypes);
+        public IList<RebarBarType> BarTypes => _barTypes.AsReadOnly();
 
         public List<Rebar> GeneratePanel(SlabPanel panel, RebarGenerationReport report = null)
         {
@@ -33,10 +39,7 @@ namespace KhimTools.RebarTool.Core
 
             var createdRebars = new List<Rebar>();
 
-            var barTypes = new FilteredElementCollector(_doc)
-                .OfClass(typeof(RebarBarType))
-                .Cast<RebarBarType>()
-                .ToList();
+            var barTypes = _barTypes;
 
             if (!barTypes.Any()) return createdRebars;
 
@@ -512,7 +515,7 @@ namespace KhimTools.RebarTool.Core
             return 0.25; // Default L/4
         }
 
-        private RebarBarType FindBarType(List<RebarBarType> list, string diaLabel)
+        internal static RebarBarType FindBarType(IList<RebarBarType> list, string diaLabel)
         {
             if (string.IsNullOrWhiteSpace(diaLabel)) return list.FirstOrDefault();
             string search = diaLabel.Replace("d", "").Replace("Φ", "").Replace("ϕ", "").Trim();

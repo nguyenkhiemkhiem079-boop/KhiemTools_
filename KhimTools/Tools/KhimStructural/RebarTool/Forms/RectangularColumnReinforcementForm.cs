@@ -502,7 +502,7 @@ namespace KhimTools.RebarTool.Forms
             var pnlViews = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown };
             _chkAutoDrawing = new CheckBox { Text = "Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
             _chkAutoSection3D = new CheckBox { Text = "Tự động tạo View xem thép 3D (Plan View + 3D View)", Checked = true, AutoSize = true, Margin = new Padding(3, 8, 3, 8) };
-            _btnPreview3D = new Button { Text = "Solve and preview 3D layout (rollback only)", AutoSize = true, Enabled = _doc != null };
+            _btnPreview3D = new Button { Text = "Solve Rebar preview (2D / 3D, rollback only)", AutoSize = true, Enabled = _doc != null };
             _btnPreview3D.Click += BtnPreview3D_Click;
             pnlViews.Controls.Add(_chkAutoDrawing);
             pnlViews.Controls.Add(_chkAutoSection3D);
@@ -651,6 +651,17 @@ namespace KhimTools.RebarTool.Forms
                 return;
             }
 
+            foreach (RectangularColumnRebarInput input in inputGroups.SelectMany(group => group))
+            {
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, input.Column, _lastPreview,
+                    RebarPreviewService.Fingerprint(input)))
+                {
+                    MessageBox.Show(this, "Equivalent reinforcement already exists on column " + input.Column.Id + ". Remove or edit existing bars before generating to avoid duplicates.",
+                        "Duplicate reinforcement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
             int axisGroupCount = inputGroups.Count;
             var report = new RebarGenerationReport();
             int committedColumnCount = 0;
@@ -740,9 +751,10 @@ namespace KhimTools.RebarTool.Forms
                 List<List<RectangularColumnRebarInput>> groups = BuildGenerationInputGroups(selectedItems, mainType, stirrupType, customCoverFeet);
                 var generator = new RectangularColumnRebarGenerator(_doc);
                 bool shapesLoaded = false;
-                var requests = groups.SelectMany(group => group).Select(input => new RebarPreviewRequest(
-                    RebarPreviewService.Fingerprint(input),
-                    () =>
+                var requests = groups.SelectMany(group => group).Select(input =>
+                {
+                    string fingerprint = RebarPreviewService.Fingerprint(input);
+                    return new RebarPreviewRequest(fingerprint, () =>
                     {
                         if (!shapesLoaded)
                         {
@@ -753,9 +765,13 @@ namespace KhimTools.RebarTool.Forms
                         List<Rebar> bars = generator.Generate(input, report);
                         if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
                         return bars;
-                    })).ToArray();
+                    }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+                }).ToArray();
                 _lastPreview = RebarPreviewService.Capture(_doc, requests);
-                using (var preview = new RebarSolverPreviewForm(_lastPreview)) preview.ShowDialog(this);
+                using (var preview = new RebarSolverPreviewForm(_lastPreview))
+                {
+                    if (preview.ShowDialog(this) != DialogResult.OK) _lastPreview = null;
+                }
             }
             catch (Exception ex)
             {
@@ -1169,7 +1185,7 @@ namespace KhimTools.RebarTool.Forms
                 g.FillRectangle(hb, 0,     topH, W,         HDR);
             }
 
-            string secTitle = isEn ? "CROSS SECTION  B x H" : "TIET DIEN NGANG  B x H";
+            string secTitle = isEn ? "CONFIGURATION SCHEMATIC  B x H (solve preview for exact bars)" : "SO DO CAU HINH  B x H (xem truoc solver de thay thep chinh xac)";
             string infoTitle = isEn ? "ENGINEERING DATA" : "DU LIEU KY THUAT";
             string elvTitle  = isEn ? "COLUMN ELEVATION  -  Stirrup Zones A1 / A2 / A1"
                                     : "MAT DUNG COT  -  Vung dai A1 / A2 / A1";

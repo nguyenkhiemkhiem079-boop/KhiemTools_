@@ -5,6 +5,7 @@ using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core.Workflow;
+using KhimTools.RebarTool.Models;
 
 namespace KhimTools.RebarTool.Core
 {
@@ -13,12 +14,17 @@ namespace KhimTools.RebarTool.Core
     {
         public string InputFingerprint { get; private set; }
         public Func<IList<Rebar>> Generate { get; private set; }
+        public Func<string> CurrentInputFingerprint { get; private set; }
+        public IDictionary<string, string> Semantics { get; private set; }
 
-        public RebarPreviewRequest(string inputFingerprint, Func<IList<Rebar>> generate)
+        public RebarPreviewRequest(string inputFingerprint, Func<IList<Rebar>> generate,
+            Func<string> currentInputFingerprint = null, IDictionary<string, string> semantics = null)
         {
             if (string.IsNullOrWhiteSpace(inputFingerprint)) throw new ArgumentException("A stable input fingerprint is required.", "inputFingerprint");
             InputFingerprint = inputFingerprint;
             Generate = generate ?? throw new ArgumentNullException("generate");
+            CurrentInputFingerprint = currentInputFingerprint;
+            Semantics = semantics == null ? new Dictionary<string, string>() : new Dictionary<string, string>(semantics, StringComparer.Ordinal);
         }
     }
 
@@ -43,24 +49,39 @@ namespace KhimTools.RebarTool.Core
         public int BarCount { get; private set; }
         public string GeometryFingerprint { get; private set; }
         public IReadOnlyList<RebarPreviewPath> Paths { get; private set; }
+        public IReadOnlyList<string> BarFingerprints { get; private set; }
+        public string HostId { get; private set; }
+        public string HostGeometryDescriptor { get; private set; }
+        public IReadOnlyDictionary<string, string> Semantics { get; private set; }
+        public string PlanFingerprint { get; private set; }
 
-        internal RebarPreviewComponent(string inputFingerprint, IList<Rebar> bars)
+        internal RebarPreviewComponent(RebarPreviewRequest request, IList<Rebar> bars)
         {
-            InputFingerprint = inputFingerprint;
+            InputFingerprint = request.InputFingerprint;
+            Semantics = new Dictionary<string, string>(request.Semantics, StringComparer.Ordinal);
+            HostId = Semantics.ContainsKey("HostId") ? Semantics["HostId"] : string.Empty;
+            HostGeometryDescriptor = Semantics.ContainsKey("HostGeometry") ? Semantics["HostGeometry"] : string.Empty;
             BarCount = bars.Count;
-            Paths = RebarPreviewService.ReadPaths(bars);
-            GeometryFingerprint = RebarPreviewService.Fingerprint(Paths);
+            var descriptors = bars.Select(bar =>
+            {
+                IReadOnlyList<RebarPreviewPath> paths = RebarPreviewService.ReadPaths(new List<Rebar> { bar });
+                return new { Paths = paths, Fingerprint = RebarPreviewService.FingerprintBar(bar, paths) };
+            }).ToArray();
+            Paths = descriptors.SelectMany(descriptor => descriptor.Paths).ToArray();
+            BarFingerprints = descriptors.Select(descriptor => descriptor.Fingerprint).ToArray();
+            GeometryFingerprint = RebarPreviewService.FingerprintBars(BarFingerprints);
+            PlanFingerprint = WorkflowFingerprint.Compute(InputFingerprint, GeometryFingerprint);
         }
     }
 
     public sealed class RebarPreviewSnapshot
     {
         public IReadOnlyList<RebarPreviewComponent> Components { get; private set; }
-        public string DocumentFingerprint { get; private set; }
-        internal RebarPreviewSnapshot(IList<RebarPreviewComponent> components, string documentFingerprint)
+        public string PlanFingerprint { get; private set; }
+        internal RebarPreviewSnapshot(IList<RebarPreviewComponent> components, string planFingerprint)
         {
             Components = components.ToArray();
-            DocumentFingerprint = documentFingerprint;
+            PlanFingerprint = planFingerprint;
         }
 
         public RebarPreviewComponent Find(string inputFingerprint) =>
@@ -69,7 +90,7 @@ namespace KhimTools.RebarTool.Core
 
     /// <summary>
     /// Runs the real Rebar generators and Revit shape solver in a rollback-only transaction,
-    /// copies solved centerlines into detached data, then proves the model fingerprint is unchanged.
+    /// copies solved centerlines into detached data, then proves every supplied input fingerprint is unchanged.
     /// The exact detached result is compared with the real transaction before it may commit.
     /// </summary>
     public static class RebarPreviewService
@@ -80,7 +101,6 @@ namespace KhimTools.RebarTool.Core
             RebarPreviewRequest[] requestArray = (requests ?? Enumerable.Empty<RebarPreviewRequest>()).ToArray();
             if (requestArray.Length == 0) throw new ArgumentException("At least one Rebar preview request is required.", "requests");
 
-            string before = DocumentFingerprint(document);
             var components = new List<RebarPreviewComponent>();
             using (var transaction = new Transaction(document, "K-TOOLS Rebar Preview (rollback only)"))
             {
@@ -98,7 +118,7 @@ namespace KhimTools.RebarTool.Core
                         document.Regenerate();
                         if (bars == null || bars.Count == 0)
                             throw new InvalidOperationException("The Rebar generator returned no solved bars for preview.");
-                        components.Add(new RebarPreviewComponent(request.InputFingerprint, bars));
+                        components.Add(new RebarPreviewComponent(request, bars));
                     }
                 }
                 finally
@@ -111,10 +131,14 @@ namespace KhimTools.RebarTool.Core
                     throw new InvalidOperationException("The Rebar preview ended without a rollback.");
             }
 
-            string after = DocumentFingerprint(document);
-            if (!WorkflowFingerprint.Matches(before, after))
-                throw new InvalidOperationException("The Rebar preview changed persistent document state; preview output was discarded.");
-            return new RebarPreviewSnapshot(components, after);
+            foreach (RebarPreviewRequest request in requestArray)
+            {
+                if (request.CurrentInputFingerprint != null &&
+                    !WorkflowFingerprint.Matches(request.InputFingerprint, request.CurrentInputFingerprint()))
+                    throw new InvalidOperationException("A Rebar preview input changed while its detached plan was being captured.");
+            }
+            return new RebarPreviewSnapshot(components,
+                WorkflowFingerprint.Compute(requestArray.Select(request => request.InputFingerprint).OrderBy(value => value, StringComparer.Ordinal)));
         }
 
         public static bool Matches(RebarPreviewSnapshot snapshot, string inputFingerprint, IList<Rebar> generated)
@@ -122,7 +146,8 @@ namespace KhimTools.RebarTool.Core
             if (snapshot == null || generated == null || generated.Count == 0) return false;
             RebarPreviewComponent expected = snapshot.Find(inputFingerprint);
             if (expected == null || expected.BarCount != generated.Count) return false;
-            return WorkflowFingerprint.Matches(expected.GeometryFingerprint, Fingerprint(ReadPaths(generated)));
+            string[] actualBars = generated.Select(FingerprintBar).ToArray();
+            return WorkflowFingerprint.Matches(expected.GeometryFingerprint, FingerprintBars(actualBars));
         }
 
         public static string Fingerprint(RectangularColumnRebarInput input)
@@ -151,6 +176,170 @@ namespace KhimTools.RebarTool.Core
             });
         }
 
+        public static IDictionary<string, string> Describe(RectangularColumnRebarInput input)
+        {
+            RectangularColumnGeometryHelper.ColumnProfile profile = RectangularColumnGeometryHelper.GetRectangularProfile(input.Column);
+            return new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["HostId"] = input.Column.UniqueId,
+                ["HostGeometry"] = profile.B.ToString("R", CultureInfo.InvariantCulture) + "x" + profile.H.ToString("R", CultureInfo.InvariantCulture) + " @ " + profile.BaseCenter,
+                ["BarTypes"] = TypeFingerprint(input.MainBarType) + " | " + TypeFingerprint(input.StirrupBarType),
+                ["Diameters"] = input.MainBarType.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture) + " | " + input.StirrupBarType.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture),
+                ["Spacing"] = input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture) + " | " + input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
+                ["Cover"] = input.CustomCoverFeet.HasValue ? input.CustomCoverFeet.Value.ToString("R", CultureInfo.InvariantCulture) : "host cover",
+                ["Hooks"] = input.HasTopAnchor + ":" + input.HasDowel,
+                ["Layout"] = input.TieLayout.ToString(),
+                ["BarCount"] = input.BarsAlongB + "x" + input.BarsAlongH,
+                ["Zones"] = input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                ["Orientation"] = input.Column.HandOrientation.ToString() + " | " + input.Column.FacingOrientation.ToString()
+            };
+        }
+
+        public static string Fingerprint(BeamRebarInput input)
+        {
+            if (input == null || input.Beam == null) throw new ArgumentException("A beam host is required for preview.", "input");
+            BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(input.Beam);
+            if (profile == null) throw new InvalidOperationException("Beam geometry is unavailable for preview.");
+            return WorkflowFingerprint.Compute(new[]
+            {
+                input.Beam.UniqueId, input.Beam.VersionGuid.ToString("D"),
+                TypeFingerprint(input.MainTopBarType), TypeFingerprint(input.MainBottomBarType),
+                TypeFingerprint(input.TopLeftExtraBarType), TypeFingerprint(input.TopRightExtraBarType),
+                TypeFingerprint(input.BottomMidExtraBarType), TypeFingerprint(input.StirrupBarType), TypeFingerprint(input.SideBarType),
+                input.TopContinuousQty.ToString(CultureInfo.InvariantCulture), input.BottomContinuousQty.ToString(CultureInfo.InvariantCulture),
+                input.TopLeftExtraQty.ToString(CultureInfo.InvariantCulture), input.TopRightExtraQty.ToString(CultureInfo.InvariantCulture),
+                input.BottomMidExtraQty.ToString(CultureInfo.InvariantCulture), input.AutoSideBars.ToString(),
+                input.SideBarQty.ToString(CultureInfo.InvariantCulture), input.SideBarThresholdMm.ToString("R", CultureInfo.InvariantCulture),
+                input.HangerStirrupQty.ToString(CultureInfo.InvariantCulture), input.HangerStirrupSpacingMm.ToString("R", CultureInfo.InvariantCulture),
+                input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture), input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
+                input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                input.CustomCoverFeet.HasValue ? input.CustomCoverFeet.Value.ToString("R", CultureInfo.InvariantCulture) : "auto-cover",
+                input.DesignStandard.ToString(), input.ConcreteGrade.ToString(), input.SteelGrade.ToString(),
+                input.LdMultiplier.ToString("R", CultureInfo.InvariantCulture), input.HookTailMultiplier.ToString("R", CultureInfo.InvariantCulture),
+                profile.StartPoint.X.ToString("R", CultureInfo.InvariantCulture), profile.StartPoint.Y.ToString("R", CultureInfo.InvariantCulture), profile.StartPoint.Z.ToString("R", CultureInfo.InvariantCulture),
+                profile.Direction.X.ToString("R", CultureInfo.InvariantCulture), profile.Direction.Y.ToString("R", CultureInfo.InvariantCulture), profile.Direction.Z.ToString("R", CultureInfo.InvariantCulture),
+                profile.RightVector.X.ToString("R", CultureInfo.InvariantCulture), profile.RightVector.Y.ToString("R", CultureInfo.InvariantCulture), profile.RightVector.Z.ToString("R", CultureInfo.InvariantCulture),
+                profile.UpVector.X.ToString("R", CultureInfo.InvariantCulture), profile.UpVector.Y.ToString("R", CultureInfo.InvariantCulture), profile.UpVector.Z.ToString("R", CultureInfo.InvariantCulture),
+                profile.B.ToString("R", CultureInfo.InvariantCulture), profile.H.ToString("R", CultureInfo.InvariantCulture), profile.Length.ToString("R", CultureInfo.InvariantCulture)
+            });
+        }
+
+        public static IDictionary<string, string> Describe(BeamRebarInput input)
+        {
+            BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(input.Beam);
+            return new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["HostId"] = input.Beam.UniqueId,
+                ["HostGeometry"] = profile.B.ToString("R", CultureInfo.InvariantCulture) + "x" + profile.H.ToString("R", CultureInfo.InvariantCulture) + " L=" + profile.Length.ToString("R", CultureInfo.InvariantCulture),
+                ["BarTypes"] = string.Join(" | ", new[] { input.MainTopBarType, input.MainBottomBarType, input.TopLeftExtraBarType, input.TopRightExtraBarType, input.BottomMidExtraBarType, input.StirrupBarType, input.SideBarType }.Select(TypeFingerprint)),
+                ["Diameters"] = string.Join(" | ", new[] { input.MainTopBarType, input.MainBottomBarType, input.TopLeftExtraBarType, input.TopRightExtraBarType, input.BottomMidExtraBarType, input.StirrupBarType, input.SideBarType }.Select(type => type == null ? "default" : type.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture))),
+                ["Spacing"] = input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture) + " | " + input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
+                ["Cover"] = input.CustomCoverFeet.HasValue ? input.CustomCoverFeet.Value.ToString("R", CultureInfo.InvariantCulture) : "host cover",
+                ["Hooks"] = input.HookTailMultiplier.ToString("R", CultureInfo.InvariantCulture) + " | " + input.LdMultiplier.ToString("R", CultureInfo.InvariantCulture),
+                ["BarCount"] = input.TopContinuousQty + "/" + input.BottomContinuousQty + "/" + input.TopLeftExtraQty + "/" + input.TopRightExtraQty + "/" + input.BottomMidExtraQty + "/" + input.SideBarQty,
+                ["Zones"] = input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                ["Orientation"] = profile.Direction + " | " + profile.RightVector + " | " + profile.UpVector
+            };
+        }
+
+        public static string Fingerprint(SlabPanel panel, IList<RebarBarType> barTypes)
+        {
+            if (panel == null || panel.HostFloor == null || panel.Config == null)
+                throw new ArgumentException("A slab panel, host and configuration are required for preview.", "panel");
+            if (barTypes == null) throw new ArgumentNullException("barTypes");
+            SlabPanelRebarConfig config = panel.Config;
+            return WorkflowFingerprint.Compute(new[]
+            {
+                panel.HostFloor.UniqueId, panel.HostFloor.VersionGuid.ToString("D"), panel.PanelId,
+                panel.WidthMm.ToString("R", CultureInfo.InvariantCulture), panel.LengthMm.ToString("R", CultureInfo.InvariantCulture),
+                panel.ThicknessFeet.ToString("R", CultureInfo.InvariantCulture), panel.CoverTopFeet.ToString("R", CultureInfo.InvariantCulture),
+                panel.CoverBottomFeet.ToString("R", CultureInfo.InvariantCulture), CurveLoopFingerprint(panel.Boundary),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.BottomLayer.DiaXLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.BottomLayer.DiaYLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.TopLayer.DiaXLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.TopLayer.DiaYLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.HatReinforce.DiaXLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.HatReinforce.DiaYLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.TopDistribution.DiaLabel)),
+                TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, config.Spacer.DiaLabel)),
+                string.Join("|", (panel.Openings ?? new List<CurveLoop>()).Select(CurveLoopFingerprint).OrderBy(value => value, StringComparer.Ordinal)),
+                string.Join("|", (panel.Edges ?? new List<SlabPanelEdge>()).OrderBy(edge => edge.EdgeIndex).Select(edge =>
+                    edge.EdgeIndex + ":" + edge.EdgeType + ":" + (edge.SupportingBeamId == null ? "" : edge.SupportingBeamId.ToString()) + ":" + edge.SkipTopHat + ":" + edge.SkipBottomMesh)),
+                LayerFingerprint(config.BottomLayer), LayerFingerprint(config.TopLayer),
+                config.HatReinforce.Enabled.ToString(), config.HatReinforce.DiaXLabel, config.HatReinforce.DiaYLabel,
+                config.HatReinforce.SpacingXMm.ToString("R", CultureInfo.InvariantCulture), config.HatReinforce.SpacingYMm.ToString("R", CultureInfo.InvariantCulture),
+                config.HatReinforce.IsFullSpan.ToString(), config.HatReinforce.HatFactor, config.HatReinforce.HookDownEdge.ToString(), config.HatReinforce.HookDownLenMm.ToString("R", CultureInfo.InvariantCulture),
+                config.TopDistribution.Enabled.ToString(), config.TopDistribution.DiaLabel, config.TopDistribution.SpacingMm.ToString("R", CultureInfo.InvariantCulture),
+                config.Spacer.Enabled.ToString(), config.Spacer.DiaLabel, config.Spacer.StepXMm.ToString("R", CultureInfo.InvariantCulture), config.Spacer.StepYMm.ToString("R", CultureInfo.InvariantCulture), config.Spacer.HookLenMm.ToString("R", CultureInfo.InvariantCulture),
+                config.Anchors.BeamAnchorAMm.ToString("R", CultureInfo.InvariantCulture), config.Anchors.SlabAnchorBMm.ToString("R", CultureInfo.InvariantCulture),
+                config.Tolerances.RoundingMm.ToString("R", CultureInfo.InvariantCulture), config.Tolerances.MinSpanMm.ToString("R", CultureInfo.InvariantCulture)
+            });
+        }
+
+        public static IDictionary<string, string> Describe(SlabPanel panel, IList<RebarBarType> barTypes)
+        {
+            SlabPanelRebarConfig config = panel.Config;
+            return new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["HostId"] = panel.HostFloor.UniqueId,
+                ["HostGeometry"] = panel.ThicknessFeet.ToString("R", CultureInfo.InvariantCulture) + "; " + CurveLoopFingerprint(panel.Boundary),
+                ["BarTypes"] = string.Join(" | ", new[] { config.BottomLayer.DiaXLabel, config.BottomLayer.DiaYLabel, config.TopLayer.DiaXLabel, config.TopLayer.DiaYLabel, config.HatReinforce.DiaXLabel, config.HatReinforce.DiaYLabel }.Select(label => TypeFingerprint(SlabRebarGenerator.FindBarType(barTypes, label)))),
+                ["Diameters"] = string.Join(" | ", new[] { config.BottomLayer.DiaXLabel, config.BottomLayer.DiaYLabel, config.TopLayer.DiaXLabel, config.TopLayer.DiaYLabel, config.HatReinforce.DiaXLabel, config.HatReinforce.DiaYLabel }.Select(label => SlabRebarGenerator.FindBarType(barTypes, label)?.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture) ?? "default")),
+                ["Spacing"] = config.BottomLayer.SpacingXMm + "/" + config.BottomLayer.SpacingYMm + " | " + config.TopLayer.SpacingXMm + "/" + config.TopLayer.SpacingYMm,
+                ["Cover"] = panel.CoverTopFeet + "/" + panel.CoverBottomFeet,
+                ["Hooks"] = config.HatReinforce.HookDownEdge + ":" + config.HatReinforce.HookDownLenMm,
+                ["Layout"] = config.BottomLayer.InvertLayer + ":" + config.TopLayer.InvertLayer,
+                ["Zones"] = config.HatReinforce.HatFactor + ":" + config.HatReinforce.IsFullSpan,
+                ["BarCount"] = "Generated by production SlabRebarGenerator",
+                ["Orientation"] = "World X/Y along boundary basis"
+            };
+        }
+
+        private static string TypeFingerprint(RebarBarType type) => type == null ? "<default>" :
+            type.UniqueId + ":" + type.VersionGuid.ToString("D") + ":" + type.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture);
+
+        public static bool HasExistingDuplicateBar(Document document, Element host, RebarPreviewSnapshot snapshot, string inputFingerprint)
+        {
+            RebarPreviewComponent expected = snapshot?.Find(inputFingerprint);
+            if (document == null || host == null || expected == null) return false;
+            HashSet<string> expectedBars = new HashSet<string>(expected.BarFingerprints, StringComparer.OrdinalIgnoreCase);
+            return new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>()
+                .Where(bar => bar.GetHostId() == host.Id)
+                .Select(FingerprintBar)
+                .Any(expectedBars.Contains);
+        }
+
+        internal static string FingerprintBar(Rebar bar)
+        {
+            IReadOnlyList<RebarPreviewPath> paths = ReadPaths(new List<Rebar> { bar });
+            return FingerprintBar(bar, paths);
+        }
+
+        internal static string FingerprintBar(Rebar bar, IReadOnlyList<RebarPreviewPath> paths)
+        {
+            RebarBarType type = bar.Document.GetElement(bar.GetTypeId()) as RebarBarType;
+            return WorkflowFingerprint.Compute(new[]
+            {
+                TypeFingerprint(type), Fingerprint(paths)
+            });
+        }
+
+        internal static string FingerprintBars(IEnumerable<string> fingerprints) =>
+            WorkflowFingerprint.Compute((fingerprints ?? Enumerable.Empty<string>()).OrderBy(value => value, StringComparer.Ordinal));
+
+        private static string LayerFingerprint(SlabLayerSettings layer) => string.Join(":", new[]
+        {
+            layer.Enabled.ToString(), layer.InvertLayer.ToString(), layer.DiaXLabel, layer.SpacingXMm.ToString("R", CultureInfo.InvariantCulture),
+            layer.DiaYLabel, layer.SpacingYMm.ToString("R", CultureInfo.InvariantCulture), layer.ExtraParam
+        });
+
+        private static string CurveLoopFingerprint(CurveLoop loop)
+        {
+            if (loop == null) return string.Empty;
+            return WorkflowFingerprint.Compute(loop.Select(curve => string.Join(";", curve.Tessellate().Select(point =>
+                point.X.ToString("R", CultureInfo.InvariantCulture) + "," + point.Y.ToString("R", CultureInfo.InvariantCulture) + "," + point.Z.ToString("R", CultureInfo.InvariantCulture)))));
+        }
+
         internal static IReadOnlyList<RebarPreviewPath> ReadPaths(IList<Rebar> bars)
         {
             var paths = new List<RebarPreviewPath>();
@@ -172,22 +361,21 @@ namespace KhimTools.RebarTool.Core
         internal static string Fingerprint(IEnumerable<RebarPreviewPath> paths)
         {
             string[] tokens = (paths ?? Enumerable.Empty<RebarPreviewPath>())
-                .Select(path => string.Join(";", path.Points.Select(p =>
+                .Select(path =>
+                {
+                    string[] points = path.Points.Select(p =>
                     p.X.ToString("R", CultureInfo.InvariantCulture) + "," +
                     p.Y.ToString("R", CultureInfo.InvariantCulture) + "," +
-                    p.Z.ToString("R", CultureInfo.InvariantCulture))))
+                    p.Z.ToString("R", CultureInfo.InvariantCulture)).ToArray();
+                    string forward = string.Join(";", points);
+                    Array.Reverse(points);
+                    string reverse = string.Join(";", points);
+                    return string.CompareOrdinal(forward, reverse) <= 0 ? forward : reverse;
+                })
                 .OrderBy(value => value, StringComparer.Ordinal)
                 .ToArray();
             return WorkflowFingerprint.Compute(tokens);
         }
 
-        private static string DocumentFingerprint(Document document)
-        {
-            var tokens = new List<string>();
-            foreach (Element element in new FilteredElementCollector(document))
-                tokens.Add(element.UniqueId + ":" + element.VersionGuid.ToString("D"));
-            tokens.Sort(StringComparer.Ordinal);
-            return WorkflowFingerprint.Compute(tokens);
-        }
     }
 }

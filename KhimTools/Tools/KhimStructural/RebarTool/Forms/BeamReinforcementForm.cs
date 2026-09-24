@@ -149,6 +149,8 @@ namespace KhimTools.RebarTool.Forms
         // ── Footer Buttons ──
         private Button _btnOk;
         private Button _btnClose;
+        private Button _btnPreview;
+        private RebarPreviewSnapshot _lastPreview;
         private RebarFormGuard _formGuard;
         private readonly NumericUpDown _configLd = new NumericUpDown { Minimum = 1, Maximum = 200, Value = 35 };
         private readonly NumericUpDown _configHookTail = new NumericUpDown { Minimum = 1, Maximum = 100, Value = 12 };
@@ -1199,6 +1201,10 @@ namespace KhimTools.RebarTool.Forms
             KhimUiStyle.ApplyPrimaryButton(_btnOk, KhimUiStyle.CreateButtonBg);
             _btnOk.Click += BtnOk_Click;
 
+            _btnPreview = new Button { Text = "Solve 3D preview", Width = 142, Height = 38 };
+            KhimUiStyle.ApplySecondaryButton(_btnPreview);
+            _btnPreview.Click += BtnPreview_Click;
+
             _btnClose = new Button { Text = "Đóng", Left = 1020, Top = 11, Width = 88, Height = 38 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
@@ -1212,7 +1218,7 @@ namespace KhimTools.RebarTool.Forms
                 _btnOk.Left = _btnClose.Left - _btnOk.Width - 10;
             };
 
-            var footer = RebarLayout.Footer(null, _btnOk, _btnClose);
+            var footer = RebarLayout.Footer(null, _btnPreview, _btnOk, _btnClose);
             pnl.Dispose();
             return footer;
         }
@@ -1823,6 +1829,34 @@ namespace KhimTools.RebarTool.Forms
             return input;
         }
 
+        private void BtnPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_selectedBeams == null || _selectedBeams.Count == 0)
+                    throw new InvalidOperationException("Select at least one beam before previewing.");
+                var generator = new BeamRebarGenerator(_doc);
+                BeamRebarInput[] inputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                RebarPreviewRequest[] requests = inputs.Select(input =>
+                {
+                    string fingerprint = RebarPreviewService.Fingerprint(input);
+                    return new RebarPreviewRequest(fingerprint, () => generator.Generate(input),
+                        () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input));
+                }).ToArray();
+                RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(snapshot))
+                {
+                    if (preview.ShowDialog(this) == DialogResult.OK) _lastPreview = snapshot;
+                    else _lastPreview = null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                KhimDialogHelper.ShowError("Unable to create solver-backed beam preview: " + ex.Message);
+            }
+        }
+
         private void BtnOk_Click(object sender, EventArgs e)
         {
             if (!_selectedBeams.Any())
@@ -1834,24 +1868,41 @@ namespace KhimTools.RebarTool.Forms
             _btnOk.Enabled = false;
             _btnOk.Text = "Generating...";
 
+            TransactionGroup transGroup = null;
             try
             {
-                int successCount = 0;
-                using var transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
-                transGroup.Start();
+                var generationInputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                if (_lastPreview == null || generationInputs.Any(input =>
+                    _lastPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+                    throw new InvalidOperationException("Create or refresh the solver-backed preview for the current beam inputs before generating.");
+                for (int i = 0; i < generationInputs.Length; i++)
+                    if (RebarPreviewService.HasExistingDuplicateBar(_doc, generationInputs[i].Beam, _lastPreview,
+                        RebarPreviewService.Fingerprint(generationInputs[i])))
+                        throw new InvalidOperationException("Equivalent reinforcement already exists on beam " + generationInputs[i].Beam.Id + ". Remove or edit the existing bars before generating to avoid duplicates.");
 
-                foreach (var beam in _selectedBeams)
+                int successCount = 0;
+                transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
+                if (transGroup.Start() != TransactionStatus.Started)
+                    throw new InvalidOperationException("Unable to start the beam reinforcement transaction group.");
+
+                foreach (var input in generationInputs)
                 {
+                    var beam = input.Beam;
                     using var tx = new Transaction(_doc, $"Create Rebar for Beam {beam.Id.ToLongValue()}");
-                    tx.Start();
+                    if (tx.Start() != TransactionStatus.Started)
+                        throw new InvalidOperationException("Unable to start the beam transaction for " + beam.Id + ".");
                     var failOpt = tx.GetFailureHandlingOptions();
                     failOpt.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
                     tx.SetFailureHandlingOptions(failOpt);
 
-                    var input = CreateGenerationInput(beam);
-
                     var generator = new BeamRebarGenerator(_doc);
                     var rebars = generator.Generate(input);
+                    _doc.Regenerate();
+                    if (!RebarPreviewService.Matches(_lastPreview, RebarPreviewService.Fingerprint(input), rebars))
+                    {
+                        tx.RollBack();
+                        throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview; the beam transaction was rolled back.");
+                    }
                     TransactionStatus commitStatus = tx.Commit();
                     if (commitStatus != TransactionStatus.Committed)
                     {
@@ -1870,14 +1921,18 @@ namespace KhimTools.RebarTool.Forms
                 }
 
                 KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
+                _lastPreview = null;
                 Close();
             }
             catch (Exception ex)
             {
+                if (transGroup != null && transGroup.GetStatus() == TransactionStatus.Started)
+                    transGroup.RollBack();
                 KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message, ex.StackTrace);
             }
             finally
             {
+                transGroup?.Dispose();
                 _btnOk.Enabled = true;
                 _btnOk.Text = "Ok";
             }

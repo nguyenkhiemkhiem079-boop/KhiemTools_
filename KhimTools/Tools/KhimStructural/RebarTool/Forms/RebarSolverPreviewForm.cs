@@ -10,7 +10,6 @@ namespace KhimTools.RebarTool.Forms
     internal sealed class RebarSolverPreviewForm : Form
     {
         private readonly RebarPreviewSnapshot _snapshot;
-        private readonly Panel _canvas;
 
         public RebarSolverPreviewForm(RebarPreviewSnapshot snapshot)
         {
@@ -30,32 +29,46 @@ namespace KhimTools.RebarTool.Forms
                 Text = string.Format("Solved bars: {0}    Centerline paths: {1}    Rollback-only; model unchanged",
                     snapshot.Components.Sum(c => c.BarCount), snapshot.Components.Sum(c => c.Paths.Count))
             };
-            _canvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252) };
-            _canvas.Paint += PaintPreview;
+            var tabs = new TabControl { Dock = DockStyle.Fill };
+            AddProjectionTab(tabs, "3D isometric", "iso");
+            AddProjectionTab(tabs, "Plan (XY)", "plan");
+            AddProjectionTab(tabs, "Elevation (XZ)", "elevation");
             var footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 48, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(8) };
-            var close = new Button { Text = "Close", AutoSize = true, DialogResult = DialogResult.OK };
-            footer.Controls.Add(close);
-            Controls.Add(_canvas);
+            var cancel = new Button { Text = "Cancel", AutoSize = true, DialogResult = DialogResult.Cancel };
+            var accept = new Button { Text = "Use this preview", AutoSize = true, DialogResult = DialogResult.OK };
+            footer.Controls.Add(cancel);
+            footer.Controls.Add(accept);
+            Controls.Add(tabs);
             Controls.Add(footer);
             Controls.Add(header);
-            AcceptButton = close;
+            AcceptButton = accept;
+            CancelButton = cancel;
+        }
+
+        private void AddProjectionTab(TabControl tabs, string title, string projection)
+        {
+            var canvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Tag = projection };
+            canvas.Paint += PaintPreview;
+            tabs.TabPages.Add(new TabPage(title) { Controls = { canvas } });
         }
 
         private void PaintPreview(object sender, PaintEventArgs e)
         {
             var paths = _snapshot.Components.SelectMany(c => c.Paths).ToArray();
             if (paths.Length == 0) return;
-            PointF[][] projected = paths.Select(path => path.Points.Select(Project).ToArray()).ToArray();
+            Panel canvas = (Panel)sender;
+            string projection = (string)canvas.Tag;
+            PointF[][] projected = paths.Select(path => path.Points.Select(point => Project(point, projection)).ToArray()).ToArray();
             float minX = projected.SelectMany(p => p).Min(p => p.X);
             float maxX = projected.SelectMany(p => p).Max(p => p.X);
             float minY = projected.SelectMany(p => p).Min(p => p.Y);
             float maxY = projected.SelectMany(p => p).Max(p => p.Y);
             float width = Math.Max(1f, maxX - minX);
             float height = Math.Max(1f, maxY - minY);
-            float scale = Math.Min((_canvas.ClientSize.Width - 64f) / width, (_canvas.ClientSize.Height - 72f) / height);
+            float scale = Math.Min((canvas.ClientSize.Width - 64f) / width, (canvas.ClientSize.Height - 72f) / height);
             if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
-            float offsetX = (_canvas.ClientSize.Width - width * scale) / 2f;
-            float offsetY = (_canvas.ClientSize.Height - height * scale) / 2f;
+            float offsetX = (canvas.ClientSize.Width - width * scale) / 2f;
+            float offsetY = (canvas.ClientSize.Height - height * scale) / 2f;
             PointF Map(PointF p) => new PointF(offsetX + (p.X - minX) * scale, offsetY + (maxY - p.Y) * scale);
 
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -63,7 +76,10 @@ namespace KhimTools.RebarTool.Forms
             using (var font = new Font("Segoe UI", 9f))
             using (var brush = new SolidBrush(Color.FromArgb(70, 82, 95)))
             {
-                e.Graphics.DrawString("ISOMETRIC SOLVED CENTERLINES", font, brush, 12, 10);
+                string heading = projection == "plan" ? "PLAN (XY) — SOLVED REBAR CENTERLINES" :
+                    projection == "elevation" ? "ELEVATION (XZ) — SOLVED REBAR CENTERLINES" :
+                    "ISOMETRIC — SOLVED REBAR CENTERLINES";
+                e.Graphics.DrawString(heading, font, brush, 12, 10);
                 foreach (PointF[] path in projected)
                 {
                     if (path.Length < 2) continue;
@@ -72,7 +88,11 @@ namespace KhimTools.RebarTool.Forms
             }
         }
 
-        private static PointF Project(RebarPreviewPoint point) =>
-            new PointF((float)((point.X - point.Y) * 0.8660254), (float)(point.Z - (point.X + point.Y) * 0.25));
+        private static PointF Project(RebarPreviewPoint point, string projection)
+        {
+            if (projection == "plan") return new PointF((float)point.X, (float)point.Y);
+            if (projection == "elevation") return new PointF((float)point.X, (float)point.Z);
+            return new PointF((float)((point.X - point.Y) * 0.8660254), (float)(point.Z - (point.X + point.Y) * 0.25));
+        }
     }
 }
