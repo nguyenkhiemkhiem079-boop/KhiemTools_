@@ -434,8 +434,24 @@ namespace KhimTools.RebarTool.Core
             RebarBarType type = bar.Document.GetElement(bar.GetTypeId()) as RebarBarType;
             return WorkflowFingerprint.Compute(new[]
             {
-                TypeFingerprint(type), Fingerprint(paths)
+                TypeFingerprint(type),
+                ElementFingerprint(bar.Document, bar.GetShapeId()),
+                ElementFingerprint(bar.Document, bar.GetHookTypeId(0)),
+                ElementFingerprint(bar.Document, bar.GetHookTypeId(1)),
+                bar.LayoutRule.ToString(),
+                bar.Quantity.ToString(CultureInfo.InvariantCulture),
+                Fingerprint(paths)
             });
+        }
+
+        private static string ElementFingerprint(Document document, ElementId elementId)
+        {
+            if (document == null || elementId == null || elementId == ElementId.InvalidElementId)
+                return "<none>";
+            Element element = document.GetElement(elementId);
+            return element == null
+                ? elementId.ToString()
+                : element.UniqueId + ":" + element.VersionGuid.ToString("D");
         }
 
         internal static string FingerprintBars(IEnumerable<string> fingerprints) =>
