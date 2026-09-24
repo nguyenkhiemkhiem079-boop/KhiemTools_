@@ -535,6 +535,7 @@ namespace KhimTools.RebarTool.Forms
                 ["Đường kính:"] = "Bar diameter:",
                 ["Đường kính"] = "Bar diameter",
                 ["Khoảng cách a (mm):"] = "Spacing (mm):",
+                ["Khoảng cách a (mm)"] = "Spacing (mm)",
                 ["Khoảng cách (mm)"] = "Spacing (mm)",
                 ["Uốn bẻ móc đứng 90° lên đỉnh móng"] = "Bend 90° hooks up to the footing top",
                 ["Bật bố trí Thép Lớp Trên (Cho Đài Móng / Móng Sâu)"] = "Enable top mat (pile cap / deep footing)",
@@ -611,6 +612,7 @@ namespace KhimTools.RebarTool.Forms
 
             UpdateRoleNavigation();
             UpdatePreviewStateUi();
+            _formGuard?.ApplyLanguage();
             _previewPanel?.Invalidate();
         }
 

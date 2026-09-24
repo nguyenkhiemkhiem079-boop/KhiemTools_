@@ -125,6 +125,16 @@ foreach ($name in $Forms) {
                             $languageType.GetField("_isLoaded", $languageFlags).SetValue($null, $true)
                             $type.GetMethod("ApplyLanguage", $flags).Invoke($form, @()) | Out-Null
                             foreach ($layoutRoot in @($form.Controls)) { $root.Controls.Add($layoutRoot) }
+                            if ($language -eq "English") {
+                                $guard = $type.GetField("_formGuard", $flags).GetValue($form)
+                                $guardType = $guard.GetType()
+                                $status = $guardType.GetField("_status", $flags).GetValue($guard).Text
+                                $button = $guardType.GetField("_validateButton", $flags).GetValue($guard).Text
+                                if ($status -notmatch '^Check: ' -or [regex]::IsMatch($status, '[\u00C0-\u024F]') -or $button -ne "Validate Inputs") {
+                                    $issues.Add("$name | Validation language | '$status' / '$button'")
+                                }
+                                $checks++
+                            }
                         }
                         $tabs[0].SelectedIndex = $state % $tabs[0].TabCount
                     }

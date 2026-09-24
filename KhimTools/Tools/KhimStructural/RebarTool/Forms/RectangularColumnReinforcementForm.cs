@@ -1784,6 +1784,7 @@ namespace KhimTools.RebarTool.Forms
             UpdateSelectedCount();
             UpdatePreviewStateUi();
             UpdateWorkflowNavigation();
+            _formGuard?.ApplyLanguage();
             _previewPanel?.Invalidate();
         }
 

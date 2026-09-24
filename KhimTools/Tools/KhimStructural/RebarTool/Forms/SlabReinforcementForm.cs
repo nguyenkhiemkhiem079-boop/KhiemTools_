@@ -472,6 +472,7 @@ namespace KhimTools.RebarTool.Forms
             UpdatePanelCountLabel();
             UpdatePreviewStateUi();
             UpdatePreviewTargetLabel();
+            _formGuard?.ApplyLanguage();
             _previewCanvas?.Invalidate();
         }
 
