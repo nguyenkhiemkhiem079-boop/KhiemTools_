@@ -339,7 +339,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabMain);
 
             var tabStirrup = new TabPage { Text = "Thép Đai Tròn (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
-            var grpStirrup = new GroupBox { Text = "Thông số Đai Vòng / Đai Xoắn Cột Tròn", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
+            var grpStirrup = new GroupBox { Text = "Đai tròn: khoảng cách đều A1/A2; vùng A1 cố định 600 mm", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var layoutStirrup = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -404,6 +404,20 @@ namespace KhimTools.RebarTool.Forms
             _numDefaultBeamHd = new NumericUpDown { Minimum = 100, Maximum = 2000, Value = 500, Increment = 50, Width = 80 };
             pnlSlabBeam.Controls.Add(_numDefaultBeamHd);
             grpSlabBeam.Controls.Add(pnlSlabBeam);
+
+            // Legacy controls are not mapped into CircularColumnRebarInput.
+            grpHook.Text += " (not applied)";
+            grpBendCut.Text += " (not applied)";
+            grpTopRoof.Text += " (not applied)";
+            grpSplicePos.Text += " (not applied)";
+            grpAssignInfo.Text += " (not applied)";
+            grpSlabBeam.Text += " (not applied)";
+            grpHook.Enabled = false;
+            grpBendCut.Enabled = false;
+            grpTopRoof.Enabled = false;
+            grpSplicePos.Enabled = false;
+            grpAssignInfo.Enabled = false;
+            grpSlabBeam.Enabled = false;
 
             layoutGenSettings.Controls.Add(grpHook, 0, 0); layoutGenSettings.Controls.Add(grpBendCut, 1, 0);
             layoutGenSettings.Controls.Add(grpTopRoof, 0, 1); layoutGenSettings.Controls.Add(grpSplicePos, 1, 1);
@@ -629,6 +643,8 @@ namespace KhimTools.RebarTool.Forms
                 EnableCrankedSplice = _chkCrankedSplice.Checked,
                 HasTopAnchor = _chkTopAnchor.Checked,
                 StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
                 CustomCoverFeet = customCoverFeet,
                 LapLengthMultiplier = (double)_numLapMultiplier.Value,
                 StaggeredSplice = _chkStaggeredSplice.Checked,
