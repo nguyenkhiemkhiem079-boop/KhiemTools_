@@ -56,14 +56,17 @@ namespace KhimTools.RuntimeQa.Core
                 run.Fixtures.Add(result);
                 if (context != null && context.StopOnCriticalFailure && fixture.IsCritical && result.Status == QaStatus.FAIL) break;
             }
+            bool? wholeRunRollbackVerified = null;
             if (context != null)
             {
                 string rollbackMessage;
                 run.ModelRollbackVerified = RuntimeQaSafetyGuard.VerifyRollback(context.Document, context.InitialFingerprint,
                     context.CreatedElementIds, out rollbackMessage);
+                run.ModelRollbackMessage = rollbackMessage;
+                wholeRunRollbackVerified = run.ModelRollbackVerified;
                 context.RestoreUiState();
             }
-            run.CertificationStatus = Certification(run.Fixtures);
+            run.CertificationStatus = Certification(run.Fixtures, wholeRunRollbackVerified);
             stopwatch.Stop();
             run.Duration = stopwatch.Elapsed;
             RuntimeQaReportWriter.Write(run, context == null ? null : context.OutputDirectory, context != null && context.PreserveArtifacts);
@@ -84,9 +87,10 @@ namespace KhimTools.RuntimeQa.Core
             };
         }
 
-        private static string Certification(IEnumerable<QaFixtureResult> fixtures)
+        private static string Certification(IEnumerable<QaFixtureResult> fixtures, bool? modelRollbackVerified)
         {
             var rows = (fixtures ?? Enumerable.Empty<QaFixtureResult>()).ToList();
+            if (modelRollbackVerified == false) return "FAIL";
             if (rows.Any(f => f.IsCriticalFailure)) return "FAIL";
             if (rows.Any(f => f.Status == QaStatus.FAIL)) return "FAIL";
             if (rows.Any(f => f.Status == QaStatus.BLOCKED || f.Status == QaStatus.NOT_RUN)) return "INCOMPLETE";

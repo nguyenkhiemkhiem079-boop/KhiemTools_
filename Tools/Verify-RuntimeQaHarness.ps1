@@ -29,11 +29,20 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" 'Id 
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "TryReplacePayload" "Settings fixture injects corruption only inside rollback group" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback" "Fixture result requires transaction-group rollback" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "Transaction group did not start; fixture execution was blocked" "Fixture does not run without a started rollback group" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!before.ElementIds.SetEquals(after.ElementIds)" "Rollback verification compares exact element-ID sets" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "fingerprint.ElementVersions.Add(element.Id, element.VersionGuid)" "Model snapshot includes every element version" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!VersionsMatch(before.ElementVersions, after.ElementVersions)" "Rollback verification detects existing-element modifications" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "affected IDs: {8}" "Rollback integrity failures report affected element IDs" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Could not capture exact element IDs and version fingerprints" "Incomplete model snapshots fail closed" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "fingerprint.ElementStates.Add(element.Id, CaptureElementState(element))" "Every collected element receives a content fingerprint" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "parameter.AsDouble()" "Content fingerprints capture parameter values and storage types" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "locationCurve.Curve.Tessellate()" "Content fingerprints include element location geometry" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" 'FormatPoint(bounds.Min)' "Content fingerprints include element bounds" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!StatesMatch(before.ElementStates, after.ElementStates)" "Rollback comparison detects in-session content changes" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "added: {6}; deleted: {7}; modified/version-changed: {8}" "Integrity diagnostics distinguish added, deleted and modified IDs" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "(+{0} more)" "Integrity diagnostics cap long ID lists and retain totals" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Could not capture exact element IDs and content fingerprints" "Incomplete model snapshots fail closed" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "Transaction group disposal failed" "Transaction-group disposal uncertainty fails rollback verification" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRunner.cs" "Certification(run.Fixtures, wholeRunRollbackVerified)" "Whole-run model rollback gates certification" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRunner.cs" 'if (modelRollbackVerified == false) return "FAIL";' "Failed final rollback can never certify PASS" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaReportWriter.cs" "MODEL ROLLBACK DETAILS:" "Whole-run integrity diagnostics are written to the report" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsDisposableQaCopyConfirmed" "Runtime context records disposable QA-copy confirmation" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm that this is a disposable detached QA copy" "Safety guard blocks unconfirmed models" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "RuntimeQaSafetyGuard.CanRun(context, out reason)" "Every fixture checks model consent before transaction start" | Out-Null
@@ -44,6 +53,14 @@ $status = Get-Content (Join-Path $Root "KhimTools\Tools\KhimGen\RuntimeQa\Models
 if ($status -match "PASS" -and $status -match "FAIL" -and $status -match "BLOCKED" -and $status -match "SKIPPED" -and $status -match "NOT_RUN") { Pass "Status enum contains PASS/FAIL/BLOCKED/SKIPPED/NOT_RUN" } else { Fail "Status enum" "Required statuses are incomplete" }
 $safety = Get-Content (Join-Path $qaRoot "Core\RuntimeQaSafetyGuard.cs") -Raw
 if ($safety -notmatch "catch\s*\{\s*\}") { Pass "Model snapshot and temporary-ID read failures are not swallowed" } else { Fail "Safety guard exception handling" "A model-integrity read failure could be mistaken for a clean rollback" }
+if ($safety -notmatch "VersionGuid") { Pass "In-session integrity does not rely on save-scoped VersionGuid" } else { Fail "In-session fingerprint design" "VersionGuid alone cannot detect all unsaved in-session changes" }
+
+$fixtureBase = Get-Content (Join-Path $qaRoot "Core\RuntimeQaFixtureBase.cs") -Raw
+$lifecycleTokens = @("group.Start()", "ExecuteFixture(context, result)", "group.RollBack()", "RuntimeQaSafetyGuard.VerifyRollback", "RuntimeQaSafetyGuard.AddRollbackCheck")
+$lifecyclePositions = @($lifecycleTokens | ForEach-Object { $fixtureBase.IndexOf($_, [StringComparison]::Ordinal) })
+if (($lifecyclePositions | Where-Object { $_ -lt 0 }).Count -eq 0 -and ($lifecyclePositions | Sort-Object -Unique).Count -eq $lifecyclePositions.Count -and (($lifecyclePositions | Sort-Object) -join ",") -eq ($lifecyclePositions -join ",")) {
+    Pass "Fixture transaction, rollback, comparison and reporting lifecycle is ordered"
+} else { Fail "Fixture rollback lifecycle order" "Expected start, execute, confirmed rollback, fingerprint comparison, then result reporting" }
 
 $allQa = Get-ChildItem $qaRoot -Recurse -Filter "*.cs" | Get-Content -Raw
 if ($allQa -match "TransactionGroup" -and $allQa -match "\.RollBack\(\)") { Pass "TransactionGroup rollback pattern exists" } else { Fail "TransactionGroup rollback" "Fixture rollback boundary missing" }
@@ -61,4 +78,5 @@ $report = Get-Content (Join-Path $qaRoot "Core\RuntimeQaReportWriter.cs") -Raw
 if ($report -match "runtime-qa\.json" -and $report -match "runtime-qa\.txt") { Pass "JSON and human-readable reports" } else { Fail "Report outputs" "Expected report names missing" }
 
 Write-Host "RUNTIME QA HARNESS AUDIT: $passed / $($passed + $failed) PASSED" -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
+Write-Host "STATIC CONTRACT AUDIT ONLY; live Autodesk Revit fixtures were not executed."
 if ($failed -gt 0) { exit 1 } else { exit 0 }

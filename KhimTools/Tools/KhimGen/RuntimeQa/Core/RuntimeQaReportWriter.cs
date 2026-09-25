@@ -50,6 +50,8 @@ namespace KhimTools.RuntimeQa.Core
             sb.AppendLine("NOT_RUN:  " + run.NotRun);
             sb.AppendLine("CERTIFICATION: " + (run.CertificationStatus ?? "INCOMPLETE"));
             sb.AppendLine("MODEL CLEAN AFTER QA: " + (run.ModelRollbackVerified ? "YES" : "NO"));
+            if (!string.IsNullOrWhiteSpace(run.ModelRollbackMessage))
+                sb.AppendLine("MODEL ROLLBACK DETAILS: " + run.ModelRollbackMessage);
             sb.AppendLine();
             foreach (QaFixtureResult fixture in run.Fixtures)
                 sb.AppendLine(string.Format("{0,-10} {1,-36} {2,-8} {3}ms", fixture.Status, fixture.Name, fixture.FixtureId, (long)fixture.Duration.TotalMilliseconds));

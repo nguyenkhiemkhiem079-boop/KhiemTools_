@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using Autodesk.Revit.DB;
 using KhimTools.RuntimeQa.Models;
 
@@ -39,12 +42,12 @@ namespace KhimTools.RuntimeQa.Core
             {
                 if (element == null) continue;
                 fingerprint.ElementIds.Add(element.Id);
-                fingerprint.ElementVersions.Add(element.Id, element.VersionGuid);
+                fingerprint.ElementStates.Add(element.Id, CaptureElementState(element));
             }
             fingerprint.SheetCount = elements.Count(e => e is ViewSheet);
             fingerprint.ViewCount = elements.Count(e => e is View && !(e is ViewSheet));
-            if (fingerprint.ElementIds.Count != fingerprint.ElementCount || fingerprint.ElementVersions.Count != fingerprint.ElementCount)
-                throw new InvalidOperationException("Could not capture exact element IDs and version fingerprints for runtime QA safety verification.");
+            if (fingerprint.ElementIds.Count != fingerprint.ElementCount || fingerprint.ElementStates.Count != fingerprint.ElementCount)
+                throw new InvalidOperationException("Could not capture exact element IDs and content fingerprints for runtime QA safety verification.");
             return fingerprint;
         }
 
@@ -73,49 +76,114 @@ namespace KhimTools.RuntimeQa.Core
                 message = "Could not capture the post-rollback model snapshot: " + ex.GetType().Name + ".";
                 return false;
             }
-            if (leftovers.Count > 0) { message = "Temporary element IDs still exist: " + string.Join(", ", leftovers); return false; }
+            if (leftovers.Count > 0) { message = "Temporary element IDs still exist: " + FormatElementIds(leftovers); return false; }
             if (after.ElementCount != before.ElementCount || after.SheetCount != before.SheetCount || after.ViewCount != before.ViewCount ||
                 before.ElementIds == null || after.ElementIds == null || !before.ElementIds.SetEquals(after.ElementIds) ||
-                !VersionsMatch(before.ElementVersions, after.ElementVersions))
+                !StatesMatch(before.ElementStates, after.ElementStates))
             {
-                int changedIds = before.ElementIds == null || after.ElementIds == null ? -1 :
-                    before.ElementIds.Except(after.ElementIds).Count() + after.ElementIds.Except(before.ElementIds).Count();
-                IList<ElementId> changedElements = GetChangedElementIds(before, after);
-                string changedElementDetails = changedElements.Count == 0
-                    ? "unavailable"
-                    : string.Join(", ", changedElements.Take(20).Select(id => id.ToString())) +
-                        (changedElements.Count > 20 ? string.Format(" (+{0} more)", changedElements.Count - 20) : string.Empty);
-                int changedVersions = GetChangedVersionIds(before.ElementVersions, after.ElementVersions).Count;
-                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}, differing element IDs {6}, changed element versions {7}; affected IDs: {8}).",
-                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount, changedIds, changedVersions, changedElementDetails);
+                IList<ElementId> addedIds = before.ElementIds == null || after.ElementIds == null
+                    ? null : after.ElementIds.Except(before.ElementIds).ToList();
+                IList<ElementId> deletedIds = before.ElementIds == null || after.ElementIds == null
+                    ? null : before.ElementIds.Except(after.ElementIds).ToList();
+                IList<ElementId> modifiedIds = before.ElementStates == null || after.ElementStates == null
+                    ? null : GetChangedStateIds(before.ElementStates, after.ElementStates);
+                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}; added: {6}; deleted: {7}; modified/version-changed: {8}).",
+                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount,
+                    FormatElementIds(addedIds), FormatElementIds(deletedIds), FormatElementIds(modifiedIds));
                 return false;
             }
             return true;
         }
 
-        private static bool VersionsMatch(IDictionary<ElementId, Guid> before, IDictionary<ElementId, Guid> after)
+        private static bool StatesMatch(IDictionary<ElementId, string> before, IDictionary<ElementId, string> after)
         {
             return before != null && after != null && before.Count == after.Count &&
-                before.All(pair => after.TryGetValue(pair.Key, out Guid version) && version == pair.Value);
+                before.All(pair => after.TryGetValue(pair.Key, out string state) && string.Equals(state, pair.Value, StringComparison.Ordinal));
         }
 
-        private static IList<ElementId> GetChangedVersionIds(IDictionary<ElementId, Guid> before, IDictionary<ElementId, Guid> after)
+        private static IList<ElementId> GetChangedStateIds(IDictionary<ElementId, string> before, IDictionary<ElementId, string> after)
         {
             if (before == null || after == null) return new List<ElementId>();
-            return before.Where(pair => after.TryGetValue(pair.Key, out Guid version) && version != pair.Value)
-                .Select(pair => pair.Key).ToList();
+            return before.Where(pair => after.TryGetValue(pair.Key, out string state) && !string.Equals(state, pair.Value, StringComparison.Ordinal))
+                .Select(pair => pair.Key).OrderBy(id => id.ToString(), StringComparer.Ordinal).ToList();
         }
 
-        private static IList<ElementId> GetChangedElementIds(RuntimeQaModelFingerprint before, RuntimeQaModelFingerprint after)
+        private static string CaptureElementState(Element element)
         {
-            if (before?.ElementIds == null || after?.ElementIds == null ||
-                before.ElementVersions == null || after.ElementVersions == null)
-                return new List<ElementId>();
+            var parts = new List<string>
+            {
+                "type=" + (element.GetTypeId() == null ? "<null>" : element.GetTypeId().ToString()),
+                "category=" + (element.Category == null || element.Category.Id == null ? "<null>" : element.Category.Id.ToString()),
+                "ownerView=" + (element.OwnerViewId == null ? "<null>" : element.OwnerViewId.ToString()),
+                "pinned=" + element.Pinned.ToString(CultureInfo.InvariantCulture)
+            };
 
-            var changed = new HashSet<ElementId>(before.ElementIds.Except(after.ElementIds));
-            changed.UnionWith(after.ElementIds.Except(before.ElementIds));
-            changed.UnionWith(GetChangedVersionIds(before.ElementVersions, after.ElementVersions));
-            return changed.ToList();
+            var parameters = new List<string>();
+            foreach (Parameter parameter in element.Parameters)
+            {
+                if (parameter == null || parameter.Definition == null)
+                    throw new InvalidOperationException("An element parameter or its definition could not be fingerprinted.");
+                string key = parameter.Definition.Name ?? "<unnamed>";
+                if (parameter.IsShared) key += "|" + parameter.GUID.ToString("D");
+                string value;
+                if (!parameter.HasValue) value = "<unset>";
+                else
+                {
+                    switch (parameter.StorageType)
+                    {
+                        case StorageType.Double: value = parameter.AsDouble().ToString("R", CultureInfo.InvariantCulture); break;
+                        case StorageType.Integer: value = parameter.AsInteger().ToString(CultureInfo.InvariantCulture); break;
+                        case StorageType.String: value = parameter.AsString() ?? "<null>"; break;
+                        case StorageType.ElementId:
+                            ElementId referencedId = parameter.AsElementId();
+                            value = referencedId == null ? "<null>" : referencedId.ToString();
+                            break;
+                        default: value = "<none>"; break;
+                    }
+                }
+                parameters.Add("parameter=" + key + "|" + parameter.StorageType + "|" + value);
+            }
+            parts.AddRange(parameters.OrderBy(value => value, StringComparer.Ordinal));
+
+            LocationPoint point = element.Location as LocationPoint;
+            if (point != null)
+            {
+                parts.Add("location-point=" + FormatPoint(point.Point) + "|" + point.Rotation.ToString("R", CultureInfo.InvariantCulture));
+            }
+            else
+            {
+                LocationCurve locationCurve = element.Location as LocationCurve;
+                if (locationCurve != null && locationCurve.Curve != null)
+                    parts.Add("location-curve=" + string.Join(";", locationCurve.Curve.Tessellate().Select(FormatPoint)));
+            }
+
+            BoundingBoxXYZ bounds = element.get_BoundingBox(null);
+            parts.Add(bounds == null ? "bounds=<null>" : "bounds=" + FormatPoint(bounds.Min) + "|" + FormatPoint(bounds.Max));
+
+            var builder = new StringBuilder();
+            foreach (string part in parts)
+                builder.Append(part.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(part);
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(builder.ToString()));
+                return BitConverter.ToString(hash).Replace("-", string.Empty);
+            }
+        }
+
+        private static string FormatPoint(XYZ point)
+        {
+            return point.X.ToString("R", CultureInfo.InvariantCulture) + "," +
+                point.Y.ToString("R", CultureInfo.InvariantCulture) + "," +
+                point.Z.ToString("R", CultureInfo.InvariantCulture);
+        }
+
+        private static string FormatElementIds(IEnumerable<ElementId> ids)
+        {
+            if (ids == null) return "count unavailable; IDs unavailable";
+            IList<ElementId> values = ids.OrderBy(id => id.ToString(), StringComparer.Ordinal).ToList();
+            string listed = string.Join(", ", values.Take(20).Select(id => id.ToString()));
+            if (values.Count > 20) listed += string.Format(" (+{0} more)", values.Count - 20);
+            return string.Format("count {0}; IDs: {1}", values.Count, string.IsNullOrEmpty(listed) ? "none" : listed);
         }
 
         public static void AddRollbackCheck(QaFixtureResult result, bool verified, string message)

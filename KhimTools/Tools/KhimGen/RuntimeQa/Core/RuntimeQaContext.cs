@@ -72,6 +72,6 @@ namespace KhimTools.RuntimeQa.Core
         public int SheetCount { get; set; }
         public int ViewCount { get; set; }
         public HashSet<ElementId> ElementIds { get; set; } = new HashSet<ElementId>();
-        public Dictionary<ElementId, Guid> ElementVersions { get; set; } = new Dictionary<ElementId, Guid>();
+        public Dictionary<ElementId, string> ElementStates { get; set; } = new Dictionary<ElementId, string>();
     }
 }

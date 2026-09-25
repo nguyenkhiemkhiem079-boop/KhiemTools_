@@ -23,6 +23,7 @@ namespace KhimTools.RuntimeQa.Models
         public int Total { get { return Fixtures.Count; } }
         public TimeSpan Duration { get; set; }
         public bool ModelRollbackVerified { get; set; }
+        public string ModelRollbackMessage { get; set; }
         public string CertificationStatus { get; set; }
         public string ReportDirectory { get; set; }
     }

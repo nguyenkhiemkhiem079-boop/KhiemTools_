@@ -76,7 +76,9 @@ namespace KhimTools.RuntimeQa.Core
             try
             {
                 group = new TransactionGroup(context.Document, "K-TOOLS Runtime QA - " + Id + " (rollback)");
-                group.Start();
+                TransactionStatus startStatus = group.Start();
+                if (startStatus != TransactionStatus.Started)
+                    throw new InvalidOperationException("Transaction group did not start; fixture execution was blocked (status: " + startStatus + ").");
                 groupStarted = true;
                 ExecuteFixture(context, result);
                 if (result.Status == QaStatus.NOT_RUN) result.Status = ResolveStatus(result);
@@ -126,11 +128,20 @@ namespace KhimTools.RuntimeQa.Core
                 rollback = rollback && additionalRollback;
                 if (!string.IsNullOrWhiteSpace(additionalRollbackMessage))
                     rollbackMessage += " " + additionalRollbackMessage;
+                if (group != null)
+                {
+                    try { group.Dispose(); }
+                    catch (Exception disposeException)
+                    {
+                        rollback = false;
+                        rollbackMessage += " Transaction group disposal failed: " + disposeException.GetType().Name + ".";
+                        result.Errors.Add("Transaction group disposal failed: " + disposeException.Message);
+                    }
+                }
                 RuntimeQaSafetyGuard.AddRollbackCheck(result, rollback, rollbackMessage);
                 result.CreatedElementCount = Math.Max(0, context.CreatedElementIds.Count - initialCreated);
                 if (!rollback) result.Status = QaStatus.FAIL;
                 while (context.CreatedElementIds.Count > initialCreated) context.CreatedElementIds.RemoveAt(context.CreatedElementIds.Count - 1);
-                if (group != null) group.Dispose();
                 context.RestoreUiState();
             }
             Finish(result, timer);
