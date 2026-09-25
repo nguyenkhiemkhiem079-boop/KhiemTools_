@@ -33,14 +33,18 @@ namespace KhimTools.RuntimeQa.Core
         {
             if (doc == null) throw new ArgumentNullException("doc");
             var fingerprint = new RuntimeQaModelFingerprint();
-            IList<Element> elements = new FilteredElementCollector(doc).WhereElementIsNotElementType().ToElements();
+            IList<Element> elements = new FilteredElementCollector(doc).ToElements();
             fingerprint.ElementCount = elements.Count;
             foreach (Element element in elements)
-                if (element != null) fingerprint.ElementIds.Add(element.Id);
+            {
+                if (element == null) continue;
+                fingerprint.ElementIds.Add(element.Id);
+                fingerprint.ElementVersions.Add(element.Id, element.VersionGuid);
+            }
             fingerprint.SheetCount = elements.Count(e => e is ViewSheet);
             fingerprint.ViewCount = elements.Count(e => e is View && !(e is ViewSheet));
-            if (fingerprint.ElementIds.Count != fingerprint.ElementCount)
-                throw new InvalidOperationException("Could not capture an exact element-ID snapshot for runtime QA safety verification.");
+            if (fingerprint.ElementIds.Count != fingerprint.ElementCount || fingerprint.ElementVersions.Count != fingerprint.ElementCount)
+                throw new InvalidOperationException("Could not capture exact element IDs and version fingerprints for runtime QA safety verification.");
             return fingerprint;
         }
 
@@ -71,15 +75,47 @@ namespace KhimTools.RuntimeQa.Core
             }
             if (leftovers.Count > 0) { message = "Temporary element IDs still exist: " + string.Join(", ", leftovers); return false; }
             if (after.ElementCount != before.ElementCount || after.SheetCount != before.SheetCount || after.ViewCount != before.ViewCount ||
-                before.ElementIds == null || after.ElementIds == null || !before.ElementIds.SetEquals(after.ElementIds))
+                before.ElementIds == null || after.ElementIds == null || !before.ElementIds.SetEquals(after.ElementIds) ||
+                !VersionsMatch(before.ElementVersions, after.ElementVersions))
             {
                 int changedIds = before.ElementIds == null || after.ElementIds == null ? -1 :
                     before.ElementIds.Except(after.ElementIds).Count() + after.ElementIds.Except(before.ElementIds).Count();
-                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}, differing element IDs {6}).",
-                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount, changedIds);
+                IList<ElementId> changedElements = GetChangedElementIds(before, after);
+                string changedElementDetails = changedElements.Count == 0
+                    ? "unavailable"
+                    : string.Join(", ", changedElements.Take(20).Select(id => id.ToString())) +
+                        (changedElements.Count > 20 ? string.Format(" (+{0} more)", changedElements.Count - 20) : string.Empty);
+                int changedVersions = GetChangedVersionIds(before.ElementVersions, after.ElementVersions).Count;
+                message = string.Format("Model fingerprint changed after rollback (elements {0}->{1}, sheets {2}->{3}, views {4}->{5}, differing element IDs {6}, changed element versions {7}; affected IDs: {8}).",
+                    before.ElementCount, after.ElementCount, before.SheetCount, after.SheetCount, before.ViewCount, after.ViewCount, changedIds, changedVersions, changedElementDetails);
                 return false;
             }
             return true;
+        }
+
+        private static bool VersionsMatch(IDictionary<ElementId, Guid> before, IDictionary<ElementId, Guid> after)
+        {
+            return before != null && after != null && before.Count == after.Count &&
+                before.All(pair => after.TryGetValue(pair.Key, out Guid version) && version == pair.Value);
+        }
+
+        private static IList<ElementId> GetChangedVersionIds(IDictionary<ElementId, Guid> before, IDictionary<ElementId, Guid> after)
+        {
+            if (before == null || after == null) return new List<ElementId>();
+            return before.Where(pair => after.TryGetValue(pair.Key, out Guid version) && version != pair.Value)
+                .Select(pair => pair.Key).ToList();
+        }
+
+        private static IList<ElementId> GetChangedElementIds(RuntimeQaModelFingerprint before, RuntimeQaModelFingerprint after)
+        {
+            if (before?.ElementIds == null || after?.ElementIds == null ||
+                before.ElementVersions == null || after.ElementVersions == null)
+                return new List<ElementId>();
+
+            var changed = new HashSet<ElementId>(before.ElementIds.Except(after.ElementIds));
+            changed.UnionWith(after.ElementIds.Except(before.ElementIds));
+            changed.UnionWith(GetChangedVersionIds(before.ElementVersions, after.ElementVersions));
+            return changed.ToList();
         }
 
         public static void AddRollbackCheck(QaFixtureResult result, bool verified, string message)

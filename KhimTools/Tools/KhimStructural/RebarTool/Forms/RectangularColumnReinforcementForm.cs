@@ -47,6 +47,8 @@ namespace KhimTools.RebarTool.Forms
         private double _previewWidthMm;
         private double _previewDepthMm;
         private double _previewHeightMm;
+        private double _previewMainBarDiameterMm;
+        private double _previewStirrupDiameterMm;
         private string _previewMark = "<not set>";
         private string _previewLevelName;
         private string _previewHostError;
@@ -366,7 +368,7 @@ namespace KhimTools.RebarTool.Forms
             _lblBarsB = AddRowToLayout(layoutMainSec, "Thép chủ cạnh B (kể cả góc):", _numBarsB);
             _lblBarsH = AddRowToLayout(layoutMainSec, "Thép chủ cạnh H (kể cả góc):", _numBarsH);
             _lblMainDia = AddRowToLayout(layoutMainSec, "Đường kính thép chủ:", _cmbMainDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 90 });
-            _cmbMainDia.SelectedIndexChanged += (s, e) => _previewPanel?.Invalidate();
+            _cmbMainDia.SelectedIndexChanged += (s, e) => UpdatePreviewBarDiameters();
             _grpMainSection.Controls.Add(layoutMainSec);
 
             _grpCover = new GroupBox { Text = "Cover Bê Tông", Dock = DockStyle.Top, Height = 95, Padding = new Padding(8) };
@@ -447,7 +449,7 @@ namespace KhimTools.RebarTool.Forms
             layoutStirrupZone.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
 
             _lblStirrupDia = AddRowToLayout(layoutStirrupZone, "Đường kính thép đai:", _cmbStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 });
-            _cmbStirrupDia.SelectedIndexChanged += (s, e) => _previewPanel?.Invalidate();
+            _cmbStirrupDia.SelectedIndexChanged += (s, e) => UpdatePreviewBarDiameters();
             _lblStirrupA1 = AddRowToLayout(layoutStirrupZone, "Khoảng cách đai dầy A1 (mm):", _numStirrupSpacingA1 = new NumericUpDown { Minimum = 50, Maximum = 300, Value = 100, Increment = 10, Width = 90 });
             _lblStirrupA2 = AddRowToLayout(layoutStirrupZone, "Khoảng cách đai thưa A2 (mm):", _numStirrupSpacingA2 = new NumericUpDown { Minimum = 100, Maximum = 500, Value = 200, Increment = 10, Width = 90 });
             _lblZoneA1Len = AddRowToLayout(layoutStirrupZone, "Chiều dài vùng dầy A1 (mm):", _numZoneA1Length = new NumericUpDown { Minimum = 300, Maximum = 2000, Value = 600, Increment = 50, Width = 90 });
@@ -809,6 +811,18 @@ namespace KhimTools.RebarTool.Forms
                 _cmbMainDia.SelectedIndex = 0;
                 _cmbStirrupDia.SelectedIndex = 0;
             }
+            UpdatePreviewBarDiameters();
+        }
+
+        private void UpdatePreviewBarDiameters()
+        {
+            RebarBarType mainType = FindBarType(_cmbMainDia?.Text);
+            RebarBarType stirrupType = FindBarType(_cmbStirrupDia?.Text);
+            _previewMainBarDiameterMm = mainType == null ? 0 :
+                UnitUtils.ConvertFromInternalUnits(mainType.BarModelDiameter, UnitTypeId.Millimeters);
+            _previewStirrupDiameterMm = stirrupType == null ? 0 :
+                UnitUtils.ConvertFromInternalUnits(stirrupType.BarModelDiameter, UnitTypeId.Millimeters);
+            _previewPanel?.Invalidate();
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
@@ -1399,7 +1413,9 @@ namespace KhimTools.RebarTool.Forms
                 g.ResetClip();
                 using (var op = new Pen(cOutline, 2f)) g.DrawRectangle(op, sX, sY, sW, sH);
 
-                int cv = Math.Max(5, (int)(Math.Min(sW, sH) * 0.09));
+                double pixelsPerMm = Math.Min(sW / Math.Max(bMm, 1e-6), sH / Math.Max(hMm, 1e-6));
+                double tieCoverOffsetMm = cover + _previewStirrupDiameterMm / 2.0;
+                int cv = Math.Max(1, (int)Math.Round(tieCoverOffsetMm * pixelsPerMm));
                 int iX = sX + cv, iY = sY + cv, iW = sW - 2 * cv, iH = sH - 2 * cv;
 
                 using (var tp = new Pen(cTie, 2f)) g.DrawRectangle(tp, iX, iY, iW, iH);
@@ -1447,7 +1463,11 @@ namespace KhimTools.RebarTool.Forms
                     }
                 }
 
-                int dr = Math.Max(4, Math.Min(8, iW / Math.Max(nB, 1) / 2 + 1));
+                double mainBarInsetMm = cover + _previewStirrupDiameterMm + _previewMainBarDiameterMm / 2.0;
+                int barInset = Math.Max(1, (int)Math.Round(mainBarInsetMm * pixelsPerMm));
+                int barLeft = sX + barInset, barRight = sX + sW - barInset;
+                int barTop = sY + barInset, barBottom = sY + sH - barInset;
+                int dr = Math.Max(2, (int)Math.Round(_previewMainBarDiameterMm * pixelsPerMm));
                 using (var bf = new SolidBrush(cBar))
                 using (var bw = new Pen(Color.White, 1.2f))
                 {
@@ -1458,13 +1478,13 @@ namespace KhimTools.RebarTool.Forms
                     }
                     for (int i = 0; i < nB; i++)
                     {
-                        float bx = iX + (float)i / Math.Max(nB - 1, 1) * iW;
-                        Dot(bx, iY); Dot(bx, iY + iH);
+                        float bx = barLeft + (float)i / Math.Max(nB - 1, 1) * (barRight - barLeft);
+                        Dot(bx, barTop); Dot(bx, barBottom);
                     }
                     for (int j = 1; j < nH - 1; j++)
                     {
-                        float by = iY + (float)j / Math.Max(nH - 1, 1) * iH;
-                        Dot(iX, by); Dot(iX + iW, by);
+                        float by = barTop + (float)j / Math.Max(nH - 1, 1) * (barBottom - barTop);
+                        Dot(barLeft, by); Dot(barRight, by);
                     }
                 }
 

@@ -56,7 +56,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 110
+        ExpectedCount = 112
     },
     @{
         Name = "Rebar Configuration Persistence & Recovery"
@@ -89,7 +89,7 @@ $suites = @(
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
         Script = Join-Path $scriptDir "Tools\Verify-RuntimeQaHarness.ps1"
-        ExpectedCount = 28
+        ExpectedCount = 31
     },
     @{
         Name = "Phase 15 Host Scenario Catalog & Registration"

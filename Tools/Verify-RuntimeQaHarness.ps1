@@ -30,7 +30,10 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntim
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "groupRollbackSucceeded && RuntimeQaSafetyGuard.VerifyRollback" "Fixture result requires transaction-group rollback" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!before.ElementIds.SetEquals(after.ElementIds)" "Rollback verification compares exact element-ID sets" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Could not capture an exact element-ID snapshot" "Incomplete model snapshots fail closed" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "fingerprint.ElementVersions.Add(element.Id, element.VersionGuid)" "Model snapshot includes every element version" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "!VersionsMatch(before.ElementVersions, after.ElementVersions)" "Rollback verification detects existing-element modifications" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "affected IDs: {8}" "Rollback integrity failures report affected element IDs" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Could not capture exact element IDs and version fingerprints" "Incomplete model snapshots fail closed" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsDisposableQaCopyConfirmed" "Runtime context records disposable QA-copy confirmation" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm that this is a disposable detached QA copy" "Safety guard blocks unconfirmed models" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "RuntimeQaSafetyGuard.CanRun(context, out reason)" "Every fixture checks model consent before transaction start" | Out-Null
