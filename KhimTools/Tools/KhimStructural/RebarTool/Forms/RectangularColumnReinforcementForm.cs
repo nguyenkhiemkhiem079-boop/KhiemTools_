@@ -47,6 +47,7 @@ namespace KhimTools.RebarTool.Forms
         private double _previewWidthMm;
         private double _previewDepthMm;
         private double _previewHeightMm;
+        private double _previewCoverMm;
         private double _previewMainBarDiameterMm;
         private double _previewStirrupDiameterMm;
         private string _previewMark = "<not set>";
@@ -657,6 +658,7 @@ namespace KhimTools.RebarTool.Forms
         {
             if (_previewLifecycle.State == PreviewLifecycleState.Valid) _previewLifecycle.MarkStale();
             UpdatePreviewStateUi();
+            _previewPanel?.Invalidate();
         }
 
         private void UpdatePreviewStateUi()
@@ -770,6 +772,7 @@ namespace KhimTools.RebarTool.Forms
             _previewWidthMm = 0;
             _previewDepthMm = 0;
             _previewHeightMm = 0;
+            _previewCoverMm = 0;
             _previewMark = "<not set>";
             _previewLevelName = null;
             _previewHostError = null;
@@ -786,6 +789,8 @@ namespace KhimTools.RebarTool.Forms
                 _previewWidthMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters));
                 _previewDepthMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters));
                 _previewHeightMm = Math.Round(UnitUtils.ConvertFromInternalUnits(profile.Height, UnitTypeId.Millimeters));
+                _previewCoverMm = UnitUtils.ConvertFromInternalUnits(
+                    RebarCoverHelper.GetColumnCover(column, RebarFace.Exterior), UnitTypeId.Millimeters);
                 _previewMark = column.LookupParameter("Mark")?.AsString() ?? "<not set>";
                 _previewLevelName = _doc.GetElement(column.LevelId)?.Name;
             }
@@ -1330,7 +1335,9 @@ namespace KhimTools.RebarTool.Forms
             int nB  = (int)(_numBarsB?.Value ?? 3);
             int nH  = (int)(_numBarsH?.Value ?? 3);
             int tot = 2 * (nB + nH - 2);
-            double cover = _chkCustomCover?.Checked == true ? (double)(_numCustomCover?.Value ?? 25) : 25;
+            double cover = _chkCustomCover?.Checked == true
+                ? (double)(_numCustomCover?.Value ?? 25)
+                : _previewCoverMm;
             double a1mm  = (double)(_numStirrupSpacingA1?.Value ?? 100);
             double a2mm  = (double)(_numStirrupSpacingA2?.Value ?? 200);
             bool diamond = _chkInnerDiamond?.Checked == true && nB >= 3 && nH >= 3;

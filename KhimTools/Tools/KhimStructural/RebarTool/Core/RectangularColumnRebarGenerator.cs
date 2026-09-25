@@ -583,7 +583,8 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 BoundingBoxXYZ colBb = column.get_BoundingBox(null);
-                if (colBb == null) return 0;
+                if (colBb == null)
+                    throw new InvalidOperationException("Rectangular-column bounds are unavailable while resolving the beam-column joint zone.");
 
                 var beams = new FilteredElementCollector(_doc)
                     .OfCategory(BuiltInCategory.OST_StructuralFraming)
@@ -611,9 +612,10 @@ namespace KhimTools.RebarTool.Core
                 }
                 return maxDepth;
             }
-            catch
+            catch (Exception ex)
             {
-                return 0;
+                throw new InvalidOperationException(
+                    "Could not resolve intersecting beam depth for the rectangular-column joint zone; tie generation was aborted.", ex);
             }
         }
 
