@@ -14,9 +14,17 @@ namespace KhimTools.RebarTool.Models
 
         // ── 1. Bottom Mat (Lớp Dưới) ─────────────────────────────────────────
         public string BotXDiaLabel { get; set; } = "d10";
+        public bool BottomMeshEnabled { get; set; } = true;
+        public bool BottomInvertLayer { get; set; }
         public double BotXSpacingMm { get; set; } = 150;
         public string BotYDiaLabel { get; set; } = "d10";
         public double BotYSpacingMm { get; set; } = 150;
+        public bool TopMeshEnabled { get; set; }
+        public bool TopInvertLayer { get; set; }
+        public string TopMeshXDiaLabel { get; set; } = "d10";
+        public double TopMeshXSpacingMm { get; set; } = 150;
+        public string TopMeshYDiaLabel { get; set; } = "d10";
+        public double TopMeshYSpacingMm { get; set; } = 150;
         public bool BotAnchorHooks { get; set; } = true;
         public double BotHookTailD { get; set; } = 12;
 
@@ -26,6 +34,8 @@ namespace KhimTools.RebarTool.Models
         public string TopYDiaLabel { get; set; } = "d10";
         public double TopYSpacingMm { get; set; } = 150;
         public string TopExtensionRatio { get; set; } = "L/4"; // L/4 hoặc L/3
+        public bool SupportEnabled { get; set; } = true;
+        public bool SupportFullSpan { get; set; }
         public bool TopHookDown { get; set; } = true;
         public double TopHookTailMm { get; set; } = 100;
 
@@ -34,6 +44,7 @@ namespace KhimTools.RebarTool.Models
         public string ChairDiaLabel { get; set; } = "d10";
         public double ChairSpacingXmm { get; set; } = 800;
         public double ChairSpacingYmm { get; set; } = 800;
+        public double ChairHookLenMm { get; set; } = 100;
 
         // ── 4. Opening Trim Bars (Gia Cường Lỗ Mở) ─────────────────────────
         public bool EnableOpeningTrimBars { get; set; } = true;
@@ -126,6 +137,16 @@ namespace KhimTools.RebarTool.Models
         {
             if (settings == null || settings.SchemaVersion != 1 || string.IsNullOrWhiteSpace(settings.TemplateName) ||
                 settings.TemplateName.Length > 100 || (settings.DesignCode != "TCVN 5574:2018" && settings.DesignCode != "Eurocode 2")) return false;
+            if (settings.BotXSpacingMm < 50 || settings.BotXSpacingMm > 500 || settings.BotYSpacingMm < 50 || settings.BotYSpacingMm > 500 ||
+                settings.TopMeshXSpacingMm < 50 || settings.TopMeshXSpacingMm > 500 || settings.TopMeshYSpacingMm < 50 || settings.TopMeshYSpacingMm > 500 ||
+                settings.TopXSpacingMm < 50 || settings.TopXSpacingMm > 500 || settings.TopYSpacingMm < 50 || settings.TopYSpacingMm > 500 ||
+                settings.ChairSpacingXmm < 300 || settings.ChairSpacingXmm > 2000 || settings.ChairSpacingYmm < 300 || settings.ChairSpacingYmm > 2000 ||
+                settings.ChairHookLenMm < 50 || settings.ChairHookLenMm > 300 ||
+                (settings.TopExtensionRatio != "L/3" && settings.TopExtensionRatio != "L/4" && settings.TopExtensionRatio != "L/5")) return false;
+            if ((settings.BottomMeshEnabled && (string.IsNullOrWhiteSpace(settings.BotXDiaLabel) || string.IsNullOrWhiteSpace(settings.BotYDiaLabel))) ||
+                (settings.TopMeshEnabled && (string.IsNullOrWhiteSpace(settings.TopMeshXDiaLabel) || string.IsNullOrWhiteSpace(settings.TopMeshYDiaLabel))) ||
+                (settings.SupportEnabled && (string.IsNullOrWhiteSpace(settings.TopXDiaLabel) || string.IsNullOrWhiteSpace(settings.TopYDiaLabel))) ||
+                (settings.EnableChairRebar && string.IsNullOrWhiteSpace(settings.ChairDiaLabel))) return false;
             foreach (PropertyInfo property in settings.GetType().GetProperties())
             {
                 if (property.PropertyType == typeof(double))

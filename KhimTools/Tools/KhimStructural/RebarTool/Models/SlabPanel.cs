@@ -58,7 +58,7 @@ namespace KhimTools.RebarTool.Models
         public bool IsFullSpan { get; set; } = false; // Chạy suốt nhịp (Full Hat)
         public string HatFactor { get; set; } = "L/4"; // L/4, L/3, L/5
 
-        public bool HookDownEdge { get; set; } = true;
+        public bool HookDownEdge { get; set; } = false;
         public double HookDownLenMm { get; set; } = 100;
     }
 
@@ -67,7 +67,7 @@ namespace KhimTools.RebarTool.Models
     /// </summary>
     public class SlabDistributionRebarSettings
     {
-        public bool Enabled { get; set; } = true;
+        public bool Enabled { get; set; } = false;
         public string DiaLabel { get; set; } = "d8";
         public double SpacingMm { get; set; } = 200;
     }
@@ -110,7 +110,7 @@ namespace KhimTools.RebarTool.Models
         public SlabLayerSettings BottomLayer { get; set; } = new SlabLayerSettings { Enabled = true };
         public SlabLayerSettings TopLayer { get; set; } = new SlabLayerSettings { Enabled = false }; // Mặc định Top Layer full tắt, dùng Hat
         public SlabHatSettings HatReinforce { get; set; } = new SlabHatSettings { Enabled = true };
-        public SlabDistributionRebarSettings TopDistribution { get; set; } = new SlabDistributionRebarSettings { Enabled = true };
+        public SlabDistributionRebarSettings TopDistribution { get; set; } = new SlabDistributionRebarSettings { Enabled = false };
         public SlabSpacerSettings Spacer { get; set; } = new SlabSpacerSettings { Enabled = true };
         public SlabAnchorSettings Anchors { get; set; } = new SlabAnchorSettings();
         public SlabToleranceSettings Tolerances { get; set; } = new SlabToleranceSettings();

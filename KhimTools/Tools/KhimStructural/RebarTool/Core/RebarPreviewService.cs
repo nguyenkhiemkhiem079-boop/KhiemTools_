@@ -310,6 +310,14 @@ namespace KhimTools.RebarTool.Core
                 throw new ArgumentException("A slab panel, host and configuration are required for preview.", "panel");
             if (barTypes == null) throw new ArgumentNullException("barTypes");
             SlabPanelRebarConfig config = panel.Config;
+            if (config.BottomLayer.Enabled && (SlabRebarGenerator.FindBarType(barTypes, config.BottomLayer.DiaXLabel) == null || SlabRebarGenerator.FindBarType(barTypes, config.BottomLayer.DiaYLabel) == null))
+                throw new InvalidOperationException("Selected bottom mesh bar type is unavailable; choose a loaded type before preview.");
+            if (config.TopLayer.Enabled && (SlabRebarGenerator.FindBarType(barTypes, config.TopLayer.DiaXLabel) == null || SlabRebarGenerator.FindBarType(barTypes, config.TopLayer.DiaYLabel) == null))
+                throw new InvalidOperationException("Selected top mesh bar type is unavailable; choose a loaded type before preview.");
+            if (config.HatReinforce.Enabled && (SlabRebarGenerator.FindBarType(barTypes, config.HatReinforce.DiaXLabel) == null || SlabRebarGenerator.FindBarType(barTypes, config.HatReinforce.DiaYLabel) == null))
+                throw new InvalidOperationException("Selected support bar type is unavailable; choose a loaded type before preview.");
+            if (config.Spacer.Enabled && SlabRebarGenerator.FindBarType(barTypes, config.Spacer.DiaLabel) == null)
+                throw new InvalidOperationException("Selected spacer bar type is unavailable; choose a loaded type before preview.");
             // VersionGuid is not an in-session geometry fingerprint. Re-analyze the live host
             // whenever an accepted preview is revalidated, and bind the cached panel to that
             // same structural/type/level/plan geometry before Create can proceed.

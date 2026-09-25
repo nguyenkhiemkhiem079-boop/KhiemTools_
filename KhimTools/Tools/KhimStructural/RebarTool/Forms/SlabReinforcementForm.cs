@@ -177,6 +177,12 @@ namespace KhimTools.RebarTool.Forms
                 new RebarValidationRule(_cmbHatXDia,
                     () => !_chkHatDraw.Checked || (_cmbHatXDia.SelectedIndex >= 0 && _cmbHatYDia.SelectedIndex >= 0),
                     "Chọn đủ thép mũ phương X/Y."),
+                new RebarValidationRule(_chkSpacerDraw,
+                    () => !_chkSpacerDraw.Checked || (_chkBotDraw.Checked && (_chkTopDraw.Checked || _chkHatDraw.Checked)),
+                    "Con kê cần có lưới đáy và một lớp thép phía trên."),
+                new RebarValidationRule(_cmbSpacerDia,
+                    () => !_chkSpacerDraw.Checked || _cmbSpacerDia.SelectedIndex >= 0,
+                    "Chọn loại thép con kê đã tải trong dự án."),
                 new RebarValidationRule(_btnCreateRebar,
                     () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
                     "Cập nhật Preview cho thông số hiện tại trước khi tạo thép."));
@@ -966,8 +972,8 @@ namespace KhimTools.RebarTool.Forms
             var lblSlabB = new Label { Text = "Neo sàn giáp cạnh B (chưa áp dụng):", Left = 20, Top = 70, AutoSize = true };
             _numSlabAnchorB = new NumericUpDown { Left = 250, Top = 67, Width = 100, Minimum = 100, Maximum = 1000, Value = 300, Increment = 10, Enabled = false };
 
-            var lblRound = new Label { Text = "Làm tròn chiều dài thép (mm):", Left = 20, Top = 110, AutoSize = true };
-            _numRounding = new NumericUpDown { Left = 250, Top = 107, Width = 100, Minimum = 1, Maximum = 100, Value = 10, Increment = 5 };
+            var lblRound = new Label { Text = "Làm tròn chiều dài thép (chưa áp dụng):", Left = 20, Top = 110, AutoSize = true };
+            _numRounding = new NumericUpDown { Left = 250, Top = 107, Width = 100, Minimum = 1, Maximum = 100, Value = 10, Increment = 5, Enabled = false };
 
             var lblMinSpan = new Label { Text = "Min Span ngưỡng chạy suốt (mm):", Left = 20, Top = 140, AutoSize = true };
             _numMinSpan = new NumericUpDown { Left = 250, Top = 137, Width = 100, Minimum = 500, Maximum = 3000, Value = 1200, Increment = 50 };
@@ -989,7 +995,7 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Fields(grpAnchor,
                 RebarLayout.Field("Neo dầm A (mm)", _numBeamAnchorA),
                 RebarLayout.Field("Neo giáp sàn B (mm)", _numSlabAnchorB),
-                RebarLayout.Field("Làm tròn chiều dài (mm)", _numRounding),
+                RebarLayout.Field("Làm tròn chiều dài (chưa áp dụng)", _numRounding),
                 RebarLayout.Field("Ngưỡng nhịp chạy suốt (mm)", _numMinSpan));
             RebarLayout.Stack(page, grpSpacer, grpAnchor);
         }
@@ -1294,7 +1300,7 @@ namespace KhimTools.RebarTool.Forms
                     cfg.Spacer.HookLenMm = (double)_numSpacerHookLen.Value;
 
                     // Anchors & Tolerances
-                    cfg.Tolerances.RoundingMm = (double)_numRounding.Value;
+                    cfg.Tolerances.RoundingMm = 10; // Reserved; bar-length rounding is not implemented.
                     cfg.Tolerances.MinSpanMm = (double)_numMinSpan.Value;
 
             }
@@ -1417,8 +1423,6 @@ namespace KhimTools.RebarTool.Forms
                 .OrderBy(n => n)
                 .ToList();
 
-            if (!barTypes.Any()) barTypes = new List<string> { "d6", "d8", "d10", "d12", "d14", "d16" };
-
             PopulateCombo(_cmbBotXDia, barTypes, "10");
             PopulateCombo(_cmbBotYDia, barTypes, "10");
             PopulateCombo(_cmbTopXDia, barTypes, "10");
@@ -1439,7 +1443,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 if (cmb.Items[i].ToString().Contains(defaultDia)) { matchIdx = i; break; }
             }
-            cmb.SelectedIndex = (matchIdx >= 0) ? matchIdx : (cmb.Items.Count > 0 ? 0 : -1);
+            cmb.SelectedIndex = matchIdx;
         }
 
         private void UpdateGradeCombos()
@@ -1498,9 +1502,19 @@ namespace KhimTools.RebarTool.Forms
             }
 
             _cmbBotXDia.Text = settings.BotXDiaLabel;
+            _chkBotDraw.Checked = settings.BottomMeshEnabled;
+            _chkBotInvert.Checked = settings.BottomInvertLayer;
             _numBotXSpacing.Value = Clamp(_numBotXSpacing, settings.BotXSpacingMm);
             _cmbBotYDia.Text = settings.BotYDiaLabel;
             _numBotYSpacing.Value = Clamp(_numBotYSpacing, settings.BotYSpacingMm);
+            _chkTopDraw.Checked = settings.TopMeshEnabled;
+            _chkTopInvert.Checked = settings.TopInvertLayer;
+            _cmbTopXDia.Text = settings.TopMeshXDiaLabel;
+            _numTopXSpacing.Value = Clamp(_numTopXSpacing, settings.TopMeshXSpacingMm);
+            _cmbTopYDia.Text = settings.TopMeshYDiaLabel;
+            _numTopYSpacing.Value = Clamp(_numTopYSpacing, settings.TopMeshYSpacingMm);
+            _chkHatDraw.Checked = settings.SupportEnabled;
+            _chkHatFullSpan.Checked = settings.SupportFullSpan;
             _cmbHatXDia.Text = settings.TopXDiaLabel;
             _numHatXSpacing.Value = Clamp(_numHatXSpacing, settings.TopXSpacingMm);
             _cmbHatYDia.Text = settings.TopYDiaLabel;
@@ -1511,6 +1525,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbSpacerDia.Text = settings.ChairDiaLabel;
             _numSpacerStepX.Value = Clamp(_numSpacerStepX, settings.ChairSpacingXmm);
             _numSpacerStepY.Value = Clamp(_numSpacerStepY, settings.ChairSpacingYmm);
+            _numSpacerHookLen.Value = Clamp(_numSpacerHookLen, settings.ChairHookLenMm);
             _cmbDesignCode.Text = settings.DesignCode;
             _cmbConcreteGrade.Text = settings.ConcreteGrade;
             _cmbSteelGrade.Text = settings.SteelGrade;
@@ -1525,9 +1540,19 @@ namespace KhimTools.RebarTool.Forms
                     ? "Mặc định Sàn 2 Lớp (150mm)"
                     : _cmbTemplates.Text,
                 BotXDiaLabel = _cmbBotXDia.Text,
+                BottomMeshEnabled = _chkBotDraw.Checked,
+                BottomInvertLayer = _chkBotInvert.Checked,
                 BotXSpacingMm = (double)_numBotXSpacing.Value,
                 BotYDiaLabel = _cmbBotYDia.Text,
                 BotYSpacingMm = (double)_numBotYSpacing.Value,
+                TopMeshEnabled = _chkTopDraw.Checked,
+                TopInvertLayer = _chkTopInvert.Checked,
+                TopMeshXDiaLabel = _cmbTopXDia.Text,
+                TopMeshXSpacingMm = (double)_numTopXSpacing.Value,
+                TopMeshYDiaLabel = _cmbTopYDia.Text,
+                TopMeshYSpacingMm = (double)_numTopYSpacing.Value,
+                SupportEnabled = _chkHatDraw.Checked,
+                SupportFullSpan = _chkHatFullSpan.Checked,
                 TopXDiaLabel = _cmbHatXDia.Text,
                 TopXSpacingMm = (double)_numHatXSpacing.Value,
                 TopYDiaLabel = _cmbHatYDia.Text,
@@ -1539,6 +1564,7 @@ namespace KhimTools.RebarTool.Forms
                 ChairDiaLabel = _cmbSpacerDia.Text,
                 ChairSpacingXmm = (double)_numSpacerStepX.Value,
                 ChairSpacingYmm = (double)_numSpacerStepY.Value,
+                ChairHookLenMm = (double)_numSpacerHookLen.Value,
                 DesignCode = _cmbDesignCode.Text,
                 ConcreteGrade = _cmbConcreteGrade.Text,
                 SteelGrade = _cmbSteelGrade.Text
