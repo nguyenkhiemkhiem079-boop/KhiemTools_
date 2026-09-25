@@ -16,15 +16,19 @@ namespace KhimTools.RebarTool.Core
             Panels.Clear();
             if (doc == null || floors == null || !floors.Any()) return;
 
-            int index = 1;
-            foreach (var floor in floors)
+            // Stable model identity, not caller selection order: sorting and deduplication
+            // keep cached detached geometry and accepted previews attached to the same host.
+            foreach (var floor in floors.Where(floor => floor != null)
+                .GroupBy(floor => floor.UniqueId, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .OrderBy(floor => floor.UniqueId, StringComparer.Ordinal))
             {
                 var profile = SlabGeometryHelper.AnalyzeSlab(doc, floor);
                 if (profile == null) continue;
 
                 var panel = new SlabPanel
                 {
-                    PanelId = $"P{index++}",
+                    PanelId = "F" + floor.Id,
                     HostFloorId = floor.Id,
                     HostFloor = floor,
                     FloorName = floor.Name,

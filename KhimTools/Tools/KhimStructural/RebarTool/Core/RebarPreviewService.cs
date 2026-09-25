@@ -310,8 +310,22 @@ namespace KhimTools.RebarTool.Core
                 throw new ArgumentException("A slab panel, host and configuration are required for preview.", "panel");
             if (barTypes == null) throw new ArgumentNullException("barTypes");
             SlabPanelRebarConfig config = panel.Config;
+            // VersionGuid is not an in-session geometry fingerprint. Re-analyze the live host
+            // whenever an accepted preview is revalidated, and bind the cached panel to that
+            // same structural/type/level/plan geometry before Create can proceed.
+            Floor liveFloor = panel.HostFloor;
+            SlabProfile liveProfile = SlabGeometryHelper.AnalyzeSlab(liveFloor.Document, liveFloor);
+            if (liveProfile == null) throw new InvalidOperationException("Slab host geometry is unavailable for preview validation.");
+            string liveOpenings = string.Join("|", (liveProfile.InnerOpenings ?? new List<CurveLoop>())
+                .Select(CurveLoopFingerprint).OrderBy(value => value, StringComparer.Ordinal));
             return WorkflowFingerprint.Compute(new[]
             {
+                liveFloor.UniqueId, liveFloor.VersionGuid.ToString("D"), liveFloor.LevelId.ToString(),
+                liveFloor.GetTypeId().ToString(), liveFloor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)?.AsInteger().ToString(CultureInfo.InvariantCulture),
+                CurveLoopFingerprint(liveProfile.OuterBoundary), liveOpenings,
+                liveProfile.ThicknessFeet.ToString("R", CultureInfo.InvariantCulture),
+                liveProfile.CoverTopFeet.ToString("R", CultureInfo.InvariantCulture), liveProfile.CoverBottomFeet.ToString("R", CultureInfo.InvariantCulture),
+                liveProfile.BoundingBox.Min.Z.ToString("R", CultureInfo.InvariantCulture), liveProfile.BoundingBox.Max.Z.ToString("R", CultureInfo.InvariantCulture),
                 panel.HostFloor.UniqueId, panel.HostFloor.VersionGuid.ToString("D"), panel.PanelId,
                 panel.WidthMm.ToString("R", CultureInfo.InvariantCulture), panel.LengthMm.ToString("R", CultureInfo.InvariantCulture),
                 panel.ThicknessFeet.ToString("R", CultureInfo.InvariantCulture), panel.CoverTopFeet.ToString("R", CultureInfo.InvariantCulture),
