@@ -1576,6 +1576,10 @@ namespace KhimTools.RebarTool.Forms
                 Div();
                 Row(isEn ? "Main bars" : "Thep chu",
                     string.Format("{0} \u03a6{1}", tot, mD), true);
+                Row(isEn ? "Layout" : "Bố trí",
+                    isEn ? "Symmetric perimeter only" : "Chỉ bố trí chu vi đối xứng");
+                Row(isEn ? "9 total bars" : "Tổng 9 thanh",
+                    isEn ? "Not supported" : "Không hỗ trợ");
                 Row(isEn ? "  B-side" : "  Canh B", string.Format("{0} bars", nB));
                 Row(isEn ? "  H-side" : "  Canh H", string.Format("{0} bars", nH));
                 Div();
