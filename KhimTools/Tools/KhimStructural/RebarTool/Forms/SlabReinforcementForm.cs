@@ -1004,17 +1004,17 @@ namespace KhimTools.RebarTool.Forms
         {
             var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Vật Liệu", Left = 15, Top = 15, Width = 525, Height = 130 };
             KhimUiStyle.ApplyCardStyle(grpCode);
-            var lblCode = new Label { Text = "Tiêu chuẩn neo:", Left = 15, Top = 35, AutoSize = true };
-            _cmbDesignCode = new ComboBox { Left = 130, Top = 30, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
+            var lblCode = new Label { Text = "Tiêu chuẩn thiết kế (chưa áp dụng):", Left = 15, Top = 35, AutoSize = true };
+            _cmbDesignCode = new ComboBox { Left = 130, Top = 30, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, Enabled = false };
             _cmbDesignCode.Items.Add("TCVN 5574:2018");
             _cmbDesignCode.Items.Add("Eurocode 2");
             _cmbDesignCode.SelectedIndex = 0;
 
-            var lblConc = new Label { Text = "Mác bê tông:", Left = 15, Top = 75, AutoSize = true };
-            _cmbConcreteGrade = new ComboBox { Left = 130, Top = 70, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList };
+            var lblConc = new Label { Text = "Mác bê tông (chưa áp dụng):", Left = 15, Top = 75, AutoSize = true };
+            _cmbConcreteGrade = new ComboBox { Left = 130, Top = 70, Width = 160, DropDownStyle = ComboBoxStyle.DropDownList, Enabled = false };
 
-            var lblSteel = new Label { Text = "Mác thép:", Left = 310, Top = 75, AutoSize = true };
-            _cmbSteelGrade = new ComboBox { Left = 380, Top = 70, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList };
+            var lblSteel = new Label { Text = "Mác thép (chưa áp dụng):", Left = 310, Top = 75, AutoSize = true };
+            _cmbSteelGrade = new ComboBox { Left = 380, Top = 70, Width = 120, DropDownStyle = ComboBoxStyle.DropDownList, Enabled = false };
 
             _cmbDesignCode.SelectedIndexChanged += (s, e) => UpdateGradeCombos();
             UpdateGradeCombos();
@@ -1565,9 +1565,9 @@ namespace KhimTools.RebarTool.Forms
                 ChairSpacingXmm = (double)_numSpacerStepX.Value,
                 ChairSpacingYmm = (double)_numSpacerStepY.Value,
                 ChairHookLenMm = (double)_numSpacerHookLen.Value,
-                DesignCode = _cmbDesignCode.Text,
-                ConcreteGrade = _cmbConcreteGrade.Text,
-                SteelGrade = _cmbSteelGrade.Text
+                DesignCode = "TCVN 5574:2018",
+                ConcreteGrade = "B25",
+                SteelGrade = "CB300-V"
             };
         }
 
