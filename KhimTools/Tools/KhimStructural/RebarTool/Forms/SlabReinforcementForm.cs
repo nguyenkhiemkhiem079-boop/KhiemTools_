@@ -126,9 +126,19 @@ namespace KhimTools.RebarTool.Forms
             public PointF[][] SectionXConcrete { get; set; }
             public PointF[][] SectionYConcrete { get; set; }
             public PointF[][] PlanOpenings { get; set; }
+            public double SectionXCutY { get; set; }
+            public double SectionYCutX { get; set; }
 
             public PointF[][] BoundaryPaths(int axis) => axis == 1 ? SectionXConcrete : axis == 2 ? SectionYConcrete : new[] { PlanBoundary };
             public PointF[][] Openings(int axis) => axis == 0 ? PlanOpenings : new PointF[0][];
+            public double CutCoordinate(int axis) => axis == 1 ? SectionXCutY : SectionYCutX;
+        }
+
+        private sealed class SlabCanvasPath
+        {
+            public string Role { get; set; }
+            public PointF[] Points { get; set; }
+            public bool IsIntersectionMarker { get; set; }
         }
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
@@ -674,17 +684,42 @@ namespace KhimTools.RebarTool.Forms
             _detachedPanelGeometry.TryGetValue(panel.PanelId, out geometry);
             PointF[][] boundaryPaths = geometry?.BoundaryPaths(axis) ?? new PointF[0][];
             var projectedOpenings = geometry?.Openings(axis) ?? new PointF[0][];
-            var pathSets = new List<Tuple<string, PointF[]>>();
+            var pathSets = new List<SlabCanvasPath>();
             string fingerprint;
             RebarPreviewComponent component = null;
             if (_lastPreview != null && _previewFingerprints.TryGetValue(panel.PanelId, out fingerprint))
                 component = _lastPreview.Find(fingerprint);
             if (component != null)
-                pathSets.AddRange(component.Paths.Select(path => Tuple.Create(path.Role, ProjectPath(path, axis)))
-                    .Where(item => item.Item2.Length > 1));
+            {
+                foreach (RebarPreviewPath path in component.Paths)
+                {
+                    if (axis == 0)
+                    {
+                        PointF[] projected = ProjectPath(path, axis);
+                        if (projected.Length > 1) pathSets.Add(new SlabCanvasPath { Role = path.Role, Points = projected });
+                        continue;
+                    }
+                    if (geometry == null) continue;
+                    SlabSectionAxis sectionAxis = axis == 1 ? SlabSectionAxis.SectionX : SlabSectionAxis.SectionY;
+                    var detached = path.Points.Select(point => new SlabSectionPoint(point.X, point.Y, point.Z));
+                    foreach (SlabSectionPrimitive primitive in SlabSectionGeometry.IntersectPath(
+                        detached, sectionAxis, geometry.CutCoordinate(axis), path.Role))
+                    {
+                        bool marker = primitive.Kind == SlabSectionPrimitiveKind.IntersectionMarker;
+                        PointF start = new PointF((float)primitive.StartAlong, (float)primitive.StartElevation);
+                        PointF end = new PointF((float)primitive.EndAlong, (float)primitive.EndElevation);
+                        pathSets.Add(new SlabCanvasPath
+                        {
+                            Role = primitive.Role,
+                            Points = marker ? new[] { start } : new[] { start, end },
+                            IsIntersectionMarker = marker
+                        });
+                    }
+                }
+            }
 
             PointF[] all = boundaryPaths.SelectMany(points => points).Concat(projectedOpenings.SelectMany(points => points))
-                .Concat(pathSets.SelectMany(item => item.Item2)).ToArray();
+                .Concat(pathSets.SelectMany(item => item.Points)).ToArray();
             if (all.Length < 2)
             {
                 string unavailable = axis == 0
@@ -741,26 +776,23 @@ namespace KhimTools.RebarTool.Forms
                     if (opening.Length >= 3) e.Graphics.DrawPolygon(openingPen, opening.Select(Map).ToArray());
                     else if (opening.Length >= 2) e.Graphics.DrawLines(openingPen, opening.Select(Map).ToArray());
                 }
-                foreach (Tuple<string, PointF[]> rolePath in pathSets)
+                foreach (SlabCanvasPath rolePath in pathSets)
                 {
-                    bool selectedRole = MatchesSlabRoleFilter(rolePath.Item1, _cmbPreviewRole?.SelectedIndex ?? 0);
-                    Color roleColor = current ? SlabRoleColor(rolePath.Item1) : Color.FromArgb(148, 163, 184);
+                    bool selectedRole = MatchesSlabRoleFilter(rolePath.Role, _cmbPreviewRole?.SelectedIndex ?? 0);
+                    Color roleColor = current ? SlabRoleColor(rolePath.Role) : Color.FromArgb(148, 163, 184);
                     if (!selectedRole) roleColor = Blend(roleColor, canvas.BackColor, 0.72f);
                     using (var pathPen = new Pen(roleColor, selectedRole ? 2.3f : 1.1f))
-                    using (var markerBrush = new SolidBrush(roleColor))
                     {
-                    PointF[] path = rolePath.Item2;
-                    PointF[] projected = path.Select(Map).ToArray();
-                    if (projected.Length < 2) continue;
-                    float pathWidth = projected.Max(point => point.X) - projected.Min(point => point.X);
-                    float pathHeight = projected.Max(point => point.Y) - projected.Min(point => point.Y);
-                    if (axis != 0 && pathWidth < 1f && pathHeight < 1f)
-                    {
-                        PointF center = new PointF(projected.Average(point => point.X), projected.Average(point => point.Y));
-                        float radius = selectedRole ? 4f : 2.8f;
-                        e.Graphics.FillEllipse(markerBrush, center.X - radius, center.Y - radius, radius * 2, radius * 2);
-                    }
-                    else e.Graphics.DrawLines(pathPen, projected);
+                        PointF[] projected = rolePath.Points.Select(Map).ToArray();
+                        if (rolePath.IsIntersectionMarker && projected.Length == 1)
+                        {
+                            PointF center = projected[0];
+                            float radius = selectedRole ? 4f : 3f;
+                            e.Graphics.DrawEllipse(pathPen, center.X - radius, center.Y - radius, radius * 2, radius * 2);
+                            e.Graphics.DrawLine(pathPen, center.X - radius - 1, center.Y, center.X + radius + 1, center.Y);
+                            e.Graphics.DrawLine(pathPen, center.X, center.Y - radius - 1, center.X, center.Y + radius + 1);
+                        }
+                        else if (projected.Length > 1) e.Graphics.DrawLines(pathPen, projected);
                     }
                 }
                 string title = plan
@@ -791,9 +823,12 @@ namespace KhimTools.RebarTool.Forms
                 TextRenderer.DrawText(e.Graphics, (LanguageManager.IsEnglish ? "Role: " : "Vai trò: ") + role,
                     smallFont, new Rectangle(8, canvas.ClientSize.Height - 40, canvas.ClientSize.Width - 16, 16), textBrush.Color,
                     TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                if (axis != 0)
+                    TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "⊕ = symbolic centerline intersection; diameter not shown" : "⊕ = giao tim thép (ký hiệu); không hiển thị đường kính",
+                        smallFont, new Rectangle(8, 48, canvas.ClientSize.Width - 16, 18), textBrush.Color, TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
                 if (axis != 0 && boundaryPaths.Length == 0)
                     TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "SECTION LIMITATION · verified cut outline unavailable" : "GIỚI HẠN MẶT CẮT · không có đường bao mặt cắt đã xác minh",
-                        smallFont, new Rectangle(8, 48, canvas.ClientSize.Width - 16, 18), Color.FromArgb(180, 83, 9), TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                        smallFont, new Rectangle(8, 66, canvas.ClientSize.Width - 16, 18), Color.FromArgb(180, 83, 9), TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
             }
         }
 
@@ -856,77 +891,52 @@ namespace KhimTools.RebarTool.Forms
             var openings = panel.Openings ?? new List<CurveLoop>();
             PointF[][] boundary = DetachLoopViews(panel.Boundary);
             PointF[][][] openingViews = openings.Select(DetachLoopViews).ToArray();
+            double cutY = GetSectionCutCoordinate(panel.Boundary, 1);
+            double cutX = GetSectionCutCoordinate(panel.Boundary, 2);
             return new SlabPreviewGeometry
             {
                 PlanBoundary = boundary[0],
-                SectionXConcrete = CreateSectionOutlines(panel.Boundary, openings, 1, panel.ThicknessFeet),
-                SectionYConcrete = CreateSectionOutlines(panel.Boundary, openings, 2, panel.ThicknessFeet),
+                SectionXCutY = cutY,
+                SectionYCutX = cutX,
+                SectionXConcrete = CreateSectionOutlines(panel.Boundary, openings, 1, cutY, panel.ThicknessFeet),
+                SectionYConcrete = CreateSectionOutlines(panel.Boundary, openings, 2, cutX, panel.ThicknessFeet),
                 PlanOpenings = openingViews.Select(views => views[0]).Where(points => points.Length > 1).ToArray(),
             };
         }
 
-        private static PointF[][] CreateSectionOutlines(CurveLoop boundary, List<CurveLoop> openings, int axis, double thicknessFeet)
+        private static double GetSectionCutCoordinate(CurveLoop boundary, int axis)
         {
-            if (boundary == null || thicknessFeet <= 0 || double.IsNaN(thicknessFeet) || double.IsInfinity(thicknessFeet)) return new PointF[0][];
-            List<XYZ> vertices = boundary.SelectMany(curve => new[] { curve.GetEndPoint(0), curve.GetEndPoint(1) }).ToList();
-            if (vertices.Count < 4) return new PointF[0][];
+            if (boundary == null) return double.NaN;
+            List<XYZ> vertices = boundary.Select(curve => curve.GetEndPoint(0)).ToList();
+            if (vertices.Count < 3) return double.NaN;
             double orthMin = vertices.Min(point => axis == 1 ? point.Y : point.X);
             double orthMax = vertices.Max(point => axis == 1 ? point.Y : point.X);
-            double cut = (orthMin + orthMax) / 2.0;
+            return (orthMin + orthMax) / 2.0;
+        }
+
+        private static PointF[][] CreateSectionOutlines(CurveLoop boundary, List<CurveLoop> openings, int axis, double cut, double thicknessFeet)
+        {
+            if (boundary == null || double.IsNaN(cut) || double.IsInfinity(cut) || thicknessFeet <= 0 || double.IsNaN(thicknessFeet) || double.IsInfinity(thicknessFeet)) return new PointF[0][];
+            List<XYZ> vertices = boundary.Select(curve => curve.GetEndPoint(0)).ToList();
+            if (vertices.Count < 3) return new PointF[0][];
             double top = vertices.Average(point => point.Z);
             double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
             if (vertices.Any(point => Math.Abs(point.Z - top) > tolerance)) return new PointF[0][];
             double bottom = top - thicknessFeet;
-            List<Tuple<double, double>> solidIntervals = GetSectionIntervals(boundary, axis, cut);
-            foreach (CurveLoop opening in openings ?? new List<CurveLoop>())
-                foreach (Tuple<double, double> hole in GetSectionIntervals(opening, axis, cut))
-                    solidIntervals = SubtractInterval(solidIntervals, hole.Item1, hole.Item2);
-
-            return solidIntervals.Where(interval => interval.Item2 - interval.Item1 > tolerance)
+            SlabSectionAxis sectionAxis = axis == 1 ? SlabSectionAxis.SectionX : SlabSectionAxis.SectionY;
+            IReadOnlyList<SlabSectionPoint> detachedBoundary = vertices
+                .Select(point => new SlabSectionPoint(point.X, point.Y, point.Z)).ToArray();
+            IReadOnlyList<IReadOnlyList<SlabSectionPoint>> detachedOpenings = (openings ?? new List<CurveLoop>())
+                .Select(loop => (IReadOnlyList<SlabSectionPoint>)loop.Select(curve => curve.GetEndPoint(0)
+                    ).Select(point => new SlabSectionPoint(point.X, point.Y, point.Z)).ToArray()).ToArray();
+            return SlabSectionGeometry.GetConcreteIntervals(detachedBoundary, detachedOpenings, sectionAxis, cut)
                 .Select(interval => new[]
                 {
-                    ProjectPoint(axis == 1 ? interval.Item1 : cut, axis == 2 ? interval.Item1 : cut, top, axis),
-                    ProjectPoint(axis == 1 ? interval.Item2 : cut, axis == 2 ? interval.Item2 : cut, top, axis),
-                    ProjectPoint(axis == 1 ? interval.Item2 : cut, axis == 2 ? interval.Item2 : cut, bottom, axis),
-                    ProjectPoint(axis == 1 ? interval.Item1 : cut, axis == 2 ? interval.Item1 : cut, bottom, axis)
+                    ProjectPoint(axis == 1 ? interval.Start : cut, axis == 2 ? interval.Start : cut, top, axis),
+                    ProjectPoint(axis == 1 ? interval.End : cut, axis == 2 ? interval.End : cut, top, axis),
+                    ProjectPoint(axis == 1 ? interval.End : cut, axis == 2 ? interval.End : cut, bottom, axis),
+                    ProjectPoint(axis == 1 ? interval.Start : cut, axis == 2 ? interval.Start : cut, bottom, axis)
                 }).ToArray();
-        }
-
-        private static List<Tuple<double, double>> GetSectionIntervals(CurveLoop loop, int axis, double cut)
-        {
-            var intersections = new List<double>();
-            foreach (Curve curve in loop)
-            {
-                XYZ a = curve.GetEndPoint(0), b = curve.GetEndPoint(1);
-                double aOrth = axis == 1 ? a.Y : a.X;
-                double bOrth = axis == 1 ? b.Y : b.X;
-                double aAlong = axis == 1 ? a.X : a.Y;
-                double bAlong = axis == 1 ? b.X : b.Y;
-                if (Math.Abs(aOrth - bOrth) < 1e-9) continue;
-                if ((aOrth <= cut && bOrth > cut) || (bOrth <= cut && aOrth > cut))
-                    intersections.Add(aAlong + (cut - aOrth) * (bAlong - aAlong) / (bOrth - aOrth));
-            }
-            intersections.Sort();
-            var intervals = new List<Tuple<double, double>>();
-            for (int i = 0; i + 1 < intersections.Count; i += 2)
-                if (intersections[i + 1] > intersections[i]) intervals.Add(Tuple.Create(intersections[i], intersections[i + 1]));
-            return intervals;
-        }
-
-        private static List<Tuple<double, double>> SubtractInterval(List<Tuple<double, double>> source, double cutStart, double cutEnd)
-        {
-            var result = new List<Tuple<double, double>>();
-            foreach (Tuple<double, double> interval in source)
-            {
-                if (cutEnd <= interval.Item1 || cutStart >= interval.Item2)
-                {
-                    result.Add(interval);
-                    continue;
-                }
-                if (cutStart > interval.Item1) result.Add(Tuple.Create(interval.Item1, Math.Min(cutStart, interval.Item2)));
-                if (cutEnd < interval.Item2) result.Add(Tuple.Create(Math.Max(cutEnd, interval.Item1), interval.Item2));
-            }
-            return result;
         }
 
         private static PointF[] ProjectPath(RebarPreviewPath path, int axis) =>

@@ -11,5 +11,6 @@
     <Compile Include="..\..\src\KhimTools.Domain\Models\Mep\MepMeasurementCalculator.cs" Link="MepMeasurementCalculator.cs" />
     <Compile Include="..\..\src\KhimTools.Domain\Models\Architectural\LintelLayout.cs" Link="LintelLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs" Link="RebarAnchorageCalculator.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\SlabSectionGeometry.cs" Link="SlabSectionGeometry.cs" />
   </ItemGroup>
 </Project>

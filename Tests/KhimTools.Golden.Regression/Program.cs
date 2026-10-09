@@ -35,6 +35,7 @@ static class Program
     {
         RunDomainGoldens();
         RunRebarCalculationGoldens();
+        RunSlabSectionGeometryCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -46,6 +47,133 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunSlabSectionGeometryCases()
+    {
+        var xCoplanar = SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(-2, 0, 1), new SlabSectionPoint(2, 0, 1)
+        }, SlabSectionAxis.SectionX, 0, "bottom-x");
+        Check(xCoplanar.Count == 1, "Section X coplanar X bar returns one primitive");
+        Check(xCoplanar[0].Kind == SlabSectionPrimitiveKind.CoplanarSegment, "Section X coplanar X bar remains a line");
+        Check(Near(-2, xCoplanar[0].StartAlong, 1e-9) && Near(2, xCoplanar[0].EndAlong, 1e-9), "Section X line uses actual projected endpoints");
+        Check(xCoplanar[0].Role == "bottom-x", "Section X line preserves reinforcement role");
+
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(-2, 0.1, 1), new SlabSectionPoint(2, 0.1, 1)
+        }, SlabSectionAxis.SectionX, 0).Count == 0, "Section X parallel offset X bar is hidden");
+
+        var yCrossesX = SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(1, -2, 2), new SlabSectionPoint(1, 2, 4)
+        }, SlabSectionAxis.SectionX, 0, "top-y");
+        Check(yCrossesX.Count == 1 && yCrossesX[0].Kind == SlabSectionPrimitiveKind.IntersectionMarker,
+            "Y bar crossing Section X produces a symbolic marker");
+        Check(Near(1, yCrossesX[0].StartAlong, 1e-9) && Near(3, yCrossesX[0].StartElevation, 1e-9),
+            "Section X marker is interpolated at exact cut coordinates");
+        Check(yCrossesX[0].Role == "top-y", "Section X marker preserves reinforcement role");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(1, 0.5, 2), new SlabSectionPoint(1, 2, 4)
+        }, SlabSectionAxis.SectionX, 0).Count == 0, "Y bar wholly outside Section X is hidden");
+
+        var yCoplanar = SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0, -2, 1), new SlabSectionPoint(0, 2, 1)
+        }, SlabSectionAxis.SectionY, 0, "bottom-y");
+        Check(yCoplanar.Count == 1 && yCoplanar[0].Kind == SlabSectionPrimitiveKind.CoplanarSegment,
+            "Section Y coplanar Y bar remains a line");
+        Check(Near(-2, yCoplanar[0].StartAlong, 1e-9) && Near(2, yCoplanar[0].EndAlong, 1e-9),
+            "Section Y line uses actual projected endpoints");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0.1, -2, 1), new SlabSectionPoint(0.1, 2, 1)
+        }, SlabSectionAxis.SectionY, 0).Count == 0, "Section Y parallel offset Y bar is hidden");
+
+        var xCrossesY = SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(-2, 1, 2), new SlabSectionPoint(2, 1, 4)
+        }, SlabSectionAxis.SectionY, 0, "support-x");
+        Check(xCrossesY.Count == 1 && xCrossesY[0].Kind == SlabSectionPrimitiveKind.IntersectionMarker,
+            "X bar crossing Section Y produces a symbolic marker");
+        Check(Near(1, xCrossesY[0].StartAlong, 1e-9) && Near(3, xCrossesY[0].StartElevation, 1e-9),
+            "Section Y marker is interpolated at exact cut coordinates");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0.5, 1, 2), new SlabSectionPoint(2, 1, 4)
+        }, SlabSectionAxis.SectionY, 0).Count == 0, "X bar wholly outside Section Y is hidden");
+
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0, SlabSectionGeometry.PlaneToleranceFeet * 0.5, 0),
+            new SlabSectionPoint(1, SlabSectionGeometry.PlaneToleranceFeet * 0.5, 0)
+        }, SlabSectionAxis.SectionX, 0).Single().Kind == SlabSectionPrimitiveKind.CoplanarSegment,
+            "Section plane tolerance accepts numerical coplanarity");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0, SlabSectionGeometry.PlaneToleranceFeet * 2, 0),
+            new SlabSectionPoint(1, SlabSectionGeometry.PlaneToleranceFeet * 2, 0)
+        }, SlabSectionAxis.SectionX, 0).Count == 0, "Section plane tolerance rejects nearby off-plane bars");
+
+        var twiceCrossing = SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(-1, -1, 0), new SlabSectionPoint(1, 1, 2),
+            new SlabSectionPoint(-1, 1, 4), new SlabSectionPoint(1, -1, 6)
+        }, SlabSectionAxis.SectionX, 0, "opening");
+        Check(twiceCrossing.Count == 2, "Separate cut crossings remain separate primitives");
+        Check(twiceCrossing.All(primitive => primitive.Kind == SlabSectionPrimitiveKind.IntersectionMarker),
+            "Multiple intersections never become an artificial connecting segment");
+        Check(Near(1, twiceCrossing[0].StartElevation, 1e-9) && Near(5, twiceCrossing[1].StartElevation, 1e-9),
+            "Multiple markers retain their independent solved elevations");
+
+        SlabSectionPoint[] outer =
+        {
+            new SlabSectionPoint(-5, -5, 1), new SlabSectionPoint(5, -5, 1),
+            new SlabSectionPoint(5, 5, 1), new SlabSectionPoint(-5, 5, 1)
+        };
+        IReadOnlyList<SlabSectionPoint>[] openings =
+        {
+            new[]
+            {
+                new SlabSectionPoint(-1, -1, 1), new SlabSectionPoint(1, -1, 1),
+                new SlabSectionPoint(1, 1, 1), new SlabSectionPoint(-1, 1, 1)
+            }
+        };
+        var openingCut = SlabSectionGeometry.GetConcreteIntervals(outer, openings, SlabSectionAxis.SectionX, 0);
+        Check(openingCut.Count == 2, "Opening intersecting section splits concrete into two intervals");
+        Check(Near(-5, openingCut[0].Start, 1e-9) && Near(-1, openingCut[0].End, 1e-9), "Opening cut preserves left concrete interval");
+        Check(Near(1, openingCut[1].Start, 1e-9) && Near(5, openingCut[1].End, 1e-9), "Opening cut preserves right concrete interval");
+
+        SlabSectionPoint[] concaveDisconnected =
+        {
+            new SlabSectionPoint(-5, -5, 1), new SlabSectionPoint(-3, -5, 1),
+            new SlabSectionPoint(-3, 3, 1), new SlabSectionPoint(3, 3, 1),
+            new SlabSectionPoint(3, -5, 1), new SlabSectionPoint(5, -5, 1),
+            new SlabSectionPoint(5, 5, 1), new SlabSectionPoint(-5, 5, 1)
+        };
+        var disconnected = SlabSectionGeometry.GetConcreteIntervals(concaveDisconnected, null, SlabSectionAxis.SectionX, 0);
+        Check(disconnected.Count == 2, "Concave supported cut returns disconnected concrete intervals");
+        Check(Near(-5, disconnected[0].Start, 1e-9) && Near(-3, disconnected[0].End, 1e-9), "Disconnected left interval is exact");
+        Check(Near(3, disconnected[1].Start, 1e-9) && Near(5, disconnected[1].End, 1e-9), "Disconnected right interval is exact without a false connector");
+
+        Check(SlabSectionGeometry.IntersectPath(null, SlabSectionAxis.SectionX, 0).Count == 0, "Empty solved path is safe");
+        Check(SlabSectionGeometry.IntersectPath(new[] { new SlabSectionPoint(0, 0, 0) }, SlabSectionAxis.SectionX, 0).Count == 0,
+            "Single-point solved path is safe");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(double.NaN, 0, 0), new SlabSectionPoint(1, 0, 1)
+        }, SlabSectionAxis.SectionX, 0).Count == 0, "Invalid solved coordinates fail closed");
+        Check(SlabSectionGeometry.IntersectPath(new[]
+        {
+            new SlabSectionPoint(0, 0, 0), new SlabSectionPoint(1, 0, 1)
+        }, SlabSectionAxis.SectionX, double.NaN).Count == 0, "Invalid cut coordinate fails closed");
+        Check(SlabSectionGeometry.GetConcreteIntervals(new[]
+        {
+            new SlabSectionPoint(0, 0, 0), new SlabSectionPoint(double.PositiveInfinity, 0, 0),
+            new SlabSectionPoint(0, 1, 0)
+        }, null, SlabSectionAxis.SectionX, 0).Count == 0, "Invalid concrete boundary fails closed");
     }
 
     private static void RunRebarCalculationGoldens()
