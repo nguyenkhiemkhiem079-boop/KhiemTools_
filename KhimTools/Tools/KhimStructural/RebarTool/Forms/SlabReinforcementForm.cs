@@ -113,7 +113,7 @@ namespace KhimTools.RebarTool.Forms
         private readonly Dictionary<string, SlabPreviewGeometry> _detachedPanelGeometry = new Dictionary<string, SlabPreviewGeometry>(StringComparer.Ordinal);
         private ToolTip _previewToolTip;
         private float _previewZoom = 1f;
-        private Point _previewPan = Point.Empty;
+        private PointF _previewPan = PointF.Empty;
         private Point _previewPanOrigin;
         private bool _previewPanning;
         private RebarPreviewSnapshot _lastPreview;
@@ -123,14 +123,12 @@ namespace KhimTools.RebarTool.Forms
         private sealed class SlabPreviewGeometry
         {
             public PointF[] PlanBoundary { get; set; }
-            public PointF[] SectionXBoundary { get; set; }
-            public PointF[] SectionYBoundary { get; set; }
+            public PointF[][] SectionXConcrete { get; set; }
+            public PointF[][] SectionYConcrete { get; set; }
             public PointF[][] PlanOpenings { get; set; }
-            public PointF[][] SectionXOpenings { get; set; }
-            public PointF[][] SectionYOpenings { get; set; }
 
-            public PointF[] Boundary(int axis) => axis == 1 ? SectionXBoundary : axis == 2 ? SectionYBoundary : PlanBoundary;
-            public PointF[][] Openings(int axis) => axis == 1 ? SectionXOpenings : axis == 2 ? SectionYOpenings : PlanOpenings;
+            public PointF[][] BoundaryPaths(int axis) => axis == 1 ? SectionXConcrete : axis == 2 ? SectionYConcrete : new[] { PlanBoundary };
+            public PointF[][] Openings(int axis) => axis == 0 ? PlanOpenings : new PointF[0][];
         }
 
         public SlabReinforcementForm(Document doc, List<Floor> availableFloors, List<Floor> preSelectedFloors = null)
@@ -349,7 +347,7 @@ namespace KhimTools.RebarTool.Forms
             _cmbPreviewRole.SelectedIndex = 0;
             _cmbPreviewRole.SelectedIndexChanged += (s, e) => _previewCanvas?.Invalidate();
             var fitButton = new Button { Text = "Fit All", AutoSize = true, Height = 28 };
-            fitButton.Click += (s, e) => { _previewZoom = 1f; _previewPan = Point.Empty; _previewCanvas?.Invalidate(); };
+            fitButton.Click += (s, e) => { _previewZoom = 1f; _previewPan = PointF.Empty; _previewCanvas?.Invalidate(); };
             var zoomInButton = new Button { Text = "+", Width = 34, Height = 28, AccessibleName = "Zoom in" };
             zoomInButton.Click += (s, e) => { _previewZoom = Math.Min(8f, _previewZoom * 1.25f); _previewCanvas?.Invalidate(); };
             var zoomOutButton = new Button { Text = "−", Width = 34, Height = 28, AccessibleName = "Zoom out" };
@@ -369,10 +367,10 @@ namespace KhimTools.RebarTool.Forms
             _previewCanvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), AccessibleName = "Slab plan and section preview", TabStop = true };
             _previewCanvas.Paint += PaintSlabPreview;
             _previewCanvas.Resize += (s, e) => _previewCanvas.Invalidate();
-            _previewCanvas.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left) { _previewPanning = true; _previewPanOrigin = e.Location; _previewCanvas.Cursor = Cursors.Hand; } };
+            _previewCanvas.MouseDown += (s, e) => { if (e.Button == MouseButtons.Left || e.Button == MouseButtons.Middle) { _previewPanning = true; _previewPanOrigin = e.Location; _previewCanvas.Capture = true; _previewCanvas.Cursor = Cursors.Hand; } };
             _previewCanvas.MouseMove += (s, e) => { if (_previewPanning) { _previewPan.X += e.X - _previewPanOrigin.X; _previewPan.Y += e.Y - _previewPanOrigin.Y; _previewPanOrigin = e.Location; _previewCanvas.Invalidate(); } };
-            _previewCanvas.MouseUp += (s, e) => { _previewPanning = false; _previewCanvas.Cursor = Cursors.Default; };
-            _previewCanvas.MouseWheel += (s, e) => { _previewZoom = Math.Max(0.25f, Math.Min(8f, _previewZoom * (e.Delta > 0 ? 1.1f : 0.9f))); _previewCanvas.Invalidate(); };
+            _previewCanvas.MouseUp += (s, e) => { _previewPanning = false; _previewCanvas.Capture = false; _previewCanvas.Cursor = Cursors.Default; };
+            _previewCanvas.MouseWheel += PreviewCanvas_MouseWheel;
             previewLayout.Controls.Add(previewToolbar, 0, 0);
             previewLayout.Controls.Add(previewMetadata, 0, 1);
             previewLayout.Controls.Add(_previewCanvas, 0, 2);
@@ -619,7 +617,7 @@ namespace KhimTools.RebarTool.Forms
             string choice = _cmbPreviewPanel?.SelectedItem as string;
             string id = string.IsNullOrEmpty(choice) ? null : choice.Split(new[] { " — " }, StringSplitOptions.None)[0];
             return _panelManager.Panels.FirstOrDefault(panel => panel.PanelId == id) ??
-                _panelManager.Panels.FirstOrDefault(panel => panel.IsSelected) ?? _panelManager.Panels.FirstOrDefault();
+                _panelManager.Panels.FirstOrDefault(panel => panel.IsSelected);
         }
 
         private void UpdatePanelCountLabel()
@@ -643,6 +641,20 @@ namespace KhimTools.RebarTool.Forms
                     : "Xem panel đang hoạt động: " + active.PanelId + "  |  Batch: " + targetCount + " panel";
         }
 
+        private void PreviewCanvas_MouseWheel(object sender, MouseEventArgs e)
+        {
+            Panel canvas = (Panel)sender;
+            float oldZoom = _previewZoom;
+            _previewZoom = Math.Max(0.25f, Math.Min(8f, oldZoom * (e.Delta > 0 ? 1.15f : 1f / 1.15f)));
+            float ratio = _previewZoom / oldZoom;
+            float centerX = e.X - canvas.ClientSize.Width / 2f;
+            float centerY = e.Y - canvas.ClientSize.Height / 2f;
+            _previewPan.X = centerX * (1f - ratio) + _previewPan.X * ratio;
+            _previewPan.Y = centerY * (1f - ratio) + _previewPan.Y * ratio;
+            canvas.Invalidate();
+            canvas.Focus();
+        }
+
         private void PaintSlabPreview(object sender, PaintEventArgs e)
         {
             Panel canvas = (Panel)sender;
@@ -660,7 +672,7 @@ namespace KhimTools.RebarTool.Forms
             int axis = _cmbPreviewView == null ? 0 : _cmbPreviewView.SelectedIndex;
             SlabPreviewGeometry geometry;
             _detachedPanelGeometry.TryGetValue(panel.PanelId, out geometry);
-            var projectedBoundary = geometry?.Boundary(axis) ?? new PointF[0];
+            PointF[][] boundaryPaths = geometry?.BoundaryPaths(axis) ?? new PointF[0][];
             var projectedOpenings = geometry?.Openings(axis) ?? new PointF[0][];
             var pathSets = new List<Tuple<string, PointF[]>>();
             string fingerprint;
@@ -671,62 +683,143 @@ namespace KhimTools.RebarTool.Forms
                 pathSets.AddRange(component.Paths.Select(path => Tuple.Create(path.Role, ProjectPath(path, axis)))
                     .Where(item => item.Item2.Length > 1));
 
-            PointF[] all = projectedBoundary.Concat(projectedOpenings.SelectMany(points => points))
+            PointF[] all = boundaryPaths.SelectMany(points => points).Concat(projectedOpenings.SelectMany(points => points))
                 .Concat(pathSets.SelectMany(item => item.Item2)).ToArray();
             if (all.Length < 2)
             {
-                TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "Panel geometry is unavailable." : "Hình học panel không khả dụng.", Font, canvas.ClientRectangle, Color.DimGray,
+                string unavailable = axis == 0
+                    ? (LanguageManager.IsEnglish ? "Panel geometry is unavailable." : "Hình học panel không khả dụng.")
+                    : (LanguageManager.IsEnglish ? "SECTION NOT AVAILABLE · supported cut geometry could not be verified." : "KHÔNG CÓ MẶT CẮT · không xác minh được hình học tại mặt cắt.");
+                TextRenderer.DrawText(e.Graphics, unavailable, Font, canvas.ClientRectangle, Color.DimGray,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                return;
+            }
+            if (all.Any(point => float.IsNaN(point.X) || float.IsInfinity(point.X) || float.IsNaN(point.Y) || float.IsInfinity(point.Y)))
+            {
+                TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "FAILED · preview contains invalid detached coordinates." : "LỖI · preview có tọa độ đã tách không hợp lệ.",
+                    Font, canvas.ClientRectangle, Color.FromArgb(185, 28, 28), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 return;
             }
             float minX = all.Min(point => point.X), maxX = all.Max(point => point.X);
             float minY = all.Min(point => point.Y), maxY = all.Max(point => point.Y);
             float width = Math.Max(1e-4f, maxX - minX), height = Math.Max(1e-4f, maxY - minY);
-            float scale = Math.Min((canvas.ClientSize.Width - 100f) / width, (canvas.ClientSize.Height - 70f) / height);
-            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
+            float padX = Math.Min(42f, Math.Max(12f, canvas.ClientSize.Width * 0.08f));
+            float padY = Math.Min(54f, Math.Max(30f, canvas.ClientSize.Height * 0.12f));
+            float scale = Math.Min((canvas.ClientSize.Width - 2f * padX) / width, (canvas.ClientSize.Height - 2f * padY) / height);
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0)
+            {
+                TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "Canvas too small to display this view." : "Khung xem quá nhỏ để hiển thị mặt nhìn này.",
+                    Font, canvas.ClientRectangle, Color.DimGray, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                return;
+            }
             scale *= _previewZoom;
             float ox = (canvas.ClientSize.Width - width * scale) / 2f;
             float oy = (canvas.ClientSize.Height - height * scale) / 2f;
             PointF Map(PointF point) => new PointF(ox + _previewPan.X + (point.X - minX) * scale, oy + _previewPan.Y + (maxY - point.Y) * scale);
             using (var boundaryPen = new Pen(Color.FromArgb(51, 65, 85), 2f))
             using (var openingPen = new Pen(Color.FromArgb(220, 38, 38), 1.5f) { DashStyle = DashStyle.Dash })
-            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 2.2f))
-            using (var subduedBarPen = new Pen(Color.FromArgb(180, 190, 198), 1f))
+            using (var concreteBrush = new SolidBrush(Color.FromArgb(28, 71, 85, 105)))
             using (var textBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))
             using (var font = new Font("Segoe UI", 9f))
+            using (var smallFont = new Font("Segoe UI", 8f))
             {
-                if (projectedBoundary.Length > 2) e.Graphics.DrawPolygon(boundaryPen, projectedBoundary.Select(Map).ToArray());
-                foreach (PointF[] opening in projectedOpenings) e.Graphics.DrawPolygon(openingPen, opening.Select(Map).ToArray());
+                bool current = _previewLifecycle.State == PreviewLifecycleState.Valid && component != null;
+                foreach (PointF[] boundary in boundaryPaths)
+                {
+                    if (boundary.Length < 2) continue;
+                    PointF[] mapped = boundary.Select(Map).ToArray();
+                    if (axis != 0 && mapped.Length >= 3)
+                    {
+                        e.Graphics.FillPolygon(concreteBrush, mapped);
+                        e.Graphics.DrawPolygon(boundaryPen, mapped);
+                    }
+                    else if (mapped.Length >= 3) e.Graphics.DrawPolygon(boundaryPen, mapped);
+                    else e.Graphics.DrawLines(boundaryPen, mapped);
+                }
+                foreach (PointF[] opening in projectedOpenings)
+                {
+                    if (opening.Length >= 3) e.Graphics.DrawPolygon(openingPen, opening.Select(Map).ToArray());
+                    else if (opening.Length >= 2) e.Graphics.DrawLines(openingPen, opening.Select(Map).ToArray());
+                }
                 foreach (Tuple<string, PointF[]> rolePath in pathSets)
                 {
                     bool selectedRole = MatchesSlabRoleFilter(rolePath.Item1, _cmbPreviewRole?.SelectedIndex ?? 0);
-                    Pen pathPen = selectedRole ? barPen : subduedBarPen;
+                    Color roleColor = current ? SlabRoleColor(rolePath.Item1) : Color.FromArgb(148, 163, 184);
+                    if (!selectedRole) roleColor = Blend(roleColor, canvas.BackColor, 0.72f);
+                    using (var pathPen = new Pen(roleColor, selectedRole ? 2.3f : 1.1f))
+                    using (var markerBrush = new SolidBrush(roleColor))
+                    {
                     PointF[] path = rolePath.Item2;
                     PointF[] projected = path.Select(Map).ToArray();
+                    if (projected.Length < 2) continue;
                     float pathWidth = projected.Max(point => point.X) - projected.Min(point => point.X);
                     float pathHeight = projected.Max(point => point.Y) - projected.Min(point => point.Y);
-                    if (axis != 0 && pathWidth < 0.5f && pathHeight < 0.5f)
+                    if (axis != 0 && pathWidth < 1f && pathHeight < 1f)
                     {
-                        PointF center = projected[0];
-                        e.Graphics.FillEllipse(pathPen.Brush, center.X - (selectedRole ? 3.5f : 2.5f), center.Y - (selectedRole ? 3.5f : 2.5f), selectedRole ? 7f : 5f, selectedRole ? 7f : 5f);
+                        PointF center = new PointF(projected.Average(point => point.X), projected.Average(point => point.Y));
+                        float radius = selectedRole ? 4f : 2.8f;
+                        e.Graphics.FillEllipse(markerBrush, center.X - radius, center.Y - radius, radius * 2, radius * 2);
                     }
                     else e.Graphics.DrawLines(pathPen, projected);
+                    }
                 }
                 string title = plan
                     ? (LanguageManager.IsEnglish ? "PLAN · model axes X/Y" : "MẶT BẰNG · trục mô hình X/Y")
                     : axis == 1
                         ? (LanguageManager.IsEnglish ? "SECTION X · elevation X/Z" : "MẶT CẮT X · cao độ X/Z")
                         : (LanguageManager.IsEnglish ? "SECTION Y · elevation Y/Z" : "MẶT CẮT Y · cao độ Y/Z");
-                e.Graphics.DrawString(title, font, textBrush, 10, 8);
-                string dimensions = plan ? string.Format("{0}  ·  {1:N0} × {2:N0} mm", panel.PanelId, panel.WidthMm, panel.LengthMm) :
-                    string.Format(LanguageManager.IsEnglish ? "{0}  ·  thickness {1:N0} mm  ·  cover top/bottom {2:N0}/{3:N0} mm" : "{0}  ·  dày {1:N0} mm  ·  lớp bảo vệ trên/dưới {2:N0}/{3:N0} mm", panel.PanelId, panel.ThicknessMm,
-                        panel.CoverTopFeet * 304.8, panel.CoverBottomFeet * 304.8);
-                e.Graphics.DrawString(dimensions, font, textBrush, 10, canvas.ClientSize.Height - 22);
-                if (component == null)
-                    e.Graphics.DrawString(LanguageManager.IsEnglish ? "Geometry only — refresh to solve reinforcement centerlines." : "Chỉ có hình học — cập nhật để giải tim thép.", font, textBrush, 10, 28);
-                else if (_previewLifecycle.State == PreviewLifecycleState.Stale)
-                    e.Graphics.DrawString(LanguageManager.IsEnglish ? "STALE · bars shown from last valid solve" : "CŨ · đang hiển thị tim thép từ lần giải hợp lệ trước", font, textBrush, 10, 28);
+                TextRenderer.DrawText(e.Graphics, title, Font, new Rectangle(8, 5, canvas.ClientSize.Width - 16, 20), textBrush.Color,
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                string dims = string.Format(LanguageManager.IsEnglish
+                    ? "{0}  ·  {1:N0} × {2:N0} mm  ·  thickness {3:N0} mm  ·  cover T/B {4:N0}/{5:N0} mm"
+                    : "{0}  ·  {1:N0} × {2:N0} mm  ·  dày {3:N0} mm  ·  bảo vệ T/D {4:N0}/{5:N0} mm",
+                    panel.PanelId, panel.WidthMm, panel.LengthMm, panel.ThicknessMm,
+                    panel.CoverTopFeet * 304.8, panel.CoverBottomFeet * 304.8);
+                TextRenderer.DrawText(e.Graphics, dims, smallFont, new Rectangle(8, canvas.ClientSize.Height - 21, canvas.ClientSize.Width - 16, 18), textBrush.Color,
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                string state = _previewLifecycle.State == PreviewLifecycleState.Stale
+                    ? (LanguageManager.IsEnglish ? "STALE · showing last solved paths" : "CŨ · đang hiển thị tim thép đã giải trước đó")
+                    : _previewLifecycle.State == PreviewLifecycleState.Invalid
+                        ? (LanguageManager.IsEnglish ? "FAILED / INVALID · geometry is not current" : "LỖI / KHÔNG HỢP LỆ · hình học không còn hiện hành")
+                        : component == null
+                            ? (LanguageManager.IsEnglish ? "NOT_SOLVED · refresh to solve reinforcement centerlines" : "CHƯA GIẢI · cập nhật để giải tim thép")
+                            : (LanguageManager.IsEnglish ? "VALID · solver-generated centerlines" : "HỢP LỆ · tim thép từ bộ giải");
+                TextRenderer.DrawText(e.Graphics, state, Font, new Rectangle(8, 26, canvas.ClientSize.Width - 16, 20),
+                    _previewLifecycle.State == PreviewLifecycleState.Valid && component != null ? Color.FromArgb(21, 128, 61) : Color.FromArgb(180, 83, 9),
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                string role = _cmbPreviewRole?.SelectedItem?.ToString() ?? "All roles";
+                TextRenderer.DrawText(e.Graphics, (LanguageManager.IsEnglish ? "Role: " : "Vai trò: ") + role,
+                    smallFont, new Rectangle(8, canvas.ClientSize.Height - 40, canvas.ClientSize.Width - 16, 16), textBrush.Color,
+                    TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+                if (axis != 0 && boundaryPaths.Length == 0)
+                    TextRenderer.DrawText(e.Graphics, LanguageManager.IsEnglish ? "SECTION LIMITATION · verified cut outline unavailable" : "GIỚI HẠN MẶT CẮT · không có đường bao mặt cắt đã xác minh",
+                        smallFont, new Rectangle(8, 48, canvas.ClientSize.Width - 16, 18), Color.FromArgb(180, 83, 9), TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
             }
+        }
+
+        private static Color SlabRoleColor(string role)
+        {
+            switch (role)
+            {
+                case "bottom-x":
+                case "bottom-y": return Color.FromArgb(37, 99, 235);
+                case "top-x":
+                case "top-y": return Color.FromArgb(22, 163, 74);
+                case "support-x":
+                case "support-y": return Color.FromArgb(234, 128, 20);
+                case "opening": return Color.FromArgb(192, 38, 128);
+                case "spacer": return Color.FromArgb(107, 114, 128);
+                default: return Color.FromArgb(71, 85, 105);
+            }
+        }
+
+        private static Color Blend(Color foreground, Color background, float amount)
+        {
+            amount = Math.Max(0f, Math.Min(1f, amount));
+            return Color.FromArgb(
+                (int)(foreground.R * (1f - amount) + background.R * amount),
+                (int)(foreground.G * (1f - amount) + background.G * amount),
+                (int)(foreground.B * (1f - amount) + background.B * amount));
         }
 
         private static PointF[][] DetachLoopViews(CurveLoop loop)
@@ -747,8 +840,8 @@ namespace KhimTools.RebarTool.Forms
                 case 4: return role == "top-x" || role == "top-y";
                 case 5: return role == "top-x";
                 case 6: return role == "top-y";
-                case 7: return role.EndsWith("-x", StringComparison.Ordinal);
-                case 8: return role.EndsWith("-y", StringComparison.Ordinal);
+                case 7: return role != null && role.EndsWith("-x", StringComparison.Ordinal);
+                case 8: return role != null && role.EndsWith("-y", StringComparison.Ordinal);
                 case 9: return role == "support-x" || role == "support-y";
                 case 10: return role == "support-x";
                 case 11: return role == "support-y";
@@ -766,12 +859,74 @@ namespace KhimTools.RebarTool.Forms
             return new SlabPreviewGeometry
             {
                 PlanBoundary = boundary[0],
-                SectionXBoundary = boundary[1],
-                SectionYBoundary = boundary[2],
+                SectionXConcrete = CreateSectionOutlines(panel.Boundary, openings, 1, panel.ThicknessFeet),
+                SectionYConcrete = CreateSectionOutlines(panel.Boundary, openings, 2, panel.ThicknessFeet),
                 PlanOpenings = openingViews.Select(views => views[0]).Where(points => points.Length > 1).ToArray(),
-                SectionXOpenings = openingViews.Select(views => views[1]).Where(points => points.Length > 1).ToArray(),
-                SectionYOpenings = openingViews.Select(views => views[2]).Where(points => points.Length > 1).ToArray()
             };
+        }
+
+        private static PointF[][] CreateSectionOutlines(CurveLoop boundary, List<CurveLoop> openings, int axis, double thicknessFeet)
+        {
+            if (boundary == null || thicknessFeet <= 0 || double.IsNaN(thicknessFeet) || double.IsInfinity(thicknessFeet)) return new PointF[0][];
+            List<XYZ> vertices = boundary.SelectMany(curve => new[] { curve.GetEndPoint(0), curve.GetEndPoint(1) }).ToList();
+            if (vertices.Count < 4) return new PointF[0][];
+            double orthMin = vertices.Min(point => axis == 1 ? point.Y : point.X);
+            double orthMax = vertices.Max(point => axis == 1 ? point.Y : point.X);
+            double cut = (orthMin + orthMax) / 2.0;
+            double top = vertices.Average(point => point.Z);
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (vertices.Any(point => Math.Abs(point.Z - top) > tolerance)) return new PointF[0][];
+            double bottom = top - thicknessFeet;
+            List<Tuple<double, double>> solidIntervals = GetSectionIntervals(boundary, axis, cut);
+            foreach (CurveLoop opening in openings ?? new List<CurveLoop>())
+                foreach (Tuple<double, double> hole in GetSectionIntervals(opening, axis, cut))
+                    solidIntervals = SubtractInterval(solidIntervals, hole.Item1, hole.Item2);
+
+            return solidIntervals.Where(interval => interval.Item2 - interval.Item1 > tolerance)
+                .Select(interval => new[]
+                {
+                    ProjectPoint(axis == 1 ? interval.Item1 : cut, axis == 2 ? interval.Item1 : cut, top, axis),
+                    ProjectPoint(axis == 1 ? interval.Item2 : cut, axis == 2 ? interval.Item2 : cut, top, axis),
+                    ProjectPoint(axis == 1 ? interval.Item2 : cut, axis == 2 ? interval.Item2 : cut, bottom, axis),
+                    ProjectPoint(axis == 1 ? interval.Item1 : cut, axis == 2 ? interval.Item1 : cut, bottom, axis)
+                }).ToArray();
+        }
+
+        private static List<Tuple<double, double>> GetSectionIntervals(CurveLoop loop, int axis, double cut)
+        {
+            var intersections = new List<double>();
+            foreach (Curve curve in loop)
+            {
+                XYZ a = curve.GetEndPoint(0), b = curve.GetEndPoint(1);
+                double aOrth = axis == 1 ? a.Y : a.X;
+                double bOrth = axis == 1 ? b.Y : b.X;
+                double aAlong = axis == 1 ? a.X : a.Y;
+                double bAlong = axis == 1 ? b.X : b.Y;
+                if (Math.Abs(aOrth - bOrth) < 1e-9) continue;
+                if ((aOrth <= cut && bOrth > cut) || (bOrth <= cut && aOrth > cut))
+                    intersections.Add(aAlong + (cut - aOrth) * (bAlong - aAlong) / (bOrth - aOrth));
+            }
+            intersections.Sort();
+            var intervals = new List<Tuple<double, double>>();
+            for (int i = 0; i + 1 < intersections.Count; i += 2)
+                if (intersections[i + 1] > intersections[i]) intervals.Add(Tuple.Create(intersections[i], intersections[i + 1]));
+            return intervals;
+        }
+
+        private static List<Tuple<double, double>> SubtractInterval(List<Tuple<double, double>> source, double cutStart, double cutEnd)
+        {
+            var result = new List<Tuple<double, double>>();
+            foreach (Tuple<double, double> interval in source)
+            {
+                if (cutEnd <= interval.Item1 || cutStart >= interval.Item2)
+                {
+                    result.Add(interval);
+                    continue;
+                }
+                if (cutStart > interval.Item1) result.Add(Tuple.Create(interval.Item1, Math.Min(cutStart, interval.Item2)));
+                if (cutEnd < interval.Item2) result.Add(Tuple.Create(Math.Max(cutEnd, interval.Item1), interval.Item2));
+            }
+            return result;
         }
 
         private static PointF[] ProjectPath(RebarPreviewPath path, int axis) =>
