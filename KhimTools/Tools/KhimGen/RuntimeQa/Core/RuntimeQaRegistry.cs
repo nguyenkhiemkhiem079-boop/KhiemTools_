@@ -97,6 +97,8 @@ namespace KhimTools.RuntimeQa.Core
             registry.RegisterFixture(new RectangularSlabPreviewRuntimeFixture());
             registry.RegisterFixture(new SlabOpeningPreviewRuntimeFixture());
             registry.RegisterFixture(new SlabMultiPanelAtomicityRuntimeFixture());
+            registry.RegisterFixture(new SlabPreviewContractRuntimeFixture());
+            registry.RegisterFixture(new SlabOpeningAccessoryRuntimeFixture());
             return registry;
         }
     }

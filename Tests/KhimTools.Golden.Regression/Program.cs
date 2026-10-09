@@ -35,6 +35,7 @@ static class Program
     {
         RunDomainGoldens();
         RunRebarCalculationGoldens();
+        RunRebarPreviewDuplicateCases();
         RunSlabSectionGeometryCases();
         RunComparatorContract();
         RunEdgeCases();
@@ -47,6 +48,24 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunRebarPreviewDuplicateCases()
+    {
+        string[] expected = { "host-A:type-16:line-1", "host-A:type-16:line-2", "host-A:type-16:line-2" };
+        Check(RebarFingerprintMultiset.Contains(expected,
+            new[] { expected[2], expected[0], expected[1] }), "Exact slab plan matches as an order-independent multiset");
+        Check(!RebarFingerprintMultiset.Contains(expected,
+            new[] { expected[0], "host-A:unrelated-line" }), "A shared planned set plus unrelated rebar is not a complete duplicate");
+        Check(!RebarFingerprintMultiset.Contains(expected,
+            new[] { expected[0], expected[1], "host-A:type-16:line-3" }), "Duplicate matching preserves planned multiplicity");
+        Check(!RebarFingerprintMultiset.Contains(expected,
+            new[] { "host-B:type-16:line-1", "host-B:type-16:line-2", "host-B:type-16:line-2" }),
+            "Identical geometry hosted by another slab is not a duplicate");
+        Check(RebarFingerprintMultiset.Contains(expected,
+            expected.Concat(new[] { "host-A:unrelated-existing-reinforcement" })),
+            "A complete planned duplicate remains detectable alongside unrelated reinforcement");
+        Check(!RebarFingerprintMultiset.Contains(Array.Empty<string>(), expected), "An empty preview cannot be classified as a duplicate");
     }
 
     private static void RunSlabSectionGeometryCases()

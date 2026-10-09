@@ -451,28 +451,7 @@ namespace KhimTools.RebarTool.Core
 
         internal static bool ContainsFingerprintMultiset(IEnumerable<string> expected, IEnumerable<string> actual)
         {
-            string[] expectedItems = (expected ?? Enumerable.Empty<string>()).ToArray();
-            if (expectedItems.Length == 0) return false;
-
-            var remaining = new Dictionary<string, int>(StringComparer.Ordinal);
-            foreach (string fingerprint in expectedItems)
-            {
-                if (string.IsNullOrEmpty(fingerprint)) return false;
-                int count;
-                remaining.TryGetValue(fingerprint, out count);
-                remaining[fingerprint] = count + 1;
-            }
-
-            foreach (string fingerprint in actual ?? Enumerable.Empty<string>())
-            {
-                int count;
-                if (!string.IsNullOrEmpty(fingerprint) && remaining.TryGetValue(fingerprint, out count))
-                {
-                    if (count == 1) remaining.Remove(fingerprint);
-                    else remaining[fingerprint] = count - 1;
-                }
-            }
-            return remaining.Count == 0;
+            return RebarFingerprintMultiset.Contains(expected, actual);
         }
 
         internal static string FingerprintBar(Rebar bar)
