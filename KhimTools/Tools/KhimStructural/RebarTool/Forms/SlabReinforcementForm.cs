@@ -1378,6 +1378,7 @@ namespace KhimTools.RebarTool.Forms
                 RebarLayout.Field("Làm tròn chiều dài (chưa áp dụng)", _numRounding),
                 RebarLayout.Field("Ngưỡng nhịp chạy suốt (mm)", _numMinSpan));
             RebarLayout.Stack(page, grpSpacer, grpAnchor);
+            RebarLayout.KeepAutoSizeGroupContentVisible(grpAnchor);
         }
 
         private void BuildTabDesign(TabPage page)
