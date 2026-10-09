@@ -2,7 +2,8 @@ param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
     [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024"),
     [double[]]$Scales = @(1, 1.5, 2),
-    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "ProjectCoverSetup", "SlabEdgePicker")
+    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "ProjectCoverSetup", "SlabEdgePicker"),
+    [string[]]$WindowProfiles = @("minimum", "wide")
 )
 $ErrorActionPreference = "Stop"
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") { throw "Run with Windows PowerShell -STA." }
@@ -74,12 +75,18 @@ foreach ($name in $Forms) {
     $className = if ($name -in @("ProjectCoverSetup", "SlabEdgePicker")) { "$($name)Form" } else { "$($name)ReinforcementForm" }
     $type = $assembly.GetType("KhimTools.RebarTool.Forms.$className", $true)
     foreach ($scale in $Scales) {
-        foreach ($sizeMode in @("minimum", "wide")) {
+        foreach ($sizeMode in $WindowProfiles) {
             Write-Host "Checking $name $sizeMode scale=$scale"
             $form = $type.GetMethod("CreateLayoutPreview", [Reflection.BindingFlags]"NonPublic,Static").Invoke($null, @())
             $root = $null
             try {
-                $form.Size = if ($sizeMode -eq "minimum") { $form.MinimumSize } else { [Drawing.Size]::new(1440,900) }
+                switch ($sizeMode) {
+                    "minimum" { $form.Size = $form.MinimumSize; break }
+                    "wide" { $form.Size = [Drawing.Size]::new(1440,900); break }
+                    "1366x768" { $form.Size = [Drawing.Size]::new(1366,768); break }
+                    "1920x1080" { $form.Size = [Drawing.Size]::new(1920,1080); break }
+                    default { throw "Unsupported UI QA window profile '$sizeMode'." }
+                }
                 $null = $form.Handle
                 $assembly.GetType("KhimTools.Core.KhimUiStyle").GetMethod("StyleControlTree").Invoke($null, @($form)) | Out-Null
                 [Windows.Forms.Form].GetMethod("OnShown", $flags).Invoke($form, @([EventArgs]::Empty)) | Out-Null
@@ -110,6 +117,25 @@ foreach ($name in $Forms) {
                         $entry.Control.Font = [Drawing.Font]::new($entry.Font.FontFamily, [single]($entry.Font.Size * $scale), $entry.Font.Style)
                     }
                     Prepare-Controls $root
+                }
+                if ($name -eq "Slab") {
+                    $workspace = $type.GetField("_workspaceSplit", $flags).GetValue($form)
+                    $settingsPanels = $type.GetField("_settingsPanelSplit", $flags).GetValue($form)
+                    $canvas = $type.GetField("_previewCanvas", $flags).GetValue($form)
+                    $legend = $type.GetField("_previewLegend", $flags).GetValue($form)
+                    if (!$workspace.IsSplitterFixed -and !$settingsPanels.IsSplitterFixed) { $checks++ }
+                    else { $issues.Add("$name $sizeMode scale=$scale | Splitters are not user-resizable") }
+                    if ($canvas.ClientSize.Width -lt 420 -or $canvas.ClientSize.Height -lt 180) {
+                        $issues.Add("$name $sizeMode scale=$scale | Preview canvas too small: $($canvas.ClientSize)")
+                    } else { $checks++ }
+                    if ($legend -and !$legend.IsDisposed -and $legend.Controls.Count -gt 0) { $checks++ }
+                    else { $issues.Add("$name $sizeMode scale=$scale | Solved-role legend is not visible") }
+                    $panelSelector = $type.GetField("_cmbPreviewPanel", $flags).GetValue($form)
+                    $toolbar = $panelSelector.Parent.Parent
+                    $toolbarFlows = @($toolbar.Controls | Where-Object { $_ -is [Windows.Forms.FlowLayoutPanel] })
+                    if ($toolbar.RowCount -ne 2 -or $toolbarFlows.Count -ne 2 -or @($toolbarFlows | Where-Object { $_.AutoScroll }).Count -gt 0) {
+                        $issues.Add("$name $sizeMode scale=$scale | Essential preview toolbar is missing or scrolls horizontally")
+                    } else { $checks++ }
                 }
                 $tabs = @(Get-Controls $root | Where-Object { $_ -is [Windows.Forms.TabControl] })
                 $states = if ($name -eq "Beam") { 6 } elseif ($name -in @("RectangularColumn", "CircularColumn", "Foundation", "Slab")) { $tabs[0].TabCount * 2 } elseif ($tabs.Count) { $tabs[0].TabCount } else { 1 }
