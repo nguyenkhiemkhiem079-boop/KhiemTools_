@@ -27,19 +27,18 @@ namespace KhimTools.RebarTool.Core
         public int TopContinuousQty { get; set; } = 2;
         public int BottomContinuousQty { get; set; } = 2;
 
-        public int TopLeftExtraQty { get; set; } = 1;
+        public int TopLeftExtraQty { get; set; } = 0;
         public RebarBarType TopLeftExtraBarType { get; set; }
-        public int TopRightExtraQty { get; set; } = 1;
+        public int TopRightExtraQty { get; set; } = 0;
         public RebarBarType TopRightExtraBarType { get; set; }
-        public int BottomMidExtraQty { get; set; } = 1;
+        public int BottomMidExtraQty { get; set; } = 0;
         public RebarBarType BottomMidExtraBarType { get; set; }
 
-        public bool AutoSideBars { get; set; } = true;
-        public int SideBarQty { get; set; } = 2;
+        public bool AutoSideBars { get; set; } = false;
+        public int SideBarQty { get; set; } = 0;
         /// <summary>
         /// TCVN 5574:2018 Điều 10.3.5.4: Ngưỡng chiều cao dầm tự động bật thép sườn (mặc định 700 mm).
         /// </summary>
-        public double SideBarThresholdMm { get; set; } = 700.0;
 
         public int HangerStirrupQty { get; set; } = 3;
         public double HangerStirrupSpacingMm { get; set; } = 50.0;
@@ -67,50 +66,102 @@ namespace KhimTools.RebarTool.Core
     {
         private readonly Document _doc;
         public BeamRebarGenerator(Document doc) => _doc = doc;
-        private void EnsureBarTypes(BeamRebarInput input)
+
+        private void RequireBarType(RebarBarType barType, string role)
         {
-            var allTypes = new FilteredElementCollector(_doc)
-                .OfClass(typeof(RebarBarType))
-                .Cast<RebarBarType>()
-                .ToList();
+            if (barType == null || !barType.IsValidObject)
+                throw new InvalidOperationException("Select a loaded RebarBarType for " + role + "; no bar type is substituted automatically.");
+            if (barType.Document != _doc)
+                throw new InvalidOperationException("The selected RebarBarType for " + role + " belongs to a different Revit document.");
+            RequireFinitePositive(barType.BarModelDiameter, "Selected Beam bar model diameter for " + role);
+        }
 
-            var defaultType = allTypes.FirstOrDefault();
-            if (defaultType == null)
-                throw new InvalidOperationException("Trong dự án chưa có loại thép (RebarBarType) nào. Vui lòng tải Rebar Families vào dự án.");
+        private static void RequireFinitePositive(double value, string label)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0)
+                throw new InvalidOperationException(label + " must be a finite positive value.");
+        }
 
-            if (input.MainTopBarType == null) input.MainTopBarType = defaultType;
-            if (input.MainBottomBarType == null) input.MainBottomBarType = input.MainTopBarType;
-            if (input.StirrupBarType == null) input.StirrupBarType = defaultType;
-            if (input.SideBarType == null) input.SideBarType = input.StirrupBarType;
-            if (input.TopLeftExtraBarType == null) input.TopLeftExtraBarType = input.MainTopBarType;
-            if (input.TopRightExtraBarType == null) input.TopRightExtraBarType = input.MainTopBarType;
-            if (input.BottomMidExtraBarType == null) input.BottomMidExtraBarType = input.MainBottomBarType;
+        private static bool TryGetMaximumAssignedCover(Element host, out double coverFeet)
+        {
+            RebarFace[] faces = { RebarFace.Top, RebarFace.Bottom, RebarFace.Exterior, RebarFace.Interior, RebarFace.Other };
+            double[] assigned = faces.Select(face =>
+            {
+                double value;
+                return RebarCoverHelper.TryGetFaceCover(host, face, out value) ? (double?)value : null;
+            }).Where(value => value.HasValue && value.Value > 0).Select(value => value.Value).ToArray();
+            if (assigned.Length == 0)
+            {
+                coverFeet = 0;
+                return false;
+            }
+            coverFeet = assigned.Max();
+            return true;
+        }
+
+        private static Rebar RequireCreated(Rebar bar, string role)
+        {
+            if (bar != null && bar.IsValidObject) return bar;
+            string reason = RebarShapeCreationHelper.LastFailureReason;
+            throw new InvalidOperationException("Revit did not create the required Beam " + role + "." +
+                (string.IsNullOrWhiteSpace(reason) ? string.Empty : " " + reason));
         }
 
         public List<Rebar> Generate(BeamRebarInput input, RebarGenerationReport report = null,
             IDictionary<string, string> roleByBarId = null)
         {
-            if (input?.Beam == null) return new List<Rebar>();
+            if (input?.Beam == null) throw new ArgumentException("A valid Structural Framing beam is required.", nameof(input));
+            if (_doc == null || input.Beam.Document != _doc || !input.Beam.IsValidObject)
+                throw new InvalidOperationException("The selected Beam must be valid and belong to the generator's active document.");
+            if (input.Beam.Category == null || input.Beam.Category.BuiltInCategory != BuiltInCategory.OST_StructuralFraming)
+                throw new InvalidOperationException("Beam reinforcement supports Structural Framing hosts only.");
             if (input.TopContinuousQty < 2 || input.BottomContinuousQty < 2)
                 throw new InvalidOperationException("Beam reinforcement requires at least two continuous top bars and two continuous bottom bars.");
+            if (input.TopLeftExtraQty < 0 || input.TopRightExtraQty < 0 || input.BottomMidExtraQty < 0)
+                throw new InvalidOperationException("Beam additional-bar quantities must be non-negative.");
+            if (input.TopLeftExtraQty > 0 || input.TopRightExtraQty > 0 || input.BottomMidExtraQty > 0)
+                throw new InvalidOperationException("Beam extra-bar generation is disabled until the UI exposes validated curtailment and support-anchorage positions. The legacy L/3 and 15%-85% locations are not treated as engineering inputs.");
             if (input.SideBarQty < 0 || input.SideBarQty % 2 != 0)
                 throw new InvalidOperationException("Beam side-bar quantity must be a non-negative even number because side bars are placed in symmetric pairs.");
+            if (input.SideBarQty > 0)
+                throw new InvalidOperationException("Beam side-bar generation is disabled until vertical layer spacing, support anchorage and preview settings are exposed and validated.");
+            if (input.AutoSideBars)
+                throw new InvalidOperationException("Automatic Beam side-bar generation is disabled until its detailing rules are exposed as validated production inputs.");
             if (input.HangerStirrupQty < 0 || (input.HangerStirrupQty > 0 &&
                 (double.IsNaN(input.HangerStirrupSpacingMm) || double.IsInfinity(input.HangerStirrupSpacingMm) || input.HangerStirrupSpacingMm <= 0)))
                 throw new InvalidOperationException("Beam hanger-stirrup quantity must be non-negative, and enabled hanger stirrups require a finite positive spacing.");
-            EnsureBarTypes(input);
-            if (input?.Beam == null) return new List<Rebar>();
+            RequireFinitePositive(input.StirrupSpacingA1, "Beam end-zone stirrup spacing");
+            RequireFinitePositive(input.StirrupSpacingA2, "Beam middle-zone stirrup spacing");
+            if (double.IsNaN(input.ZoneA1Length) || double.IsInfinity(input.ZoneA1Length) || input.ZoneA1Length < 0)
+                throw new InvalidOperationException("Beam end-zone length must be finite and non-negative (zero selects the documented quarter-span default).");
+            RequireFinitePositive(input.LdMultiplier, "Beam anchorage multiplier");
+            RequireFinitePositive(input.HookTailMultiplier, "Beam hook-tail multiplier");
+            if (input.CustomCoverFeet.HasValue) RequireFinitePositive(input.CustomCoverFeet.Value, "Beam concrete cover");
+
+            RequireBarType(input.MainTopBarType, "continuous top bars");
+            RequireBarType(input.MainBottomBarType, "continuous bottom bars");
+            RequireBarType(input.StirrupBarType, "stirrups");
 
             var profile = BeamGeometryHelper.GetBeamProfile(input.Beam);
-            if (profile == null) return new List<Rebar>();
 
             var created = new List<Rebar>();
+            var supportElements = new HashSet<Element>();
 
-            double cover = input.CustomCoverFeet ?? RebarCoverHelper.GetFloorCover(input.Beam, RebarFace.Other);
+            double cover;
+            if (input.CustomCoverFeet.HasValue) cover = input.CustomCoverFeet.Value;
+            else if (!TryGetMaximumAssignedCover(input.Beam, out cover))
+                throw new InvalidOperationException("No Revit concrete-cover assignment is available for this Beam. Assign a cover in Structural Settings or set an explicit supported cover before previewing.");
 
             double stirrupDia = input.StirrupBarType.BarModelDiameter;
             double topMainDia = input.MainTopBarType.BarModelDiameter;
             double botMainDia = input.MainBottomBarType.BarModelDiameter;
+
+            double sectionTolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            List<BeamLongitudinalLayout.SectionBar> topLayout = BeamLongitudinalLayout.CreateSymmetricRow(
+                profile.B, profile.H, cover, stirrupDia, topMainDia, input.TopContinuousQty, top: true, sectionTolerance);
+            List<BeamLongitudinalLayout.SectionBar> bottomLayout = BeamLongitudinalLayout.CreateSymmetricRow(
+                profile.B, profile.H, cover, stirrupDia, botMainDia, input.BottomContinuousQty, top: false, sectionTolerance);
+            BeamLongitudinalLayout.RequireNoOverlap(topLayout.Concat(bottomLayout), sectionTolerance);
 
             double halfB = profile.B / 2.0 - cover - stirrupDia / 2.0;
             double halfH = profile.H / 2.0 - cover - stirrupDia / 2.0;
@@ -120,12 +171,12 @@ namespace KhimTools.RebarTool.Core
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu.
             // 1. Thép chủ trên chạy suốt.
-            List<Rebar> topContinuous = CreateTopContinuousBars(input, profile, cover, stirrupDia, topMainDia);
+            List<Rebar> topContinuous = CreateTopContinuousBars(input, profile, topLayout, supportElements);
             created.AddRange(topContinuous);
             RecordRoles(topContinuous, "top-continuous", roleByBarId);
 
             // 2. Thép chủ dưới chạy suốt.
-            List<Rebar> bottomContinuous = CreateBottomContinuousBars(input, profile, cover, stirrupDia, botMainDia);
+            List<Rebar> bottomContinuous = CreateBottomContinuousBars(input, profile, bottomLayout, supportElements);
             created.AddRange(bottomContinuous);
             RecordRoles(bottomContinuous, "bottom-continuous", roleByBarId);
 
@@ -151,33 +202,112 @@ namespace KhimTools.RebarTool.Core
                 RecordRoles(bars, "bottom-mid-extra", roleByBarId);
             }
 
-            // 5. Thép sườn dầm (Side/Skin Bars).
-            double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
-            if ((input.AutoSideBars && hMm >= input.SideBarThresholdMm) || input.SideBarQty > 0)
-            {
-                RebarBarType sideType = input.SideBarType ?? input.StirrupBarType;
-                List<Rebar> bars = CreateSideBars(input, profile, cover, stirrupDia, sideType);
-                created.AddRange(bars);
-                RecordRoles(bars, "side-bars", roleByBarId);
-            }
-
-            // 6. Thép đai phân vùng A1 / A2 / A1.
-            List<Rebar> stirrups = CreateBeamStirrups(input, profile, halfB, halfH);
+            // 5. Thép đai phân vùng A1 / A2 / A1.
+            List<double> normalStirrupStations;
+            List<Rebar> stirrups = CreateBeamStirrups(input, profile, halfB, halfH, stirrupDia, out normalStirrupStations);
             created.AddRange(stirrups);
             RecordRoles(stirrups, "stirrup", roleByBarId);
 
-            // 7. Thép đai treo chống giật tại vị trí dầm phụ giao dầm chính (Gap 7b).
-            List<Rebar> hangerStirrups = CreateHangerStirrups(input, profile, halfB, halfH, report);
+            // 6. Thép đai treo chống giật tại vị trí dầm phụ giao dầm chính (Gap 7b).
+            List<Rebar> hangerStirrups = CreateHangerStirrups(input, profile, halfB, halfH, stirrupDia, normalStirrupStations);
             created.AddRange(hangerStirrups);
             RecordRoles(hangerStirrups, "hanger-stirrup", roleByBarId);
 
-            var containment = RebarSafetyValidator.CheckRebarContainment(input.Beam, created);
-            if (containment.outCount > 0)
-            {
-                report?.AddWarning($"Có {containment.outCount} thanh thép dầm vượt ngoài phạm vi hình học host: {containment.warning}");
-            }
+            ValidateActualCenterlineContainment(input.Beam, supportElements, created);
             report?.AddSuccess(created.Count);
             return created;
+        }
+
+        private static void ValidateActualCenterlineContainment(Element beam,
+            IEnumerable<Element> supports, IEnumerable<Rebar> rebars)
+        {
+            var hostSolids = new Dictionary<string, List<Solid>>(StringComparer.Ordinal);
+            foreach (Element host in (supports ?? Enumerable.Empty<Element>()).Concat(new[] { beam })
+                .Where(element => element != null && element.IsValidObject)
+                .GroupBy(element => element.UniqueId, StringComparer.Ordinal).Select(group => group.First()))
+            {
+                var solids = new List<Solid>();
+                CollectSolids(host.get_Geometry(new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine }), solids);
+                hostSolids[host.UniqueId] = solids.Where(solid => solid != null && solid.Faces.Size > 0 && solid.Volume > 1e-9).ToList();
+            }
+
+            double toleranceFeet = UnitUtils.ConvertToInternalUnits(1.0, UnitTypeId.Millimeters);
+            foreach (Rebar rebar in rebars ?? Enumerable.Empty<Rebar>())
+            {
+                if (rebar == null || !rebar.IsValidObject || rebar.GetHostId() != beam.Id)
+                    throw new InvalidOperationException("Beam reinforcement contains an invalid Rebar or a Rebar hosted by another element.");
+                int positionCount = Math.Max(1, rebar.NumberOfBarPositions);
+                for (int position = 0; position < positionCount; position++)
+                {
+                    if (!rebar.DoesBarExistAtPosition(position)) continue;
+                    IList<Curve> centerlines = rebar.GetCenterlineCurves(false, true, false,
+                        MultiplanarOption.IncludeAllMultiplanarCurves, position);
+                    if (centerlines == null || centerlines.Count == 0)
+                        throw new InvalidOperationException("Beam Rebar centerline could not be inspected after Revit creation.");
+                    foreach (Curve centerline in centerlines)
+                    {
+                        if (!(centerline is Line) && !(centerline is Arc))
+                            throw new InvalidOperationException("Beam reinforcement currently validates straight and circular-arc centerline segments only.");
+                        if (!IsCurveCoveredByHosts(centerline, hostSolids.Values.SelectMany(solids => solids), toleranceFeet))
+                            throw new InvalidOperationException("Beam Rebar centerline leaves the verified Beam/support concrete solids; the generated set was rejected.");
+                    }
+                }
+            }
+        }
+
+        private static bool IsCurveCoveredByHosts(Curve curve, IEnumerable<Solid> solids, double toleranceFeet)
+        {
+            double curveLength = curve.Length;
+            if (double.IsNaN(curveLength) || double.IsInfinity(curveLength) || curveLength <= toleranceFeet) return false;
+            double startParameter = curve.GetEndParameter(0);
+            double endParameter = curve.GetEndParameter(1);
+            double parameterSpan = endParameter - startParameter;
+            if (Math.Abs(parameterSpan) <= 1e-12) return false;
+
+            var intervals = new List<Tuple<double, double>>();
+            foreach (Solid solid in solids ?? Enumerable.Empty<Solid>())
+            {
+                using (SolidCurveIntersection intersection = solid.IntersectWithCurve(curve, new SolidCurveIntersectionOptions()))
+                {
+                    for (int index = 0; index < intersection.SegmentCount; index++)
+                    {
+                        Curve segment = intersection.GetCurveSegment(index);
+                        if (segment == null) continue;
+                        IntersectionResult first = curve.Project(segment.GetEndPoint(0));
+                        IntersectionResult second = curve.Project(segment.GetEndPoint(1));
+                        if (first == null || second == null) continue;
+                        double a = (first.Parameter - startParameter) / parameterSpan;
+                        double b = (second.Parameter - startParameter) / parameterSpan;
+                        intervals.Add(Tuple.Create(Math.Max(0, Math.Min(a, b)), Math.Min(1, Math.Max(a, b))));
+                    }
+                }
+            }
+
+            double parameterTolerance = Math.Min(0.01, toleranceFeet / curveLength);
+            double coveredThrough = 0;
+            foreach (Tuple<double, double> interval in intervals.OrderBy(item => item.Item1).ThenBy(item => item.Item2))
+            {
+                if (interval.Item2 < coveredThrough - parameterTolerance) continue;
+                if (interval.Item1 > coveredThrough + parameterTolerance) return false;
+                coveredThrough = Math.Max(coveredThrough, interval.Item2);
+                if (coveredThrough >= 1 - parameterTolerance) return true;
+            }
+            return coveredThrough >= 1 - parameterTolerance;
+        }
+
+        private static void CollectSolids(GeometryElement geometry, IList<Solid> solids)
+        {
+            if (geometry == null) return;
+            foreach (GeometryObject item in geometry)
+            {
+                Solid solid = item as Solid;
+                if (solid != null) solids.Add(solid);
+                else
+                {
+                    GeometryInstance instance = item as GeometryInstance;
+                    if (instance != null) CollectSolids(instance.GetInstanceGeometry(), solids);
+                }
+            }
         }
 
         private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
@@ -190,19 +320,18 @@ namespace KhimTools.RebarTool.Core
         // ===== TOP CONTINUOUS =====
 
         private List<Rebar> CreateTopContinuousBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, IList<BeamLongitudinalLayout.SectionBar> layout,
+            ICollection<Element> supportElements)
         {
             var bars = new List<Rebar>();
-            int qty = input.TopContinuousQty;
-
-            double yTop = profile.H / 2.0 - cover - stirrupDia - mainDia / 2.0;
-            double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
-            EndAnchorage startAnch = CalculateEndAnchorage(input, profile.StartPoint, profile.Direction, mainDia);
-            EndAnchorage endAnch = CalculateEndAnchorage(input, profile.EndPoint, profile.Direction, mainDia);
-            for (int i = 0; i < qty; i++)
+            foreach (BeamLongitudinalLayout.SectionBar position in layout ?? Array.Empty<BeamLongitudinalLayout.SectionBar>())
             {
-                double t = (double)i / (qty - 1);
-                double x = -halfB + t * 2 * halfB;
+                double x = position.X;
+                double yTop = position.Y;
+                XYZ startPoint = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, 0);
+                XYZ endPoint = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, profile.Length);
+                EndAnchorage startAnch = CalculateEndAnchorage(input, startPoint, profile.Direction, position.Diameter, true, supportElements);
+                EndAnchorage endAnch = CalculateEndAnchorage(input, endPoint, profile.Direction, position.Diameter, false, supportElements);
 
                 List<Curve> curves = BuildMainBarCurves(profile, x, yTop, startAnch, endAnch, true);
 
@@ -216,20 +345,10 @@ namespace KhimTools.RebarTool.Core
                     profile.RightVector, // Normal of the vertical bending plane
                     curves,
                     RebarHookOrientation.Right,
-                    RebarHookOrientation.Right);
+                    RebarHookOrientation.Right,
+                    allowLegacyFallback: false);
 
-                if (bar != null)
-                {
-                    bars.Add(bar);
-                }
-                else
-                {
-                    // Fallback to straight bar if bend fails
-                    XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, -startAnch.Extension);
-                    XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainTopBarType, start, end);
-                    if (fallbackBar != null) bars.Add(fallbackBar);
-                }
+                bars.Add(RequireCreated(bar, "continuous top bar"));
             }
 
             return bars;
@@ -238,19 +357,18 @@ namespace KhimTools.RebarTool.Core
         // ===== BOTTOM CONTINUOUS =====
 
         private List<Rebar> CreateBottomContinuousBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, double mainDia)
+            BeamGeometryHelper.BeamProfile profile, IList<BeamLongitudinalLayout.SectionBar> layout,
+            ICollection<Element> supportElements)
         {
             var bars = new List<Rebar>();
-            int qty = input.BottomContinuousQty;
-
-            double yBot = -profile.H / 2.0 + cover + stirrupDia + mainDia / 2.0;
-            double halfB = profile.B / 2.0 - cover - stirrupDia - mainDia / 2.0;
-            EndAnchorage startAnch = CalculateEndAnchorage(input, profile.StartPoint, profile.Direction, mainDia);
-            EndAnchorage endAnch = CalculateEndAnchorage(input, profile.EndPoint, profile.Direction, mainDia);
-            for (int i = 0; i < qty; i++)
+            foreach (BeamLongitudinalLayout.SectionBar position in layout ?? Array.Empty<BeamLongitudinalLayout.SectionBar>())
             {
-                double t = (double)i / (qty - 1);
-                double x = -halfB + t * 2 * halfB;
+                double x = position.X;
+                double yBot = position.Y;
+                XYZ startPoint = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, 0);
+                XYZ endPoint = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, profile.Length);
+                EndAnchorage startAnch = CalculateEndAnchorage(input, startPoint, profile.Direction, position.Diameter, true, supportElements);
+                EndAnchorage endAnch = CalculateEndAnchorage(input, endPoint, profile.Direction, position.Diameter, false, supportElements);
 
                 List<Curve> curves = BuildMainBarCurves(profile, x, yBot, startAnch, endAnch, false);
 
@@ -264,19 +382,10 @@ namespace KhimTools.RebarTool.Core
                     profile.RightVector,
                     curves,
                     RebarHookOrientation.Right,
-                    RebarHookOrientation.Right);
+                    RebarHookOrientation.Right,
+                    allowLegacyFallback: false);
 
-                if (bar != null)
-                {
-                    bars.Add(bar);
-                }
-                else
-                {
-                    XYZ start = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, -startAnch.Extension);
-                    XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, profile.Length + endAnch.Extension);
-                    Rebar fallbackBar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, input.MainBottomBarType, start, end);
-                    if (fallbackBar != null) bars.Add(fallbackBar);
-                }
+                bars.Add(RequireCreated(bar, "continuous bottom bar"));
             }
 
             return bars;
@@ -298,7 +407,7 @@ namespace KhimTools.RebarTool.Core
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
             double startX = (qty > 1) ? -halfB * 0.6 : 0;
 
-            RebarBarType barType = input.TopLeftExtraBarType ?? input.MainTopBarType;
+            RebarBarType barType = input.TopLeftExtraBarType;
 
             for (int i = 0; i < qty; i++)
             {
@@ -307,7 +416,7 @@ namespace KhimTools.RebarTool.Core
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zEnd);
 
                 Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
-                if (bar != null) bars.Add(bar);
+                bars.Add(RequireCreated(bar, "left top extra bar"));
             }
 
             return bars;
@@ -327,7 +436,7 @@ namespace KhimTools.RebarTool.Core
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
             double startX = (qty > 1) ? -halfB * 0.6 : 0;
 
-            RebarBarType barType = input.TopRightExtraBarType ?? input.MainTopBarType;
+            RebarBarType barType = input.TopRightExtraBarType;
 
             for (int i = 0; i < qty; i++)
             {
@@ -336,7 +445,7 @@ namespace KhimTools.RebarTool.Core
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yTop, zEnd);
 
                 Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
-                if (bar != null) bars.Add(bar);
+                bars.Add(RequireCreated(bar, "right top extra bar"));
             }
 
             return bars;
@@ -358,7 +467,7 @@ namespace KhimTools.RebarTool.Core
             double stepX = (qty > 1) ? (2 * halfB * 0.6) / (qty - 1) : 0;
             double startX = (qty > 1) ? -halfB * 0.6 : 0;
 
-            RebarBarType barType = input.BottomMidExtraBarType ?? input.MainBottomBarType;
+            RebarBarType barType = input.BottomMidExtraBarType;
 
             for (int i = 0; i < qty; i++)
             {
@@ -367,42 +476,7 @@ namespace KhimTools.RebarTool.Core
                 XYZ end = BeamGeometryHelper.TransformLocalToWorld(profile, x, yBot, zEnd);
 
                 Rebar bar = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, barType, start, end);
-                if (bar != null) bars.Add(bar);
-            }
-
-            return bars;
-        }
-
-        // ===== SIDE BARS =====
-
-        private List<Rebar> CreateSideBars(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double cover, double stirrupDia, RebarBarType sideType)
-        {
-            var bars = new List<Rebar>();
-            int sidePairs = Math.Max(input.SideBarQty / 2, input.AutoSideBars ? 1 : 0);
-            double sideDia = sideType.BarModelDiameter;
-
-            double halfB = profile.B / 2.0 - cover - stirrupDia - sideDia / 2.0;
-            double usableH = profile.H - 2 * (cover + stirrupDia + sideDia);
-
-            double zStart = 0;
-            double zEnd = profile.Length;
-
-            for (int i = 1; i <= sidePairs; i++)
-            {
-                double y = -profile.H / 2.0 + cover + stirrupDia + sideDia + i * (usableH / (sidePairs + 1));
-
-                // Thanh trái.
-                XYZ startL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zStart);
-                XYZ endL = BeamGeometryHelper.TransformLocalToWorld(profile, -halfB, y, zEnd);
-                Rebar barL = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startL, endL);
-                if (barL != null) bars.Add(barL);
-
-                // Thanh phải.
-                XYZ startR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zStart);
-                XYZ endR = BeamGeometryHelper.TransformLocalToWorld(profile, halfB, y, zEnd);
-                Rebar barR = RebarShapeCreationHelper.TryCreateStraightBar(_doc, input.Beam, sideType, startR, endR);
-                if (barR != null) bars.Add(barR);
+                bars.Add(RequireCreated(bar, "bottom extra bar"));
             }
 
             return bars;
@@ -411,60 +485,51 @@ namespace KhimTools.RebarTool.Core
         // ===== STIRRUPS =====
 
         private List<Rebar> CreateBeamStirrups(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH)
+            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH,
+            double stirrupDia, out List<double> stations)
         {
             var hoops = new List<Rebar>();
-
-            double l1 = (input.ZoneA1Length > 0) ? input.ZoneA1Length : profile.Length / 4.0;
-            double s1 = (input.StirrupSpacingA1 > 0) ? input.StirrupSpacingA1 : ToFeet(100);
-            double s2 = (input.StirrupSpacingA2 > 0) ? input.StirrupSpacingA2 : ToFeet(200);
-
-            // 1. Z positions for normal stirrups
-            List<double> zList = CalculateBeamStirrupZ(profile.Length, l1, s1, s2);
-
-            foreach (double z in zList)
+            double tolerance = ToFeet(1.0);
+            stations = BeamStirrupLayout.CreateZoneStations(profile.Length, input.ZoneA1Length,
+                input.StirrupSpacingA1, input.StirrupSpacingA2, ToFeet(50), tolerance);
+            stations = BeamStirrupLayout.MergeAndValidate(stations, tolerance, stirrupDia);
+            foreach (double z in stations)
             {
                 Rebar hoop = CreateStirrupAtZ(input, profile, halfB, halfH, z);
-                if (hoop != null) hoops.Add(hoop);
+                hoops.Add(RequireCreated(hoop, "stirrup at station " + z.ToString("R", CultureInfo.InvariantCulture)));
             }
 
             return hoops;
         }
 
         private List<Rebar> CreateHangerStirrups(BeamRebarInput input,
-            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH, RebarGenerationReport report = null)
+            BeamGeometryHelper.BeamProfile profile, double halfB, double halfH,
+            double stirrupDia, IList<double> normalStations)
         {
             var hoops = new List<Rebar>();
 
             // 2. Generate hanger stirrups (thép treo) at secondary-beam intersections (Gap 7b).
-            try
-            {
-                var interPts = FindIntersectingSecondaryBeams(input.Beam);
-                int qty = input.HangerStirrupQty;
-                if (qty == 0) return hoops;
-                double spacingFeet = ToFeet(input.HangerStirrupSpacingMm);
+            var interPts = FindIntersectingSecondaryBeams(input.Beam);
+            int qty = input.HangerStirrupQty;
+            if (qty == 0) return hoops;
+            double spacingFeet = ToFeet(input.HangerStirrupSpacingMm);
 
-                foreach (var pt in interPts)
-                {
-                    double zCenter = (pt - profile.StartPoint).DotProduct(profile.Direction);
-                    if (zCenter > 0 && zCenter < profile.Length)
-                    {
-                        for (int i = 0; i < qty; i++)
-                        {
-                            double offset = (i - (qty - 1) / 2.0) * spacingFeet;
-                            double hz = zCenter + offset;
-                            if (hz > ToFeet(50) && hz < profile.Length - ToFeet(50))
-                            {
-                                Rebar hoop = CreateStirrupAtZ(input, profile, halfB, halfH, hz);
-                                if (hoop != null) hoops.Add(hoop);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
+            double tolerance = ToFeet(1.0);
+            List<double> centers = interPts
+                .Select(point => (point - profile.StartPoint).DotProduct(profile.Direction))
+                .Where(station => station > 0 && station < profile.Length)
+                .ToList();
+            List<double> candidates = BeamStirrupLayout.CreateHangerStations(centers, qty,
+                spacingFeet, ToFeet(50), profile.Length - ToFeet(50));
+            var normal = normalStations ?? Array.Empty<double>();
+            List<double> combined = BeamStirrupLayout.MergeAndValidate(
+                normal.Concat(candidates), tolerance, stirrupDia);
+            List<double> uniqueHangers = combined.Where(station =>
+                !normal.Any(normalStation => Math.Abs(normalStation - station) <= tolerance)).ToList();
+            foreach (double hz in uniqueHangers)
             {
-                report?.AddError(input.Beam, "Thép đai treo dầm (Hanger Stirrups)", ex);
+                Rebar hoop = CreateStirrupAtZ(input, profile, halfB, halfH, hz);
+                hoops.Add(RequireCreated(hoop, "hanger stirrup at station " + hz.ToString("R", CultureInfo.InvariantCulture)));
             }
 
             return hoops;
@@ -487,91 +552,151 @@ namespace KhimTools.RebarTool.Core
 
             return RebarShapeCreationHelper.CreateFromCurvesSafe(
                 _doc, RebarStyle.StirrupTie, input.StirrupBarType, null, null, input.Beam,
-                profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right);
+                profile.Direction, loop, RebarHookOrientation.Right, RebarHookOrientation.Right,
+                allowLegacyFallback: false);
         }
 
-        private static List<double> CalculateBeamStirrupZ(double totalLength, double l1, double s1, double s2)
+        private sealed class SupportIntersection
         {
-            var zList = new List<double>();
-            double zLeftEnd = Math.Min(l1, totalLength / 2.0);
-            double zRightStart = Math.Max(totalLength - l1, totalLength / 2.0);
-
-            // Vùng gối trái A1.
-            for (double z = ToFeet(50); z <= zLeftEnd + 0.001; z += s1)
-                zList.Add(z);
-
-            // Vùng giữa A2.
-            double lastZ = zList.LastOrDefault();
-            if (lastZ <= 0) lastZ = 0;
-
-            for (double z = lastZ + s2; z < zRightStart - 0.001; z += s2)
-                zList.Add(z);
-
-            // Vùng gối phải A1.
-            for (double z = zRightStart; z <= totalLength - ToFeet(50); z += s1)
-            {
-                if (!zList.Any(existingZ => Math.Abs(existingZ - z) < 0.01))
-                    zList.Add(z);
-            }
-
-            zList.Sort();
-            return zList;
+            public FamilyInstance Element { get; set; }
+            public double MinAlong { get; set; }
+            public double MaxAlong { get; set; }
         }
 
-        private FamilyInstance FindSupportingColumn(XYZ point)
+        private SupportIntersection FindSupportingColumn(XYZ point, XYZ direction)
         {
-            var cols = new FilteredElementCollector(_doc)
+            var intersections = new FilteredElementCollector(_doc)
                 .OfCategory(BuiltInCategory.OST_StructuralColumns)
                 .OfClass(typeof(FamilyInstance))
                 .Cast<FamilyInstance>()
+                .Select(candidate => TryGetSupportIntersection(candidate, point, direction))
+                .Where(intersection => intersection != null)
                 .ToList();
-
-            foreach (var col in cols)
-            {
-                BoundingBoxXYZ bb = col.get_BoundingBox(null);
-                if (bb == null) continue;
-
-                // Tăng dung sai tìm kiếm cột lên 300 mm (~1 foot) để bắt đúng cột lệch tâm nhẹ.
-                if (point.X >= bb.Min.X - ToFeet(300) && point.X <= bb.Max.X + ToFeet(300) &&
-                    point.Y >= bb.Min.Y - ToFeet(300) && point.Y <= bb.Max.Y + ToFeet(300) &&
-                    point.Z >= bb.Min.Z - ToFeet(500) && point.Z <= bb.Max.Z + ToFeet(500))
-                {
-                    return col;
-                }
-            }
-            return null;
+            if (intersections.Count > 1)
+                throw new InvalidOperationException("More than one structural column intersects the Beam end axis; support anchorage is ambiguous.");
+            return intersections.SingleOrDefault();
         }
 
-        private static double GetColumnWidthAlongDirection(FamilyInstance col, XYZ direction)
+        private SupportIntersection FindSupportingBeam(XYZ point, XYZ direction, FamilyInstance currentBeam)
         {
-            BoundingBoxXYZ bb = col.get_BoundingBox(null);
-            if (bb == null) return ToFeet(400); // fallback 400mm
+            var intersections = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .OfClass(typeof(FamilyInstance))
+                .Cast<FamilyInstance>()
+                .Where(candidate => candidate.Id != currentBeam.Id && candidate.StructuralType == Autodesk.Revit.DB.Structure.StructuralType.Beam)
+                .Select(candidate => TryGetSupportIntersection(candidate, point, direction))
+                .Where(intersection => intersection != null)
+                .ToList();
+            if (intersections.Count > 1)
+                throw new InvalidOperationException("More than one structural beam intersects the Beam end axis; support anchorage is ambiguous.");
+            return intersections.SingleOrDefault();
+        }
 
-            double dx = bb.Max.X - bb.Min.X;
-            double dy = bb.Max.Y - bb.Min.Y;
+        private SupportIntersection TryGetSupportIntersection(FamilyInstance candidate, XYZ point, XYZ direction)
+        {
+            if (candidate == null || !candidate.IsValidObject || direction == null) return null;
+            const double searchLengthFeet = 100.0;
+            double tolerance = UnitUtils.ConvertToInternalUnits(1.0, UnitTypeId.Millimeters);
+            XYZ start = point - direction * searchLengthFeet;
+            XYZ end = point + direction * searchLengthFeet;
+            BoundingBoxXYZ bounds = candidate.get_BoundingBox(null);
+            if (bounds != null &&
+                (Math.Max(start.X, end.X) + tolerance < bounds.Min.X || Math.Min(start.X, end.X) - tolerance > bounds.Max.X ||
+                 Math.Max(start.Y, end.Y) + tolerance < bounds.Min.Y || Math.Min(start.Y, end.Y) - tolerance > bounds.Max.Y ||
+                 Math.Max(start.Z, end.Z) + tolerance < bounds.Min.Z || Math.Min(start.Z, end.Z) - tolerance > bounds.Max.Z))
+                return null;
+            Line axis = Line.CreateBound(start, end);
+            var intervals = new List<Tuple<double, double>>();
+            CollectIntersectedIntervals(candidate.get_Geometry(new Options
+            {
+                ComputeReferences = false,
+                DetailLevel = ViewDetailLevel.Fine
+            }), axis, point, direction, intervals);
+            if (intervals.Count == 0) return null;
 
-            double absCos = Math.Abs(direction.X);
-            double absSin = Math.Abs(direction.Y);
+            var merged = new List<Tuple<double, double>>();
+            foreach (Tuple<double, double> interval in intervals.OrderBy(item => item.Item1).ThenBy(item => item.Item2))
+            {
+                if (merged.Count == 0 || interval.Item1 > merged[merged.Count - 1].Item2 + tolerance)
+                    merged.Add(interval);
+                else
+                {
+                    Tuple<double, double> prior = merged[merged.Count - 1];
+                    merged[merged.Count - 1] = Tuple.Create(prior.Item1, Math.Max(prior.Item2, interval.Item2));
+                }
+            }
 
-            return dx * absCos + dy * absSin;
+            Tuple<double, double> containingPoint = merged.SingleOrDefault(interval =>
+                interval.Item1 <= tolerance && interval.Item2 >= -tolerance);
+            if (containingPoint == null) return null;
+            return new SupportIntersection
+            {
+                Element = candidate,
+                MinAlong = containingPoint.Item1,
+                MaxAlong = containingPoint.Item2
+            };
+        }
+
+        private static void CollectIntersectedIntervals(GeometryElement geometry, Curve axis, XYZ origin,
+            XYZ direction, IList<Tuple<double, double>> intervals)
+        {
+            if (geometry == null) return;
+            foreach (GeometryObject item in geometry)
+            {
+                Solid solid = item as Solid;
+                if (solid != null)
+                {
+                    if (solid.Faces.Size == 0 || solid.Volume <= 1e-9) continue;
+                    using (SolidCurveIntersection intersection = solid.IntersectWithCurve(axis, new SolidCurveIntersectionOptions()))
+                    {
+                        for (int index = 0; index < intersection.SegmentCount; index++)
+                        {
+                            Curve segment = intersection.GetCurveSegment(index);
+                            if (segment == null) continue;
+                            double first = (segment.GetEndPoint(0) - origin).DotProduct(direction);
+                            double second = (segment.GetEndPoint(1) - origin).DotProduct(direction);
+                            intervals.Add(Tuple.Create(Math.Min(first, second), Math.Max(first, second)));
+                        }
+                    }
+                }
+                else
+                {
+                    GeometryInstance instance = item as GeometryInstance;
+                    if (instance != null)
+                        CollectIntersectedIntervals(instance.GetInstanceGeometry(), axis, origin, direction, intervals);
+                }
+            }
         }
 
         private class EndAnchorage
         {
-            public double Extension { get; set; } = ToFeet(300);
+            public double Extension { get; set; }
             public bool NeedsHook { get; set; } = false;
             public double HookLength { get; set; } = 0;
         }
 
-        private EndAnchorage CalculateEndAnchorage(BeamRebarInput input, XYZ beamEndPt, XYZ direction, double barDia)
+        private EndAnchorage CalculateEndAnchorage(BeamRebarInput input, XYZ beamEndPt, XYZ direction,
+            double barDia, bool atStart, ICollection<Element> supportElements)
         {
             var anchorage = new EndAnchorage();
+            SupportIntersection column = FindSupportingColumn(beamEndPt, direction);
+            SupportIntersection supportingBeam = column == null
+                ? FindSupportingBeam(beamEndPt, direction, input.Beam)
+                : null;
+            if (column == null && supportingBeam == null)
+                throw new InvalidOperationException("Beam end support could not be resolved from intersecting structural solid geometry. Cantilever, wall/slab support and unconnected ends require an explicitly supported detailing workflow.");
 
-            FamilyInstance col;
-            FamilyInstance supportingBeam;
-            BeamEndCondition cond = DetermineEndCondition(input.Beam, beamEndPt, out col, out supportingBeam);
+            SupportIntersection support = column ?? supportingBeam;
+            supportElements?.Add(support.Element);
+            double embedment = atStart ? -support.MinAlong : support.MaxAlong;
+            if (double.IsNaN(embedment) || double.IsInfinity(embedment) || embedment <= 0)
+                throw new InvalidOperationException("The detected support has no positive physical embedment length along the Beam end axis.");
+            if (!TryGetMaximumAssignedCover(support.Element, out double supportCover))
+                throw new InvalidOperationException("The detected support has no assigned Revit reinforcement cover; support anchorage cannot use an invented cover value.");
 
-            double availLength = ToFeet(300); // Default straight extension
+            double availLength = embedment - supportCover;
+            if (availLength <= 0)
+                throw new InvalidOperationException("The detected support is shallower than its assigned reinforcement cover and provides no available anchorage length.");
             double reqLd = RebarAnchorageCalculator.CalculateAnchorageLength(
                 UnitUtils.ConvertFromInternalUnits(barDia, UnitTypeId.Millimeters),
                 input.ConcreteGrade,
@@ -590,50 +715,16 @@ namespace KhimTools.RebarTool.Core
                 input.LdMultiplier);
             reqHookLd = UnitUtils.ConvertToInternalUnits(reqHookLd, UnitTypeId.Millimeters);
 
-            if (cond == BeamEndCondition.Column && col != null)
+            if (availLength >= reqLd)
             {
-                double colDepth = GetColumnWidthAlongDirection(col, direction);
-                double colCover = RebarCoverHelper.GetColumnCover(col, RebarFace.Exterior);
-                availLength = Math.Max((colDepth / 2.0) - colCover, ToFeet(100));
-
-                if (availLength >= reqLd)
-                {
-                    anchorage.Extension = availLength;
-                    anchorage.NeedsHook = false;
-                }
-                else
-                {
-                    anchorage.Extension = availLength;
-                    anchorage.NeedsHook = true;
-                    anchorage.HookLength = Math.Max(reqHookLd - availLength, barDia * input.HookTailMultiplier);
-                }
-            }
-            else if (cond == BeamEndCondition.BeamIntersection && supportingBeam != null)
-            {
-                // Secondary beam framing into primary beam
-                // We obtain the primary beam section width
-                var primProfile = BeamGeometryHelper.GetBeamProfile(supportingBeam);
-                double primWidth = primProfile?.B ?? ToFeet(300);
-                double primCover = RebarCoverHelper.GetColumnCover(supportingBeam, RebarFace.Exterior);
-                availLength = Math.Max((primWidth / 2.0) - primCover, ToFeet(100));
-
-                if (availLength >= reqLd)
-                {
-                    anchorage.Extension = availLength;
-                    anchorage.NeedsHook = false;
-                }
-                else
-                {
-                    anchorage.Extension = availLength;
-                    anchorage.NeedsHook = true;
-                    anchorage.HookLength = Math.Max(reqHookLd - availLength, barDia * input.HookTailMultiplier);
-                }
+                anchorage.Extension = reqLd;
+                anchorage.NeedsHook = false;
             }
             else
             {
-                // Cantilever or unsupported: straight extension with cover clearance
-                anchorage.Extension = ToFeet(100);
-                anchorage.NeedsHook = false;
+                anchorage.Extension = availLength;
+                anchorage.NeedsHook = true;
+                anchorage.HookLength = Math.Max(reqHookLd - availLength, barDia * input.HookTailMultiplier);
             }
 
             return anchorage;
@@ -681,54 +772,6 @@ namespace KhimTools.RebarTool.Core
             return curves;
         }
 
-        private FamilyInstance FindSupportingBeam(XYZ point, FamilyInstance currentBeam)
-        {
-            var beams = new FilteredElementCollector(_doc)
-                .OfCategory(BuiltInCategory.OST_StructuralFraming)
-                .OfClass(typeof(FamilyInstance))
-                .Cast<FamilyInstance>()
-                .ToList();
-
-            foreach (var bm in beams)
-            {
-                if (bm.Id == currentBeam.Id) continue;
-
-                BoundingBoxXYZ bb = bm.get_BoundingBox(null);
-                if (bb == null) continue;
-
-                // Expand bounding box slightly for tolerance (approx. 350mm = 1.1 feet)
-                XYZ min = bb.Min - new XYZ(1.1, 1.1, 1.1);
-                XYZ max = bb.Max + new XYZ(1.1, 1.1, 1.1);
-
-                if (point.X >= min.X && point.X <= max.X &&
-                    point.Y >= min.Y && point.Y <= max.Y &&
-                    point.Z >= min.Z && point.Z <= max.Z)
-                {
-                    return bm;
-                }
-            }
-            return null;
-        }
-
-        private BeamEndCondition DetermineEndCondition(FamilyInstance beam, XYZ endPt, out FamilyInstance supportingCol, out FamilyInstance supportingBeam)
-        {
-            supportingCol = FindSupportingColumn(endPt);
-            if (supportingCol != null)
-            {
-                supportingBeam = null;
-                return BeamEndCondition.Column;
-            }
-
-            supportingBeam = FindSupportingBeam(endPt, beam);
-            if (supportingBeam != null)
-            {
-                return BeamEndCondition.BeamIntersection;
-            }
-
-            supportingBeam = null;
-            return BeamEndCondition.Unsupported;
-        }
-
         private List<XYZ> FindIntersectingSecondaryBeams(FamilyInstance primaryBeam,
             ICollection<FamilyInstance> intersectingSecondaryBeams = null)
         {
@@ -771,35 +814,127 @@ namespace KhimTools.RebarTool.Core
         }
 
         /// <summary>
-        /// Captures the surrounding structural elements that influence anchorage
-        /// and intersection-based beam reinforcement. Kept on the generator so
-        /// preview invalidation uses the same support-discovery rules as solving.
+        /// Captures every structural column and beam candidate because an offset
+        /// longitudinal bar can intersect support geometry that the Beam centerline
+        /// does not. This deliberately favors conservative staleness over a missed
+        /// support change; solver-time support resolution still uses exact solids.
         /// </summary>
         internal string GetReinforcementContextFingerprint(FamilyInstance beam)
         {
             if (beam == null) throw new ArgumentNullException(nameof(beam));
-            BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(beam);
-            if (profile == null) throw new InvalidOperationException("Beam geometry is unavailable for support-context fingerprinting.");
+            BoundingBoxXYZ beamBounds = beam.get_BoundingBox(null);
+            if (beamBounds == null)
+                throw new InvalidOperationException("Beam bounds are unavailable while fingerprinting support geometry; preview cannot be trusted.");
 
-            var related = new Dictionary<string, Element>(StringComparer.Ordinal);
-            foreach (XYZ endPoint in new[] { profile.StartPoint, profile.EndPoint })
+            double padding = UnitUtils.ConvertToInternalUnits(1.0, UnitTypeId.Millimeters);
+            var searchOutline = new Outline(
+                beamBounds.Min - new XYZ(padding, padding, padding),
+                beamBounds.Max + new XYZ(padding, padding, padding));
+            IEnumerable<Element> candidates = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_StructuralColumns)
+                .WhereElementIsNotElementType()
+                .Concat(new FilteredElementCollector(_doc)
+                    .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                    .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+                    .Where(candidate => candidate.StructuralType == Autodesk.Revit.DB.Structure.StructuralType.Beam));
+            string[] candidateStates = candidates
+                .Where(candidate => candidate.Id == beam.Id || HasUnknownOrIntersectingBounds(candidate, searchOutline))
+                .OrderBy(candidate => candidate.UniqueId, StringComparer.Ordinal)
+                .Select(GetSupportCandidateState)
+                .ToArray();
+            string[] coverTypeStates = new FilteredElementCollector(_doc)
+                .OfClass(typeof(RebarCoverType)).Cast<RebarCoverType>()
+                .OrderBy(candidate => candidate.UniqueId, StringComparer.Ordinal)
+                .Select(candidate => string.Join(":", candidate.UniqueId, candidate.VersionGuid.ToString("D"),
+                    candidate.CoverDistance.ToString("R", CultureInfo.InvariantCulture)))
+                .ToArray();
+
+            return WorkflowFingerprint.Compute(candidateStates.Concat(coverTypeStates));
+        }
+
+        private static bool HasUnknownOrIntersectingBounds(Element candidate, Outline outline)
+        {
+            BoundingBoxXYZ bounds = candidate.get_BoundingBox(null);
+            return bounds == null ||
+                (bounds.Min.X <= outline.MaximumPoint.X && bounds.Max.X >= outline.MinimumPoint.X &&
+                 bounds.Min.Y <= outline.MaximumPoint.Y && bounds.Max.Y >= outline.MinimumPoint.Y &&
+                 bounds.Min.Z <= outline.MaximumPoint.Z && bounds.Max.Z >= outline.MinimumPoint.Z);
+        }
+
+        private string GetSupportCandidateState(Element candidate)
+        {
+            var values = new List<string>
             {
-                FamilyInstance column = FindSupportingColumn(endPoint);
-                if (column != null) related[column.UniqueId] = column;
-
-                FamilyInstance supportingBeam = FindSupportingBeam(endPoint, beam);
-                if (supportingBeam != null) related[supportingBeam.UniqueId] = supportingBeam;
+                candidate.UniqueId,
+                candidate.VersionGuid.ToString("D"),
+                FormatElementId(candidate.GetTypeId()),
+                FormatBounds(candidate.get_BoundingBox(null)),
+                FormatLocation(candidate.Location),
+                FormatSolidGeometry(candidate)
+            };
+            foreach (RebarFace face in new[] { RebarFace.Top, RebarFace.Bottom, RebarFace.Exterior, RebarFace.Interior, RebarFace.Other })
+            {
+                bool hasCover = RebarCoverHelper.TryGetFaceCover(candidate, face, out double coverFeet);
+                values.Add(face + ":" + hasCover + ":" + coverFeet.ToString("R", CultureInfo.InvariantCulture));
             }
 
-            var intersectingBeams = new List<FamilyInstance>();
-            FindIntersectingSecondaryBeams(beam, intersectingBeams);
-            foreach (FamilyInstance supportingBeam in intersectingBeams)
-                related[supportingBeam.UniqueId] = supportingBeam;
-
-            return WorkflowFingerprint.Compute(related.Values
-                .OrderBy(element => element.UniqueId, StringComparer.Ordinal)
-                .Select(element => element.UniqueId + ":" + element.VersionGuid.ToString("D")));
+            Element type = _doc.GetElement(candidate.GetTypeId());
+            if (type != null)
+            {
+                values.Add(type.UniqueId);
+                values.Add(type.VersionGuid.ToString("D"));
+            }
+            return WorkflowFingerprint.Compute(values);
         }
+
+        private static string FormatElementId(ElementId id) => id == null ? string.Empty : id.Value.ToString(CultureInfo.InvariantCulture);
+
+        private static string FormatBounds(BoundingBoxXYZ bounds)
+        {
+            return bounds == null ? "no-bounds" : FormatPoint(bounds.Min) + ":" + FormatPoint(bounds.Max);
+        }
+
+        private static string FormatLocation(Location location)
+        {
+            LocationCurve curveLocation = location as LocationCurve;
+            if (curveLocation?.Curve != null)
+                return "curve:" + string.Join(";", curveLocation.Curve.Tessellate().Select(FormatPoint));
+            LocationPoint pointLocation = location as LocationPoint;
+            if (pointLocation != null)
+                return "point:" + FormatPoint(pointLocation.Point) + ":" + pointLocation.Rotation.ToString("R", CultureInfo.InvariantCulture);
+            return "no-location";
+        }
+
+        private static string FormatSolidGeometry(Element element)
+        {
+            var solids = new List<Solid>();
+            CollectSolids(element.get_Geometry(new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine }), solids);
+            string[] solidStates = solids.Where(solid => solid != null && solid.Faces.Size > 0 && solid.Volume > 1e-9)
+                .Select(solid =>
+                {
+                    string[] edges = solid.Edges.Cast<Edge>().Select(edge =>
+                    {
+                        string[] points = edge.AsCurve().Tessellate().Select(FormatPoint).ToArray();
+                        string forward = string.Join(";", points);
+                        string reverse = string.Join(";", points.Reverse());
+                        return string.CompareOrdinal(forward, reverse) <= 0 ? forward : reverse;
+                    }).OrderBy(signature => signature, StringComparer.Ordinal).ToArray();
+                    string[] faces = solid.Faces.Cast<Face>().Select(face =>
+                    {
+                        PlanarFace planar = face as PlanarFace;
+                        string plane = planar == null ? string.Empty : FormatPoint(planar.Origin) + ":" + FormatPoint(planar.FaceNormal);
+                        return face.GetType().FullName + ":" + face.Area.ToString("R", CultureInfo.InvariantCulture) + ":" + plane;
+                    }).OrderBy(signature => signature, StringComparer.Ordinal).ToArray();
+                    return solid.Volume.ToString("R", CultureInfo.InvariantCulture) + ":" +
+                        string.Join("|", faces) + ":" + string.Join("|", edges);
+                }).OrderBy(signature => signature, StringComparer.Ordinal).ToArray();
+            return string.Join("#", solidStates);
+        }
+
+        private static string FormatPoint(XYZ point) =>
+            point.X.ToString("R", CultureInfo.InvariantCulture) + "," +
+            point.Y.ToString("R", CultureInfo.InvariantCulture) + "," +
+            point.Z.ToString("R", CultureInfo.InvariantCulture);
 
         private static double ToFeet(double mm) => UnitUtils.ConvertToInternalUnits(mm, UnitTypeId.Millimeters);
     }

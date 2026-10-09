@@ -37,6 +37,7 @@ static class Program
         RunRebarCalculationGoldens();
         RunRebarPreviewDuplicateCases();
         RunSlabSectionGeometryCases();
+        RunBeamStirrupLayoutCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -193,6 +194,81 @@ static class Program
             new SlabSectionPoint(0, 0, 0), new SlabSectionPoint(double.PositiveInfinity, 0, 0),
             new SlabSectionPoint(0, 1, 0)
         }, null, SlabSectionAxis.SectionX, 0).Count == 0, "Invalid concrete boundary fails closed");
+    }
+
+    private static void RunBeamStirrupLayoutCases()
+    {
+        List<double> stations = BeamStirrupLayout.CreateZoneStations(
+            totalLength: 1000, zoneA1Length: 250, spacingA1: 100, spacingA2: 200,
+            endClearance: 50, duplicateTolerance: 1);
+        Check(stations.SequenceEqual(new[] { 50d, 150d, 250d, 450d, 650d, 750d, 850d, 950d }),
+            "Beam A1/A2/A1 station plan is deterministic and preserves the requested zone spacings");
+        Check(stations.Zip(stations.Skip(1), (left, right) => right > left).All(increasing => increasing),
+            "Beam stirrup stations are strictly ordered without duplicate zone-boundary bars");
+
+        List<double> hanger = BeamStirrupLayout.CreateHangerStations(new[] { 250d },
+            quantity: 1, spacing: 50, startClearance: 50, endClearance: 950);
+        List<double> merged = BeamStirrupLayout.MergeAndValidate(stations.Concat(hanger),
+            duplicateTolerance: 1, minimumSeparation: 10);
+        Check(merged.Count == stations.Count && merged.Contains(250),
+            "A hanger station coincident with a regular stirrup is represented exactly once");
+
+        bool overlapRejected = false;
+        try
+        {
+            BeamStirrupLayout.MergeAndValidate(new[] { 100d, 105d }, duplicateTolerance: 1, minimumSeparation: 10);
+        }
+        catch (InvalidOperationException) { overlapRejected = true; }
+        Check(overlapRejected, "Overlapping distinct Beam stirrup centerlines are rejected");
+
+        bool invalidSpacingRejected = false;
+        try
+        {
+            BeamStirrupLayout.CreateZoneStations(1000, 250, 0, 200, 50, 1);
+        }
+        catch (ArgumentOutOfRangeException) { invalidSpacingRejected = true; }
+        Check(invalidSpacingRejected, "Non-positive Beam stirrup spacing fails closed instead of selecting a fallback");
+
+        List<double> distinctHangers = BeamStirrupLayout.CreateHangerStations(new[] { 250d, 500d },
+            quantity: 3, spacing: 50, startClearance: 50, endClearance: 950);
+        Check(distinctHangers.SequenceEqual(new[] { 200d, 250d, 300d, 450d, 500d, 550d }),
+            "Hanger stations are symmetric about actual intersecting-beam stations");
+        Check(BeamStirrupLayout.MergeAndValidate(stations.Concat(distinctHangers), 1, 10).SequenceEqual(
+            BeamStirrupLayout.MergeAndValidate(distinctHangers.Concat(stations), 1, 10)),
+            "Beam normal/hanger station merging is independent of discovery order");
+
+        List<BeamLongitudinalLayout.SectionBar> top = BeamLongitudinalLayout.CreateSymmetricRow(
+            width: 300, height: 600, cover: 25, stirrupDiameter: 10, barDiameter: 16,
+            quantity: 2, top: true);
+        List<BeamLongitudinalLayout.SectionBar> bottom = BeamLongitudinalLayout.CreateSymmetricRow(
+            width: 300, height: 600, cover: 25, stirrupDiameter: 10, barDiameter: 16,
+            quantity: 2, top: false);
+        Check(top.Count == 2 && Math.Abs(top[0].X + top[1].X) < 1e-9 &&
+              Math.Abs(top[0].Y - 257) < 1e-9 && Math.Abs(bottom[0].Y + 257) < 1e-9,
+            "Beam top/bottom longitudinal rows use exact cover, tie and bar-radius offsets with symmetric placement");
+        BeamLongitudinalLayout.RequireNoOverlap(top.Concat(bottom));
+        Check(true, "Separated Beam top and bottom rows pass section-plane non-overlap validation");
+
+        bool crowdedRowRejected = false;
+        try
+        {
+            BeamLongitudinalLayout.CreateSymmetricRow(width: 300, height: 600, cover: 25,
+                stirrupDiameter: 10, barDiameter: 25, quantity: 10, top: true);
+        }
+        catch (InvalidOperationException) { crowdedRowRejected = true; }
+        Check(crowdedRowRejected, "Beam longitudinal row rejects a quantity/diameter combination with overlapping bars");
+
+        bool overlappingLayersRejected = false;
+        try
+        {
+            BeamLongitudinalLayout.RequireNoOverlap(new[]
+            {
+                new BeamLongitudinalLayout.SectionBar(0, 0, 20),
+                new BeamLongitudinalLayout.SectionBar(0, 10, 20)
+            });
+        }
+        catch (InvalidOperationException) { overlappingLayersRejected = true; }
+        Check(overlappingLayersRejected, "Beam section layout rejects overlapping longitudinal layer centerlines");
     }
 
     private static void RunRebarCalculationGoldens()

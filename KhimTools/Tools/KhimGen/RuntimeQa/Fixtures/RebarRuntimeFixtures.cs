@@ -24,8 +24,15 @@ namespace KhimTools.RuntimeQa.Fixtures
                 .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
                 .FirstOrDefault(candidate =>
                 {
-                    BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(candidate);
-                    return profile != null && IsRotated(profile);
+                    try
+                    {
+                        BeamGeometryHelper.BeamProfile profile = BeamGeometryHelper.GetBeamProfile(candidate);
+                        return profile != null && IsRotated(profile);
+                    }
+                    catch
+                    {
+                        return false;
+                    }
                 });
             RebarBarType barType = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
             if (beam == null || barType == null)
@@ -40,16 +47,16 @@ namespace KhimTools.RuntimeQa.Fixtures
                 Beam = beam,
                 MainTopBarType = barType,
                 MainBottomBarType = barType,
-                TopLeftExtraBarType = barType,
-                TopRightExtraBarType = barType,
-                BottomMidExtraBarType = barType,
+                TopLeftExtraBarType = null,
+                TopRightExtraBarType = null,
+                BottomMidExtraBarType = null,
                 StirrupBarType = barType,
                 SideBarType = barType,
                 TopContinuousQty = 2,
                 BottomContinuousQty = 2,
-                TopLeftExtraQty = 1,
-                TopRightExtraQty = 1,
-                BottomMidExtraQty = 1,
+                TopLeftExtraQty = 0,
+                TopRightExtraQty = 0,
+                BottomMidExtraQty = 0,
                 SideBarQty = 0,
                 AutoSideBars = false
             };
@@ -559,12 +566,17 @@ namespace KhimTools.RuntimeQa.Fixtures
         public override string Description { get { return "Run the production BeamRebarGenerator on a structural framing host."; } }
         protected override void ExecuteFixture(RuntimeQaContext context, QaFixtureResult result)
         {
-            Document doc = context.Document; FamilyInstance beam = RuntimeQaFixtureHelpers.FirstInstance(doc, BuiltInCategory.OST_StructuralFraming); RebarBarType bar = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
+            Document doc = context.Document; FamilyInstance beam = new FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>().FirstOrDefault(candidate =>
+                {
+                    try { BeamGeometryHelper.GetBeamProfile(candidate); return true; }
+                    catch { return false; }
+                }); RebarBarType bar = RuntimeQaFixtureHelpers.FindBarType(doc, 16);
             if (beam == null || bar == null) { Block(result, "BR_RES", "Beam resources", "Structural framing host and RebarBarType", "BLOCKED: no suitable beam fixture is available."); return; }
             var report = new RebarGenerationReport(); List<Rebar> bars;
             using (var tx = new Transaction(doc, "K-TOOLS Runtime QA beam"))
             {
-                tx.Start(); RebarGenerationFailurePreprocessor failureCapture = RuntimeQaFixtureHelpers.AttachFailureCapture(tx); bars = new BeamRebarGenerator(doc).Generate(new BeamRebarInput { Beam = beam, MainTopBarType = bar, MainBottomBarType = bar, StirrupBarType = bar, SideBarType = bar, TopContinuousQty = 2, BottomContinuousQty = 2 }, report); doc.Regenerate(); foreach (Rebar rb in bars ?? new List<Rebar>()) context.TrackCreated(rb.Id); tx.Commit(); RuntimeQaFixtureHelpers.AddFailureCaptureCheck(result, "BR_FAILURES", failureCapture);
+                tx.Start(); RebarGenerationFailurePreprocessor failureCapture = RuntimeQaFixtureHelpers.AttachFailureCapture(tx); bars = new BeamRebarGenerator(doc).Generate(new BeamRebarInput { Beam = beam, MainTopBarType = bar, MainBottomBarType = bar, TopLeftExtraBarType = bar, TopRightExtraBarType = bar, BottomMidExtraBarType = bar, StirrupBarType = bar, SideBarType = null, SideBarQty = 0, AutoSideBars = false, TopContinuousQty = 2, BottomContinuousQty = 2 }, report); doc.Regenerate(); foreach (Rebar rb in bars ?? new List<Rebar>()) context.TrackCreated(rb.Id); tx.Commit(); RuntimeQaFixtureHelpers.AddFailureCaptureCheck(result, "BR_FAILURES", failureCapture);
             }
             RuntimeQaFixtureHelpers.AddRebarResult(result, "BR01", bars, report, beam);
         }

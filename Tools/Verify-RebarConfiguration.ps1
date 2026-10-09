@@ -97,11 +97,10 @@ foreach ($name in @('RectangularColumn','CircularColumn','Foundation','Slab','Be
         if ($name -eq 'Beam') {
             $type.GetField('_configLd',$flags).GetValue($form).Value = 45
             $type.GetField('_configHookTail',$flags).GetValue($form).Value = 16
-            $type.GetField('_configSideThreshold',$flags).GetValue($form).Value = 800
             $input = $type.GetMethod('CreateGenerationInput',$flags).Invoke($form,@($null))
             Assert ($input.LdMultiplier -eq 45) 'Beam anchorage reaches generation input'
             Assert ($input.HookTailMultiplier -eq 16) 'Beam hook tail reaches generation input'
-            Assert ($input.SideBarThresholdMm -eq 800) 'Beam skin threshold reaches generation input'
+            Assert ($input.TopLeftExtraQty -eq 0 -and $input.TopRightExtraQty -eq 0 -and $input.BottomMidExtraQty -eq 0 -and -not $input.AutoSideBars) 'Unsupported Beam extras and hidden automatic side bars remain disabled'
             $type.GetField('_rbStirrupUniform',$flags).GetValue($form).Checked = $true
             $type.GetField('_txtStirrupA1Uniform',$flags).GetValue($form).Text = '125'
             $input = $type.GetMethod('CreateGenerationInput',$flags).Invoke($form,@($null))

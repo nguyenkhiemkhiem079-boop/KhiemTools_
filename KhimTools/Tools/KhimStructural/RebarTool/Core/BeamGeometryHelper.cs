@@ -27,6 +27,10 @@ namespace KhimTools.RebarTool.Core
         public static BeamProfile GetBeamProfile(FamilyInstance beam)
         {
             if (beam == null) throw new ArgumentNullException(nameof(beam));
+            if (!beam.IsValidObject || beam.Category == null ||
+                beam.Category.BuiltInCategory != BuiltInCategory.OST_StructuralFraming ||
+                beam.StructuralType != Autodesk.Revit.DB.Structure.StructuralType.Beam)
+                throw new InvalidOperationException("Beam reinforcement supports valid Structural Framing beam instances only.");
             LocationCurve location = beam.Location as LocationCurve;
             Line line = location?.Curve as Line;
             if (line == null)
@@ -39,6 +43,8 @@ namespace KhimTools.RebarTool.Core
                 throw new InvalidOperationException("Beam reinforcement requires a non-zero straight location line.");
 
             XYZ direction = (pEnd - pStart).Normalize();
+            if (Math.Abs(direction.Z) > 1e-6)
+                throw new InvalidOperationException("Sloping or tilted framing axes are not supported by the Beam reinforcement generator.");
             XYZ up = Math.Abs(direction.Z) > 0.95 ? XYZ.BasisX : XYZ.BasisZ;
             XYZ right = direction.CrossProduct(up);
             if (right.GetLength() < 0.001)
@@ -50,7 +56,7 @@ namespace KhimTools.RebarTool.Core
             up = right.CrossProduct(direction).Normalize();
 
             (double width, double height, double centerRight, double centerUp) =
-                AnalyzeRectangularPrism(beam, direction, right, up);
+                AnalyzeRectangularPrism(beam, direction, right, up, pStart, pEnd);
 
             double locationRight = ((pStart + pEnd) / 2.0).DotProduct(right);
             double locationUp = ((pStart + pEnd) / 2.0).DotProduct(up);
@@ -70,7 +76,7 @@ namespace KhimTools.RebarTool.Core
         }
 
         private static (double Width, double Height, double CenterRight, double CenterUp) AnalyzeRectangularPrism(
-            FamilyInstance beam, XYZ direction, XYZ right, XYZ up)
+            FamilyInstance beam, XYZ direction, XYZ right, XYZ up, XYZ locationStart, XYZ locationEnd)
         {
             var solids = new List<Solid>();
             CollectInstanceSolids(beam.get_Geometry(new Options { ComputeReferences = false, DetailLevel = ViewDetailLevel.Fine }), solids);
@@ -105,6 +111,9 @@ namespace KhimTools.RebarTool.Core
             double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
             if (width <= tolerance || height <= tolerance || solidLength <= tolerance)
                 throw new InvalidOperationException("Beam solid has a zero or invalid physical dimension.");
+            if (Math.Abs(locationStart.DotProduct(direction) - minAxis) > tolerance ||
+                Math.Abs(locationEnd.DotProduct(direction) - maxAxis) > tolerance)
+                throw new InvalidOperationException("Beam location-line endpoints do not match the physical solid end faces; cutbacks and offsets are unsupported.");
 
             var faceCounts = new int[6];
             foreach (PlanarFace face in planes)

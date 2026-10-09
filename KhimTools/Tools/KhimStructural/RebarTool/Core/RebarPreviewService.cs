@@ -275,7 +275,7 @@ namespace KhimTools.RebarTool.Core
                 input.TopContinuousQty.ToString(CultureInfo.InvariantCulture), input.BottomContinuousQty.ToString(CultureInfo.InvariantCulture),
                 input.TopLeftExtraQty.ToString(CultureInfo.InvariantCulture), input.TopRightExtraQty.ToString(CultureInfo.InvariantCulture),
                 input.BottomMidExtraQty.ToString(CultureInfo.InvariantCulture), input.AutoSideBars.ToString(),
-                input.SideBarQty.ToString(CultureInfo.InvariantCulture), input.SideBarThresholdMm.ToString("R", CultureInfo.InvariantCulture),
+                input.SideBarQty.ToString(CultureInfo.InvariantCulture),
                 input.HangerStirrupQty.ToString(CultureInfo.InvariantCulture), input.HangerStirrupSpacingMm.ToString("R", CultureInfo.InvariantCulture),
                 input.StirrupSpacingA1.ToString("R", CultureInfo.InvariantCulture), input.StirrupSpacingA2.ToString("R", CultureInfo.InvariantCulture),
                 input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
@@ -304,6 +304,7 @@ namespace KhimTools.RebarTool.Core
                 ["Hooks"] = input.HookTailMultiplier.ToString("R", CultureInfo.InvariantCulture) + " | " + input.LdMultiplier.ToString("R", CultureInfo.InvariantCulture),
                 ["BarCount"] = input.TopContinuousQty + "/" + input.BottomContinuousQty + "/" + input.TopLeftExtraQty + "/" + input.TopRightExtraQty + "/" + input.BottomMidExtraQty + "/" + input.SideBarQty,
                 ["Zones"] = input.ZoneA1Length.ToString("R", CultureInfo.InvariantCulture),
+                ["EngineeringScope"] = "Geometry/detailing preview only; anchorage multipliers are not code-verified and end returns are curves without a loaded RebarHookType.",
                 ["Orientation"] = profile.Direction + " | " + profile.RightVector + " | " + profile.UpVector
             };
         }
