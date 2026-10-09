@@ -1745,16 +1745,20 @@ namespace KhimTools.RebarTool.Forms
 
             AssignSettingsToPanels(selectedPanels);
             var generator = new SlabRebarGenerator(_doc);
-            string currentFingerprint = RebarPreviewService.FingerprintInputs(selectedPanels.Select(generator.GetPanelInputFingerprint));
+            var panelFingerprints = selectedPanels.ToDictionary(
+                panel => panel.PanelId,
+                panel => generator.GetPanelInputFingerprint(panel),
+                StringComparer.Ordinal);
+            string currentFingerprint = RebarPreviewService.FingerprintInputs(panelFingerprints.Values);
             RebarPreviewSnapshot acceptedPreview;
             if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) || selectedPanels.Any(panel =>
-                acceptedPreview.Find(generator.GetPanelInputFingerprint(panel)) == null))
+                acceptedPreview.Find(panelFingerprints[panel.PanelId]) == null))
             {
                 KhimDialogHelper.ShowWarning("Create or refresh the solver-backed preview for the current slab panels and settings before generating.");
                 return;
             }
             foreach (SlabPanel panel in selectedPanels)
-                if (RebarPreviewService.HasExistingDuplicateBar(_doc, panel.HostFloor, acceptedPreview, generator.GetPanelInputFingerprint(panel)))
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, panel.HostFloor, acceptedPreview, panelFingerprints[panel.PanelId]))
                 {
                     KhimDialogHelper.ShowWarning("Equivalent reinforcement already exists on slab " + panel.HostFloor.Id + ". Remove or edit existing bars before generating to avoid duplicates.");
                     return;
@@ -1769,9 +1773,10 @@ namespace KhimTools.RebarTool.Forms
                     // Lặp qua từng panel và sinh thép theo cấu hình riêng của panel đó
                     foreach (var panel in selectedPanels)
                     {
+                        string panelFingerprint = panelFingerprints[panel.PanelId];
                         List<Rebar> generated = generator.GeneratePanel(panel, report);
                         _doc.Regenerate();
-                        if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, generator.GetPanelInputFingerprint(panel), generated))
+                        if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, panelFingerprint, generated))
                             throw new InvalidOperationException("Generated slab centerlines differ from the accepted solver preview, or a generator error occurred; the entire slab transaction was rolled back.");
                     }
                 }, configure: transaction =>

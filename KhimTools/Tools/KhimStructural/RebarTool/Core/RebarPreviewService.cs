@@ -160,6 +160,10 @@ namespace KhimTools.RebarTool.Core
             if (snapshot == null || generated == null || generated.Count == 0) return false;
             RebarPreviewComponent expected = snapshot.Find(inputFingerprint);
             if (expected == null || expected.RebarSetCount != generated.Count) return false;
+            if (generated.Any(bar => bar == null)) return false;
+            if (!string.IsNullOrWhiteSpace(expected.HostId) &&
+                generated.Any(bar => !string.Equals(HostFingerprint(bar), expected.HostId, StringComparison.Ordinal)))
+                return false;
             string[] actualBars = generated.Select(FingerprintBar).ToArray();
             return WorkflowFingerprint.Matches(expected.GeometryFingerprint, FingerprintBars(actualBars));
         }
@@ -438,11 +442,37 @@ namespace KhimTools.RebarTool.Core
         {
             RebarPreviewComponent expected = snapshot?.Find(inputFingerprint);
             if (document == null || host == null || expected == null) return false;
-            HashSet<string> expectedBars = new HashSet<string>(expected.BarFingerprints, StringComparer.OrdinalIgnoreCase);
-            return new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>()
+            string[] existingBars = new FilteredElementCollector(document).OfClass(typeof(Rebar)).Cast<Rebar>()
                 .Where(bar => bar.GetHostId() == host.Id)
                 .Select(FingerprintBar)
-                .Any(expectedBars.Contains);
+                .ToArray();
+            return ContainsFingerprintMultiset(expected.BarFingerprints, existingBars);
+        }
+
+        internal static bool ContainsFingerprintMultiset(IEnumerable<string> expected, IEnumerable<string> actual)
+        {
+            string[] expectedItems = (expected ?? Enumerable.Empty<string>()).ToArray();
+            if (expectedItems.Length == 0) return false;
+
+            var remaining = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (string fingerprint in expectedItems)
+            {
+                if (string.IsNullOrEmpty(fingerprint)) return false;
+                int count;
+                remaining.TryGetValue(fingerprint, out count);
+                remaining[fingerprint] = count + 1;
+            }
+
+            foreach (string fingerprint in actual ?? Enumerable.Empty<string>())
+            {
+                int count;
+                if (!string.IsNullOrEmpty(fingerprint) && remaining.TryGetValue(fingerprint, out count))
+                {
+                    if (count == 1) remaining.Remove(fingerprint);
+                    else remaining[fingerprint] = count - 1;
+                }
+            }
+            return remaining.Count == 0;
         }
 
         internal static string FingerprintBar(Rebar bar)
@@ -456,6 +486,7 @@ namespace KhimTools.RebarTool.Core
             RebarBarType type = bar.Document.GetElement(bar.GetTypeId()) as RebarBarType;
             return WorkflowFingerprint.Compute(new[]
             {
+                HostFingerprint(bar),
                 TypeFingerprint(type),
                 ShapeFingerprint(bar.Document, bar.GetShapeId()),
                 HookFingerprint(bar.Document, bar.GetHookTypeId(0)),
@@ -466,6 +497,15 @@ namespace KhimTools.RebarTool.Core
             });
         }
 
+        private static string HostFingerprint(Rebar bar)
+        {
+            if (bar == null || bar.Document == null) return "<unresolved-host>";
+            ElementId hostId = bar.GetHostId();
+            if (hostId == null || hostId == ElementId.InvalidElementId) return "<unresolved-host>";
+            Element host = bar.Document.GetElement(hostId);
+            return host == null || string.IsNullOrWhiteSpace(host.UniqueId) ? "<unresolved-host>" : host.UniqueId;
+        }
+
         private static string ShapeFingerprint(Document document, ElementId elementId)
         {
             if (document == null || elementId == null || elementId == ElementId.InvalidElementId)
@@ -473,7 +513,7 @@ namespace KhimTools.RebarTool.Core
             RebarShape shape = document.GetElement(elementId) as RebarShape;
             return shape == null
                 ? "<unresolved-shape>"
-                : shape.Name + ":" + shape.RebarStyle;
+                : shape.UniqueId + ":" + shape.VersionGuid.ToString("D") + ":" + shape.Name + ":" + shape.RebarStyle;
         }
 
         private static string HookFingerprint(Document document, ElementId elementId)
@@ -483,7 +523,7 @@ namespace KhimTools.RebarTool.Core
             RebarHookType hook = document.GetElement(elementId) as RebarHookType;
             return hook == null
                 ? "<unresolved-hook>"
-                : hook.Name + ":" + hook.Style + ":" + hook.HookAngle.ToString("R", CultureInfo.InvariantCulture);
+                : hook.UniqueId + ":" + hook.VersionGuid.ToString("D") + ":" + hook.Name + ":" + hook.Style + ":" + hook.HookAngle.ToString("R", CultureInfo.InvariantCulture);
         }
 
         internal static string FingerprintBars(IEnumerable<string> fingerprints) =>
