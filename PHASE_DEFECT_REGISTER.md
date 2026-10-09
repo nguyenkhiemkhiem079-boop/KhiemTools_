@@ -32,3 +32,15 @@ Scope: Slab completion work through Micro-Wave 03D.2B and 03E. The handoff basel
 - `git diff --check`: PASS for the implementation checkpoint. Final documentation changes are checked before commit.
 
 Code-side scope is complete; Phase acceptance remains open solely for the listed host-only checks. Do not relabel any registered fixture as PASS before actual Revit execution.
+
+---
+
+# Phase 04 — Beam Reinforcement (2026-10-09)
+
+Branch: `fix/preview-hardening`; start `aa0fc5ddfba4f2234487c673ffb5977a167845db`; pushed implementation checkpoint `19fca67cda2cdcd004bff91f042b1af0724a01e7`.
+
+- P0 items fixed in the Beam code-side checkpoint: exact loaded bar-type identity, no silent shape/creation fallback, physical rectangular host validation, actual solid support intersection, no invented support/free-end dimensions or production cover fallback, longitudinal overlap rejection, deterministic non-overlapping stirrup stations, created centerline containment, atomic Create/parity, and unsaved support-geometry/cover fingerprint inputs.
+- P1 remaining: additional top/bottom curtailment contract unresolved and requests fail closed; side/skin bars and automatic side bars fail closed; supports limited to columns/structural beams; no explicit `RebarHookType` identity or code-verified anchorage; maximum uniform rather than face-specific cover; and all live Beam host scenarios remain `HOST_REQUIRED / NOT_EXECUTED`.
+- P2: mixed English/Vietnamese Beam UI without a Beam language selector; static elevation remains disclosed as illustrative.
+- Evidence: K-Rebar 147/147, Rebar configuration 37/37, Golden Regression 96, Beam offline layout 3,114 checks / 54 renders, canonical `Test-All.ps1` 2,766/2,766, Revit 2024 Release 0 errors / 210 warnings, Revit 2025 Release 0 errors / 208 warnings.
+- `PHASE CODE COMPLETE = NO`; do not call the Beam product production-ready. The Beam-specific capability matrix and remediation detail are in [`Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md`](Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md). Handoff/resume instructions are in [`Docs/QA/Beam/PHASE_04_HANDOFF.md`](Docs/QA/Beam/PHASE_04_HANDOFF.md).

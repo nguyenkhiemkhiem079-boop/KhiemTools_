@@ -38,3 +38,11 @@ See `PHASE_DEFECT_REGISTER.md` for the cumulative P0/P1/P2 record. P0: none. The
 4. Close the phase only after those host results are recorded. Do not start Beam, Column, Foundation, K-Arch, K-MEP, K-QS, merge master, or infer PASS from compilation/static registration.
 
 Code-side scope is complete; phase acceptance is `HOST_QA_PENDING` until the above host validations genuinely execute.
+
+---
+
+## Phase 04 — Beam Reinforcement End-to-End Continuation
+
+The Slab handoff above is preserved as written. Beam-specific findings and remediation steps are maintained separately in [`Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md`](Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md) and [`Docs/QA/Beam/PHASE_04_HANDOFF.md`](Docs/QA/Beam/PHASE_04_HANDOFF.md).
+
+The Beam implementation checkpoint `19fca67cda2cdcd004bff91f042b1af0724a01e7` is pushed to `fix/preview-hardening`. The Beam phase remains code-incomplete: additional-bar and skin-bar detailing is intentionally rejected until defined, support scope is limited, hook/anchorage code compliance is unverified, and host fixtures were not run in a detached disposable Revit model. Fetch the branch and use `git rev-parse origin/fix/preview-hardening` for the final handoff tip. Do not start a later K-TOOL module or merge master.
