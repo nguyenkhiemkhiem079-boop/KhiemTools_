@@ -1494,7 +1494,8 @@ namespace KhimTools.RebarTool.Forms
 
         private void LoadSelectedTemplate()
         {
-            var settings = SlabRebarSettings.LoadTemplate(_cmbTemplates.Text);
+            bool legacySettingsNormalized;
+            var settings = SlabRebarSettings.LoadTemplate(_cmbTemplates.Text, out legacySettingsNormalized);
             if (settings == null)
             {
                 KhimDialogHelper.ShowError("Không thể nạp template đã chọn.");
@@ -1529,7 +1530,10 @@ namespace KhimTools.RebarTool.Forms
             _cmbDesignCode.Text = settings.DesignCode;
             _cmbConcreteGrade.Text = settings.ConcreteGrade;
             _cmbSteelGrade.Text = settings.SteelGrade;
-            KhimDialogHelper.ShowInfo("Đã nạp template: " + settings.TemplateName);
+            string message = "Đã nạp template: " + settings.TemplateName;
+            if (legacySettingsNormalized)
+                message += "\n\nCác thiết lập cũ không được bộ tạo sàn hỗ trợ đã được chuẩn hóa: móc, tiêu chuẩn/mác vật liệu và tùy chọn lỗ mở không điều khiển Rebar. Lỗ mở luôn tự tạo 8 thanh (4 cạnh ở 2 cao độ), dùng loại thép từ cấu hình đang bật và neo cố định 40d; không tạo thanh chéo. Xem lại cấu hình và preview trước khi tạo.";
+            KhimDialogHelper.ShowInfo(message);
         }
 
         private SlabRebarSettings CaptureTemplateSettings()

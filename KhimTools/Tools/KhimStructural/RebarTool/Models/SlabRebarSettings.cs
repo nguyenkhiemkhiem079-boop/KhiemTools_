@@ -25,8 +25,9 @@ namespace KhimTools.RebarTool.Models
         public double TopMeshXSpacingMm { get; set; } = 150;
         public string TopMeshYDiaLabel { get; set; } = "d10";
         public double TopMeshYSpacingMm { get; set; } = 150;
-        public bool BotAnchorHooks { get; set; } = true;
-        public double BotHookTailD { get; set; } = 12;
+        // Legacy fields are retained for JSON compatibility; hooks are unsupported and normalized off.
+        public bool BotAnchorHooks { get; set; }
+        public double BotHookTailD { get; set; }
 
         // ── 2. Top Support Hats (Lớp Trên / Mũ Gối) ──────────────────────────
         public string TopXDiaLabel { get; set; } = "d10";
@@ -36,8 +37,8 @@ namespace KhimTools.RebarTool.Models
         public string TopExtensionRatio { get; set; } = "L/4"; // L/4 hoặc L/3
         public bool SupportEnabled { get; set; } = true;
         public bool SupportFullSpan { get; set; }
-        public bool TopHookDown { get; set; } = true;
-        public double TopHookTailMm { get; set; } = 100;
+        public bool TopHookDown { get; set; }
+        public double TopHookTailMm { get; set; }
 
         // ── 3. Chair Rebar (Thép Chân Chó) ──────────────────────────────────
         public bool EnableChairRebar { get; set; } = true;
@@ -47,16 +48,18 @@ namespace KhimTools.RebarTool.Models
         public double ChairHookLenMm { get; set; } = 100;
 
         // ── 4. Opening Trim Bars (Gia Cường Lỗ Mở) ─────────────────────────
+        // Generator always creates opening trims when openings exist; type is inferred from active roles.
+        // The remaining legacy controls are not generator inputs and are normalized to neutral values.
         public bool EnableOpeningTrimBars { get; set; } = true;
-        public string OpeningTrimDiaLabel { get; set; } = "d12";
-        public int OpeningTrimBarQty { get; set; } = 2;
-        public bool IncludeDiagonalCornerBars { get; set; } = true;
+        public string OpeningTrimDiaLabel { get; set; } = "";
+        public int OpeningTrimBarQty { get; set; }
+        public bool IncludeDiagonalCornerBars { get; set; }
 
         // ── 5. Design Standard & Materials ──────────────────────────────────
         public string DesignCode { get; set; } = "TCVN 5574:2018"; // TCVN 5574:2018 hoặc Eurocode 2
         public string ConcreteGrade { get; set; } = "B25";
         public string SteelGrade { get; set; } = "CB300-V";
-        public double CustomLdMultiplier { get; set; } = 35;
+        public double CustomLdMultiplier { get; set; }
 
         public KhimTools.RebarTool.Core.IRebarDesignStandard GetDesignStandard()
         {
@@ -81,6 +84,7 @@ namespace KhimTools.RebarTool.Models
             if (settings == null || string.IsNullOrWhiteSpace(templateName)) return false;
             try
             {
+                NormalizeLegacySettings(settings);
                 settings.TemplateName = templateName.Trim();
                 settings.SchemaVersion = 1;
                 if (!IsValid(settings)) return false;
@@ -93,15 +97,53 @@ namespace KhimTools.RebarTool.Models
 
         public static SlabRebarSettings LoadTemplate(string templateName)
         {
+            return LoadTemplate(templateName, out _);
+        }
+
+        public static SlabRebarSettings LoadTemplate(string templateName, out bool legacySettingsNormalized)
+        {
+            legacySettingsNormalized = false;
             if (string.IsNullOrWhiteSpace(templateName)) return null;
             try
             {
                 string filePath = GetTemplatePath(templateName);
                 if (!File.Exists(filePath)) return null;
-                return JsonSettingsPersistence.Load<SlabRebarSettings>(filePath, () => null, IsValid,
+                var settings = JsonSettingsPersistence.Load<SlabRebarSettings>(filePath, () => null, IsValid,
                     value => { if (value.SchemaVersion != 0) return false; value.SchemaVersion = 1; return true; });
+                if (settings == null) return null;
+                legacySettingsNormalized = NormalizeLegacySettings(settings);
+                return settings;
             }
             catch { return null; }
+        }
+
+        /// <summary>
+        /// Normalizes persisted options that the slab production generator does not consume.
+        /// Returns true when a legacy value was changed so the UI can disclose the migration.
+        /// </summary>
+        public static bool NormalizeLegacySettings(SlabRebarSettings settings)
+        {
+            if (settings == null) return false;
+            bool changed = settings.BotAnchorHooks || settings.BotHookTailD != 0 ||
+                settings.TopHookDown || settings.TopHookTailMm != 0 || !settings.EnableOpeningTrimBars ||
+                !string.IsNullOrEmpty(settings.OpeningTrimDiaLabel) || settings.OpeningTrimBarQty != 0 ||
+                settings.IncludeDiagonalCornerBars || settings.CustomLdMultiplier != 0 ||
+                settings.DesignCode != "TCVN 5574:2018" || settings.ConcreteGrade != "B25" ||
+                settings.SteelGrade != "CB300-V";
+
+            settings.BotAnchorHooks = false;
+            settings.BotHookTailD = 0;
+            settings.TopHookDown = false;
+            settings.TopHookTailMm = 0;
+            settings.EnableOpeningTrimBars = true;
+            settings.OpeningTrimDiaLabel = "";
+            settings.OpeningTrimBarQty = 0;
+            settings.IncludeDiagonalCornerBars = false;
+            settings.CustomLdMultiplier = 0;
+            settings.DesignCode = "TCVN 5574:2018";
+            settings.ConcreteGrade = "B25";
+            settings.SteelGrade = "CB300-V";
+            return changed;
         }
 
         public static List<string> GetSavedTemplateNames()
