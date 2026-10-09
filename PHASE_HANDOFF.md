@@ -1,16 +1,40 @@
-# Phase 8 Handoff — Micro-Wave 03D.2A
+# Slab Phase End-to-End Handoff — 03D.2B + 03E
 
 Branch: `fix/preview-hardening`
 
-Pre-wave checkpoint: `25ab1d2ddb55580c214a4deefa92898ed61e13fa`.
+Required start SHA: `662f776ddbb71aaa25dc6e2964f91b22c3e9b827`.
 
-Implementation: dedicated Runtime QA fixture `SR-BATCH-ATOMIC` (`SlabMultiPanelAtomicityRuntimeFixture`) uses the production slab geometry analyzer, explicitly resolved bar type, production previews and production `TransactionBoundary`. Its test-only role-map injector captures the Panel B temporary Rebar IDs and aborts during Panel B generation. It verifies exact model fingerprint rollback and preservation of existing Rebar IDs, hosts, quantities and full centerline/type/shape/hook/layout fingerprints. No production generator or Revit creation UI code was modified.
+Implementation checkpoints pushed:
 
-Focused static verification and Revit 2024/2025 Release build outcomes are in the final task report and commit. The canonical `Test-All.ps1` run had one failure: five existing Slab `TableLayoutPanel` bounds overflows in the Rebar layout rendering suite; all remaining audits passed. This UI-layout issue is outside the bounded 03D.2A fixture change and remains open in `PHASE_DEFECT_REGISTER.md`. `LIVE_REVIT_ATOMICITY` remains `NOT_EXECUTED`; registration, compilation and static checks are not runtime evidence. The active Revit documents observed during this wave were not identified as disposable QA copies.
+- `35f09c98bedcf0eb01b7ebf48bb81e82900b08f7` — corrected the actual Slab accessory settings overflow at minimum window layouts.
+- `773928e6ab03a069011c9960f7d9c1471f04ed19` — added stale-preview, host identity, complete duplicate-selectivity, opening/accessory runtime gates and deterministic multiset regression coverage.
 
-Resume instructions:
+## Scope completed in code
 
-1. Fetch `origin` and confirm `fix/preview-hardening` is clean. Use the exact `NEXT_AGENT_START_SHA` from the final task report and verify it equals `origin/fix/preview-hardening`.
-2. For host execution, first open or provide a detached disposable QA model with at least two supported structural Floors, no openings on the selected test panels, and an explicitly resolvable loaded RebarBarType. Confirm the Runtime QA disposable-copy prompt before running only `SR-BATCH-ATOMIC`.
-3. Record the actual host result and any rollback diagnostics. Do not mark the fixture PASS based on registration, compilation, static verification or build output.
-4. Stop after this handoff. Micro-Wave 03D.2B and later waves were not started or authorized by this task.
+- 03D.2B coverage is registered in `SR-PREVIEW-CONTRACT`: distinct host identity, a stale input matrix (resolved Rebar type, spacing, top/bottom cover, layer inversion, support and spacer configuration, selected panel set and per-panel reassignment), fresh production re-solve, full preview/create parity, exact same-host duplicate detection, partial-plan rejection, cross-host selectivity and rollback/model integrity.
+- 03E coverage is registered in `SR-OPENING-ACCESSORY`: supported opening slab, bottom/top meshes, support bars, spacers and automatic opening trims; production role-set, type/shape/hooks/layout/quantity/centerline parity; opening fingerprint invalidation; cancel/preview cleanup; and fixture-only injected transaction failure with whole-model rollback.
+- Duplicate detection uses a complete fingerprint multiset, preserving duplicate multiplicity and host identity. Six pure Golden Regression checks cover exact, partial, similar, cross-host and unrelated-reinforcement cases.
+- The real Slab minimum-layout defect was corrected. Focused Slab rendering at minimum, 1366×768 and 1920×1080 with 100%, 125% and 150% simulations passed 9,743 control checks / 126 renders. Canonical layout passed 17,407 checks / 348 renders. Both scripts state these are offline simulation, not live DPI or Revit QA.
+
+## Validation evidence
+
+- `Verify-KRebar.ps1`: 140/140 PASS.
+- Golden Regression: 85 assertions PASS.
+- `Test-All.ps1`: 100% GREEN, 2,748/2,748 audits.
+- Revit 2024 Release build: PASS, 0 errors (210 warnings).
+- Revit 2025 Release build: PASS, 0 errors (208 warnings).
+- `git diff --check`: PASS at implementation checkpoint; final docs commit has its own check.
+- Live Revit QA: `NOT_EXECUTED`. Running Revit windows showed named project files and no confirmed detached disposable QA model. No runtime fixture was run against those models.
+
+## Consolidated defect disposition
+
+See `PHASE_DEFECT_REGISTER.md` for the cumulative P0/P1/P2 record. P0: none. The Slab layout P1 and code-side duplicate-selectivity defect are resolved. Host-only P1 acceptance remains open: live execution of `SR-BATCH-ATOMIC`, `SR-PREVIEW-CONTRACT`, and `SR-OPENING-ACCESSORY`; stale Create UI/no-added-bars interaction; injected pre-commit parity mismatch UI handling; and opening 40d-clearance positive/negative host scenarios. All must remain `HOST_REQUIRED` / `REGISTERED_NOT_EXECUTED` until genuinely run.
+
+## Resume instructions
+
+1. Fetch `origin`; confirm `fix/preview-hardening` and the final SHA reported for this handoff is clean and equals `origin/fix/preview-hardening`.
+2. Provide/open a detached disposable Revit QA copy with two supported ≥2000 mm structural Floors without openings, explicit resolvable RebarBarTypes, plus a supported rectangular-opening slab with adequate clearances and required shape resources. Confirm the Runtime QA safety dialog before running only the Slab fixtures (`SR-BATCH-ATOMIC`, `SR-PREVIEW-CONTRACT`, `SR-OPENING-ACCESSORY`).
+3. Record fixture output and model fingerprint/rollback results. Separately execute the stale Create and deliberate parity-mismatch UI checks and the opening clearance positive/negative cases. Never use named production/project models.
+4. Close the phase only after those host results are recorded. Do not start Beam, Column, Foundation, K-Arch, K-MEP, K-QS, merge master, or infer PASS from compilation/static registration.
+
+Code-side scope is complete; phase acceptance is `HOST_QA_PENDING` until the above host validations genuinely execute.
