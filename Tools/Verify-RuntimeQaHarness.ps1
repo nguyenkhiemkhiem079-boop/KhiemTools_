@@ -24,7 +24,15 @@ Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaReportWriter.cs" "
 Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "Safety guard exists" | Out-Null
 Require-File "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "Existing Rebar fixture still exists" | Out-Null
 Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "Settings recovery host fixture exists" | Out-Null
+Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "Slab multi-panel atomicity host fixture exists" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SettingsRecoveryRuntimeFixture()" "Settings recovery fixture is registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SlabMultiPanelAtomicityRuntimeFixture()" "Slab multi-panel atomicity fixture is registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new RectangularSlabPreviewRuntimeFixture()" "Existing rectangular slab preview fixture remains registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SlabOpeningPreviewRuntimeFixture()" "Existing slab opening preview fixture remains registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "RebarPreviewService.Capture" "Atomicity fixture captures production-generator previews before create" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "TransactionBoundary.Execute" "Atomicity fixture exercises one production transaction boundary" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "SlabBatchFailureInjectionException" "Panel B failure injection is isolated to fixture code" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "RuntimeQaSafetyGuard.VerifyRollback" "Atomicity fixture verifies exact rollback fingerprints and temporary IDs" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" 'Id = "SETTINGS"' "Settings recovery suite is selectable" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "TryReplacePayload" "Settings fixture injects corruption only inside rollback group" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntimeFixture.cs" "VerifyAdditionalRollbackState" "Settings fixture verifies exact payload restoration" | Out-Null

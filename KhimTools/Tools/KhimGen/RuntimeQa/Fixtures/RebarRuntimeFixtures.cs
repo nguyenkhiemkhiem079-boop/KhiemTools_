@@ -117,7 +117,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
                 "Production plan is regenerated in a disposable transaction and always rolled back.", QaSeverity.CRITICAL);
             Check(result, Id + "_DUPLICATE", "Equivalent generated beam bars are detected", duplicateDetected,
-                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "The complete planned type/centerline fingerprint multiset is present on the same host", duplicateDetected ? "Detected" : "Not detected",
                 "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             Check(result, Id + "_ROLLBACK", "Beam parity rollback", rolledBack == TransactionStatus.RolledBack,
                 TransactionStatus.RolledBack.ToString(), rolledBack.ToString(),
@@ -250,7 +250,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
                 "Production layout is regenerated in a disposable transaction and always rolled back.", QaSeverity.CRITICAL);
             Check(result, Id + "_DUPLICATE", "Equivalent generated slab bars are detected", duplicateDetected,
-                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "The complete planned type/centerline fingerprint multiset is present on the same host", duplicateDetected ? "Detected" : "Not detected",
                 "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             Check(result, Id + "_ROLLBACK", "Slab parity rollback", rolledBack == TransactionStatus.RolledBack,
                 TransactionStatus.RolledBack.ToString(), rolledBack.ToString(),
@@ -398,7 +398,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 "Same solved centerlines", matched ? "Matched" : "Mismatch",
                 "Production output is compared with the reviewed detached solver result before any commit.", QaSeverity.CRITICAL);
             Check(result, "RC-PREVIEW_DUPLICATE", "Equivalent generated column bars are detected", duplicateDetected,
-                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "The complete planned type/centerline fingerprint multiset is present on the same host", duplicateDetected ? "Detected" : "Not detected",
                 "Duplicate protection is tested while production-generated bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             Check(result, "RC-PREVIEW04", "Execution parity rollback", finalStatus == TransactionStatus.RolledBack,
                 TransactionStatus.RolledBack.ToString(), finalStatus.ToString(),
@@ -654,7 +654,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 "Bar type and centerline parity", matched ? "Matched" : "Mismatch",
                 "Foundation production output is regenerated in a disposable transaction and compared with the solver snapshot.", QaSeverity.CRITICAL);
             Check(result, "FR_DUPLICATE", "Equivalent generated foundation bars are detected", duplicateDetected,
-                "At least one planned type/centerline signature is found on the host", duplicateDetected ? "Detected" : "Not detected",
+                "The complete planned type/centerline fingerprint multiset is present on the same host", duplicateDetected ? "Detected" : "Not detected",
                 "Duplicate protection is checked while preview-matched bars exist in the disposable parity transaction.", QaSeverity.CRITICAL);
             RuntimeQaFixtureHelpers.AddRebarResult(result, "FR01", bars, report, foundation);
         }
