@@ -159,6 +159,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnOk;
         private Button _btnClose;
         private Button _btnPreview;
+        private Button _btnManualV1;
         private Label _lblPreviewState;
         private RebarPreviewSnapshot _lastPreview;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
@@ -245,7 +246,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayoutCustom()
         {
-            SetFormTitle("Rebar - Dầm", "Thép chủ, thép tăng cường, đai và neo đầu dầm");
+            SetFormTitle("Beam Reinforcement — Legacy Supported", "Existing supported Beam workflow. Choose Manual v1 for explicit station/position detailing; geometry validation only, no structural design/compliance verification.");
             Width = 1260;
             Height = 840;
             StartPosition = FormStartPosition.CenterScreen;
@@ -1258,6 +1259,18 @@ namespace KhimTools.RebarTool.Forms
             KhimUiStyle.ApplySecondaryButton(_btnPreview);
             _btnPreview.Click += BtnPreview_Click;
 
+            _btnManualV1 = new Button { Text = "Manual v1…", Width = 112, Height = 38 };
+            KhimUiStyle.ApplySecondaryButton(_btnManualV1);
+            _btnManualV1.Click += (s, e) =>
+            {
+                if (_selectedBeams == null || _selectedBeams.Count != 1)
+                {
+                    KhimDialogHelper.ShowWarning("Manual v1", "Select exactly one Beam. Manual plans are host-bound; assigning the same coordinates to multiple Beams is not supported.");
+                    return;
+                }
+                using (var editor = new BeamManualDetailingFormV1(_doc, _selectedBeams[0])) editor.ShowDialog(this);
+            };
+
             _btnClose = new Button { Text = "Đóng", Left = 1020, Top = 11, Width = 88, Height = 38 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
             _btnClose.Click += (s, e) => Close();
@@ -1272,9 +1285,11 @@ namespace KhimTools.RebarTool.Forms
             };
 
             var footer = RebarLayout.Footer(null, _btnPreview, _btnOk, _btnClose);
+            var footerLayout = footer.Controls.OfType<TableLayoutPanel>().First();
+            footerLayout.Controls.OfType<FlowLayoutPanel>().First().Controls.Add(_btnManualV1);
             footer.Controls.Add(new Label
             {
-                Text = "Geometry/detailing preview only — not a structural design verification.",
+                Text = "LEGACY SUPPORTED · Existing workflow; geometry/detailing only.",
                 AutoSize = true,
                 Left = 14,
                 Top = 3,

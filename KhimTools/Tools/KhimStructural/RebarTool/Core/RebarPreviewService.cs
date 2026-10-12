@@ -168,6 +168,10 @@ namespace KhimTools.RebarTool.Core
             return WorkflowFingerprint.Matches(expected.GeometryFingerprint, FingerprintBars(actualBars));
         }
 
+        /// <summary>True only when the detached snapshot contains the exact current input fingerprint.</summary>
+        public static bool MatchesInput(RebarPreviewSnapshot snapshot, string inputFingerprint) =>
+            snapshot != null && !string.IsNullOrWhiteSpace(inputFingerprint) && snapshot.Find(inputFingerprint) != null;
+
         public static string Fingerprint(RectangularColumnRebarInput input)
         {
             if (input == null || input.Column == null || input.MainBarType == null || input.StirrupBarType == null)

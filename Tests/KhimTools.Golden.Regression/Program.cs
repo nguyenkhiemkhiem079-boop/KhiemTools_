@@ -280,6 +280,9 @@ static class Program
         BeamManualDetailingPlanV1 skewFrame = CreateManualPlan();
         skewFrame.Frame.RightX = 1; skewFrame.Frame.RightY = 0; skewFrame.Frame.RightZ = 0;
         Check(!BeamManualPlanValidatorV1.Validate(skewFrame, true).IsValid, "Manual plan rejects non-orthogonal local frame axes");
+        BeamManualDetailingPlanV1 reflectedFrame = CreateManualPlan();
+        reflectedFrame.Frame.RightX *= -1; reflectedFrame.Frame.RightY *= -1; reflectedFrame.Frame.RightZ *= -1;
+        Check(!BeamManualPlanValidatorV1.Validate(reflectedFrame, true).IsValid, "Manual plan rejects reflected local frames with reversed handedness");
 
         IReadOnlyList<BeamManualResolvedBarV1> bars = BeamManualLayoutBuilderV1.Build(plan);
         Check(bars.Count == 2 && bars[0].Centerline.Count == 2 && bars[0].Centerline[0].StationMm == 120 &&
@@ -300,6 +303,10 @@ static class Program
         BeamManualDetailingPlanV1 outside = CreateManualPlan();
         outside.BarGroups[0].Bars[0].EndStationMm = outside.Frame.LengthMm + 1;
         Check(!BeamManualPlanValidatorV1.Validate(outside, true).IsValid, "Manual plan rejects stations outside verified Beam concrete");
+
+        BeamManualDetailingPlanV1 endFace = CreateManualPlan();
+        endFace.BarGroups[0].Bars[0].StartStationMm = 0;
+        Check(!BeamManualPlanValidatorV1.Validate(endFace, true).IsValid, "Manual plan keeps the physical bar diameter envelope inside Beam end faces");
 
         BeamManualDetailingPlanV1 missing = CreateManualPlan();
         missing.BarGroups[0].BarType = null;

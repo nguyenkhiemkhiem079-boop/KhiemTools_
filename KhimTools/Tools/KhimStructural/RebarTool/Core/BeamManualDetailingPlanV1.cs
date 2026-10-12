@@ -203,6 +203,11 @@ namespace KhimTools.RebarTool.Core
                     Add(string.Empty, "frame.direction/up", "Local frame axes must be orthogonal.");
                 if (Math.Abs(VectorDot(frame.RightX, frame.RightY, frame.RightZ, frame.UpX, frame.UpY, frame.UpZ)) > 1e-6)
                     Add(string.Empty, "frame.right/up", "Local frame axes must be orthogonal.");
+                double handedness = (frame.DirectionY * frame.UpZ - frame.DirectionZ * frame.UpY) * frame.RightX +
+                    (frame.DirectionZ * frame.UpX - frame.DirectionX * frame.UpZ) * frame.RightY +
+                    (frame.DirectionX * frame.UpY - frame.DirectionY * frame.UpX) * frame.RightZ;
+                if (IsFinite(handedness) && Math.Abs(handedness - 1.0) > 1e-6)
+                    Add(string.Empty, "frame.handedness", "Local frame orientation must satisfy Right = Direction cross Up.");
             }
             if (plan.BarGroups == null || plan.BarGroups.Count > MaximumGroups) Add(string.Empty, "barGroups", "Group collection is missing or exceeds the software safety limit.");
             if (plan.Covers == null) Add(string.Empty, "covers", "Face cover inputs are required.");
@@ -240,6 +245,12 @@ namespace KhimTools.RebarTool.Core
                     if (bar.EndStationMm <= bar.StartStationMm) Add(id, field + ".stations", "End station must be greater than start station.");
                     if (frame != null && (bar.StartStationMm < -GeometryToleranceMm || bar.EndStationMm > frame.LengthMm + GeometryToleranceMm))
                         Add(id, field + ".stations", "Station must remain within the verified Beam concrete; support extension is not enabled by this plan validator.");
+                    if (frame != null && group.BarType != null && IsFinite(group.BarType.DiameterMm) && group.BarType.DiameterMm > 0)
+                    {
+                        double endRadius = group.BarType.DiameterMm / 2.0;
+                        if (bar.StartStationMm < endRadius - GeometryToleranceMm || bar.EndStationMm > frame.LengthMm - endRadius + GeometryToleranceMm)
+                            Add(id, field + ".stations", "Straight bar diameter envelope must remain inside both physical Beam end faces; end-face cover is not inferred.");
+                    }
                     if (string.IsNullOrWhiteSpace(bar.LayerId)) Add(id, field + ".layerId", "Explicit layer identity is required, including for a single layer.");
                     ValidateEnd(bar.StartDetail, group.BarType, requireResolvedReferences, id, field + ".startDetail", Add);
                     ValidateEnd(bar.FinishDetail, group.BarType, requireResolvedReferences, id, field + ".finishDetail", Add);
