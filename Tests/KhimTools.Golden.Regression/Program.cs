@@ -274,6 +274,19 @@ static class Program
 
     private static void RunBeamManualPlanCases()
     {
+        Check(Math.Abs(BeamManualSegmentDistanceV1.SquaredDistance(
+            new BeamManualPoint3V1(0, 0, 0), new BeamManualPoint3V1(2, 0, 0),
+            new BeamManualPoint3V1(1, -1, 0), new BeamManualPoint3V1(1, 1, 0))) < 1e-12,
+            "Manual Beam finite-segment distance detects a true perpendicular crossing");
+        Check(Math.Abs(BeamManualSegmentDistanceV1.SquaredDistance(
+            new BeamManualPoint3V1(0, 0, 0), new BeamManualPoint3V1(2, 0, 0),
+            new BeamManualPoint3V1(0, 3, 0), new BeamManualPoint3V1(2, 3, 0)) - 9) < 1e-12,
+            "Manual Beam finite-segment distance measures parallel bar clearance");
+        Check(Math.Abs(BeamManualSegmentDistanceV1.SquaredDistance(
+            new BeamManualPoint3V1(0, 0, 0), new BeamManualPoint3V1(1, 0, 0),
+            new BeamManualPoint3V1(2, 0, 0), new BeamManualPoint3V1(3, 0, 0)) - 1) < 1e-12,
+            "Manual Beam finite-segment distance respects separated collinear endpoints");
+
         BeamManualDetailingPlanV1 plan = CreateManualPlan();
         BeamManualValidationResultV1 valid = BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true);
         Check(valid.IsValid, "Explicit synthetic manual Beam plan passes geometry-input validation without design defaults");
@@ -289,11 +302,17 @@ static class Program
               bars[0].Centerline[1].StationMm == 5900, "Canonical manual builder retains absolute stations and each physical bar position");
         Check(bars[0].Role == BeamManualBarRole.TopContinuous && bars[1].Role == BeamManualBarRole.BottomMidExtra &&
               bars[0].DiameterMm == 16 && bars[1].DiameterMm == 12, "Manual builder preserves per-group role and exact resolved model diameter");
+        BeamManualDetailingPlanV1 disabledGroup = CreateManualPlan();
+        disabledGroup.BarGroups[1].Enabled = false;
+        Check(BeamManualLayoutBuilderV1.Build(disabledGroup).Count == 1, "Manual builder omits explicitly disabled groups rather than generating them");
 
         string originalFingerprint = BeamManualLayoutBuilderV1.Fingerprint(plan);
         plan.BarGroups[0].Bars[0].StartStationMm += 1;
         Check(originalFingerprint != BeamManualLayoutBuilderV1.Fingerprint(plan), "Manual plan fingerprint includes explicit station changes");
         plan.BarGroups[0].Bars[0].StartStationMm -= 1;
+        BeamManualDetailingPlanV1 changedType = CreateManualPlan();
+        changedType.BarGroups[0].BarType.UniqueId = "SYNTHETIC_TEST_OTHER_TYPE";
+        Check(originalFingerprint != BeamManualLayoutBuilderV1.Fingerprint(changedType), "Manual plan fingerprint includes exact RebarBarType identity");
 
         BeamManualDetailingPlanV1 overlap = CreateManualPlan();
         overlap.BarGroups[1].Bars[0].XMm = overlap.BarGroups[0].Bars[0].XMm;

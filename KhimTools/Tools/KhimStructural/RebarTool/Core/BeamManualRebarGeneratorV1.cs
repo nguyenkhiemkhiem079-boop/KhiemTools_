@@ -61,8 +61,11 @@ namespace KhimTools.RebarTool.Core
             string[] typeState = ResolvePlanReferences(plan).Select(type => string.Join("|", type.UniqueId,
                 type.VersionGuid.ToString("D"), type.Name,
                 type.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture))).ToArray();
+            string[] existingRebarState = GetHostedRebar(beam)
+                .Select(RebarPreviewService.FingerprintBar)
+                .OrderBy(value => value, StringComparer.Ordinal).ToArray();
             return WorkflowFingerprint.Compute(new[] { BeamManualLayoutBuilderV1.Fingerprint(plan), current.HostGeometrySignature,
-                GetDocumentKey(), beam.UniqueId, beam.VersionGuid.ToString("D") }.Concat(typeState));
+                GetDocumentKey(), beam.UniqueId, beam.VersionGuid.ToString("D") }.Concat(typeState).Concat(existingRebarState));
         }
 
         public IList<Rebar> Generate(BeamManualDetailingPlanV1 plan, FamilyInstance beam,
@@ -84,6 +87,7 @@ namespace KhimTools.RebarTool.Core
 
             ResolvePlanReferences(plan);
             IReadOnlyList<BeamManualResolvedBarV1> bars = BeamManualLayoutBuilderV1.Build(plan);
+            Rebar[] existingBars = GetHostedRebar(beam).ToArray();
             var created = new List<Rebar>();
             foreach (BeamManualResolvedBarV1 resolved in bars)
             {
@@ -103,6 +107,7 @@ namespace KhimTools.RebarTool.Core
                 XYZ finish = ToWorld(profile, resolved.Centerline[1]);
                 if (start.DistanceTo(finish) <= 1e-9)
                     throw new InvalidOperationException("A Manual v1 bar resolved to a zero-length Revit centerline.");
+                ValidateNoExistingBarOverlap(existingBars, start, finish, type);
                 var curves = new List<Curve> { Line.CreateBound(start, finish) };
                 Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(_document, RebarStyle.Standard,
                     type, null, null, beam, profile.RightVector, curves,
@@ -118,6 +123,45 @@ namespace KhimTools.RebarTool.Core
                         : "manual-" + group.Role.ToString().ToLowerInvariant();
             }
             return created;
+        }
+
+        private IEnumerable<Rebar> GetHostedRebar(FamilyInstance beam)
+        {
+            return new FilteredElementCollector(_document).OfClass(typeof(Rebar)).Cast<Rebar>()
+                .Where(bar => bar.IsValidObject && bar.Document == _document && bar.GetHostId() == beam.Id)
+                .ToArray();
+        }
+
+        private void ValidateNoExistingBarOverlap(IEnumerable<Rebar> existingBars, XYZ start, XYZ finish, RebarBarType requestedType)
+        {
+            double requestedRadius = requestedType.BarModelDiameter * 0.5;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.01, UnitTypeId.Millimeters);
+            var candidateStart = new BeamManualPoint3V1(start.X, start.Y, start.Z);
+            var candidateFinish = new BeamManualPoint3V1(finish.X, finish.Y, finish.Z);
+            foreach (Rebar existing in existingBars)
+            {
+                if (existing == null || !existing.IsValidObject)
+                    throw new InvalidOperationException("Existing Beam reinforcement changed during Manual generation; refusing to continue.");
+                RebarBarType existingType = _document.GetElement(existing.GetTypeId()) as RebarBarType;
+                if (existingType == null || !existingType.IsValidObject)
+                    throw new InvalidOperationException("Existing Beam reinforcement has no resolvable exact bar type; Manual v1 cannot prove clearance safely.");
+                IReadOnlyList<RebarPreviewPath> paths = RebarPreviewService.ReadPaths(new List<Rebar> { existing });
+                double minimumDistance = requestedRadius + existingType.BarModelDiameter * 0.5 - tolerance;
+                if (minimumDistance <= 0) continue;
+                double minimumDistanceSquared = minimumDistance * minimumDistance;
+                foreach (RebarPreviewPath path in paths)
+                {
+                    for (int index = 0; index + 1 < path.Points.Count; index++)
+                    {
+                        RebarPreviewPoint p0 = path.Points[index];
+                        RebarPreviewPoint p1 = path.Points[index + 1];
+                        var existingStart = new BeamManualPoint3V1(p0.X, p0.Y, p0.Z);
+                        var existingFinish = new BeamManualPoint3V1(p1.X, p1.Y, p1.Z);
+                        if (BeamManualSegmentDistanceV1.SquaredDistance(candidateStart, candidateFinish, existingStart, existingFinish) < minimumDistanceSquared)
+                            throw new InvalidOperationException("The requested Manual bar overlaps existing reinforcement hosted by this Beam. Review the explicit layout before creating; no existing bars were changed.");
+                    }
+                }
+            }
         }
 
         private IEnumerable<RebarBarType> ResolvePlanReferences(BeamManualDetailingPlanV1 plan)

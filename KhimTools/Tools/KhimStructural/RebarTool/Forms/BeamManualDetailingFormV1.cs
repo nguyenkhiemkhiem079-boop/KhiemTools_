@@ -53,6 +53,7 @@ namespace KhimTools.RebarTool.Forms
         private readonly Panel _sketch = new Panel();
         private BeamManualFrameV1 _sketchFrame;
         private Tuple<BeamManualBarRole, double, double, double, double>[] _sketchBars = Array.Empty<Tuple<BeamManualBarRole, double, double, double, double>>();
+        private string _planLoadWarning;
 
         public BeamManualDetailingFormV1(Document document, FamilyInstance beam)
         {
@@ -66,9 +67,10 @@ namespace KhimTools.RebarTool.Forms
             _store = BeamManualDetailingPlanStoreV1.ForCurrentUser(_plan.DocumentKey, beam.UniqueId);
             ConfigureWindow();
             BuildUi();
-            LoadSavedPlan();
+            try { LoadSavedPlan(); }
+            catch (Exception ex) { _planLoadWarning = "Saved Manual v1 plan is blocked and was not overwritten: " + ex.Message; }
             WireInvalidation();
-            UpdateState("NOT SOLVED — geometry only; structural design/compliance not verified.");
+            UpdateState(_planLoadWarning ?? "NOT SOLVED — geometry only; structural design/compliance not verified.");
         }
 
         private void ConfigureWindow()
@@ -115,7 +117,7 @@ namespace KhimTools.RebarTool.Forms
 
             var editButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
             var add = new Button { Text = "Add explicit bar / Thêm thanh thép", AutoSize = true };
-            add.Click += (s, e) => { _bars.Rows.Add(Guid.NewGuid().ToString("N"), null, null, "", "", "", "", "", null, null); InvalidatePreview(); };
+            add.Click += (s, e) => { _bars.Rows.Add(Guid.NewGuid().ToString("N"), true, null, null, "", "", "", "", "", null, null); InvalidatePreview(); };
             var remove = new Button { Text = "Remove selected / Xóa dòng chọn", AutoSize = true };
             remove.Click += (s, e) => { foreach (DataGridViewRow row in _bars.SelectedRows) if (!row.IsNewRow) _bars.Rows.Remove(row); InvalidatePreview(); };
             editButtons.Controls.Add(add);
@@ -181,6 +183,7 @@ namespace KhimTools.RebarTool.Forms
             _bars.RowHeadersVisible = false;
             _bars.EditMode = DataGridViewEditMode.EditOnEnter;
             _bars.Columns.Add(new DataGridViewTextBoxColumn { Name = "GroupId", HeaderText = "Stable group ID", FillWeight = 135 });
+            _bars.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Enabled", HeaderText = "Enabled", TrueValue = true, FalseValue = false, FillWeight = 55 });
             var roles = new DataGridViewComboBoxColumn { Name = "Role", HeaderText = "Role", DataSource = new[] { BeamManualBarRole.TopContinuous, BeamManualBarRole.BottomContinuous, BeamManualBarRole.TopLeftExtra, BeamManualBarRole.TopRightExtra, BeamManualBarRole.BottomMidExtra, BeamManualBarRole.SideLeft, BeamManualBarRole.SideRight, BeamManualBarRole.UserDefined }, FillWeight = 100, FlatStyle = FlatStyle.Flat };
             _bars.Columns.Add(roles);
             var types = new DataGridViewComboBoxColumn { Name = "BarType", HeaderText = "Exact loaded Rebar type", DataSource = _barTypes.Select(type => new BarTypeChoice(type)).ToList(), DisplayMember = "Display", FlatStyle = FlatStyle.Flat, FillWeight = 150 };
@@ -232,7 +235,7 @@ namespace KhimTools.RebarTool.Forms
             foreach (BeamManualBarV1 bar in group.Bars ?? new List<BeamManualBarV1>())
             {
                 RebarBarType type = ResolveStoredType(group.BarType);
-                int row = _bars.Rows.Add(group.GroupId, group.Role, type == null ? null : ChoiceFor(type),
+                int row = _bars.Rows.Add(group.GroupId, group.Enabled, group.Role, type == null ? null : ChoiceFor(type),
                     bar.XMm.ToString("R", CultureInfo.InvariantCulture), bar.YMm.ToString("R", CultureInfo.InvariantCulture),
                     bar.StartStationMm.ToString("R", CultureInfo.InvariantCulture), bar.EndStationMm.ToString("R", CultureInfo.InvariantCulture),
                     bar.LayerId, SupportedEndText(bar.StartDetail), SupportedEndText(bar.FinishDetail));
@@ -283,6 +286,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 if (row.IsNewRow) continue;
                 string id = CellText(row, "GroupId");
+                bool enabled = row.Cells["Enabled"].Value is bool valueEnabled && valueEnabled;
                 BeamManualBarRole? role = row.Cells["Role"].Value is BeamManualBarRole selectedRole ? selectedRole : (BeamManualBarRole?)null;
                 BarTypeChoice choice = row.Cells["BarType"].Value as BarTypeChoice;
                 double x = ParseMm(CellText(row, "X mm"), id, "x");
@@ -299,13 +303,13 @@ namespace KhimTools.RebarTool.Forms
                 BeamManualElementReferenceV1 typeRef = MakeTypeReference(choice.Type);
                 if (group == null)
                 {
-                    group = new BeamManualBarGroupV1 { GroupId = id, Role = role.Value, Enabled = true,
+                    group = new BeamManualBarGroupV1 { GroupId = id, Role = role.Value, Enabled = enabled,
                         UserLabel = role.Value == BeamManualBarRole.UserDefined ? "User-defined manual bar" : role.Value.ToString(),
                         BarType = typeRef, Bars = new List<BeamManualBarV1>() };
                     plan.BarGroups.Add(group);
                 }
-                else if (group.Role != role.Value || group.BarType.UniqueId != typeRef.UniqueId)
-                    throw new InvalidOperationException("Rows sharing one stable group ID must share one role and exact bar type.");
+                else if (group.Role != role.Value || group.Enabled != enabled || group.BarType.UniqueId != typeRef.UniqueId)
+                    throw new InvalidOperationException("Rows sharing one stable group ID must share one enabled state, role and exact bar type.");
                 group.Bars.Add(new BeamManualBarV1 { XMm = x, YMm = y, StartStationMm = start, EndStationMm = finish, LayerId = layer,
                     StartDetail = StraightDetail(), FinishDetail = StraightDetail() });
             }
@@ -457,7 +461,8 @@ namespace KhimTools.RebarTool.Forms
             var values = new List<Tuple<BeamManualBarRole, double, double, double, double>>();
             foreach (DataGridViewRow row in _bars.Rows)
             {
-                if (row.IsNewRow || !(row.Cells["Role"].Value is BeamManualBarRole role)) continue;
+                if (row.IsNewRow || !(row.Cells["Role"].Value is BeamManualBarRole role) ||
+                    !(row.Cells["Enabled"].Value is bool enabled) || !enabled) continue;
                 double x, y, start, finish;
                 if (!TryRead(row, "X mm", out x) || !TryRead(row, "Y mm", out y) ||
                     !TryRead(row, "Start station mm", out start) || !TryRead(row, "Finish station mm", out finish)) continue;

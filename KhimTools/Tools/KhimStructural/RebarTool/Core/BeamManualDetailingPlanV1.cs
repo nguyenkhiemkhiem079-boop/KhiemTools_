@@ -59,6 +59,59 @@ namespace KhimTools.RebarTool.Core
         public double YMm { get; set; }
     }
 
+    /// <summary>Detached 3D point used by the pure line-segment interference calculation.</summary>
+    public struct BeamManualPoint3V1
+    {
+        public BeamManualPoint3V1(double x, double y, double z) { X = x; Y = y; Z = z; }
+        public double X { get; }
+        public double Y { get; }
+        public double Z { get; }
+    }
+
+    public static class BeamManualSegmentDistanceV1
+    {
+        /// <summary>Minimum squared Euclidean distance between finite 3D segments.</summary>
+        public static double SquaredDistance(BeamManualPoint3V1 p0, BeamManualPoint3V1 p1, BeamManualPoint3V1 q0, BeamManualPoint3V1 q1)
+        {
+            double ux = p1.X - p0.X, uy = p1.Y - p0.Y, uz = p1.Z - p0.Z;
+            double vx = q1.X - q0.X, vy = q1.Y - q0.Y, vz = q1.Z - q0.Z;
+            double wx = p0.X - q0.X, wy = p0.Y - q0.Y, wz = p0.Z - q0.Z;
+            double a = ux * ux + uy * uy + uz * uz;
+            double b = ux * vx + uy * vy + uz * vz;
+            double c = vx * vx + vy * vy + vz * vz;
+            double d = ux * wx + uy * wy + uz * wz;
+            double e = vx * wx + vy * wy + vz * wz;
+            const double epsilon = 1e-24;
+            double s, t;
+            if (a <= epsilon && c <= epsilon)
+                return wx * wx + wy * wy + wz * wz;
+            if (a <= epsilon)
+            {
+                s = 0;
+                t = Clamp(e / c);
+            }
+            else if (c <= epsilon)
+            {
+                t = 0;
+                s = Clamp(-d / a);
+            }
+            else
+            {
+                double denominator = a * c - b * b;
+                s = denominator <= epsilon ? 0 : Clamp((b * e - c * d) / denominator);
+                t = (b * s + e) / c;
+                if (t < 0) { t = 0; s = Clamp(-d / a); }
+                else if (t > 1) { t = 1; s = Clamp((b - d) / a); }
+            }
+            double dx = wx + s * ux - t * vx;
+            double dy = wy + s * uy - t * vy;
+            double dz = wz + s * uz - t * vz;
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        private static double Clamp(double value) => value < 0 ? 0 : value > 1 ? 1 : value;
+    }
+
     public sealed class BeamManualEndDetailV1
     {
         public BeamManualEndDetailKind Kind { get; set; }
