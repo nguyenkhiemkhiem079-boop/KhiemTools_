@@ -442,15 +442,17 @@ namespace KhimTools.RebarTool.Core
             double radius = diameterMm / 2.0;
             BeamManualCoverV1 left = FindCover(covers, BeamManualCoverFace.Left);
             BeamManualCoverV1 right = FindCover(covers, BeamManualCoverFace.Right);
-            BeamManualCoverV1 vertical = FindCover(covers, bar.YMm < 0 ? BeamManualCoverFace.Bottom : BeamManualCoverFace.Top);
-            if (left == null || right == null || vertical == null) return;
+            BeamManualCoverV1 top = FindCover(covers, BeamManualCoverFace.Top);
+            BeamManualCoverV1 bottom = FindCover(covers, BeamManualCoverFace.Bottom);
+            if (left == null || right == null || top == null || bottom == null) return;
             double leftEdge = -frame.WidthMm / 2.0 + left.ClearCoverMm;
             double rightEdge = frame.WidthMm / 2.0 - right.ClearCoverMm;
             if (bar.XMm - radius < leftEdge - GeometryToleranceMm || bar.XMm + radius > rightEdge + GeometryToleranceMm)
                 add(group, field + ".xMm", "Physical bar diameter envelope violates the assigned clear cover or Beam side face.");
-            if (bar.YMm - radius < -frame.HeightMm / 2.0 + vertical.ClearCoverMm - GeometryToleranceMm ||
-                bar.YMm + radius > frame.HeightMm / 2.0 - vertical.ClearCoverMm + GeometryToleranceMm)
-                add(group, field + ".yMm", "Physical bar diameter envelope violates the assigned clear cover or Beam top/bottom face.");
+            if (bar.YMm + radius > frame.HeightMm / 2.0 - top.ClearCoverMm + GeometryToleranceMm)
+                add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned top-face clear cover.");
+            if (bar.YMm - radius < -frame.HeightMm / 2.0 + bottom.ClearCoverMm - GeometryToleranceMm)
+                add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned bottom-face clear cover.");
         }
 
         private static void ValidateCollisions(IList<Tuple<string, BeamManualBarGroupV1, BeamManualBarV1>> bars, IList<BeamManualIssueV1> issues)

@@ -323,6 +323,13 @@ static class Program
         outside.BarGroups[0].Bars[0].EndStationMm = outside.Frame.LengthMm + 1;
         Check(!BeamManualPlanValidatorV1.Validate(outside, true).IsValid, "Manual plan rejects stations outside verified Beam concrete");
 
+        BeamManualDetailingPlanV1 asymmetricCover = CreateManualPlan();
+        asymmetricCover.BarGroups[0].Bars[0].XMm = 0;
+        asymmetricCover.BarGroups[0].Bars[0].YMm = 0;
+        asymmetricCover.Covers.Single(cover => cover.Face == BeamManualCoverFace.Bottom).ClearCoverMm = 300;
+        Check(!BeamManualPlanValidatorV1.Validate(asymmetricCover, true).IsValid,
+            "Manual plan independently checks bottom-face cover even for a bar above section center");
+
         BeamManualDetailingPlanV1 endFace = CreateManualPlan();
         endFace.BarGroups[0].Bars[0].StartStationMm = 0;
         Check(!BeamManualPlanValidatorV1.Validate(endFace, true).IsValid, "Manual plan keeps the physical bar diameter envelope inside Beam end faces");
