@@ -18,6 +18,7 @@ The authoritative approved software input/geometry contract is mirrored verbatim
 | Atomic create and parity | Checked transaction group; all enabled groups are generated; host/type/shape/hooks/quantity/centerlines must match accepted preview or the group rolls back | Run fixture on confirmed disposable model: `HOST_REQUIRED / NOT_EXECUTED` |
 | Explicitly unavailable boundaries | Verified support extension, one-plan/multi-Beam assignment, automatic detailing/design values and code compliance are disclosed and rejected; Manual v1 UI accepts exactly one Beam | No unsupported output may be represented as generated |
 | Offline UI matrix | Manual form included at minimum, 1366×768 and 1920×1080 with 100/125/150% scale simulation | Offline controls/render QA only; not Revit-host or OS DPI acceptance |
+| Final code-side regression/build | K-Rebar `157/157`; Golden Regression `124`; Rebar config `37/37`; canonical `Test-All.ps1` `2804/2804`; full Rebar layout `17,959` controls / `360` renders; Revit 2024 `0` errors / `210` warnings; Revit 2025 `0` errors / `208` warnings | Compilation/static/layout evidence is not live model validation |
 
 ## Final disposition
 
@@ -25,5 +26,6 @@ The authoritative approved software input/geometry contract is mirrored verbatim
 - No quantity, cover, station, layer, anchorage or design value is inferred from role names or legacy settings.
 - Verified support extension, applying plans to multiple Beams, unsupported host geometry and structural-code checks are unavailable and fail closed. This is a narrowed software scope, not structural adequacy.
 - Registered baseline runtime fixture `BR-MANUAL-V1-ROLLBACK` exercises straight explicit bars only. Extended hook/return/stirrup acceptance is separately recorded as a host scenario and remains unexecuted.
+- The full configured offline Rebar layout suite includes the Manual form and passes; a focused Manual-only run passed 720 checks / 18 renders at minimum, 1366×768 and 1920×1080, with 100/125/150% simulated scaling.
 - Live Revit Manual acceptance: `NOT_EXECUTED`; no confirmed detached disposable model was used.
 - `CODE_COMPLETE` is reported only for the narrowed supported code-side scope after final regression/build. `HOST_ACCEPTANCE=NO` and `PRODUCTION_READY=NO` remain until host execution and scope review.

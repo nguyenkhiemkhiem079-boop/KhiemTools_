@@ -64,6 +64,17 @@ Fresh validation on 2026-10-12: K-Rebar 148/148; Rebar configuration 37/37; Gold
 5. Only after a disposable detached QA file is explicitly confirmed, run `BR-PREVIEW-RECT`, `BR-PREVIEW-ROTATED`, `BEAM_UNDO`, `BEAM_CANCEL`, `BEAM_DUPLICATE`, `BEAM_SUPPORT_STALE`, and `BEAM_GEOMETRY_REJECTION`. Record actual model fingerprints, transaction rollback and parity evidence. Until then report `HOST_REQUIRED / NOT_EXECUTED`.
 6. Do not merge into master, force push, start a later phase or work on another K-TOOL module.
 
+## Phase 04C final handoff (2026-10-12)
+
+Starting SHA: `843d99218e5f85ef2a97ab3b0d56e59a911f4c13`. Code implementation checkpoint pushed: `be12798bedfb96c93e05a7945aff5c2c15dbc583`; final documentation checkpoint is recorded in the repository-root Phase 04C handoff block after push.
+
+- `CODE_COMPLETE=YES` for the explicitly narrowed one-supported-rectangular-Beam Manual v1 code-side scope: explicit per-bar roles/layers/stations, exact type identity, independent face covers, exact loaded hooks/orientations, dimensioned return polylines, explicit stirrup/hanger paths/stations, atomic per-host persistence, rollback preview, staleness, full duplicate protection, create parity and atomic rollback are wired through the same production generator. No design/rebar values were inferred.
+- Intentionally unavailable/fail-closed: verified support extension, a single plan applied to multiple Beams, automatic quantities/spacing/anchorage/cover/design, and unsupported Beam geometry.
+- `P0=NONE` in the narrowed code-side path. Host P1 remains: run `BR-MANUAL-V1-ROLLBACK` plus the `BEAM_MANUAL_V1_EXTENDED_DETAILS` catalog scenario on an explicitly confirmed detached disposable model. The registered executable fixture covers straight bars only; extended hook/return/stirrup/hanger scenario remains `REGISTERED_NOT_EXECUTED`.
+- Final validation: Golden `124`; K-Rebar `157/157`; Rebar configuration `37/37`; full Rebar layout `17,959` controls / `360` renders, including the Manual form; `Test-All.ps1` `2804/2804`; Revit 2024 `net48` 0 errors / 210 warnings; Revit 2025 `net8.0-windows` 0 errors / 208 warnings; `git diff --check` PASS.
+- Live Revit QA `NOT_EXECUTED`; `HOST_ACCEPTANCE=NO`; `PRODUCTION_READY=NO`. No production model was used.
+- Master remains untouched; no merge or force-push. Final pushed branch SHA and clean-worktree proof are in the root handoff.
+
 ---
 
 ## Phase 04C — Beam Manual Detailing v1 handoff (2026-10-12)

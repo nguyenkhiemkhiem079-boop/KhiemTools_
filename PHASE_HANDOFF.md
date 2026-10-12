@@ -70,3 +70,13 @@ The implementation explicitly narrows/deactivates verified support extension, mu
 Pushed implementation checkpoint SHAs through `92b79f7e0660b6ec7df85dec6db056834fd98b72`; the final code-and-documentation SHA is recorded in the block below after final full regression. Focused evidence: Golden Regression 124 assertions; K-Rebar 157/157; Rebar configuration 37/37; Revit 2024 Release 0 errors / 210 warnings; Revit 2025 Release 0 errors / 208 warnings. Final `Test-All.ps1` and full layout status are recorded after their runs.
 
 `BR-MANUAL-V1-ROLLBACK` is the straight-bar executable host fixture. `BEAM_MANUAL_V1_EXTENDED_DETAILS` is a host-operator scenario for exact hooks, returns, stirrups and hangers. Neither ran on a confirmed detached disposable Revit QA model. Therefore `HOST_ACCEPTANCE=NO` and `PRODUCTION_READY=NO`; do not equate registration, static checks, layout renders, or builds with live acceptance. No force push or master merge.
+
+#### Final Phase 04C report
+
+- Code checkpoint: `be12798bedfb96c93e05a7945aff5c2c15dbc583`; final documentation checkpoint SHA is the current pushed tip after verification.
+- Code-side completion for narrowed explicit Manual v1 scope: YES. Phase production readiness: NO.
+- P0 code blockers: none confirmed in the narrowed scope. Host acceptance remains P1 and is pending.
+- Golden Regression `124`; K-Rebar `157/157`; Rebar configuration `37/37`; full Rebar layout `17,959` controls / `360` renders; WPF UI layout `100` icons / `10` XAML surfaces / `43` renders; canonical `Test-All.ps1` `2804/2804`.
+- Revit 2024 Release: `0` errors / `210` warnings. Revit 2025 Release: `0` errors / `208` warnings.
+- Live Revit host QA: `NOT_EXECUTED`. No confirmed detached disposable Beam model was used. The straight-bar fixture and extended detailing scenario are registered/unexecuted; do not claim product readiness.
+- Branch is `fix/preview-hardening`; master remains at `601d1feb8731356f3ac2f509aa5aabeecbd8fd3a`; final local/remote feature tips match and the tree is clean.
