@@ -84,7 +84,7 @@ $suites = @(
     @{
         Name = "UI Command Contract Metadata Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
-        ExpectedCount = 215
+        ExpectedCount = 218
     },
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"

@@ -147,3 +147,10 @@ This is the latest Phase 04C disposition and supersedes the earlier checkpoint s
 - **P2/narrowed boundary:** verified support extension, multi-Beam plans, inferred engineering values, unsupported host profiles and structural-code checks remain visibly unavailable and fail closed. The supported editor accepts one supported rectangular Beam at a time.
 - Final current evidence: Golden Regression `124` assertions PASS; K-Rebar `157/157` PASS; Rebar configuration `37/37` PASS; focused Manual layout `720` checks / `18` renders PASS; full Rebar layout `17,959` controls / `360` renders PASS; canonical `Test-All.ps1` `2804/2804` PASS; Revit 2024/2025 Release builds `0` errors (210/208 repository-wide warnings). Offline layout simulation is not OS DPI or host QA.
 - `HOST_ACCEPTANCE=NO`; `PRODUCTION_READY=NO`. Build/static results are not live Revit acceptance.
+
+## Independent continuation audit — 2026-10-12
+
+- **P0:** none confirmed in the claimed one-supported-rectangular-Beam code-side scope after an independent editor→plan→generator→rollback-preview/Create/persistence trace.
+- **P1 host-only remains:** `BR-MANUAL-V1-ROLLBACK` and `BEAM_MANUAL_V1_EXTENDED_DETAILS` are registered but unexecuted. Revit 2025/2026 processes were present, but no detached disposable Beam model was confirmed; no runtime mutation was attempted.
+- **P2 / non-blocking QA accounting fixed:** `Test-All.ps1` weighted UI command-contract acceptance at 215 while its verifier emitted 218 checks. Updated the suite weight to 218; this is aggregate reporting only and does not affect production behavior.
+- Fresh evidence: K-Rebar `157/157`; Rebar configuration `37/37`; Golden Regression `124`; Runtime QA structural audit `50/50`; Rebar layout `17,959` checks / `360` renders in both canonical and repeated standalone runs; corrected canonical `Test-All.ps1` `2807/2807`; Revit 2024 `0` errors / `210` warnings; Revit 2025 `0` errors / `208` warnings. `git diff --check` and remote handoff verification remain final steps.

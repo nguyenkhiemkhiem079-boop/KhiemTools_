@@ -80,3 +80,7 @@ Pushed implementation checkpoint SHAs through `92b79f7e0660b6ec7df85dec6db056834
 - Revit 2024 Release: `0` errors / `210` warnings. Revit 2025 Release: `0` errors / `208` warnings.
 - Live Revit host QA: `NOT_EXECUTED`. No confirmed detached disposable Beam model was used. The straight-bar fixture and extended detailing scenario are registered/unexecuted; do not claim product readiness.
 - Branch is `fix/preview-hardening`; master remains at `601d1feb8731356f3ac2f509aa5aabeecbd8fd3a`; final local/remote feature tips match and the tree is clean.
+
+### Independent Phase 04C continuation audit (2026-10-12)
+
+An independent code-side trace and fresh QA run followed the pushed `2d0b6f1420222a239bb3a46159787304a845024d` handoff. No Manual v1 production-code defect was confirmed; no Beam or Slab production source was modified. The audit found and corrected a canonical QA weight mismatch: `Verify-UiContracts.ps1` emits 218 checks, while `Test-All.ps1` had the suite weighted as 215. The corrected canonical run passed `2807/2807`; Rebar layout passed `17,959` controls / `360` renders both within Test-All and on a repeated standalone run. Runtime host acceptance remains `NOT_EXECUTED`: Revit processes alone do not confirm a detached disposable model; do not run the fixture against open project models. Do not change master or start a different K-TOOL module.
