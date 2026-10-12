@@ -9,8 +9,8 @@ using KhimTools.Core.Workflow;
 namespace KhimTools.RebarTool.Core
 {
     /// <summary>
-    /// Strict Revit adapter for the currently supported Manual v1 slice: explicitly
-    /// positioned, straight longitudinal bars fully contained in one verified Beam.
+    /// Strict Revit adapter for explicitly positioned longitudinal bars fully
+    /// contained in one verified Beam. Unsupported detailing fails closed.
     /// It deliberately does not route through the legacy BeamRebarInput defaults.
     /// </summary>
     public sealed class BeamManualRebarGeneratorV1
@@ -60,7 +60,9 @@ namespace KhimTools.RebarTool.Core
             BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true).ThrowIfInvalid();
             string[] typeState = ResolvePlanReferences(plan).Select(type => string.Join("|", type.UniqueId,
                 type.VersionGuid.ToString("D"), type.Name,
-                type.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture))).ToArray();
+                type.BarModelDiameter.ToString("R", CultureInfo.InvariantCulture)))
+                .Concat(ResolveHookReferences(plan).Select(type => string.Join("HOOK", type.UniqueId, type.VersionGuid.ToString("D"), type.Name)))
+                .ToArray();
             string[] existingRebarState = GetHostedRebar(beam)
                 .Select(RebarPreviewService.FingerprintBar)
                 .OrderBy(value => value, StringComparer.Ordinal).ToArray();
@@ -80,12 +82,13 @@ namespace KhimTools.RebarTool.Core
                 throw new InvalidOperationException("Beam geometry or local orientation changed since this Manual v1 plan was authored.");
             BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true).ThrowIfInvalid();
 
-            if ((plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>()).Any(group => group != null && group.Enabled))
-                throw new InvalidOperationException("Manual stirrup generation is not enabled in this adapter. Disable the group or use the separately labeled Legacy Supported workflow; no stirrup is substituted.");
             if (plan.SupportEnds.Count != 2 || plan.SupportEnds.Any(end => end == null || end.Mode != BeamManualSupportMode.UserDefinedFreeEndWithinHost))
                 throw new InvalidOperationException("This Manual v1 generator supports only explicit free ends within the Beam host. Verified-support extension is not enabled.");
 
             ResolvePlanReferences(plan);
+            ResolveHookReferences(plan);
+            if ((plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>()).Any(group => group != null && group.Enabled))
+                throw new InvalidOperationException("Manual stirrup/hanger group generation is not supported in this adapter; no tie shape, station policy, or hook behavior is substituted.");
             IReadOnlyList<BeamManualResolvedBarV1> bars = BeamManualLayoutBuilderV1.Build(plan);
             Rebar[] existingBars = GetHostedRebar(beam).ToArray();
             var created = new List<Rebar>();
@@ -93,29 +96,30 @@ namespace KhimTools.RebarTool.Core
             {
                 BeamManualBarGroupV1 group = plan.BarGroups.Single(item => item.Enabled && item.GroupId == resolved.GroupId);
                 RebarBarType type = ResolveBarType(group.BarType);
-                BeamManualBarV1 source = group.Bars.Single(item =>
-                    Math.Abs(item.XMm - resolved.Centerline[0].XMm) <= BeamManualPlanValidatorV1.GeometryToleranceMm &&
-                    Math.Abs(item.YMm - resolved.Centerline[0].YMm) <= BeamManualPlanValidatorV1.GeometryToleranceMm &&
-                    Math.Abs(item.StartStationMm - resolved.Centerline[0].StationMm) <= BeamManualPlanValidatorV1.GeometryToleranceMm &&
-                    Math.Abs(item.EndStationMm - resolved.Centerline[1].StationMm) <= BeamManualPlanValidatorV1.GeometryToleranceMm &&
-                    string.Equals(item.LayerId, resolved.LayerId, StringComparison.Ordinal));
-                if (source.StartDetail.Kind != BeamManualEndDetailKind.StraightAtStation ||
-                    source.FinishDetail.Kind != BeamManualEndDetailKind.StraightAtStation)
-                    throw new InvalidOperationException("Only STRAIGHT_AT_STATION end details are currently supported by Manual v1 generation.");
-
-                XYZ start = ToWorld(profile, resolved.Centerline[0]);
-                XYZ finish = ToWorld(profile, resolved.Centerline[1]);
-                if (start.DistanceTo(finish) <= 1e-9)
-                    throw new InvalidOperationException("A Manual v1 bar resolved to a zero-length Revit centerline.");
-                ValidateNoExistingBarOverlap(existingBars, start, finish, type);
-                var curves = new List<Curve> { Line.CreateBound(start, finish) };
+                BeamManualBarV1 source = group.Bars[resolved.SourceBarIndex];
+                RebarHookType startHook = ResolveHookType(source.StartDetail);
+                RebarHookType finishHook = ResolveHookType(source.FinishDetail);
+                XYZ[] worldPoints = resolved.Centerline.Select(point => ToWorld(profile, point)).ToArray();
+                if (worldPoints.Length < 2 || worldPoints.Zip(worldPoints.Skip(1), (a, b) => a.DistanceTo(b) <= 1e-9).Any(zero => zero))
+                    throw new InvalidOperationException("A Manual v1 bar resolved to an empty or zero-length Revit centerline segment.");
+                ValidateNoExistingBarOverlap(existingBars, worldPoints, type);
+                foreach (Rebar createdBar in created)
+                    ValidateNoExistingBarOverlap(new[] { createdBar }, worldPoints, type);
+                var curves = new List<Curve>();
+                for (int index = 0; index + 1 < worldPoints.Length; index++)
+                    curves.Add(Line.CreateBound(worldPoints[index], worldPoints[index + 1]));
                 Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(_document, RebarStyle.Standard,
-                    type, null, null, beam, profile.RightVector, curves,
+                    type, startHook, finishHook, beam, profile.RightVector, curves,
+                    ToHookOrientation(source.StartDetail), ToHookOrientation(source.FinishDetail),
                     allowLegacyFallback: false);
                 if (bar == null || !bar.IsValidObject)
                     throw new InvalidOperationException("Revit could not create Manual bar group " + resolved.GroupId + ". " + RebarShapeCreationHelper.LastFailureReason);
                 if (bar.GetHostId() != beam.Id || bar.GetTypeId() != type.Id || bar.Quantity != 1)
                     throw new InvalidOperationException("Revit changed the requested Manual bar host, exact type, or single-bar quantity; refusing substituted output.");
+                if ((startHook != null && bar.GetHookTypeId(0) != startHook.Id) || (finishHook != null && bar.GetHookTypeId(1) != finishHook.Id))
+                    throw new InvalidOperationException("Revit did not preserve the exact explicitly selected hook identities; creation is rolled back.");
+                ValidateCreatedEnvelope(bar, beam, profile, type.BarModelDiameter * 0.5, plan.Covers);
+                ValidateCreatedAgainstExisting(bar, type, existingBars.Concat(created));
                 created.Add(bar);
                 if (roleByBarId != null)
                     roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = group.Role == BeamManualBarRole.UserDefined
@@ -134,10 +138,13 @@ namespace KhimTools.RebarTool.Core
 
         private void ValidateNoExistingBarOverlap(IEnumerable<Rebar> existingBars, XYZ start, XYZ finish, RebarBarType requestedType)
         {
+            ValidateNoExistingBarOverlap(existingBars, new[] { start, finish }, requestedType);
+        }
+
+        private void ValidateNoExistingBarOverlap(IEnumerable<Rebar> existingBars, IList<XYZ> candidatePoints, RebarBarType requestedType)
+        {
             double requestedRadius = requestedType.BarModelDiameter * 0.5;
             double tolerance = UnitUtils.ConvertToInternalUnits(0.01, UnitTypeId.Millimeters);
-            var candidateStart = new BeamManualPoint3V1(start.X, start.Y, start.Z);
-            var candidateFinish = new BeamManualPoint3V1(finish.X, finish.Y, finish.Z);
             foreach (Rebar existing in existingBars)
             {
                 if (existing == null || !existing.IsValidObject)
@@ -157,9 +164,46 @@ namespace KhimTools.RebarTool.Core
                         RebarPreviewPoint p1 = path.Points[index + 1];
                         var existingStart = new BeamManualPoint3V1(p0.X, p0.Y, p0.Z);
                         var existingFinish = new BeamManualPoint3V1(p1.X, p1.Y, p1.Z);
-                        if (BeamManualSegmentDistanceV1.SquaredDistance(candidateStart, candidateFinish, existingStart, existingFinish) < minimumDistanceSquared)
-                            throw new InvalidOperationException("The requested Manual bar overlaps existing reinforcement hosted by this Beam. Review the explicit layout before creating; no existing bars were changed.");
+                        for (int candidateIndex = 0; candidateIndex + 1 < candidatePoints.Count; candidateIndex++)
+                        {
+                            XYZ candidateStart = candidatePoints[candidateIndex];
+                            XYZ candidateFinish = candidatePoints[candidateIndex + 1];
+                            if (BeamManualSegmentDistanceV1.SquaredDistance(
+                                new BeamManualPoint3V1(candidateStart.X, candidateStart.Y, candidateStart.Z), new BeamManualPoint3V1(candidateFinish.X, candidateFinish.Y, candidateFinish.Z),
+                                existingStart, existingFinish) < minimumDistanceSquared)
+                                throw new InvalidOperationException("The requested Manual centerline overlaps existing or earlier generated Beam reinforcement. Review the explicit geometry before creating; the enclosing transaction will roll back.");
+                        }
                     }
+                }
+            }
+        }
+
+        private void ValidateCreatedAgainstExisting(Rebar candidate, RebarBarType requestedType, IEnumerable<Rebar> existingBars)
+        {
+            IReadOnlyList<RebarPreviewPath> candidatePaths = RebarPreviewService.ReadPaths(new List<Rebar> { candidate });
+            double radius = requestedType.BarModelDiameter * 0.5;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.01, UnitTypeId.Millimeters);
+            foreach (Rebar existing in existingBars)
+            {
+                if (existing == null || !existing.IsValidObject) throw new InvalidOperationException("Existing reinforcement changed during the transaction.");
+                RebarBarType existingType = _document.GetElement(existing.GetTypeId()) as RebarBarType;
+                if (existingType == null || !existingType.IsValidObject)
+                    throw new InvalidOperationException("Existing reinforcement type cannot be resolved; refusing to certify Manual output clearance.");
+                double minimum = radius + existingType.BarModelDiameter * 0.5 - tolerance;
+                if (minimum <= 0) continue;
+                double minimumSquared = minimum * minimum;
+                IReadOnlyList<RebarPreviewPath> existingPaths = RebarPreviewService.ReadPaths(new List<Rebar> { existing });
+                foreach (RebarPreviewPath newPath in candidatePaths)
+                foreach (RebarPreviewPath oldPath in existingPaths)
+                for (int i = 0; i + 1 < newPath.Points.Count; i++)
+                for (int j = 0; j + 1 < oldPath.Points.Count; j++)
+                {
+                    RebarPreviewPoint a0 = newPath.Points[i], a1 = newPath.Points[i + 1];
+                    RebarPreviewPoint b0 = oldPath.Points[j], b1 = oldPath.Points[j + 1];
+                    if (BeamManualSegmentDistanceV1.SquaredDistance(
+                        new BeamManualPoint3V1(a0.X, a0.Y, a0.Z), new BeamManualPoint3V1(a1.X, a1.Y, a1.Z),
+                        new BeamManualPoint3V1(b0.X, b0.Y, b0.Z), new BeamManualPoint3V1(b1.X, b1.Y, b1.Z)) < minimumSquared)
+                        throw new InvalidOperationException("Revit-solved Manual Rebar overlaps existing or earlier generated Beam reinforcement; the enclosing transaction will roll back.");
                 }
             }
         }
@@ -169,6 +213,66 @@ namespace KhimTools.RebarTool.Core
             return (plan.BarGroups ?? new List<BeamManualBarGroupV1>()).Where(group => group != null && group.Enabled).Select(group => ResolveBarType(group.BarType))
                 .Concat((plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>()).Where(group => group != null && group.Enabled).Select(group => ResolveBarType(group.BarType)))
                 .GroupBy(type => type.UniqueId, StringComparer.Ordinal).Select(group => group.First()).ToArray();
+        }
+
+        private IEnumerable<RebarHookType> ResolveHookReferences(BeamManualDetailingPlanV1 plan)
+        {
+            var references = (plan.BarGroups ?? new List<BeamManualBarGroupV1>()).Where(group => group != null && group.Enabled)
+                .SelectMany(group => group.Bars ?? new List<BeamManualBarV1>())
+                .SelectMany(bar => new[] { bar.StartDetail, bar.FinishDetail })
+                .Concat((plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>()).Where(group => group != null && group.Enabled)
+                    .SelectMany(group => new[] { group.StartDetail, group.FinishDetail }))
+                .Where(detail => detail != null && detail.Kind == BeamManualEndDetailKind.ExplicitLoadedRevitHook)
+                .Select(ResolveHookType).Where(hook => hook != null)
+                .GroupBy(hook => hook.UniqueId, StringComparer.Ordinal).Select(group => group.First()).ToArray();
+            return references;
+        }
+
+        private RebarHookType ResolveHookType(BeamManualEndDetailV1 detail)
+        {
+            if (detail == null || detail.Kind != BeamManualEndDetailKind.ExplicitLoadedRevitHook) return null;
+            BeamManualElementIdentityV1 reference = detail.HookType;
+            if (reference == null || reference.State != BeamManualReferenceState.Resolved || reference.DocumentKey != GetDocumentKey())
+                throw new InvalidOperationException("The exact loaded RebarHookType is unresolved or belongs to another document; explicitly rebind it.");
+            RebarHookType hook = _document.GetElement(reference.UniqueId) as RebarHookType;
+            if (hook == null || !hook.IsValidObject || hook.Document != _document || hook.Name != reference.Name)
+                throw new InvalidOperationException("The exact RebarHookType identity no longer resolves; no hook substitution is permitted.");
+            return hook;
+        }
+
+        private static RebarHookOrientation ToHookOrientation(BeamManualEndDetailV1 detail)
+        {
+            if (detail?.Kind != BeamManualEndDetailKind.ExplicitLoadedRevitHook) return RebarHookOrientation.Right;
+            return detail.HookOrientation == BeamManualHookOrientation.Left ? RebarHookOrientation.Left : RebarHookOrientation.Right;
+        }
+
+        private static void ValidateCreatedEnvelope(Rebar rebar, FamilyInstance beam, BeamGeometryHelper.BeamProfile profile,
+            double radiusFeet, IList<BeamManualCoverV1> covers)
+        {
+            IReadOnlyList<RebarPreviewPath> paths = RebarPreviewService.ReadPaths(new List<Rebar> { rebar });
+            double radiusMm = UnitUtils.ConvertFromInternalUnits(radiusFeet, UnitTypeId.Millimeters);
+            double widthMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters);
+            double heightMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
+            double lengthMm = UnitUtils.ConvertFromInternalUnits(profile.Length, UnitTypeId.Millimeters);
+            BeamManualCoverV1 top = covers.Single(item => item.Face == BeamManualCoverFace.Top);
+            BeamManualCoverV1 bottom = covers.Single(item => item.Face == BeamManualCoverFace.Bottom);
+            BeamManualCoverV1 left = covers.Single(item => item.Face == BeamManualCoverFace.Left);
+            BeamManualCoverV1 right = covers.Single(item => item.Face == BeamManualCoverFace.Right);
+            foreach (RebarPreviewPath path in paths)
+            foreach (RebarPreviewPoint point in path.Points)
+            {
+                XYZ world = new XYZ(point.X, point.Y, point.Z) - profile.StartPoint;
+                double x = UnitUtils.ConvertFromInternalUnits(world.DotProduct(profile.RightVector), UnitTypeId.Millimeters);
+                double y = UnitUtils.ConvertFromInternalUnits(world.DotProduct(profile.UpVector), UnitTypeId.Millimeters);
+                double station = UnitUtils.ConvertFromInternalUnits(world.DotProduct(profile.Direction), UnitTypeId.Millimeters);
+                double tolerance = BeamManualPlanValidatorV1.GeometryToleranceMm;
+                if (x - radiusMm < -widthMm / 2.0 + left.ClearCoverMm - tolerance ||
+                    x + radiusMm > widthMm / 2.0 - right.ClearCoverMm + tolerance ||
+                    y + radiusMm > heightMm / 2.0 - top.ClearCoverMm + tolerance ||
+                    y - radiusMm < -heightMm / 2.0 + bottom.ClearCoverMm - tolerance ||
+                    station < -tolerance || station > lengthMm + tolerance)
+                    throw new InvalidOperationException("Revit's solved Manual Rebar centerline/bend violates the explicit Beam face-cover or physical host envelope. The transaction will roll back.");
+            }
         }
 
         private RebarBarType ResolveBarType(BeamManualElementReferenceV1 reference)

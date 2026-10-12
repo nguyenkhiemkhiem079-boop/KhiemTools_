@@ -338,15 +338,31 @@ static class Program
         missing.BarGroups[0].BarType = null;
         Check(!BeamManualPlanValidatorV1.Validate(missing, true).IsValid, "Manual plan blocks missing exact RebarBarType identity");
 
-        BeamManualDetailingPlanV1 unsupported = CreateManualPlan();
-        unsupported.BarGroups[0].Bars[0].StartDetail.Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook;
-        unsupported.BarGroups[0].Bars[0].StartDetail.HookType = new BeamManualElementIdentityV1
+        BeamManualDetailingPlanV1 explicitHook = CreateManualPlan();
+        explicitHook.BarGroups[0].Bars[0].StartDetail.Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook;
+        explicitHook.BarGroups[0].Bars[0].StartDetail.HookType = new BeamManualElementIdentityV1
         {
-            DocumentKey = unsupported.DocumentKey, UniqueId = "synthetic-hook-id", Name = "Synthetic hook fixture",
+            DocumentKey = explicitHook.DocumentKey, UniqueId = "SYNTHETIC_TEST_HOOK_ID", Name = "SYNTHETIC TEST HOOK",
             State = BeamManualReferenceState.Resolved
         };
-        unsupported.BarGroups[0].Bars[0].StartDetail.HookOrientation = BeamManualHookOrientation.Left;
-        Check(!BeamManualPlanValidatorV1.Validate(unsupported, true).IsValid, "Manual plan explicitly blocks hook generation until Revit shape compatibility is verified");
+        explicitHook.BarGroups[0].Bars[0].StartDetail.HookOrientation = BeamManualHookOrientation.Left;
+        Check(BeamManualPlanValidatorV1.Validate(explicitHook, true).IsValid,
+            "Manual plan accepts a user-selected exact hook identity and orientation for adapter compatibility checking");
+
+        BeamManualDetailingPlanV1 explicitReturn = CreateManualPlan();
+        explicitReturn.BarGroups[0].Bars[0].StartDetail = new BeamManualEndDetailV1
+        {
+            Kind = BeamManualEndDetailKind.ExplicitCurveReturn,
+            ReturnPoints = new List<BeamManualPointV1>
+            {
+                new BeamManualPointV1 { StationMm = 200, XMm = -80, YMm = 160 },
+                new BeamManualPointV1 { StationMm = 120, XMm = -80, YMm = 210 }
+            }
+        };
+        IReadOnlyList<BeamManualResolvedBarV1> returnBars = BeamManualLayoutBuilderV1.Build(explicitReturn);
+        Check(returnBars[0].Centerline.Count == 3 && returnBars[0].Centerline[0].StationMm == 200 &&
+              returnBars[0].Centerline[1].StationMm == 120 && returnBars[0].Centerline[2].StationMm == 5900,
+            "Manual builder preserves explicit start-return vertices, anchor and full longitudinal path order");
 
         BeamManualDetailingPlanV1 missingStations = CreateManualPlan();
         missingStations.StirrupGroups.Add(new BeamManualStirrupGroupV1

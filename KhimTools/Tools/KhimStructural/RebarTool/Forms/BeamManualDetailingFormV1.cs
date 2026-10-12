@@ -35,11 +35,20 @@ namespace KhimTools.RebarTool.Forms
             public override string ToString() => Display;
         }
 
+        private sealed class HookTypeChoice
+        {
+            public RebarHookType Type { get; }
+            public string Display { get; }
+            public HookTypeChoice(RebarHookType type) { Type = type; Display = type.Name; }
+            public override string ToString() => Display;
+        }
+
         private readonly Document _document;
         private readonly FamilyInstance _beam;
         private readonly BeamManualRebarGeneratorV1 _generator;
         private readonly BeamManualDetailingPlanStoreV1 _store;
         private readonly List<RebarBarType> _barTypes;
+        private readonly List<RebarHookType> _hookTypes;
         private BeamManualDetailingPlanV1 _plan;
         private RebarPreviewSnapshot _preview;
         private readonly DataGridView _bars = new DataGridView();
@@ -61,6 +70,8 @@ namespace KhimTools.RebarTool.Forms
             _beam = beam ?? throw new ArgumentNullException(nameof(beam));
             _generator = new BeamManualRebarGeneratorV1(document);
             _barTypes = new FilteredElementCollector(document).OfClass(typeof(RebarBarType)).Cast<RebarBarType>()
+                .Where(type => type.IsValidObject).OrderBy(type => type.Name, StringComparer.Ordinal).ToList();
+            _hookTypes = new FilteredElementCollector(document).OfClass(typeof(RebarHookType)).Cast<RebarHookType>()
                 .Where(type => type.IsValidObject).OrderBy(type => type.Name, StringComparer.Ordinal).ToList();
             _plan = _generator.CreateBlankPlan(beam);
             _sketchFrame = _plan.Frame;
@@ -122,7 +133,7 @@ namespace KhimTools.RebarTool.Forms
             remove.Click += (s, e) => { foreach (DataGridViewRow row in _bars.SelectedRows) if (!row.IsNewRow) _bars.Rows.Remove(row); InvalidatePreview(); };
             editButtons.Controls.Add(add);
             editButtons.Controls.Add(remove);
-            editButtons.Controls.Add(new Label { Text = "Ends / Đầu thép: choose STRAIGHT_AT_STATION at each end. / Chọn thẳng tại trạm cho từng đầu. Returns, hooks, stirrups and support extension are unsupported. / Chưa hỗ trợ đoạn bẻ, móc, đai hoặc neo ra gối.", AutoSize = true, Padding = new Padding(8, 9, 0, 0), ForeColor = Color.DarkRed });
+            editButtons.Controls.Add(new Label { Text = "Each end detail is explicit. Hook/return geometry is subject to exact Revit compatibility and host clearance checks; unsupported stirrup/support extension requests are blocked. / Chi tiết đầu thanh phải nhập rõ; đai và neo ra gối hiện bị chặn.", AutoSize = true, Padding = new Padding(8, 9, 0, 0), ForeColor = Color.DarkRed });
             root.Controls.Add(editButtons, 0, 3);
 
             var settings = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 7, RowCount = 3, Padding = new Padding(0, 8, 0, 4) };
@@ -192,7 +203,9 @@ namespace KhimTools.RebarTool.Forms
                 _bars.Columns.Add(new DataGridViewTextBoxColumn { Name = key, HeaderText = key, FillWeight = 85 });
             _bars.Columns.Add(new DataGridViewTextBoxColumn { Name = "Layer", HeaderText = "Explicit layer ID", FillWeight = 90 });
             AddEndDetailColumn("Start detail", "Start end detail");
+            AddHookDetailColumns("Start");
             AddEndDetailColumn("Finish detail", "Finish end detail");
+            AddHookDetailColumns("Finish");
             _bars.DataError += (s, e) => { e.ThrowException = false; };
         }
 
@@ -200,9 +213,31 @@ namespace KhimTools.RebarTool.Forms
         {
             _bars.Columns.Add(new DataGridViewComboBoxColumn
             {
-                Name = name, HeaderText = header, DataSource = new[] { "STRAIGHT_AT_STATION" },
+                Name = name, HeaderText = header, DataSource = new[] { "STRAIGHT_AT_STATION", "EXPLICIT_CURVE_RETURN", "EXPLICIT_LOADED_REVIT_HOOK" },
                 FlatStyle = FlatStyle.Flat, FillWeight = 105,
-                ToolTipText = "This end must be explicitly set to STRAIGHT_AT_STATION. Returns and RebarHookType generation are not supported in this build."
+                ToolTipText = "Select the exact end mode. Return points or exact RebarHookType and orientation are required for the corresponding modes."
+            });
+        }
+
+        private void AddHookDetailColumns(string prefix)
+        {
+            _bars.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = prefix + " hook type", HeaderText = prefix + " exact hook type",
+                DataSource = _hookTypes.Select(type => new HookTypeChoice(type)).ToList(), DisplayMember = "Display",
+                FlatStyle = FlatStyle.Flat, FillWeight = 120,
+                ToolTipText = "Exact loaded RebarHookType; no type/angle substitution."
+            });
+            _bars.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = prefix + " orientation", HeaderText = prefix + " orientation",
+                DataSource = new[] { BeamManualHookOrientation.Left, BeamManualHookOrientation.Right },
+                FlatStyle = FlatStyle.Flat, FillWeight = 75
+            });
+            _bars.Columns.Add(new DataGridViewTextBoxColumn
+            {
+                Name = prefix + " return points", HeaderText = prefix + " return points (s,x,y; mm)", FillWeight = 150,
+                ToolTipText = "Explicit local mm points formatted s,x,y;... . Start path is ordered tip-to-anchor; finish is anchor-to-tip."
             });
         }
 
@@ -238,10 +273,16 @@ namespace KhimTools.RebarTool.Forms
                 int row = _bars.Rows.Add(group.GroupId, group.Enabled, group.Role, type == null ? null : ChoiceFor(type),
                     bar.XMm.ToString("R", CultureInfo.InvariantCulture), bar.YMm.ToString("R", CultureInfo.InvariantCulture),
                     bar.StartStationMm.ToString("R", CultureInfo.InvariantCulture), bar.EndStationMm.ToString("R", CultureInfo.InvariantCulture),
-                    bar.LayerId, SupportedEndText(bar.StartDetail), SupportedEndText(bar.FinishDetail));
+                    bar.LayerId, DetailText(bar.StartDetail), HookChoiceFor(bar.StartDetail?.HookType), bar.StartDetail?.HookOrientation,
+                    FormatReturnPoints(bar.StartDetail?.ReturnPoints), DetailText(bar.FinishDetail), HookChoiceFor(bar.FinishDetail?.HookType),
+                    bar.FinishDetail?.HookOrientation, FormatReturnPoints(bar.FinishDetail?.ReturnPoints));
                 if (type == null) _bars.Rows[row].Cells["BarType"].Value = null;
                 if (bar.StartDetail.Kind != BeamManualEndDetailKind.StraightAtStation || bar.FinishDetail.Kind != BeamManualEndDetailKind.StraightAtStation)
-                    _bars.Rows[row].ErrorText = "Stored return/hook end details are not editable or generatable in this supported Manual v1 slice; data was not converted.";
+                {
+                    if (bar.StartDetail?.Kind == BeamManualEndDetailKind.ExplicitLoadedRevitHook && HookChoiceFor(bar.StartDetail.HookType) == null ||
+                        bar.FinishDetail?.Kind == BeamManualEndDetailKind.ExplicitLoadedRevitHook && HookChoiceFor(bar.FinishDetail.HookType) == null)
+                        _bars.Rows[row].ErrorText = "A saved hook identity is unresolved. Explicitly rebind the exact loaded RebarHookType; no substitution was made.";
+                }
             }
             // Preserve unresolved references as unresolved; the user must explicitly select the exact loaded type.
         }
@@ -262,8 +303,23 @@ namespace KhimTools.RebarTool.Forms
             return ((IEnumerable<BarTypeChoice>)column.DataSource).FirstOrDefault(choice => choice.Type.UniqueId == type.UniqueId);
         }
 
-        private static string SupportedEndText(BeamManualEndDetailV1 detail) =>
-            detail != null && detail.Kind == BeamManualEndDetailKind.StraightAtStation ? "STRAIGHT_AT_STATION" : null;
+        private static string DetailText(BeamManualEndDetailV1 detail) => detail?.Kind == BeamManualEndDetailKind.StraightAtStation ? "STRAIGHT_AT_STATION" :
+            detail?.Kind == BeamManualEndDetailKind.ExplicitCurveReturn ? "EXPLICIT_CURVE_RETURN" :
+            detail?.Kind == BeamManualEndDetailKind.ExplicitLoadedRevitHook ? "EXPLICIT_LOADED_REVIT_HOOK" : null;
+
+        private HookTypeChoice HookChoiceFor(BeamManualElementIdentityV1 reference)
+        {
+            if (reference == null || reference.State != BeamManualReferenceState.Resolved || reference.DocumentKey != _plan.DocumentKey) return null;
+            RebarHookType type = _document.GetElement(reference.UniqueId) as RebarHookType;
+            return type != null && type.IsValidObject && type.Name == reference.Name
+                ? ((IEnumerable<HookTypeChoice>)((DataGridViewComboBoxColumn)_bars.Columns["Start hook type"]).DataSource)
+                    .FirstOrDefault(choice => choice.Type.UniqueId == type.UniqueId)
+                : null;
+        }
+
+        private static string FormatReturnPoints(IList<BeamManualPointV1> points) => points == null ? string.Empty :
+            string.Join(";", points.Select(point => string.Join(",", point.StationMm.ToString("R", CultureInfo.InvariantCulture),
+                point.XMm.ToString("R", CultureInfo.InvariantCulture), point.YMm.ToString("R", CultureInfo.InvariantCulture))));
 
         private void WireInvalidation()
         {
@@ -296,9 +352,8 @@ namespace KhimTools.RebarTool.Forms
                 string layer = CellText(row, "Layer");
                 if (string.IsNullOrWhiteSpace(id) || !role.HasValue || choice?.Type == null || string.IsNullOrWhiteSpace(layer))
                     throw new InvalidOperationException("Every row needs a stable group ID, role, exact loaded Rebar type and explicit layer ID.");
-                if (!string.Equals(Convert.ToString(row.Cells["Start detail"].Value, CultureInfo.InvariantCulture), "STRAIGHT_AT_STATION", StringComparison.Ordinal) ||
-                    !string.Equals(Convert.ToString(row.Cells["Finish detail"].Value, CultureInfo.InvariantCulture), "STRAIGHT_AT_STATION", StringComparison.Ordinal))
-                    throw new InvalidOperationException("Choose STRAIGHT_AT_STATION independently for both ends. Hooks and curve returns remain unsupported and are never converted to straight bars.");
+                BeamManualEndDetailV1 startDetail = ReadEndDetail(row, "Start", id);
+                BeamManualEndDetailV1 finishDetail = ReadEndDetail(row, "Finish", id);
                 BeamManualBarGroupV1 group = plan.BarGroups.FirstOrDefault(item => item.GroupId == id);
                 BeamManualElementReferenceV1 typeRef = MakeTypeReference(choice.Type);
                 if (group == null)
@@ -311,7 +366,7 @@ namespace KhimTools.RebarTool.Forms
                 else if (group.Role != role.Value || group.Enabled != enabled || group.BarType.UniqueId != typeRef.UniqueId)
                     throw new InvalidOperationException("Rows sharing one stable group ID must share one enabled state, role and exact bar type.");
                 group.Bars.Add(new BeamManualBarV1 { XMm = x, YMm = y, StartStationMm = start, EndStationMm = finish, LayerId = layer,
-                    StartDetail = StraightDetail(), FinishDetail = StraightDetail() });
+                    StartDetail = startDetail, FinishDetail = finishDetail });
             }
             plan.Covers = ReadCovers();
             if (_supportStart.SelectedIndex != 1 || _supportFinish.SelectedIndex != 1)
@@ -341,6 +396,49 @@ namespace KhimTools.RebarTool.Forms
         };
 
         private static BeamManualEndDetailV1 StraightDetail() => new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation };
+
+        private BeamManualEndDetailV1 ReadEndDetail(DataGridViewRow row, string prefix, string groupId)
+        {
+            string mode = Convert.ToString(row.Cells[prefix + " detail"].Value, CultureInfo.InvariantCulture);
+            if (string.Equals(mode, "STRAIGHT_AT_STATION", StringComparison.Ordinal)) return StraightDetail();
+            if (string.Equals(mode, "EXPLICIT_CURVE_RETURN", StringComparison.Ordinal))
+                return new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.ExplicitCurveReturn,
+                    ReturnPoints = ParseReturnPoints(CellText(row, prefix + " return points"), groupId, prefix + " return points") };
+            if (string.Equals(mode, "EXPLICIT_LOADED_REVIT_HOOK", StringComparison.Ordinal))
+            {
+                HookTypeChoice choice = row.Cells[prefix + " hook type"].Value as HookTypeChoice;
+                BeamManualHookOrientation? orientation = row.Cells[prefix + " orientation"].Value is BeamManualHookOrientation value
+                    ? (BeamManualHookOrientation?)value : null;
+                if (choice?.Type == null || !orientation.HasValue)
+                    throw new InvalidOperationException("Group " + groupId + " / " + prefix + " end: choose an exact loaded RebarHookType and orientation.");
+                return new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook,
+                    HookType = MakeHookIdentity(choice.Type), HookOrientation = orientation };
+            }
+            throw new InvalidOperationException("Group " + groupId + " / " + prefix + " end: explicitly choose a supported end detail.");
+        }
+
+        private BeamManualElementIdentityV1 MakeHookIdentity(RebarHookType type) => new BeamManualElementIdentityV1
+        {
+            DocumentKey = _plan.DocumentKey, UniqueId = type.UniqueId, Name = type.Name, State = BeamManualReferenceState.Resolved
+        };
+
+        private static List<BeamManualPointV1> ParseReturnPoints(string text, string group, string field)
+        {
+            if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Group " + group + " / " + field + " needs explicit s,x,y point triples in mm, separated by semicolons.");
+            var points = new List<BeamManualPointV1>();
+            foreach (string token in text.Split(';'))
+            {
+                string[] values = token.Split(',');
+                if (values.Length != 3) throw new InvalidOperationException("Group " + group + " / " + field + " entries must be s,x,y mm triples.");
+                points.Add(new BeamManualPointV1
+                {
+                    StationMm = ParseMm(values[0], group, field + " station"),
+                    XMm = ParseMm(values[1], group, field + " x"),
+                    YMm = ParseMm(values[2], group, field + " y")
+                });
+            }
+            return points;
+        }
 
         private BeamManualElementReferenceV1 MakeTypeReference(RebarBarType type) => new BeamManualElementReferenceV1
         {

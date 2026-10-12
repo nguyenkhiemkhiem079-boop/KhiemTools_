@@ -117,7 +117,7 @@ namespace KhimTools.RebarTool.Core
         public BeamManualEndDetailKind Kind { get; set; }
         public BeamManualElementIdentityV1 HookType { get; set; }
         public BeamManualHookOrientation? HookOrientation { get; set; }
-        /// <summary>Explicit user-authored curve points; currently reserved until the Revit path adapter validates the curve.</summary>
+        /// <summary>Explicit ordered local-mm polyline for one return; a start return ends at the longitudinal start anchor, a finish return begins there.</summary>
         public List<BeamManualPointV1> ReturnPoints { get; set; } = new List<BeamManualPointV1>();
     }
 
@@ -305,10 +305,14 @@ namespace KhimTools.RebarTool.Core
                             Add(id, field + ".stations", "Straight bar diameter envelope must remain inside both physical Beam end faces; end-face cover is not inferred.");
                     }
                     if (string.IsNullOrWhiteSpace(bar.LayerId)) Add(id, field + ".layerId", "Explicit layer identity is required, including for a single layer.");
-                    ValidateEnd(bar.StartDetail, group.BarType, requireResolvedReferences, id, field + ".startDetail", Add);
-                    ValidateEnd(bar.FinishDetail, group.BarType, requireResolvedReferences, id, field + ".finishDetail", Add);
+                    ValidateEnd(bar.StartDetail, group.BarType, requireResolvedReferences, id, field + ".startDetail", Add, bar, true, frame, plan.Covers);
+                    ValidateEnd(bar.FinishDetail, group.BarType, requireResolvedReferences, id, field + ".finishDetail", Add, bar, false, frame, plan.Covers);
                     if (group.BarType != null && frame != null && IsFinite(bar.XMm) && IsFinite(bar.YMm))
+                    {
                         ValidateEnvelope(bar, group.BarType.DiameterMm, frame, plan.Covers, id, field, Add);
+                        ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.EndStationMm, XMm = bar.XMm, YMm = bar.YMm },
+                            group.BarType.DiameterMm, frame, plan.Covers, id, field, Add);
+                    }
                     groupBars.Add(Tuple.Create(id, group, bar));
                 }
             }
@@ -347,27 +351,41 @@ namespace KhimTools.RebarTool.Core
         private delegate void AddIssue(string group, string field, string message);
 
         private static void ValidateEnd(BeamManualEndDetailV1 detail, BeamManualElementReferenceV1 barType,
-            bool requireResolved, string group, string field, AddIssue add)
+            bool requireResolved, string group, string field, AddIssue add, BeamManualBarV1 bar = null,
+            bool isStart = false, BeamManualFrameV1 frame = null, IList<BeamManualCoverV1> covers = null)
         {
             if (detail == null) { add(group, field, "Explicit end-detail selection is required."); return; }
             if (!Enum.IsDefined(typeof(BeamManualEndDetailKind), detail.Kind) || detail.Kind == BeamManualEndDetailKind.Unspecified) { add(group, field, "An explicit end-detail choice is required."); return; }
             switch (detail.Kind)
             {
                 case BeamManualEndDetailKind.StraightAtStation:
-                    if (detail.HookType != null || (detail.ReturnPoints != null && detail.ReturnPoints.Count != 0))
+                    if (detail.HookType != null || detail.HookOrientation.HasValue || (detail.ReturnPoints != null && detail.ReturnPoints.Count != 0))
                         add(group, field, "Straight-at-station detail cannot also carry a hook or return path.");
                     break;
                 case BeamManualEndDetailKind.ExplicitLoadedRevitHook:
                     ValidateIdentity(detail.HookType, barType?.DocumentKey, requireResolved, group, field + ".hookType", add);
                     if (!detail.HookOrientation.HasValue || !Enum.IsDefined(typeof(BeamManualHookOrientation), detail.HookOrientation.Value))
                         add(group, field + ".hookOrientation", "Exact hook orientation is required.");
-                    add(group, field, "Loaded RebarHookType generation is not enabled until the Revit adapter has passed hook-shape parity validation.");
+                    if (detail.ReturnPoints != null && detail.ReturnPoints.Count != 0)
+                        add(group, field + ".returnPoints", "A loaded hook and explicit return polyline are distinct end-detail modes and cannot be combined.");
                     break;
                 case BeamManualEndDetailKind.ExplicitCurveReturn:
+                    if (detail.HookType != null || detail.HookOrientation.HasValue)
+                        add(group, field, "Explicit curve return cannot also specify a RebarHookType.");
                     if (detail.ReturnPoints == null || detail.ReturnPoints.Count < 2) add(group, field + ".returnPoints", "Explicit curve return requires its fully dimensioned path points.");
                     else if (detail.ReturnPoints.Any(point => point == null || !IsFinite(point.StationMm) || !IsFinite(point.XMm) || !IsFinite(point.YMm)))
                         add(group, field + ".returnPoints", "Every explicit return point must have finite local millimetre coordinates.");
-                    add(group, field, "Explicit return-curve generation is not enabled until its Revit shape and containment adapter is validated.");
+                    else if (bar != null && barType != null)
+                    {
+                        BeamManualPointV1 anchor = isStart ? detail.ReturnPoints[detail.ReturnPoints.Count - 1] : detail.ReturnPoints[0];
+                        double station = isStart ? bar.StartStationMm : bar.EndStationMm;
+                        if (Math.Abs(anchor.StationMm - station) > GeometryToleranceMm || Math.Abs(anchor.XMm - bar.XMm) > GeometryToleranceMm || Math.Abs(anchor.YMm - bar.YMm) > GeometryToleranceMm)
+                            add(group, field + ".returnPoints", "Return path must explicitly terminate at its matching straight-bar endpoint; start returns are ordered tip-to-anchor and finish returns anchor-to-tip.");
+                        if (detail.ReturnPoints.Zip(detail.ReturnPoints.Skip(1), (a, b) => Math.Sqrt(Math.Pow(a.StationMm - b.StationMm, 2) + Math.Pow(a.XMm - b.XMm, 2) + Math.Pow(a.YMm - b.YMm, 2)) <= GeometryToleranceMm).Any(zero => zero))
+                            add(group, field + ".returnPoints", "Adjacent explicit return points must describe non-zero centerline segments.");
+                        foreach (BeamManualPointV1 point in detail.ReturnPoints)
+                            ValidateEnvelope(point, barType.DiameterMm, frame, covers, group, field + ".returnPoints", add);
+                    }
                     break;
                 case BeamManualEndDetailKind.Unsupported:
                     add(group, field, "Unsupported end detail cannot be enabled.");
@@ -438,7 +456,13 @@ namespace KhimTools.RebarTool.Core
         private static void ValidateEnvelope(BeamManualBarV1 bar, double diameterMm, BeamManualFrameV1 frame,
             IList<BeamManualCoverV1> covers, string group, string field, AddIssue add)
         {
-            if (!IsFinite(diameterMm) || diameterMm <= 0 || covers == null) return;
+            ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.StartStationMm, XMm = bar.XMm, YMm = bar.YMm }, diameterMm, frame, covers, group, field, add);
+        }
+
+        private static void ValidateEnvelope(BeamManualPointV1 point, double diameterMm, BeamManualFrameV1 frame,
+            IList<BeamManualCoverV1> covers, string group, string field, AddIssue add)
+        {
+            if (point == null || frame == null || !IsFinite(diameterMm) || diameterMm <= 0 || covers == null) return;
             double radius = diameterMm / 2.0;
             BeamManualCoverV1 left = FindCover(covers, BeamManualCoverFace.Left);
             BeamManualCoverV1 right = FindCover(covers, BeamManualCoverFace.Right);
@@ -447,12 +471,14 @@ namespace KhimTools.RebarTool.Core
             if (left == null || right == null || top == null || bottom == null) return;
             double leftEdge = -frame.WidthMm / 2.0 + left.ClearCoverMm;
             double rightEdge = frame.WidthMm / 2.0 - right.ClearCoverMm;
-            if (bar.XMm - radius < leftEdge - GeometryToleranceMm || bar.XMm + radius > rightEdge + GeometryToleranceMm)
+            if (point.XMm - radius < leftEdge - GeometryToleranceMm || point.XMm + radius > rightEdge + GeometryToleranceMm)
                 add(group, field + ".xMm", "Physical bar diameter envelope violates the assigned clear cover or Beam side face.");
-            if (bar.YMm + radius > frame.HeightMm / 2.0 - top.ClearCoverMm + GeometryToleranceMm)
+            if (point.YMm + radius > frame.HeightMm / 2.0 - top.ClearCoverMm + GeometryToleranceMm)
                 add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned top-face clear cover.");
-            if (bar.YMm - radius < -frame.HeightMm / 2.0 + bottom.ClearCoverMm - GeometryToleranceMm)
+            if (point.YMm - radius < -frame.HeightMm / 2.0 + bottom.ClearCoverMm - GeometryToleranceMm)
                 add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned bottom-face clear cover.");
+            if (point.StationMm < radius - GeometryToleranceMm || point.StationMm > frame.LengthMm - radius + GeometryToleranceMm)
+                add(group, field + ".stationMm", "Physical centerline point violates the Beam end-face diameter envelope; support extension is not assumed.");
         }
 
         private static void ValidateCollisions(IList<Tuple<string, BeamManualBarGroupV1, BeamManualBarV1>> bars, IList<BeamManualIssueV1> issues)
@@ -486,6 +512,7 @@ namespace KhimTools.RebarTool.Core
     public sealed class BeamManualResolvedBarV1
     {
         public string GroupId { get; internal set; }
+        public int SourceBarIndex { get; internal set; }
         public BeamManualBarRole Role { get; internal set; }
         public string LayerId { get; internal set; }
         public string BarTypeUniqueId { get; internal set; }
@@ -502,20 +529,26 @@ namespace KhimTools.RebarTool.Core
             if (!validation.IsValid) throw new InvalidOperationException("Manual Beam plan is blocked:" + Environment.NewLine + validation.ToDiagnosticText());
             var result = new List<BeamManualResolvedBarV1>();
             foreach (BeamManualBarGroupV1 group in plan.BarGroups.Where(item => item.Enabled))
-            foreach (BeamManualBarV1 bar in group.Bars)
+            for (int barIndex = 0; barIndex < group.Bars.Count; barIndex++)
             {
+                BeamManualBarV1 bar = group.Bars[barIndex];
+                var centerline = new List<BeamManualPointV1>();
+                if (bar.StartDetail.Kind == BeamManualEndDetailKind.ExplicitCurveReturn)
+                    centerline.AddRange(bar.StartDetail.ReturnPoints);
+                else
+                    centerline.Add(new BeamManualPointV1 { StationMm = bar.StartStationMm, XMm = bar.XMm, YMm = bar.YMm });
+                centerline.Add(new BeamManualPointV1 { StationMm = bar.EndStationMm, XMm = bar.XMm, YMm = bar.YMm });
+                if (bar.FinishDetail.Kind == BeamManualEndDetailKind.ExplicitCurveReturn)
+                    centerline.AddRange(bar.FinishDetail.ReturnPoints.Skip(1));
                 result.Add(new BeamManualResolvedBarV1
                 {
                     GroupId = group.GroupId,
+                    SourceBarIndex = barIndex,
                     Role = group.Role,
                     LayerId = bar.LayerId,
                     BarTypeUniqueId = group.BarType.UniqueId,
                     DiameterMm = group.BarType.DiameterMm,
-                    Centerline = new[]
-                    {
-                        new BeamManualPointV1 { StationMm = bar.StartStationMm, XMm = bar.XMm, YMm = bar.YMm },
-                        new BeamManualPointV1 { StationMm = bar.EndStationMm, XMm = bar.XMm, YMm = bar.YMm }
-                    }
+                    Centerline = centerline
                 });
             }
             return result;
