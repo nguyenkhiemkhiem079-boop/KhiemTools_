@@ -38,6 +38,7 @@ static class Program
         RunRebarPreviewDuplicateCases();
         RunSlabSectionGeometryCases();
         RunBeamStirrupLayoutCases();
+        RunBeamManualPlanCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -269,6 +270,159 @@ static class Program
         }
         catch (InvalidOperationException) { overlappingLayersRejected = true; }
         Check(overlappingLayersRejected, "Beam section layout rejects overlapping longitudinal layer centerlines");
+    }
+
+    private static void RunBeamManualPlanCases()
+    {
+        BeamManualDetailingPlanV1 plan = CreateManualPlan();
+        BeamManualValidationResultV1 valid = BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true);
+        Check(valid.IsValid, "Explicit synthetic manual Beam plan passes geometry-input validation without design defaults");
+        BeamManualDetailingPlanV1 skewFrame = CreateManualPlan();
+        skewFrame.Frame.RightX = 1; skewFrame.Frame.RightY = 0; skewFrame.Frame.RightZ = 0;
+        Check(!BeamManualPlanValidatorV1.Validate(skewFrame, true).IsValid, "Manual plan rejects non-orthogonal local frame axes");
+
+        IReadOnlyList<BeamManualResolvedBarV1> bars = BeamManualLayoutBuilderV1.Build(plan);
+        Check(bars.Count == 2 && bars[0].Centerline.Count == 2 && bars[0].Centerline[0].StationMm == 120 &&
+              bars[0].Centerline[1].StationMm == 5900, "Canonical manual builder retains absolute stations and each physical bar position");
+        Check(bars[0].Role == BeamManualBarRole.TopContinuous && bars[1].Role == BeamManualBarRole.BottomMidExtra &&
+              bars[0].DiameterMm == 16 && bars[1].DiameterMm == 12, "Manual builder preserves per-group role and exact resolved model diameter");
+
+        string originalFingerprint = BeamManualLayoutBuilderV1.Fingerprint(plan);
+        plan.BarGroups[0].Bars[0].StartStationMm += 1;
+        Check(originalFingerprint != BeamManualLayoutBuilderV1.Fingerprint(plan), "Manual plan fingerprint includes explicit station changes");
+        plan.BarGroups[0].Bars[0].StartStationMm -= 1;
+
+        BeamManualDetailingPlanV1 overlap = CreateManualPlan();
+        overlap.BarGroups[1].Bars[0].XMm = overlap.BarGroups[0].Bars[0].XMm;
+        overlap.BarGroups[1].Bars[0].YMm = overlap.BarGroups[0].Bars[0].YMm;
+        Check(!BeamManualPlanValidatorV1.Validate(overlap, true).IsValid, "Manual plan rejects overlapping physical bar envelopes");
+
+        BeamManualDetailingPlanV1 outside = CreateManualPlan();
+        outside.BarGroups[0].Bars[0].EndStationMm = outside.Frame.LengthMm + 1;
+        Check(!BeamManualPlanValidatorV1.Validate(outside, true).IsValid, "Manual plan rejects stations outside verified Beam concrete");
+
+        BeamManualDetailingPlanV1 missing = CreateManualPlan();
+        missing.BarGroups[0].BarType = null;
+        Check(!BeamManualPlanValidatorV1.Validate(missing, true).IsValid, "Manual plan blocks missing exact RebarBarType identity");
+
+        BeamManualDetailingPlanV1 unsupported = CreateManualPlan();
+        unsupported.BarGroups[0].Bars[0].StartDetail.Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook;
+        unsupported.BarGroups[0].Bars[0].StartDetail.HookType = new BeamManualElementIdentityV1
+        {
+            DocumentKey = unsupported.DocumentKey, UniqueId = "synthetic-hook-id", Name = "Synthetic hook fixture",
+            State = BeamManualReferenceState.Resolved
+        };
+        unsupported.BarGroups[0].Bars[0].StartDetail.HookOrientation = BeamManualHookOrientation.Left;
+        Check(!BeamManualPlanValidatorV1.Validate(unsupported, true).IsValid, "Manual plan explicitly blocks hook generation until Revit shape compatibility is verified");
+
+        BeamManualDetailingPlanV1 missingStations = CreateManualPlan();
+        missingStations.StirrupGroups.Add(new BeamManualStirrupGroupV1
+        {
+            GroupId = "SYNTHETIC_TEST_ONLY_STIRRUP", Enabled = true,
+            BarType = SyntheticType(missingStations.DocumentKey, "SYNTHETIC_STIRRUP_TYPE", 10),
+            RebarShape = new BeamManualElementIdentityV1 { DocumentKey = missingStations.DocumentKey, UniqueId = "SYNTHETIC_SHAPE", Name = "SYNTHETIC TEST SHAPE", State = BeamManualReferenceState.Resolved },
+            StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            SectionPath = new List<BeamManualPointV1> { new BeamManualPointV1 { XMm = -100, YMm = -200 }, new BeamManualPointV1 { XMm = 100, YMm = -200 }, new BeamManualPointV1 { XMm = 100, YMm = 200 }, new BeamManualPointV1 { XMm = -100, YMm = 200 } },
+            CoincidentStationPolicy = "SYNTHETIC TEST POLICY"
+        });
+        Check(!BeamManualPlanValidatorV1.Validate(missingStations, true).IsValid, "Manual stirrup group requires explicit stations and cannot infer legacy zone defaults");
+
+        BeamManualDetailingPlanV1 unresolved = CreateManualPlan();
+        unresolved.BarGroups[0].BarType.State = BeamManualReferenceState.Unresolved;
+        Check(!BeamManualPlanValidatorV1.Validate(unresolved, true).IsValid &&
+              BeamManualPlanValidatorV1.Validate(unresolved, false).IsValid,
+              "Foreign/unresolved type reference remains storable but blocks solve until exact user rebind");
+
+        string temporary = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "beam-manual-v1-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new BeamManualDetailingPlanStoreV1(temporary, unresolved.DocumentKey, unresolved.HostUniqueId);
+            BeamManualDetailingPlanV1 saved = store.Save(unresolved, expectedRevision: 0);
+            BeamManualDetailingPlanV1 loaded = store.Load();
+            Check(saved.Revision == 1 && loaded.Revision == 1 && loaded.BarGroups[0].BarType.State == BeamManualReferenceState.Unresolved &&
+                  loaded.BarGroups[1].Bars[0].XMm == unresolved.BarGroups[1].Bars[0].XMm,
+                  "Versioned manual-plan store round-trips geometry, roles, identities and unresolved state");
+            Check(ThrowsIOException(() => store.Save(unresolved, expectedRevision: 0)), "Manual-plan store rejects stale editor revisions");
+            BeamManualDetailingPlanV1 wrongHost = CreateManualPlan();
+            wrongHost.HostUniqueId = "other-synthetic-host";
+            Check(ThrowsInvalidData(() => store.Save(wrongHost, expectedRevision: 0)), "Manual-plan store is bound to exact document and Beam identity");
+        }
+        finally
+        {
+            if (System.IO.Directory.Exists(temporary)) System.IO.Directory.Delete(temporary, recursive: true);
+        }
+    }
+
+    private static BeamManualDetailingPlanV1 CreateManualPlan()
+    {
+        var plan = new BeamManualDetailingPlanV1
+        {
+            DocumentKey = "SYNTHETIC_TEST_FIXTURE_ONLY_DOCUMENT",
+            HostUniqueId = "SYNTHETIC_TEST_FIXTURE_ONLY_BEAM",
+            Frame = new BeamManualFrameV1
+            {
+                WidthMm = 300, HeightMm = 600, LengthMm = 6000,
+                DirectionX = 1, DirectionY = 0, DirectionZ = 0,
+                RightX = 0, RightY = -1, RightZ = 0,
+                UpX = 0, UpY = 0, UpZ = 1,
+                HostGeometrySignature = "SYNTHETIC_TEST_FIXTURE_ONLY_RECTANGULAR_BEAM"
+            },
+            Covers = new List<BeamManualCoverV1>
+            {
+                SyntheticCover(BeamManualCoverFace.Top, 40), SyntheticCover(BeamManualCoverFace.Bottom, 45),
+                SyntheticCover(BeamManualCoverFace.Left, 35), SyntheticCover(BeamManualCoverFace.Right, 50),
+                SyntheticCover(BeamManualCoverFace.StirrupOutside, 30)
+            },
+            SupportEnds = new List<BeamManualSupportEndV1>
+            {
+                new BeamManualSupportEndV1 { End = BeamManualEnd.Start, Mode = BeamManualSupportMode.UserDefinedFreeEndWithinHost, IntendedContinuation = "SYNTHETIC TEST ONLY: finite geometric termination" },
+                new BeamManualSupportEndV1 { End = BeamManualEnd.Finish, Mode = BeamManualSupportMode.UserDefinedFreeEndWithinHost, IntendedContinuation = "SYNTHETIC TEST ONLY: finite geometric termination" }
+            }
+        };
+        plan.BarGroups.Add(new BeamManualBarGroupV1
+        {
+            GroupId = "SYNTHETIC_TEST_ONLY_TOP", Role = BeamManualBarRole.TopContinuous, Enabled = true,
+            BarType = SyntheticType(plan.DocumentKey, "SYNTHETIC_TYPE_TOP", 16),
+            Bars = new List<BeamManualBarV1> { SyntheticBar(-80, 210, 120, 5900, "SYNTHETIC_LAYER_TOP_1") }
+        });
+        plan.BarGroups.Add(new BeamManualBarGroupV1
+        {
+            GroupId = "SYNTHETIC_TEST_ONLY_EXTRA", Role = BeamManualBarRole.BottomMidExtra, Enabled = true,
+            BarType = SyntheticType(plan.DocumentKey, "SYNTHETIC_TYPE_EXTRA", 12),
+            Bars = new List<BeamManualBarV1> { SyntheticBar(65, -200, 1100, 5100, "SYNTHETIC_LAYER_BOTTOM_1") }
+        });
+        return plan;
+    }
+
+    private static BeamManualCoverV1 SyntheticCover(BeamManualCoverFace face, double value) => new BeamManualCoverV1
+    {
+        Face = face, Source = BeamManualCoverSource.ExplicitUserInput, ClearCoverMm = value
+    };
+
+    private static BeamManualElementReferenceV1 SyntheticType(string documentKey, string id, double diameter) => new BeamManualElementReferenceV1
+    {
+        DocumentKey = documentKey, UniqueId = id, Name = "SYNTHETIC TEST TYPE " + id,
+        DiameterMm = diameter, State = BeamManualReferenceState.Resolved
+    };
+
+    private static BeamManualBarV1 SyntheticBar(double x, double y, double start, double end, string layer) => new BeamManualBarV1
+    {
+        XMm = x, YMm = y, StartStationMm = start, EndStationMm = end, LayerId = layer,
+        StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+        FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation }
+    };
+
+    private static bool ThrowsIOException(Action action)
+    {
+        try { action(); return false; }
+        catch (System.IO.IOException) { return true; }
+    }
+
+    private static bool ThrowsInvalidData(Action action)
+    {
+        try { action(); return false; }
+        catch (System.IO.InvalidDataException) { return true; }
     }
 
     private static void RunRebarCalculationGoldens()

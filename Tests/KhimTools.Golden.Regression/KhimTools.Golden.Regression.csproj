@@ -7,6 +7,7 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <Compile Include="..\..\src\KhimTools.Domain\Models\Qs\QsQuantityMath.cs" Link="QsQuantityMath.cs" />
     <Compile Include="..\..\src\KhimTools.Domain\Models\Mep\MepMeasurementCalculator.cs" Link="MepMeasurementCalculator.cs" />
     <Compile Include="..\..\src\KhimTools.Domain\Models\Architectural\LintelLayout.cs" Link="LintelLayout.cs" />
@@ -15,5 +16,7 @@
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\SlabSectionGeometry.cs" Link="SlabSectionGeometry.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamStirrupLayout.cs" Link="BeamStirrupLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamLongitudinalLayout.cs" Link="BeamLongitudinalLayout.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanV1.cs" Link="BeamManualDetailingPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanStoreV1.cs" Link="BeamManualDetailingPlanStoreV1.cs" />
   </ItemGroup>
 </Project>

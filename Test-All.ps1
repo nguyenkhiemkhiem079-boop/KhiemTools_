@@ -104,8 +104,8 @@ $suites = @(
     @{
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
-        # 36 existing domain/comparator checks, 5 production Rebar math goldens, 6 duplicate-selectivity cases, 7 Rebar input-edge checks, 31 slab-section geometry assertions, 7 Beam stirrup station assertions, and 4 Beam longitudinal section-layout assertions.
-        ExpectedCount = 96
+        # Existing 96 assertions plus 12 Manual Beam v1 plan, geometry, fingerprint and persistence checks.
+        ExpectedCount = 108
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
