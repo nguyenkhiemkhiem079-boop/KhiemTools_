@@ -51,3 +51,23 @@ Branch: `fix/preview-hardening`; start `aa0fc5ddfba4f2234487c673ffb5977a167845db
 - The active Beam form supplies zero extra-bar counts and disables side-bar requests. The generator rejects positive extra/skin inputs before its legacy fixed-fraction private routines can execute. A new K-Rebar static check explicitly protects this gate; canonical `Test-All.ps1` expected count is updated with the check.
 - `BeamRebarSettings` retains legacy positive defaults for extras and automatic/quantity side bars, but current search confirms that this settings model is not consumed by the active Beam UI/generator. Future template wiring must disclose/migrate these legacy fields before use; do not interpret persisted values as generated reinforcement.
 - No P0 was confirmed in the supported code path. Phase code completion and production readiness remain NO due unresolved P1 detailing contracts and unexecuted host acceptance. Detailed disposition is in the Beam-specific register and handoff.
+
+## Phase 04C — Beam Manual Detailing v1 (2026-10-12)
+
+Starting SHA `843d99218e5f85ef2a97ab3b0d56e59a911f4c13`; pushed implementation checkpoints: `1d3c01ed3f908a6941bac92155368c3fe50c1bb5`, `9ca81a943be9f482ca6f5f7a84804c62825a658a`, `530b875ef7037edabe33aa0c8715e54feefea781`.
+
+- P0 resolved in supported slice: explicit saved plan/document/host/type identity, caller-owned and atomic Create transaction, solver rollback preview, stale fingerprint/parity/complete duplicate gates, and proposed-bar collision/staleness checks against all existing hosted Rebar. Unknown existing type/geometry fails closed.
+- P1 host acceptance pending: `BR-MANUAL-V1-ROLLBACK` and actual Manual UI/model lifecycle remain registered/compiled but `NOT_EXECUTED` in a confirmed disposable Revit model.
+- Explicit non-support, not hidden approximations: hooks/returns, stirrups, verified support extensions, multi-host plan editing, nonrectangular/unverified hosts, code-derived quantities/anchorage/cover/stations and structural-code compliance. These need further approved input from the responsible designer.
+- P2: input schematic is disclosed as non-solved; existing Beam and Slab paths are separately retained; one supported Beam per Manual plan.
+- Evidence: K-Rebar 156/156; Golden Regression 117; canonical `Test-All.ps1` 2,796/2,796; offline Rebar layout 17,479 checks / 348 renders; WPF UI layout 100 icons / 10 surfaces / 43 renders; Runtime QA structural audit 50/50; Revit 2024 `net48` and Revit 2025 `net8.0-windows` builds 0 errors.
+- P0 remaining: none known in the supported code-side slice. Phase 04C is not production-ready: host acceptance and model-specific engineering validation are pending. Live Revit QA is `NOT_EXECUTED`.
+
+## Phase 04C consolidated implementation/audit reconciliation (2026-10-12)
+
+This is the latest Beam disposition; earlier Phase 04C checkpoint text in this cumulative register is historical and superseded by `Docs/QA/Beam/PHASE_04C_ACCEPTANCE_MATRIX.md` and the Beam-specific register.
+
+- **P0:** none confirmed in the supported one-Beam code-side workflow.
+- **P1 code-side defects resolved:** Manual hook/return/stirrup/hanger paths are wired through the editor, typed model, persistence, fingerprint, production generator, rollback preview, Create parity and synthetic checks; self-intersecting closed contours fail closed; Manual UI layout passes the new offline matrix.
+- **P1 host-only:** run `BR-MANUAL-V1-ROLLBACK` and `BEAM_MANUAL_V1_EXTENDED_DETAILS` only on a confirmed detached disposable Revit model. Live QA remains `NOT_EXECUTED`.
+- **Narrowed/unavailable:** verified support extensions, one-plan multi-Beam editing, inferred engineering values and code compliance remain visibly unavailable and fail closed; production readiness remains NO.

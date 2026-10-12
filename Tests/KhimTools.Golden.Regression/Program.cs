@@ -367,18 +367,102 @@ static class Program
         BeamManualDetailingPlanV1 missingStations = CreateManualPlan();
         missingStations.StirrupGroups.Add(new BeamManualStirrupGroupV1
         {
-            GroupId = "SYNTHETIC_TEST_ONLY_STIRRUP", Enabled = true,
+            GroupId = "SYNTHETIC_TEST_ONLY_STIRRUP", Role = BeamManualStirrupRole.Stirrup, Enabled = true,
             BarType = SyntheticType(missingStations.DocumentKey, "SYNTHETIC_STIRRUP_TYPE", 10),
             RebarShape = new BeamManualElementIdentityV1 { DocumentKey = missingStations.DocumentKey, UniqueId = "SYNTHETIC_SHAPE", Name = "SYNTHETIC TEST SHAPE", State = BeamManualReferenceState.Resolved },
             StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
             FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
-            SectionPath = new List<BeamManualPointV1> { new BeamManualPointV1 { XMm = -100, YMm = -200 }, new BeamManualPointV1 { XMm = 100, YMm = -200 }, new BeamManualPointV1 { XMm = 100, YMm = 200 }, new BeamManualPointV1 { XMm = -100, YMm = 200 } },
-            CoincidentStationPolicy = "SYNTHETIC TEST POLICY"
+            SectionPath = new List<BeamManualPointV1> { new BeamManualPointV1 { XMm = -100, YMm = -170 }, new BeamManualPointV1 { XMm = 100, YMm = -170 }, new BeamManualPointV1 { XMm = 100, YMm = 170 }, new BeamManualPointV1 { XMm = -100, YMm = 170 }, new BeamManualPointV1 { XMm = -100, YMm = -170 } },
+            CoincidentStationPolicy = "REJECT_DUPLICATE_STATIONS"
         });
         Check(!BeamManualPlanValidatorV1.Validate(missingStations, true).IsValid, "Manual stirrup group requires explicit stations and cannot infer legacy zone defaults");
 
+        BeamManualDetailingPlanV1 explicitStirrup = CreateManualPlan();
+        explicitStirrup.StirrupGroups.Add(new BeamManualStirrupGroupV1
+        {
+            GroupId = "SYNTHETIC_TEST_ONLY_STIRRUP_VALID", Role = BeamManualStirrupRole.Hanger, Enabled = true,
+            BarType = SyntheticType(explicitStirrup.DocumentKey, "SYNTHETIC_STIRRUP_TYPE_VALID", 10),
+            RebarShape = new BeamManualElementIdentityV1 { DocumentKey = explicitStirrup.DocumentKey, UniqueId = "SYNTHETIC_TIE_SHAPE_VALID", Name = "SYNTHETIC TEST TIE SHAPE", State = BeamManualReferenceState.Resolved },
+            StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            StationsMm = new List<double> { 100, 200 },
+            SectionPath = new List<BeamManualPointV1> { new BeamManualPointV1 { XMm = -100, YMm = -170 }, new BeamManualPointV1 { XMm = 100, YMm = -170 }, new BeamManualPointV1 { XMm = 100, YMm = 170 }, new BeamManualPointV1 { XMm = -100, YMm = 170 }, new BeamManualPointV1 { XMm = -100, YMm = -170 } },
+            CoincidentStationPolicy = "REJECT_DUPLICATE_STATIONS"
+        });
+        Check(BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid &&
+              BeamManualLayoutBuilderV1.BuildStirrups(explicitStirrup).Count == 2,
+            "Manual builder resolves explicit closed stirrup/hanger contours at every user-listed station");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 200 };
+        explicitStirrup.StirrupGroups[0].SectionPath[2].YMm = 205;
+        explicitStirrup.StirrupGroups[0].SectionPath[3].YMm = 205;
+        Check(!BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Manual plan rejects a section contour whose explicit stirrup path collides with a longitudinal bar");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 100, 200 };
+        explicitStirrup.StirrupGroups[0].SectionPath[2].YMm = 170;
+        explicitStirrup.StirrupGroups[0].SectionPath[3].YMm = 170;
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 100, 100 };
+        Check(!BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Manual plan rejects coincident same-group tie stations rather than silently deduplicating them");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 3000 };
+        explicitStirrup.StirrupGroups[0].SectionPath = new List<BeamManualPointV1>
+        {
+            new BeamManualPointV1 { XMm = -100, YMm = -150 }, new BeamManualPointV1 { XMm = 100, YMm = 150 },
+            new BeamManualPointV1 { XMm = -100, YMm = 150 }, new BeamManualPointV1 { XMm = 100, YMm = -150 },
+            new BeamManualPointV1 { XMm = -100, YMm = -150 }
+        };
+        Check(!BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Manual plan rejects self-intersecting closed stirrup contours before Revit shape creation");
+        BeamManualDetailingPlanV1 oversized = CreateManualPlan();
+        oversized.StirrupGroups.Add(new BeamManualStirrupGroupV1
+        {
+            GroupId = "SYNTHETIC_TEST_ONLY_OVERSIZED_STIRRUPS", Role = BeamManualStirrupRole.Stirrup, Enabled = true,
+            BarType = SyntheticType(oversized.DocumentKey, "SYNTHETIC_TEST_ONLY_OVERSIZED_TYPE", 10),
+            RebarShape = new BeamManualElementIdentityV1 { DocumentKey = oversized.DocumentKey, UniqueId = "SYNTHETIC_TEST_ONLY_OVERSIZED_SHAPE", Name = "SYNTHETIC TEST SHAPE", State = BeamManualReferenceState.Resolved },
+            StationsMm = Enumerable.Range(0, BeamManualPlanValidatorV1.MaximumBars).Select(index => 200d + index * 0.5).ToList(),
+            SectionPath = new List<BeamManualPointV1> { new BeamManualPointV1 { XMm = -100, YMm = -150 }, new BeamManualPointV1 { XMm = 100, YMm = -150 }, new BeamManualPointV1 { XMm = 100, YMm = 150 }, new BeamManualPointV1 { XMm = -100, YMm = 150 }, new BeamManualPointV1 { XMm = -100, YMm = -150 } },
+            StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            CoincidentStationPolicy = "REJECT_DUPLICATE_STATIONS"
+        });
+        Check(BeamManualPlanValidatorV1.Validate(oversized, true).Issues.Any(issue => issue.Message.Contains("Combined longitudinal-bar and individual-stirrup count exceeds")),
+            "Manual plan applies one software physical-bar resource limit to longitudinal bars plus explicit stirrup stations");
+
         BeamManualDetailingPlanV1 unresolved = CreateManualPlan();
         unresolved.BarGroups[0].BarType.State = BeamManualReferenceState.Unresolved;
+        unresolved.BarGroups[0].Bars[0].StartDetail = new BeamManualEndDetailV1
+        {
+            Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook,
+            HookType = new BeamManualElementIdentityV1
+            {
+                DocumentKey = unresolved.DocumentKey, UniqueId = "SYNTHETIC_UNRESOLVED_HOOK", Name = "SYNTHETIC HOOK",
+                State = BeamManualReferenceState.Unresolved
+            },
+            HookOrientation = BeamManualHookOrientation.Left
+        };
+        unresolved.StirrupGroups.Add(new BeamManualStirrupGroupV1
+        {
+            GroupId = "SYNTHETIC_UNRESOLVED_STIRRUP", Role = BeamManualStirrupRole.Stirrup, Enabled = true,
+            BarType = new BeamManualElementReferenceV1
+            {
+                DocumentKey = unresolved.DocumentKey, UniqueId = "SYNTHETIC_UNRESOLVED_STIRRUP_TYPE", Name = "SYNTHETIC STIRRUP TYPE",
+                DiameterMm = 10, State = BeamManualReferenceState.Unresolved
+            },
+            RebarShape = new BeamManualElementIdentityV1
+            {
+                DocumentKey = unresolved.DocumentKey, UniqueId = "SYNTHETIC_UNRESOLVED_TIE_SHAPE", Name = "SYNTHETIC TIE SHAPE",
+                State = BeamManualReferenceState.Unresolved
+            },
+            StationsMm = new List<double> { 3000 },
+            SectionPath = new List<BeamManualPointV1>
+            {
+                new BeamManualPointV1 { XMm = -100, YMm = -150 }, new BeamManualPointV1 { XMm = 100, YMm = -150 },
+                new BeamManualPointV1 { XMm = 100, YMm = 150 }, new BeamManualPointV1 { XMm = -100, YMm = 150 },
+                new BeamManualPointV1 { XMm = -100, YMm = -150 }
+            },
+            StartDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            FinishDetail = new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation },
+            CoincidentStationPolicy = "REJECT_DUPLICATE_STATIONS"
+        });
         Check(!BeamManualPlanValidatorV1.Validate(unresolved, true).IsValid &&
               BeamManualPlanValidatorV1.Validate(unresolved, false).IsValid,
               "Foreign/unresolved type reference remains storable but blocks solve until exact user rebind");
@@ -390,8 +474,11 @@ static class Program
             BeamManualDetailingPlanV1 saved = store.Save(unresolved, expectedRevision: 0);
             BeamManualDetailingPlanV1 loaded = store.Load();
             Check(saved.Revision == 1 && loaded.Revision == 1 && loaded.BarGroups[0].BarType.State == BeamManualReferenceState.Unresolved &&
-                  loaded.BarGroups[1].Bars[0].XMm == unresolved.BarGroups[1].Bars[0].XMm,
-                  "Versioned manual-plan store round-trips geometry, roles, identities and unresolved state");
+                  loaded.BarGroups[1].Bars[0].XMm == unresolved.BarGroups[1].Bars[0].XMm &&
+                  loaded.BarGroups[0].Bars[0].StartDetail.HookType.UniqueId == "SYNTHETIC_UNRESOLVED_HOOK" &&
+                  loaded.StirrupGroups.Single().StationsMm.SequenceEqual(new[] { 3000d }) &&
+                  loaded.StirrupGroups.Single().RebarShape.State == BeamManualReferenceState.Unresolved,
+                  "Versioned manual-plan store round-trips bars, hook identity/orientation, stirrup station/shape, and unresolved references");
             Check(ThrowsIOException(() => store.Save(unresolved, expectedRevision: 0)), "Manual-plan store rejects stale editor revisions");
             BeamManualDetailingPlanV1 wrongHost = CreateManualPlan();
             wrongHost.HostUniqueId = "other-synthetic-host";

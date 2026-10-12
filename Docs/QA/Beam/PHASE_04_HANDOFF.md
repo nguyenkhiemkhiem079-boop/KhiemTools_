@@ -63,3 +63,27 @@ Fresh validation on 2026-10-12: K-Rebar 148/148; Rebar configuration 37/37; Gold
 4. Obtain an approved Beam detailing specification that resolves each `REQUIRES_ENGINEERING_APPROVAL` item before implementing the corresponding input model, generator geometry, UI, fingerprint, preview roles, parity and host assertions. Do not infer stations, layers, hooks, cover mapping, support conditions or code compliance from legacy labels/defaults.
 5. Only after a disposable detached QA file is explicitly confirmed, run `BR-PREVIEW-RECT`, `BR-PREVIEW-ROTATED`, `BEAM_UNDO`, `BEAM_CANCEL`, `BEAM_DUPLICATE`, `BEAM_SUPPORT_STALE`, and `BEAM_GEOMETRY_REJECTION`. Record actual model fingerprints, transaction rollback and parity evidence. Until then report `HOST_REQUIRED / NOT_EXECUTED`.
 6. Do not merge into master, force push, start a later phase or work on another K-TOOL module.
+
+---
+
+## Phase 04C — Beam Manual Detailing v1 handoff (2026-10-12)
+
+Phase 04C started from `843d99218e5f85ef2a97ab3b0d56e59a911f4c13`. Implementation checkpoints pushed during this run: `1d3c01ed3f908a6941bac92155368c3fe50c1bb5` (typed plan and companion store), `9ca81a943be9f482ca6f5f7a84804c62825a658a` (Manual editor/preview/create/fixture), `530b875ef7037edabe33aa0c8715e54feefea781` (existing hosted Rebar collision and stale-state guard). Read `Docs/Engineering/Beam/MANUAL_DETAILING_CONTRACT_V1.md` and `Docs/QA/Beam/PHASE_04C_ACCEPTANCE_MATRIX.md` for the full software boundary. The contract mirror is `Docs/Engineering/Beam/MANUAL_DETAILING_CONTRACT_V1.md`.
+
+### Code-side support boundary
+
+Supported adapter slice: one analyzed straight constant rectangular Structural Framing Beam at a time; explicit per-bar local section coordinates and absolute station endpoints; explicit enabled groups; exact same-document RebarBarType identity; explicit cover-face values; straight centerlines fully contained by verified host concrete; rollback-only production solver preview, freshness gate, exact output parity, complete duplicate detection, transaction-group create, and companion plan save/load. Proposed bars are rejected if their finite centerline segments overlap hosted Rebar after accounting for exact model diameters. Host Rebar geometry/identity participates in staleness.
+
+Do not claim Manual support for hooks, curve returns, stirrups, verified support extension, auto design quantities/stations/cover/anchorage, multi-host edits, or code compliance. Those remain explicit fail-closed requirements pending additional approved engineering inputs. Do not change the legacy Beam or Slab feature paths to make Manual output appear supported.
+
+### Fresh validation from the final code checkpoint
+
+- K-Rebar: 156/156 static checks PASS.
+- Golden Regression: 117 assertions PASS, including finite segment intersection/clearance goldens.
+- Runtime QA structural audit: 50/50 PASS; `BR-MANUAL-V1-ROLLBACK` is registered/compiled, not executed.
+- Offline Rebar layout: 17,479 control checks / 348 renders PASS; WPF UI layout: 100 icons / 10 surfaces / 43 renders PASS. These are simulations/source QA only.
+- Canonical `Test-All.ps1`: 2,796/2,796 PASS.
+- Revit 2024 Release (`net48`): 0 errors; Revit 2025 Release (`net8.0-windows`): 0 errors.
+- Live Revit host QA: `NOT_EXECUTED`. No disposable QA model was confirmed or mutated.
+
+The final documentation/handoff commit is the next SHA after `530b875ef7037edabe33aa0c8715e54feefea781`; fetch and verify the exact branch tip and clean tree. Run the registered Manual fixture and host interaction matrix only on an explicitly confirmed detached disposable Revit model. Record exact model fingerprints, preview/create parity, rollback, existing-rebar preservation, stale invalidation, duplicate selectivity and Undo. Only after those outputs exist may host acceptance be relabeled. Do not claim production readiness or modify master.

@@ -8,6 +8,7 @@ using System.Text;
 namespace KhimTools.RebarTool.Core
 {
     public enum BeamManualBarRole { Unspecified, TopContinuous, BottomContinuous, TopLeftExtra, TopRightExtra, BottomMidExtra, SideLeft, SideRight, UserDefined }
+    public enum BeamManualStirrupRole { Unspecified, Stirrup, Hanger, UserDefined }
     public enum BeamManualEndDetailKind { Unspecified, Unsupported, StraightAtStation, ExplicitCurveReturn, ExplicitLoadedRevitHook }
     public enum BeamManualHookOrientation { Left, Right }
     public enum BeamManualReferenceState { Unresolved, Resolved }
@@ -145,6 +146,7 @@ namespace KhimTools.RebarTool.Core
     public sealed class BeamManualStirrupGroupV1
     {
         public string GroupId { get; set; }
+        public BeamManualStirrupRole Role { get; set; }
         public bool Enabled { get; set; }
         public BeamManualElementReferenceV1 BarType { get; set; }
         public BeamManualElementIdentityV1 RebarShape { get; set; }
@@ -275,7 +277,7 @@ namespace KhimTools.RebarTool.Core
                 Add(duplicate.Key, "groupId", "Group id must be unique within the plan.");
 
             var groupBars = new List<Tuple<string, BeamManualBarGroupV1, BeamManualBarV1>>();
-            int totalBars = 0;
+            long totalBars = 0;
             foreach (BeamManualBarGroupV1 group in groups)
             {
                 if (group == null) { Add(string.Empty, "barGroups", "Null group entries are not allowed."); continue; }
@@ -321,6 +323,9 @@ namespace KhimTools.RebarTool.Core
                 if (stirrup == null) { Add(string.Empty, "stirrupGroups", "Null stirrup group entries are not allowed."); continue; }
                 if (string.IsNullOrWhiteSpace(stirrup.GroupId)) Add(string.Empty, "stirrupGroups.groupId", "A stable stirrup group id is required.");
                 if (!stirrup.Enabled) continue;
+                if (stirrup.StationsMm != null) totalBars += stirrup.StationsMm.Count;
+                if (!Enum.IsDefined(typeof(BeamManualStirrupRole), stirrup.Role) || stirrup.Role == BeamManualStirrupRole.Unspecified)
+                    Add(stirrup.GroupId, "role", "An explicit stirrup/hanger role is required.");
                 ValidateReference(stirrup.BarType, plan.DocumentKey, requireResolvedReferences, stirrup.GroupId, "barType", Add);
                 ValidateIdentity(stirrup.RebarShape, plan.DocumentKey, requireResolvedReferences, stirrup.GroupId, "rebarShape", Add);
                 ValidateEnd(stirrup.StartDetail, stirrup.BarType, requireResolvedReferences, stirrup.GroupId, "startDetail", Add);
@@ -336,19 +341,102 @@ namespace KhimTools.RebarTool.Core
                     if (stirrup.StationsMm.Any(station => !IsFinite(station)) == false &&
                         stirrup.StationsMm.Zip(stirrup.StationsMm.Skip(1), (left, right) => right <= left + GeometryToleranceMm).Any(overlap => overlap))
                         Add(stirrup.GroupId, "stationsMm", "Stations must be strictly increasing; same-role deduplication must be explicit before serialization.");
+                    if (stirrup.BarType != null && IsFinite(stirrup.BarType.DiameterMm) && stirrup.StationsMm.Any(station => !IsFinite(station)) == false &&
+                        stirrup.StationsMm.Zip(stirrup.StationsMm.Skip(1), (left, right) => right - left < stirrup.BarType.DiameterMm - GeometryToleranceMm).Any(overlap => overlap))
+                        Add(stirrup.GroupId, "stationsMm", "Neighboring stirrup centerplanes are closer than the selected bar diameter; inspect explicit geometry instead of accepting overlap.");
                 }
-                if (stirrup.SectionPath == null || stirrup.SectionPath.Count < 3) Add(stirrup.GroupId, "sectionPath", "An explicit stirrup centerline contour is required.");
-                else if (stirrup.SectionPath.Any(point => point == null || !IsFinite(point.XMm) || !IsFinite(point.YMm))) Add(stirrup.GroupId, "sectionPath", "Every section point must be finite and explicitly supplied in millimetres.");
-                if (string.IsNullOrWhiteSpace(stirrup.CoincidentStationPolicy)) Add(stirrup.GroupId, "coincidentStationPolicy", "Explicit same-role coincident-station policy is required.");
+                ValidateStirrupContour(stirrup, frame, plan.Covers, Add);
+                if (!string.Equals(stirrup.CoincidentStationPolicy, "REJECT_DUPLICATE_STATIONS", StringComparison.Ordinal))
+                    Add(stirrup.GroupId, "coincidentStationPolicy", "Choose the explicit REJECT_DUPLICATE_STATIONS policy; no coincident bars are silently suppressed.");
             }
-            if (totalBars > MaximumBars) Add(string.Empty, "barGroups", "Physical bar count exceeds the software safety limit.");
+            if (totalBars > MaximumBars) Add(string.Empty, "barGroups/stirrupGroups", "Combined longitudinal-bar and individual-stirrup count exceeds the software safety limit.");
             ValidateCoverMap(plan.Covers, Add);
             ValidateSupportMap(plan.SupportEnds, plan.HostUniqueId, Add);
             ValidateCollisions(groupBars, issues);
+            ValidateStirrupBarCollisions(plan, groupBars, issues);
             return new BeamManualValidationResultV1(issues);
         }
 
         private delegate void AddIssue(string group, string field, string message);
+
+        private static void ValidateStirrupContour(BeamManualStirrupGroupV1 stirrup, BeamManualFrameV1 frame,
+            IList<BeamManualCoverV1> covers, AddIssue add)
+        {
+            if (stirrup.SectionPath == null || stirrup.SectionPath.Count < 3)
+            { add(stirrup.GroupId, "sectionPath", "An explicit stirrup centerline contour requires at least three section points."); return; }
+            if (stirrup.SectionPath.Any(point => point == null || !IsFinite(point.XMm) || !IsFinite(point.YMm)))
+            { add(stirrup.GroupId, "sectionPath", "Every section point must be finite and explicitly supplied in millimetres."); return; }
+            BeamManualPointV1 first = stirrup.SectionPath[0];
+            BeamManualPointV1 last = stirrup.SectionPath[stirrup.SectionPath.Count - 1];
+            bool closed = Math.Abs(first.XMm - last.XMm) <= GeometryToleranceMm && Math.Abs(first.YMm - last.YMm) <= GeometryToleranceMm;
+            if (closed)
+            {
+                if (stirrup.StartDetail?.Kind != BeamManualEndDetailKind.StraightAtStation || stirrup.FinishDetail?.Kind != BeamManualEndDetailKind.StraightAtStation)
+                    add(stirrup.GroupId, "endDetails", "A closed explicit contour is already closed by its points and must not also carry endpoint hooks.");
+            }
+            else if (stirrup.StartDetail?.Kind != BeamManualEndDetailKind.ExplicitLoadedRevitHook || stirrup.FinishDetail?.Kind != BeamManualEndDetailKind.ExplicitLoadedRevitHook)
+                add(stirrup.GroupId, "endDetails", "An open stirrup contour requires an exact loaded RebarHookType and orientation at both ends; otherwise repeat the first point to explicitly close the path.");
+
+            if (stirrup.SectionPath.Zip(stirrup.SectionPath.Skip(1), (a, b) => Math.Sqrt(Math.Pow(a.XMm - b.XMm, 2) + Math.Pow(a.YMm - b.YMm, 2)) <= GeometryToleranceMm).Any(zero => zero))
+                add(stirrup.GroupId, "sectionPath", "Adjacent stirrup contour points must describe non-zero centerline segments.");
+            if (HasSelfIntersection(stirrup.SectionPath, closed))
+                add(stirrup.GroupId, "sectionPath", "Stirrup contour segments may not cross or touch non-adjacent segments.");
+            double extentX = stirrup.SectionPath.Max(point => point.XMm) - stirrup.SectionPath.Min(point => point.XMm);
+            double extentY = stirrup.SectionPath.Max(point => point.YMm) - stirrup.SectionPath.Min(point => point.YMm);
+            if (closed && Math.Abs(SignedArea2(stirrup.SectionPath)) <= GeometryToleranceMm * Math.Max(extentX, extentY))
+                add(stirrup.GroupId, "sectionPath", "A closed stirrup contour must enclose non-zero section area.");
+            if (stirrup.BarType == null || frame == null || covers == null) return;
+            BeamManualCoverV1 outside = FindCover(covers, BeamManualCoverFace.StirrupOutside);
+            if (outside == null) return;
+            double radius = stirrup.BarType.DiameterMm / 2.0;
+            foreach (BeamManualPointV1 point in stirrup.SectionPath)
+            {
+                if (point.XMm - radius < -frame.WidthMm / 2.0 + outside.ClearCoverMm - GeometryToleranceMm ||
+                    point.XMm + radius > frame.WidthMm / 2.0 - outside.ClearCoverMm + GeometryToleranceMm ||
+                    point.YMm - radius < -frame.HeightMm / 2.0 + outside.ClearCoverMm - GeometryToleranceMm ||
+                    point.YMm + radius > frame.HeightMm / 2.0 - outside.ClearCoverMm + GeometryToleranceMm)
+                    add(stirrup.GroupId, "sectionPath", "The explicit stirrup contour violates Beam section bounds or independently entered StirrupOutside clearance.");
+            }
+        }
+
+        private static bool HasSelfIntersection(IList<BeamManualPointV1> points, bool closed)
+        {
+            int segmentCount = points.Count - 1;
+            for (int first = 0; first < segmentCount; first++)
+            for (int second = first + 2; second < segmentCount; second++)
+            {
+                if (closed && first == 0 && second == segmentCount - 1) continue;
+                if (SegmentsIntersect2D(points[first], points[first + 1], points[second], points[second + 1])) return true;
+            }
+            return false;
+        }
+
+        private static double SignedArea2(IList<BeamManualPointV1> points)
+        {
+            double area2 = 0;
+            for (int index = 0; index + 1 < points.Count; index++)
+                area2 += points[index].XMm * points[index + 1].YMm - points[index + 1].XMm * points[index].YMm;
+            return area2;
+        }
+
+        private static bool SegmentsIntersect2D(BeamManualPointV1 a, BeamManualPointV1 b, BeamManualPointV1 c, BeamManualPointV1 d)
+        {
+            double abC = Cross(a, b, c), abD = Cross(a, b, d), cdA = Cross(c, d, a), cdB = Cross(c, d, b);
+            double tolerance = GeometryToleranceMm;
+            double abTolerance = tolerance * Math.Sqrt(Math.Pow(b.XMm - a.XMm, 2) + Math.Pow(b.YMm - a.YMm, 2));
+            double cdTolerance = tolerance * Math.Sqrt(Math.Pow(d.XMm - c.XMm, 2) + Math.Pow(d.YMm - c.YMm, 2));
+            if (((abC > abTolerance && abD < -abTolerance) || (abC < -abTolerance && abD > abTolerance)) &&
+                ((cdA > cdTolerance && cdB < -cdTolerance) || (cdA < -cdTolerance && cdB > cdTolerance))) return true;
+            return Math.Abs(abC) <= abTolerance && OnSegment(a, b, c) || Math.Abs(abD) <= abTolerance && OnSegment(a, b, d) ||
+                   Math.Abs(cdA) <= cdTolerance && OnSegment(c, d, a) || Math.Abs(cdB) <= cdTolerance && OnSegment(c, d, b);
+        }
+
+        private static double Cross(BeamManualPointV1 a, BeamManualPointV1 b, BeamManualPointV1 c) =>
+            (b.XMm - a.XMm) * (c.YMm - a.YMm) - (b.YMm - a.YMm) * (c.XMm - a.XMm);
+
+        private static bool OnSegment(BeamManualPointV1 a, BeamManualPointV1 b, BeamManualPointV1 point) =>
+            point.XMm >= Math.Min(a.XMm, b.XMm) - GeometryToleranceMm && point.XMm <= Math.Max(a.XMm, b.XMm) + GeometryToleranceMm &&
+            point.YMm >= Math.Min(a.YMm, b.YMm) - GeometryToleranceMm && point.YMm <= Math.Max(a.YMm, b.YMm) + GeometryToleranceMm;
 
         private static void ValidateEnd(BeamManualEndDetailV1 detail, BeamManualElementReferenceV1 barType,
             bool requireResolved, string group, string field, AddIssue add, BeamManualBarV1 bar = null,
@@ -487,13 +575,52 @@ namespace KhimTools.RebarTool.Core
             for (int j = i + 1; j < bars.Count; j++)
             {
                 var a = bars[i]; var b = bars[j];
-                if (a.Item3.EndStationMm <= b.Item3.StartStationMm + GeometryToleranceMm || b.Item3.EndStationMm <= a.Item3.StartStationMm + GeometryToleranceMm) continue;
                 double radiusA = (a.Item2.BarType?.DiameterMm ?? 0) / 2.0;
                 double radiusB = (b.Item2.BarType?.DiameterMm ?? 0) / 2.0;
-                double separation = Math.Sqrt(Math.Pow(a.Item3.XMm - b.Item3.XMm, 2) + Math.Pow(a.Item3.YMm - b.Item3.YMm, 2));
-                if (separation + GeometryToleranceMm < radiusA + radiusB)
+                if (PathsOverlap(BuildBarPath(a.Item3), BuildBarPath(b.Item3), radiusA + radiusB))
                     issues.Add(new BeamManualIssueV1(a.Item1, "bars", "Physical bar envelope collides with group " + b.Item1 + "; adjust explicit geometry before solving."));
             }
+        }
+
+        private static void ValidateStirrupBarCollisions(BeamManualDetailingPlanV1 plan,
+            IList<Tuple<string, BeamManualBarGroupV1, BeamManualBarV1>> bars, IList<BeamManualIssueV1> issues)
+        {
+            foreach (BeamManualStirrupGroupV1 group in plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>())
+            {
+                if (group == null || !group.Enabled || group.BarType == null || group.SectionPath == null) continue;
+                double stirrupRadius = group.BarType.DiameterMm / 2.0;
+                foreach (double station in group.StationsMm ?? new List<double>())
+                foreach (var bar in bars)
+                {
+                    double radius = stirrupRadius + (bar.Item2.BarType?.DiameterMm ?? 0) / 2.0;
+                    var tiePath = group.SectionPath.Select(point => new BeamManualPoint3V1(point.XMm, point.YMm, station)).ToArray();
+                    if (PathsOverlap(tiePath, BuildBarPath(bar.Item3), radius))
+                        issues.Add(new BeamManualIssueV1(group.GroupId, "sectionPath/stationsMm", "Explicit stirrup/hanger centerline collides with longitudinal group " + bar.Item1 + "; inspect the selected section path and station."));
+                }
+            }
+        }
+
+        private static bool PathsOverlap(IReadOnlyList<BeamManualPoint3V1> first, IReadOnlyList<BeamManualPoint3V1> second, double minimumSeparation)
+        {
+            if (first == null || second == null || first.Count < 2 || second.Count < 2 || minimumSeparation <= 0) return false;
+            double minimumSquared = Math.Pow(Math.Max(0, minimumSeparation - GeometryToleranceMm), 2);
+            for (int i = 0; i + 1 < first.Count; i++)
+            for (int j = 0; j + 1 < second.Count; j++)
+                if (BeamManualSegmentDistanceV1.SquaredDistance(first[i], first[i + 1], second[j], second[j + 1]) < minimumSquared)
+                    return true;
+            return false;
+        }
+
+        private static IReadOnlyList<BeamManualPoint3V1> BuildBarPath(BeamManualBarV1 bar)
+        {
+            var points = new List<BeamManualPoint3V1>();
+            if (bar.StartDetail?.Kind == BeamManualEndDetailKind.ExplicitCurveReturn)
+                points.AddRange(bar.StartDetail.ReturnPoints.Select(point => new BeamManualPoint3V1(point.XMm, point.YMm, point.StationMm)));
+            else points.Add(new BeamManualPoint3V1(bar.XMm, bar.YMm, bar.StartStationMm));
+            points.Add(new BeamManualPoint3V1(bar.XMm, bar.YMm, bar.EndStationMm));
+            if (bar.FinishDetail?.Kind == BeamManualEndDetailKind.ExplicitCurveReturn)
+                points.AddRange(bar.FinishDetail.ReturnPoints.Skip(1).Select(point => new BeamManualPoint3V1(point.XMm, point.YMm, point.StationMm)));
+            return points;
         }
 
         private static BeamManualCoverV1 FindCover(IEnumerable<BeamManualCoverV1> covers, BeamManualCoverFace face) => covers.FirstOrDefault(cover => cover != null && cover.Face == face);
@@ -554,6 +681,24 @@ namespace KhimTools.RebarTool.Core
             return result;
         }
 
+        public static IReadOnlyList<BeamManualResolvedStirrupV1> BuildStirrups(BeamManualDetailingPlanV1 plan)
+        {
+            BeamManualValidationResultV1 validation = BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true);
+            if (!validation.IsValid) throw new InvalidOperationException("Manual Beam plan is blocked:" + Environment.NewLine + validation.ToDiagnosticText());
+            var result = new List<BeamManualResolvedStirrupV1>();
+            foreach (BeamManualStirrupGroupV1 group in plan.StirrupGroups.Where(item => item.Enabled))
+            foreach (double station in group.StationsMm)
+            {
+                result.Add(new BeamManualResolvedStirrupV1
+                {
+                    GroupId = group.GroupId, Role = group.Role, StationMm = station, BarTypeUniqueId = group.BarType.UniqueId,
+                    RebarShapeUniqueId = group.RebarShape.UniqueId,
+                    Centerline = group.SectionPath.Select(point => new BeamManualPointV1 { StationMm = station, XMm = point.XMm, YMm = point.YMm }).ToArray()
+                });
+            }
+            return result;
+        }
+
         public static string Fingerprint(BeamManualDetailingPlanV1 plan)
         {
             if (plan == null) throw new ArgumentNullException(nameof(plan));
@@ -580,7 +725,7 @@ namespace KhimTools.RebarTool.Core
             foreach (BeamManualStirrupGroupV1 stirrup in (plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>()).OrderBy(item => item?.GroupId, StringComparer.Ordinal))
             {
                 values.Add(string.Join("|", stirrup?.GroupId, stirrup?.Enabled.ToString(), stirrup?.BarType?.DocumentKey,
-                    stirrup?.BarType?.UniqueId, stirrup?.RebarShape?.DocumentKey, stirrup?.RebarShape?.UniqueId,
+                    stirrup?.Role.ToString(), stirrup?.BarType?.UniqueId, stirrup?.RebarShape?.DocumentKey, stirrup?.RebarShape?.UniqueId,
                     stirrup?.CoincidentStationPolicy));
                 foreach (double station in stirrup?.StationsMm ?? new List<double>()) values.Add(Number(station));
                 foreach (BeamManualPointV1 point in stirrup?.SectionPath ?? new List<BeamManualPointV1>())
@@ -600,5 +745,15 @@ namespace KhimTools.RebarTool.Core
         }
 
         private static string Number(double? value) => value.HasValue ? value.Value.ToString("R", CultureInfo.InvariantCulture) : string.Empty;
+    }
+
+    public sealed class BeamManualResolvedStirrupV1
+    {
+        public string GroupId { get; internal set; }
+        public BeamManualStirrupRole Role { get; internal set; }
+        public double StationMm { get; internal set; }
+        public string BarTypeUniqueId { get; internal set; }
+        public string RebarShapeUniqueId { get; internal set; }
+        public IReadOnlyList<BeamManualPointV1> Centerline { get; internal set; }
     }
 }

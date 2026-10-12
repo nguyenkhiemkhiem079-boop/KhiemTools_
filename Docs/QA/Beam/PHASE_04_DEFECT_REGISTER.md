@@ -6,7 +6,7 @@ Starting SHA: `aa0fc5ddfba4f2234487c673ffb5977a167845db`
 
 Implementation checkpoint: `19fca67cda2cdcd004bff91f042b1af0724a01e7`
 
-Status: consolidated Phase 04B contract audit complete; unsupported detailing remains fail-closed and host acceptance is `HOST_REQUIRED / NOT_EXECUTED`.
+Status: Phase 04B findings below are historical; the latest Phase 04C disposition is appended at EOF. Host acceptance remains `HOST_REQUIRED / NOT_EXECUTED`.
 
 This Beam-specific register supplements, and does not replace, the cumulative Slab history in the repository-root `PHASE_DEFECT_REGISTER.md`.
 
@@ -114,3 +114,36 @@ These items keep `PHASE CODE COMPLETE = NO` and `PHASE ACCEPTANCE COMPLETE = NO`
 ## Cumulative disposition
 
 The Beam section is added to the repository-root `PHASE_DEFECT_REGISTER.md`; the prior Slab findings remain intact. Beam-specific continuation and exact resume instructions are in `PHASE_04_HANDOFF.md` in this directory.
+
+## Phase 04C — Manual Detailing v1 (2026-10-12)
+
+Starting SHA: `843d99218e5f85ef2a97ab3b0d56e59a911f4c13`. Pushed implementation checkpoints: `1d3c01ed3f908a6941bac92155368c3fe50c1bb5`, `9ca81a943be9f482ca6f5f7a84804c62825a658a`, and `530b875ef7037edabe33aa0c8715e54feefea781`.
+
+### Consolidated severity disposition
+
+- **P0 resolved:** Manual v1 does not consume legacy `BeamRebarInput` or infer design values. The plan requires explicit absolute start/end stations, explicit local section positions, exact loaded `RebarBarType` identity, explicit group enabled state and explicit concrete-cover face values. The generator checks proposed segments against all pre-existing hosted Rebar using detached centerline geometry and exact model diameters; existing hosted Rebar state is part of the stale-input fingerprint. Unknown existing type/path state fails closed. `BeamManualSegmentDistanceV1` has deterministic crossing, parallel-clearance and separated-collinear regression cases.
+- **P1 acceptance pending:** Live Revit execution is still required for Manual v1 load/save, rollback-only solver preview, actual role/type/host/centerline parity, stale-input behavior, full-vs-partial duplicate selectivity, existing-bar overlap rejection, Undo, and model-integrity restoration. `BR-MANUAL-V1-ROLLBACK` is registered and compiled, not executed.
+- **P1 explicitly unsupported, not silently approximated:** Enabled stirrup groups; hooks and curve returns; verified support extensions; multi-host manual plans; unverified/non-rectangular Beam geometry; automatic quantities, code-derived station placement, code-derived cover/anchorage, and any unprovided structural-code compliance rules. Requests outside the implemented straight longitudinal slice fail closed. These capabilities require additional approved detailing inputs and are not claimed as Manual v1 support.
+- **P2:** The input schematic is a detached, disclosed input drawing; only accepted Revit solver capture may be described as solved geometry. Existing Beam and Slab workflows remain separately labeled/preserved. Manual v1 is available for one selected supported Beam at a time.
+
+### Phase 04C evidence
+
+- Golden Regression: 117 assertions PASS, including finite-segment interference cases.
+- K-Rebar static acceptance: 156/156 PASS.
+- Rebar layout: 17,479 offline control checks / 348 renders PASS; WPF UI layout: 100 icons / 10 surfaces / 43 renders PASS. These are source/render tests, not host UI tests.
+- Runtime QA structural audit: 50/50 PASS; fixture is registered/compiled only.
+- Canonical `Test-All.ps1`: 2,796/2,796 PASS.
+- Revit 2024 Release (`net48`): 0 errors; Revit 2025 Release (`net8.0-windows`): 0 errors. Existing repository warnings remain.
+- Live Revit QA: `NOT_EXECUTED`; no confirmed detached disposable Beam model was used.
+- No supported-path P0 remains known after the additive existing-bar collision/staleness fix. Code-side completion applies only to the explicitly supported straight longitudinal Manual v1 slice. Overall Beam acceptance and production readiness remain **NO** until host acceptance is recorded. Unsupported stirrups, hooks/returns, verified supports and design-code checks are not claimed.
+
+## Phase 04C consolidated implementation/audit reconciliation (2026-10-12)
+
+This is the latest Phase 04C disposition and supersedes the earlier checkpoint statements above about hooks, returns, stirrups and the supported code-side boundary.
+
+- **P0:** None confirmed in the narrowed supported code-side scope. Exact user input and exact loaded Revit identity are required; unsupported support extension and multi-Beam plan assignment remain rejected.
+- **P1 code-side defects resolved:** exact loaded hook identity/orientation and explicit curve-return polylines flow UI → typed plan → persistence/fingerprint → production generator → rollback solver preview → parity-guarded Create. Explicit stirrup/hanger role, exact type/shape, section path, stations and collision/cover checks use the same path. Self-intersecting and zero-area closed contours are rejected. The Manual form layout has an offline matrix fix.
+- **P1 host acceptance remains open:** `BR-MANUAL-V1-ROLLBACK` exercises straight-bar host behavior only. `BEAM_MANUAL_V1_EXTENDED_DETAILS` records host verification for hooks, returns and closed/open stirrups/hangers. Both remain `REGISTERED_NOT_EXECUTED`; shape compatibility, actual Revit bends, parity, cancel, rollback, duplicates, staleness and Undo are not host-proven.
+- **P2/narrowed boundary:** verified support extension, multi-Beam plans, inferred engineering values, unsupported host profiles and structural-code checks remain visibly unavailable and fail closed. The supported editor accepts one supported rectangular Beam at a time.
+- Focused current evidence: Golden Regression `124` assertions PASS; K-Rebar `157/157` PASS; Rebar configuration `37/37` PASS; Manual layout `720` checks / `18` renders PASS (offline only); Revit 2024/2025 Release builds `0` errors (210/208 repository-wide warnings). Final `Test-All.ps1` outcome is added to the handoff only after its final run.
+- `HOST_ACCEPTANCE=NO`; `PRODUCTION_READY=NO`. Build/static results are not live Revit acceptance.

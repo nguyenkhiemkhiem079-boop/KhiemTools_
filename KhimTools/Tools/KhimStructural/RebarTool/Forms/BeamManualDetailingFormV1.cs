@@ -17,9 +17,8 @@ using KhimTools.RebarTool.Core;
 namespace KhimTools.RebarTool.Forms
 {
     /// <summary>
-    /// Narrow, explicit Manual v1 editor. Only straight longitudinal bars fully
-    /// inside one verified Beam are enabled; all other detailing remains disclosed
-    /// as unsupported instead of being inherited from legacy inferred settings.
+    /// Explicit Manual v1 editor. All generated quantities and geometry are user
+    /// specified; unsupported support extensions and code checks remain unavailable.
     /// </summary>
     internal sealed class BeamManualDetailingFormV1 : Form
     {
@@ -43,15 +42,25 @@ namespace KhimTools.RebarTool.Forms
             public override string ToString() => Display;
         }
 
+        private sealed class ShapeChoice
+        {
+            public RebarShape Shape { get; }
+            public string Display { get; }
+            public ShapeChoice(RebarShape shape) { Shape = shape; Display = shape.Name; }
+            public override string ToString() => Display;
+        }
+
         private readonly Document _document;
         private readonly FamilyInstance _beam;
         private readonly BeamManualRebarGeneratorV1 _generator;
         private readonly BeamManualDetailingPlanStoreV1 _store;
         private readonly List<RebarBarType> _barTypes;
         private readonly List<RebarHookType> _hookTypes;
+        private readonly List<RebarShape> _stirrupShapes;
         private BeamManualDetailingPlanV1 _plan;
         private RebarPreviewSnapshot _preview;
         private readonly DataGridView _bars = new DataGridView();
+        private readonly DataGridView _stirrups = new DataGridView();
         private readonly TextBox[] _covers = new TextBox[5];
         private readonly ComboBox _supportStart = new ComboBox();
         private readonly ComboBox _supportFinish = new ComboBox();
@@ -62,6 +71,7 @@ namespace KhimTools.RebarTool.Forms
         private readonly Panel _sketch = new Panel();
         private BeamManualFrameV1 _sketchFrame;
         private Tuple<BeamManualBarRole, double, double, double, double>[] _sketchBars = Array.Empty<Tuple<BeamManualBarRole, double, double, double, double>>();
+        private Tuple<BeamManualStirrupRole, double[][], double[]>[] _sketchStirrupPaths = Array.Empty<Tuple<BeamManualStirrupRole, double[][], double[]>>();
         private string _planLoadWarning;
 
         public BeamManualDetailingFormV1(Document document, FamilyInstance beam)
@@ -73,6 +83,9 @@ namespace KhimTools.RebarTool.Forms
                 .Where(type => type.IsValidObject).OrderBy(type => type.Name, StringComparer.Ordinal).ToList();
             _hookTypes = new FilteredElementCollector(document).OfClass(typeof(RebarHookType)).Cast<RebarHookType>()
                 .Where(type => type.IsValidObject).OrderBy(type => type.Name, StringComparer.Ordinal).ToList();
+            _stirrupShapes = new FilteredElementCollector(document).OfClass(typeof(RebarShape)).Cast<RebarShape>()
+                .Where(shape => shape.IsValidObject && shape.RebarStyle == RebarStyle.StirrupTie)
+                .OrderBy(shape => shape.Name, StringComparer.Ordinal).ToList();
             _plan = _generator.CreateBlankPlan(beam);
             _sketchFrame = _plan.Frame;
             _store = BeamManualDetailingPlanStoreV1.ForCurrentUser(_plan.DocumentKey, beam.UniqueId);
@@ -84,12 +97,30 @@ namespace KhimTools.RebarTool.Forms
             UpdateState(_planLoadWarning ?? "NOT SOLVED — geometry only; structural design/compliance not verified.");
         }
 
+        // Controls-only factory for offline layout QA; it never creates a Revit object or runs a command.
+        private BeamManualDetailingFormV1(bool layoutOnly)
+        {
+            _document = null;
+            _beam = null;
+            _generator = null;
+            _store = null;
+            _barTypes = new List<RebarBarType>();
+            _hookTypes = new List<RebarHookType>();
+            _stirrupShapes = new List<RebarShape>();
+            ConfigureWindow();
+            BuildUi();
+            WireInvalidation();
+            UpdateState("LAYOUT PREVIEW ONLY — no Revit document or generated geometry.");
+        }
+
+        private static Form CreateLayoutPreview() => new BeamManualDetailingFormV1(layoutOnly: true);
+
         private void ConfigureWindow()
         {
             Text = "Beam Manual Detailing v1 / Bố trí thép dầm thủ công v1 — geometry only / chỉ kiểm tra hình học";
             Width = 1180;
             Height = 760;
-            MinimumSize = new Size(960, 640);
+            MinimumSize = new Size(1080, 800);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = Color.White;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -97,20 +128,24 @@ namespace KhimTools.RebarTool.Forms
 
         private void BuildUi()
         {
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, RowCount = 6, ColumnCount = 1, Padding = new Padding(12) };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, RowCount = 7, ColumnCount = 1, Padding = new Padding(12) };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 155));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
             var header = new Label
             {
-                AutoSize = true,
-                Text = "MANUAL REINFORCEMENT DETAILING / BỐ TRÍ CỐT THÉP THỦ CÔNG — geometry validation only; structural design/compliance not verified. / Chỉ kiểm tra hình học; không xác nhận thiết kế hoặc tiêu chuẩn kết cấu.\r\n" +
-                    "Host / Dầm: " + _beam.Name + " / " + _beam.Id.Value.ToString(CultureInfo.InvariantCulture) +
-                    "    Frame / Hệ trục: x=Right, y=Up, s=Direction; dimensions / kích thước in mm. Plan is bound to this Beam and Revit document. / Kế hoạch gắn với dầm và tài liệu Revit này.",
+                AutoSize = false,
+                Dock = DockStyle.Fill,
+                Height = 56,
+                Text = "BEAM MANUAL DETAILING V1 — geometry validation only; structural design/compliance not verified.\r\n" +
+                    "Beam / Dầm: " + (_beam == null ? "SYNTHETIC LAYOUT PREVIEW" : _beam.Name + " / " + _beam.Id.Value.ToString(CultureInfo.InvariantCulture)) +
+                    " · Frame x=Right, y=Up, s=Beam direction · dimensions in mm.",
                 Font = new Font("Segoe UI Semibold", 10F),
                 ForeColor = Color.FromArgb(31, 41, 55),
                 Margin = new Padding(4, 4, 4, 12)
@@ -118,7 +153,15 @@ namespace KhimTools.RebarTool.Forms
             root.Controls.Add(header, 0, 0);
 
             ConfigureBarGrid();
-            root.Controls.Add(_bars, 0, 1);
+            ConfigureStirrupGrid();
+            var groupTabs = new TabControl { Dock = DockStyle.Fill };
+            var barsTab = new TabPage("Longitudinal bars / Thép dọc");
+            barsTab.Controls.Add(_bars);
+            var stirrupsTab = new TabPage("Stirrups & hangers / Đai và thép treo");
+            stirrupsTab.Controls.Add(_stirrups);
+            groupTabs.TabPages.Add(barsTab);
+            groupTabs.TabPages.Add(stirrupsTab);
+            root.Controls.Add(groupTabs, 0, 1);
 
             _sketch.Dock = DockStyle.Fill;
             _sketch.BackColor = Color.White;
@@ -126,38 +169,59 @@ namespace KhimTools.RebarTool.Forms
             _sketch.Paint += SketchPaint;
             root.Controls.Add(_sketch, 0, 2);
 
-            var editButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
+            var editButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, WrapContents = true, FlowDirection = FlowDirection.LeftToRight };
             var add = new Button { Text = "Add explicit bar / Thêm thanh thép", AutoSize = true };
             add.Click += (s, e) => { _bars.Rows.Add(Guid.NewGuid().ToString("N"), true, null, null, "", "", "", "", "", null, null); InvalidatePreview(); };
             var remove = new Button { Text = "Remove selected / Xóa dòng chọn", AutoSize = true };
             remove.Click += (s, e) => { foreach (DataGridViewRow row in _bars.SelectedRows) if (!row.IsNewRow) _bars.Rows.Remove(row); InvalidatePreview(); };
             editButtons.Controls.Add(add);
             editButtons.Controls.Add(remove);
-            editButtons.Controls.Add(new Label { Text = "Each end detail is explicit. Hook/return geometry is subject to exact Revit compatibility and host clearance checks; unsupported stirrup/support extension requests are blocked. / Chi tiết đầu thanh phải nhập rõ; đai và neo ra gối hiện bị chặn.", AutoSize = true, Padding = new Padding(8, 9, 0, 0), ForeColor = Color.DarkRed });
+            var addStirrup = new Button { Text = "Add explicit tie / Thêm đai", AutoSize = true };
+            addStirrup.Click += (s, e) => { _stirrups.Rows.Add(Guid.NewGuid().ToString("N"), true, null, null, null, "", "", null, null, null, null, "REJECT_DUPLICATE_STATIONS"); InvalidatePreview(); };
+            var removeStirrup = new Button { Text = "Remove tie / Xóa đai", AutoSize = true };
+            removeStirrup.Click += (s, e) => { foreach (DataGridViewRow row in _stirrups.SelectedRows) if (!row.IsNewRow) _stirrups.Rows.Remove(row); InvalidatePreview(); };
+            editButtons.Controls.Add(addStirrup);
+            editButtons.Controls.Add(removeStirrup);
             root.Controls.Add(editButtons, 0, 3);
 
-            var settings = new TableLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, ColumnCount = 7, RowCount = 3, Padding = new Padding(0, 8, 0, 4) };
+            var disclosure = new Label
+            {
+                Dock = DockStyle.Fill, AutoSize = false, Height = 38,
+                Text = "Geometry only; support extensions unavailable. / Chỉ kiểm tra hình học; chưa hỗ trợ kéo dài qua gối.",
+                ForeColor = Color.DarkRed, Padding = new Padding(4, 4, 4, 2)
+            };
+            root.Controls.Add(disclosure, 0, 4);
+
+            var settings = new TableLayoutPanel { AutoSize = false, Dock = DockStyle.Fill, Height = 170, ColumnCount = 5, RowCount = 3, Padding = new Padding(0, 4, 0, 4) };
+            for (int column = 0; column < 5; column++) settings.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+            settings.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+            settings.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+            settings.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
             string[] faceNames = { "Top cover / Lớp bảo vệ trên (mm)", "Bottom cover / Lớp bảo vệ dưới (mm)", "Left cover / Lớp bảo vệ trái (mm)", "Right cover / Lớp bảo vệ phải (mm)", "Stirrup cover / Lớp bảo vệ ngoài đai (mm)" };
             for (int i = 0; i < _covers.Length; i++)
             {
-                var cell = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.TopDown, Margin = new Padding(3) };
-                cell.Controls.Add(new Label { Text = faceNames[i], AutoSize = true });
-                _covers[i] = new TextBox { Width = 110, AccessibleName = faceNames[i] };
+                var cell = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, Margin = new Padding(3, 0, 3, 0) };
+                cell.RowStyles.Add(new RowStyle(SizeType.Percent, 65));
+                cell.RowStyles.Add(new RowStyle(SizeType.Percent, 35));
+                cell.Controls.Add(new Label { Text = faceNames[i], Dock = DockStyle.Fill, AutoSize = false, TextAlign = ContentAlignment.BottomLeft }, 0, 0);
+                _covers[i] = new TextBox { Dock = DockStyle.Fill, AccessibleName = faceNames[i] };
                 cell.Controls.Add(_covers[i]);
                 settings.Controls.Add(cell, i, 0);
             }
-            settings.Controls.Add(new Label { Text = "Start end / Điều kiện đầu", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 1);
+            settings.Controls.Add(new Label { Text = "Start end", Dock = DockStyle.Fill, AutoSize = false, Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft }, 0, 1);
             settings.Controls.Add(_supportStart, 1, 1);
-            settings.Controls.Add(new Label { Text = "Finish end / Điều kiện cuối", AutoSize = true, Anchor = AnchorStyles.Left }, 2, 1);
+            settings.Controls.Add(new Label { Text = "Finish end", Dock = DockStyle.Fill, AutoSize = false, Anchor = AnchorStyles.Left, TextAlign = ContentAlignment.MiddleLeft }, 2, 1);
             settings.Controls.Add(_supportFinish, 3, 1);
             ConfigureSupportCombo(_supportStart);
             ConfigureSupportCombo(_supportFinish);
-            settings.Controls.Add(new Label { Text = "Explicit face covers only; no defaults. Free ends do not verify development. / Nhập lớp bảo vệ từng mặt, không có mặc định. Đầu tự do không xác nhận chiều dài neo.", AutoSize = true, ForeColor = Color.FromArgb(80, 80, 80) }, 0, 2);
-            settings.SetColumnSpan(settings.GetControlFromPosition(0, 2), 7);
-            root.Controls.Add(settings, 0, 4);
+            settings.Controls.Add(new Label { Text = "Explicit face covers only; no defaults. Free-end development is unverified. / Lớp bảo vệ phải nhập rõ; neo đầu tự do chưa xác nhận.", Dock = DockStyle.Fill, AutoSize = false, ForeColor = Color.FromArgb(80, 80, 80) }, 0, 2);
+            settings.SetColumnSpan(settings.GetControlFromPosition(0, 2), 5);
+            root.Controls.Add(settings, 0, 5);
 
             var footer = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, RowCount = 2, Padding = new Padding(0, 8, 0, 0) };
-            _state.AutoSize = true;
+            _state.AutoSize = false;
+            _state.Dock = DockStyle.Fill;
+            _state.Height = 38;
             _state.ForeColor = Color.FromArgb(120, 53, 15);
             footer.Controls.Add(_state, 0, 0);
             footer.SetColumnSpan(_state, 2);
@@ -180,7 +244,7 @@ namespace KhimTools.RebarTool.Forms
             actions.Controls.Add(_save);
             footer.Controls.Add(actions, 0, 1);
             footer.SetColumnSpan(actions, 2);
-            root.Controls.Add(footer, 0, 5);
+            root.Controls.Add(footer, 0, 6);
             Controls.Add(root);
         }
 
@@ -241,6 +305,56 @@ namespace KhimTools.RebarTool.Forms
             });
         }
 
+        private void ConfigureStirrupGrid()
+        {
+            _stirrups.Dock = DockStyle.Fill;
+            _stirrups.AllowUserToAddRows = true;
+            _stirrups.AllowUserToDeleteRows = true;
+            _stirrups.AutoGenerateColumns = false;
+            _stirrups.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _stirrups.RowHeadersVisible = false;
+            _stirrups.EditMode = DataGridViewEditMode.EditOnEnter;
+            _stirrups.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stirrup group ID", HeaderText = "Stable group ID", FillWeight = 125 });
+            _stirrups.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Stirrup enabled", HeaderText = "Enabled", FillWeight = 55 });
+            _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = "Stirrup role", HeaderText = "Stirrup/hanger role",
+                DataSource = new[] { BeamManualStirrupRole.Stirrup, BeamManualStirrupRole.Hanger, BeamManualStirrupRole.UserDefined }, FillWeight = 90
+            });
+            _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = "Stirrup bar type", HeaderText = "Exact loaded bar type",
+                DataSource = _barTypes.Select(type => new BarTypeChoice(type)).ToList(), DisplayMember = "Display", FillWeight = 140
+            });
+            _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = "Stirrup shape", HeaderText = "Exact loaded StirrupTie shape",
+                DataSource = _stirrupShapes.Select(shape => new ShapeChoice(shape)).ToList(), DisplayMember = "Display", FillWeight = 130
+            });
+            _stirrups.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stirrup stations", HeaderText = "Explicit stations (mm;...)", FillWeight = 115 });
+            _stirrups.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stirrup contour", HeaderText = "Section path x,y (mm;...; repeat first to close)", FillWeight = 180 });
+            foreach (string prefix in new[] { "Stirrup start", "Stirrup finish" })
+            {
+                _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+                {
+                    Name = prefix + " hook", HeaderText = prefix + " exact hook",
+                    DataSource = _hookTypes.Select(type => new HookTypeChoice(type)).ToList(), DisplayMember = "Display", FillWeight = 110
+                });
+                _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+                {
+                    Name = prefix + " orientation", HeaderText = prefix + " orientation",
+                    DataSource = new[] { BeamManualHookOrientation.Left, BeamManualHookOrientation.Right }, FillWeight = 70
+                });
+            }
+            _stirrups.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = "Coincident policy", HeaderText = "Coincident-station policy",
+                DataSource = new[] { "REJECT_DUPLICATE_STATIONS" }, FillWeight = 105,
+                ToolTipText = "Same-role coincident stations are rejected; no required bars are silently deduplicated."
+            });
+            _stirrups.DataError += (s, e) => { e.ThrowException = false; };
+        }
+
         private static void ConfigureSupportCombo(ComboBox combo)
         {
             combo.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -273,8 +387,8 @@ namespace KhimTools.RebarTool.Forms
                 int row = _bars.Rows.Add(group.GroupId, group.Enabled, group.Role, type == null ? null : ChoiceFor(type),
                     bar.XMm.ToString("R", CultureInfo.InvariantCulture), bar.YMm.ToString("R", CultureInfo.InvariantCulture),
                     bar.StartStationMm.ToString("R", CultureInfo.InvariantCulture), bar.EndStationMm.ToString("R", CultureInfo.InvariantCulture),
-                    bar.LayerId, DetailText(bar.StartDetail), HookChoiceFor(bar.StartDetail?.HookType), bar.StartDetail?.HookOrientation,
-                    FormatReturnPoints(bar.StartDetail?.ReturnPoints), DetailText(bar.FinishDetail), HookChoiceFor(bar.FinishDetail?.HookType),
+                    bar.LayerId, DetailText(bar.StartDetail), HookChoiceFor(bar.StartDetail?.HookType, "Start hook type"), bar.StartDetail?.HookOrientation,
+                    FormatReturnPoints(bar.StartDetail?.ReturnPoints), DetailText(bar.FinishDetail), HookChoiceFor(bar.FinishDetail?.HookType, "Finish hook type"),
                     bar.FinishDetail?.HookOrientation, FormatReturnPoints(bar.FinishDetail?.ReturnPoints));
                 if (type == null) _bars.Rows[row].Cells["BarType"].Value = null;
                 if (bar.StartDetail.Kind != BeamManualEndDetailKind.StraightAtStation || bar.FinishDetail.Kind != BeamManualEndDetailKind.StraightAtStation)
@@ -283,6 +397,18 @@ namespace KhimTools.RebarTool.Forms
                         bar.FinishDetail?.Kind == BeamManualEndDetailKind.ExplicitLoadedRevitHook && HookChoiceFor(bar.FinishDetail.HookType) == null)
                         _bars.Rows[row].ErrorText = "A saved hook identity is unresolved. Explicitly rebind the exact loaded RebarHookType; no substitution was made.";
                 }
+            }
+            foreach (BeamManualStirrupGroupV1 group in saved.StirrupGroups ?? new List<BeamManualStirrupGroupV1>())
+            {
+                RebarBarType type = ResolveStoredType(group.BarType);
+                RebarShape shape = ResolveStoredShape(group.RebarShape);
+                int row = _stirrups.Rows.Add(group.GroupId, group.Enabled, group.Role,
+                    type == null ? null : StirrupBarChoiceFor(type), shape == null ? null : ShapeChoiceFor(shape),
+                    string.Join(";", group.StationsMm.Select(value => value.ToString("R", CultureInfo.InvariantCulture))),
+                    FormatSectionPath(group.SectionPath), HookChoiceFor(group.StartDetail?.HookType, "Stirrup start hook"), group.StartDetail?.HookOrientation,
+                    HookChoiceFor(group.FinishDetail?.HookType, "Stirrup finish hook"), group.FinishDetail?.HookOrientation,
+                    group.CoincidentStationPolicy);
+                if (type == null || shape == null) _stirrups.Rows[row].ErrorText = "A saved exact bar type or RebarShape is unresolved; explicitly rebind it. No substitute was selected.";
             }
             // Preserve unresolved references as unresolved; the user must explicitly select the exact loaded type.
         }
@@ -297,6 +423,13 @@ namespace KhimTools.RebarTool.Forms
                 ? type : null;
         }
 
+        private RebarShape ResolveStoredShape(BeamManualElementIdentityV1 reference)
+        {
+            if (reference == null || reference.DocumentKey != _plan.DocumentKey || reference.State != BeamManualReferenceState.Resolved) return null;
+            RebarShape shape = _document.GetElement(reference.UniqueId) as RebarShape;
+            return shape != null && shape.IsValidObject && shape.Name == reference.Name && shape.RebarStyle == RebarStyle.StirrupTie ? shape : null;
+        }
+
         private BarTypeChoice ChoiceFor(RebarBarType type)
         {
             var column = (DataGridViewComboBoxColumn)_bars.Columns["BarType"];
@@ -309,17 +442,33 @@ namespace KhimTools.RebarTool.Forms
 
         private HookTypeChoice HookChoiceFor(BeamManualElementIdentityV1 reference)
         {
+            return HookChoiceFor(reference, "Start hook type");
+        }
+
+        private HookTypeChoice HookChoiceFor(BeamManualElementIdentityV1 reference, string columnName)
+        {
             if (reference == null || reference.State != BeamManualReferenceState.Resolved || reference.DocumentKey != _plan.DocumentKey) return null;
             RebarHookType type = _document.GetElement(reference.UniqueId) as RebarHookType;
             return type != null && type.IsValidObject && type.Name == reference.Name
-                ? ((IEnumerable<HookTypeChoice>)((DataGridViewComboBoxColumn)_bars.Columns["Start hook type"]).DataSource)
+                ? ((IEnumerable<HookTypeChoice>)((DataGridViewComboBoxColumn)(columnName.StartsWith("Stirrup", StringComparison.Ordinal) ? _stirrups.Columns[columnName] : _bars.Columns[columnName])).DataSource)
                     .FirstOrDefault(choice => choice.Type.UniqueId == type.UniqueId)
                 : null;
         }
 
+        private BarTypeChoice StirrupBarChoiceFor(RebarBarType type) =>
+            ((IEnumerable<BarTypeChoice>)((DataGridViewComboBoxColumn)_stirrups.Columns["Stirrup bar type"]).DataSource)
+                .FirstOrDefault(choice => choice.Type.UniqueId == type.UniqueId);
+
+        private ShapeChoice ShapeChoiceFor(RebarShape shape) =>
+            ((IEnumerable<ShapeChoice>)((DataGridViewComboBoxColumn)_stirrups.Columns["Stirrup shape"]).DataSource)
+                .FirstOrDefault(choice => choice.Shape.UniqueId == shape.UniqueId);
+
         private static string FormatReturnPoints(IList<BeamManualPointV1> points) => points == null ? string.Empty :
             string.Join(";", points.Select(point => string.Join(",", point.StationMm.ToString("R", CultureInfo.InvariantCulture),
                 point.XMm.ToString("R", CultureInfo.InvariantCulture), point.YMm.ToString("R", CultureInfo.InvariantCulture))));
+
+        private static string FormatSectionPath(IList<BeamManualPointV1> points) => points == null ? string.Empty :
+            string.Join(";", points.Select(point => string.Join(",", point.XMm.ToString("R", CultureInfo.InvariantCulture), point.YMm.ToString("R", CultureInfo.InvariantCulture))));
 
         private void WireInvalidation()
         {
@@ -328,6 +477,11 @@ namespace KhimTools.RebarTool.Forms
             _bars.CurrentCellDirtyStateChanged += (s, e) => { if (_bars.IsCurrentCellDirty) _bars.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             _bars.CellValueChanged += (s, e) => RefreshSketchSnapshot();
             _bars.RowsRemoved += (s, e) => RefreshSketchSnapshot();
+            _stirrups.CellValueChanged += (s, e) => InvalidatePreview();
+            _stirrups.RowsRemoved += (s, e) => InvalidatePreview();
+            _stirrups.CurrentCellDirtyStateChanged += (s, e) => { if (_stirrups.IsCurrentCellDirty) _stirrups.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+            _stirrups.CellValueChanged += (s, e) => RefreshSketchSnapshot();
+            _stirrups.RowsRemoved += (s, e) => RefreshSketchSnapshot();
             foreach (TextBox cover in _covers) cover.TextChanged += (s, e) => InvalidatePreview();
             _supportStart.SelectedIndexChanged += (s, e) => InvalidatePreview();
             _supportFinish.SelectedIndexChanged += (s, e) => InvalidatePreview();
@@ -375,7 +529,7 @@ namespace KhimTools.RebarTool.Forms
             {
                 FreeEnd(BeamManualEnd.Start), FreeEnd(BeamManualEnd.Finish)
             };
-            plan.StirrupGroups = plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>();
+            plan.StirrupGroups = ReadStirrupsFromUi();
             plan.CodeVerified = false;
             plan.Source = "MANUAL_DETAILING";
             return plan;
@@ -421,6 +575,68 @@ namespace KhimTools.RebarTool.Forms
         {
             DocumentKey = _plan.DocumentKey, UniqueId = type.UniqueId, Name = type.Name, State = BeamManualReferenceState.Resolved
         };
+
+        private BeamManualElementIdentityV1 MakeShapeIdentity(RebarShape shape) => new BeamManualElementIdentityV1
+        {
+            DocumentKey = _plan.DocumentKey, UniqueId = shape.UniqueId, Name = shape.Name, State = BeamManualReferenceState.Resolved
+        };
+
+        private List<BeamManualStirrupGroupV1> ReadStirrupsFromUi()
+        {
+            var groups = new List<BeamManualStirrupGroupV1>();
+            foreach (DataGridViewRow row in _stirrups.Rows)
+            {
+                if (row.IsNewRow) continue;
+                string id = CellText(row, "Stirrup group ID");
+                bool enabled = row.Cells["Stirrup enabled"].Value is bool value && value;
+                BeamManualStirrupRole? role = row.Cells["Stirrup role"].Value is BeamManualStirrupRole selectedRole ? (BeamManualStirrupRole?)selectedRole : null;
+                BarTypeChoice barChoice = row.Cells["Stirrup bar type"].Value as BarTypeChoice;
+                ShapeChoice shapeChoice = row.Cells["Stirrup shape"].Value as ShapeChoice;
+                if (string.IsNullOrWhiteSpace(id) || !role.HasValue || barChoice?.Type == null || shapeChoice?.Shape == null)
+                    throw new InvalidOperationException("Every stirrup/hanger row needs a stable group ID, explicit role, exact loaded RebarBarType and exact loaded StirrupTie RebarShape.");
+                BeamManualEndDetailV1 startDetail = ReadStirrupEnd(row, "Stirrup start");
+                BeamManualEndDetailV1 finishDetail = ReadStirrupEnd(row, "Stirrup finish");
+                groups.Add(new BeamManualStirrupGroupV1
+                {
+                    GroupId = id, Role = role.Value, Enabled = enabled,
+                    BarType = MakeTypeReference(barChoice.Type), RebarShape = MakeShapeIdentity(shapeChoice.Shape),
+                    StationsMm = ParseMmList(CellText(row, "Stirrup stations"), id, "stations"),
+                    SectionPath = ParseSectionPath(CellText(row, "Stirrup contour"), id),
+                    StartDetail = startDetail, FinishDetail = finishDetail,
+                    CoincidentStationPolicy = Convert.ToString(row.Cells["Coincident policy"].Value, CultureInfo.InvariantCulture)
+                });
+            }
+            return groups;
+        }
+
+        private BeamManualEndDetailV1 ReadStirrupEnd(DataGridViewRow row, string prefix)
+        {
+            HookTypeChoice choice = row.Cells[prefix + " hook"].Value as HookTypeChoice;
+            if (choice == null) return StraightDetail();
+            if (!(row.Cells[prefix + " orientation"].Value is BeamManualHookOrientation orientation))
+                throw new InvalidOperationException(prefix + " requires an explicit hook orientation.");
+            return new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.ExplicitLoadedRevitHook,
+                HookType = MakeHookIdentity(choice.Type), HookOrientation = orientation };
+        }
+
+        private static List<double> ParseMmList(string text, string group, string field)
+        {
+            if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Group " + group + " / " + field + " requires explicitly listed millimetre values separated by semicolons.");
+            return text.Split(';').Select(token => ParseMm(token, group, field)).ToList();
+        }
+
+        private static List<BeamManualPointV1> ParseSectionPath(string text, string group)
+        {
+            if (string.IsNullOrWhiteSpace(text)) throw new InvalidOperationException("Group " + group + " / section path requires explicit x,y mm pairs separated by semicolons; repeat the first pair to close a contour.");
+            var points = new List<BeamManualPointV1>();
+            foreach (string token in text.Split(';'))
+            {
+                string[] values = token.Split(',');
+                if (values.Length != 2) throw new InvalidOperationException("Group " + group + " / section path entries must be x,y mm pairs.");
+                points.Add(new BeamManualPointV1 { XMm = ParseMm(values[0], group, "section x"), YMm = ParseMm(values[1], group, "section y") });
+            }
+            return points;
+        }
 
         private static List<BeamManualPointV1> ParseReturnPoints(string text, string group, string field)
         {
@@ -567,6 +783,21 @@ namespace KhimTools.RebarTool.Forms
                 values.Add(Tuple.Create(role, x, y, start, finish));
             }
             _sketchBars = values.ToArray();
+            var stirrupPaths = new List<Tuple<BeamManualStirrupRole, double[][], double[]>>();
+            foreach (DataGridViewRow row in _stirrups.Rows)
+            {
+                if (row.IsNewRow || !(row.Cells["Stirrup role"].Value is BeamManualStirrupRole role) ||
+                    !(row.Cells["Stirrup enabled"].Value is bool enabled) || !enabled) continue;
+                try
+                {
+                    double[][] points = ParseSectionPath(CellText(row, "Stirrup contour"), CellText(row, "Stirrup group ID"))
+                        .Select(point => new[] { point.XMm, point.YMm }).ToArray();
+                    double[] stations = ParseMmList(CellText(row, "Stirrup stations"), CellText(row, "Stirrup group ID"), "stations").ToArray();
+                    stirrupPaths.Add(Tuple.Create(role, points, stations));
+                }
+                catch (InvalidOperationException) { /* Invalid editable text is not painted as solved geometry. */ }
+            }
+            _sketchStirrupPaths = stirrupPaths.ToArray();
             _sketch?.Invalidate();
         }
 
@@ -607,6 +838,23 @@ namespace KhimTools.RebarTool.Forms
                         g.DrawLine(barPen, x0, ey, x1, ey);
                     }
                 }
+                foreach (var group in _sketchStirrupPaths)
+                {
+                    Color color = StirrupRoleColor(group.Item1);
+                    using (var tiePen = new Pen(color, 1.8F))
+                    {
+                        PointF[] sectionPoints = group.Item2.Select(point => new PointF(
+                            cross.Left + (float)((point[0] + frame.WidthMm / 2.0) / frame.WidthMm * cross.Width),
+                            cross.Bottom - (float)((point[1] + frame.HeightMm / 2.0) / frame.HeightMm * cross.Height))).ToArray();
+                        if (sectionPoints.Length > 1) g.DrawLines(tiePen, sectionPoints);
+                        foreach (double station in group.Item3)
+                        {
+                            if (station < 0 || station > frame.LengthMm) continue;
+                            float sx = elevation.Left + (float)(station / frame.LengthMm * elevation.Width);
+                            g.DrawLine(tiePen, sx, elevation.Top + 2, sx, elevation.Bottom - 2);
+                        }
+                    }
+                }
             }
         }
 
@@ -632,6 +880,10 @@ namespace KhimTools.RebarTool.Forms
                 default: return Color.FromArgb(71, 85, 105);
             }
         }
+
+        private static Color StirrupRoleColor(BeamManualStirrupRole role) => role == BeamManualStirrupRole.Hanger
+            ? Color.FromArgb(217, 70, 239) : role == BeamManualStirrupRole.Stirrup
+                ? Color.FromArgb(220, 38, 38) : Color.FromArgb(71, 85, 105);
 
         private static string BeamHostId(FamilyInstance beam) => beam.UniqueId;
     }
