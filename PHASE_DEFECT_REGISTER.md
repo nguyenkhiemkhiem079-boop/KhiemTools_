@@ -44,3 +44,10 @@ Branch: `fix/preview-hardening`; start `aa0fc5ddfba4f2234487c673ffb5977a167845db
 - P2: mixed English/Vietnamese Beam UI without a Beam language selector; static elevation remains disclosed as illustrative.
 - Evidence: K-Rebar 147/147, Rebar configuration 37/37, Golden Regression 96, Beam offline layout 3,114 checks / 54 renders, canonical `Test-All.ps1` 2,766/2,766, Revit 2024 Release 0 errors / 210 warnings, Revit 2025 Release 0 errors / 208 warnings.
 - `PHASE CODE COMPLETE = NO`; do not call the Beam product production-ready. The Beam-specific capability matrix and remediation detail are in [`Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md`](Docs/QA/Beam/PHASE_04_DEFECT_REGISTER.md). Handoff/resume instructions are in [`Docs/QA/Beam/PHASE_04_HANDOFF.md`](Docs/QA/Beam/PHASE_04_HANDOFF.md).
+
+## Phase 04B consolidated contract audit (2026-10-12)
+
+- Repository evidence does not include an approved Beam detailing schedule or construction-detail contract for additional-bar cut-offs/layers, skin-bar coordinates, hook identity/orientation, support-end anchorage or local-face cover mapping. These items are `REQUIRES_ENGINEERING_APPROVAL`; unsupported generation remains fail-closed.
+- The active Beam form supplies zero extra-bar counts and disables side-bar requests. The generator rejects positive extra/skin inputs before its legacy fixed-fraction private routines can execute. A new K-Rebar static check explicitly protects this gate; canonical `Test-All.ps1` expected count is updated with the check.
+- `BeamRebarSettings` retains legacy positive defaults for extras and automatic/quantity side bars, but current search confirms that this settings model is not consumed by the active Beam UI/generator. Future template wiring must disclose/migrate these legacy fields before use; do not interpret persisted values as generated reinforcement.
+- No P0 was confirmed in the supported code path. Phase code completion and production readiness remain NO due unresolved P1 detailing contracts and unexecuted host acceptance. Detailed disposition is in the Beam-specific register and handoff.

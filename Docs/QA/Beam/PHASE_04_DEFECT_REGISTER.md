@@ -6,7 +6,7 @@ Starting SHA: `aa0fc5ddfba4f2234487c673ffb5977a167845db`
 
 Implementation checkpoint: `19fca67cda2cdcd004bff91f042b1af0724a01e7`
 
-Status: code-side audit in progress; host acceptance is `HOST_REQUIRED / NOT_EXECUTED`.
+Status: consolidated Phase 04B contract audit complete; unsupported detailing remains fail-closed and host acceptance is `HOST_REQUIRED / NOT_EXECUTED`.
 
 This Beam-specific register supplements, and does not replace, the cumulative Slab history in the repository-root `PHASE_DEFECT_REGISTER.md`.
 
@@ -29,6 +29,43 @@ This Beam-specific register supplements, and does not replace, the cumulative Sl
 | Duplicate protection | Duplicate is surfaced before commit | Complete plan multiset and same-host selection | Preview fingerprint is the duplicate expectation | Shared multiset goldens and host scenario | `IMPLEMENTED_CODE_SIDE / HOST_REQUIRED` |
 | Transactions/cancel | Preview Cancel leaves no model edits | Create uses checked transaction/group boundary; generator errors and parity mismatch abort the enclosing group | Capture rolls back temporary Rebar | Registered rollback/cancel fixture, not run live | `IMPLEMENTED_CODE_SIDE / HOST_REQUIRED` |
 | UI and language | Minimum supported form; Beam labels remain mixed Vietnamese/English | Paint reads schematic/cached data only | Preview is separate from illustrative elevation | Beam-only and canonical offline layout suites | `PARTIAL`; no Beam language selector; live Revit UI not run |
+
+## Phase 04B contract audit
+
+Repository search of `Docs/`, `Tools/`, settings schemas, generator inputs, and Rebar helpers found no approved Beam detailing schedule, construction-detail standard, or configuration contract that specifies cut-off stations, secondary layer elevations, skin-bar distribution, hook identity/orientation, or face-to-centerline placement. Existing form defaults and legacy field labels are not an approved engineering source. The current code-side implementation therefore supports only the explicit continuous top/bottom rows and supported stirrup/hanger inputs in the capability matrix; it does not claim structural design-code verification.
+
+| Feature requested by Phase 04B | Safe disposition | Required approval/input before implementation |
+|---|---|---|
+| Additional top-left, top-right, bottom-mid bars | `REQUIRES_ENGINEERING_APPROVAL`; positive quantities are rejected before generation. Legacy private routines contain fixed fractions and are unreachable behind that guard; they are not an accepted contract. | Actual user-entered local beam start/end stations, local layer coordinate/index, exact Rebar type, end detail/anchorage and support boundary semantics; explicit statement that this is user-defined detailing, not code verification. |
+| Multiple longitudinal layers | `REQUIRES_ENGINEERING_APPROVAL`; only one supported top row and one bottom row are generated. | Layer-coordinate convention and clear-spacing requirements, including interaction with stirrups and other bars. |
+| Side/skin bars | `REQUIRES_ENGINEERING_APPROVAL`; positive quantities and automatic requests fail closed; no depth-triggered automatic rule is enabled. | Explicit per-bar local coordinates or a verified spacing rule, exact bar type, clear spacing, face cover, end detail and role semantics. |
+| RebarHookType | `REQUIRES_ENGINEERING_APPROVAL`; Beam longitudinal returns are geometric curves, not a loaded hook identity. | Exact loaded hook selection, supported shape/type compatibility, orientation convention, geometric clearance and parity contract. No generic hook-helper fallback is accepted as Beam behavior. |
+| Anchorage | Geometry preview only; configured grade/multiplier calculations and return curves are not represented as code-verified design. | Approved supported code edition/material inputs or explicit manual embedment/return geometry, with support boundary and acceptance criteria. |
+| Face-specific cover | Current generator uses a uniform maximum positive assigned cover, not per-face placement. | Verified mapping between Revit host faces and Beam local axes for Beam and support solids, plus face-by-face centerline and bend-clearance checks. Missing assignments must continue to fail closed. |
+| Expanded supports | Structural column and structural beam solid intersections remain the only supported support candidates. | Per-category geometry/boundary semantics and explicit treatment of walls, slabs, cantilevers and free ends. |
+| Localization/UI | Legacy extra/skin controls are disabled/disclosed; the working configuration UI still has mixed English/Vietnamese labels. | Approved bilingual terminology and interaction copy; no detailing controls should become editable before their full input contract is consumed by preview and create. |
+
+Persisted `BeamRebarSettings` has legacy positive defaults for additional bars and automatic/quantity side bars. It is not consumed by the current Beam form/generator path; the active `CreateGenerationInput` explicitly supplies zero extras and disables automatic/quantity side bars. Do not interpret those dormant persisted defaults as supported generation inputs. Any future template wiring must include explicit legacy migration/disclosure and validation before consumption.
+
+## Consolidated audit disposition
+
+- No P0 production corruption defect was confirmed in the supported Beam path during this source audit. Previously implemented rollback capture, complete-plan parity, duplicate checks, staleness and checked transaction boundaries remain the code-side safety baseline; no live host outcome is inferred.
+- P1 engineering-contract blockers remain: additional bars, multiple layers, skin bars, explicit hook identity, code/anchorage claims, face-specific cover, expanded supports, and live host execution.
+- P2 remains: incomplete Beam localization and illustrative-only static elevation.
+- No production code was changed in this audit because no missing engineering decision could be safely inferred from repository evidence. Existing unsupported requests remain fail-closed.
+- Overall `PHASE CODE COMPLETE = NO`, `PHASE ACCEPTANCE COMPLETE = NO`, and `PRODUCTION READY = NO` until the listed detailing decisions and required host acceptance are resolved.
+
+### Phase 04B validation (2026-10-12)
+
+- `Verify-KRebar.ps1`: 148/148 static assertions PASS, including the extra-detail fail-closed guard.
+- `Verify-RebarConfiguration.ps1`: 37/37 PASS; persistence/UI bindings only.
+- Golden Regression: 96 assertions PASS; Rebar host geometry remains `HOST_REQUIRED / NOT_EXECUTED`.
+- Beam/Rebar offline layout through `Test-All.ps1`: 17,443 control checks / 348 renders PASS; WPF UI layout: 100 icons / 10 surfaces / 43 renders PASS.
+- Runtime QA harness structural audit: 50/50 PASS; these are source/structure checks only.
+- Canonical `Test-All.ps1`: 2,767/2,767 PASS.
+- Revit 2024 Release: 0 errors, 210 warnings. Revit 2025 Release: 0 errors, 208 warnings.
+- `git diff --check`: PASS before checkpointing.
+- Live Revit QA: `NOT_EXECUTED`; no confirmed disposable Revit model was available for mutation tests.
 
 ## P0 — Critical findings
 

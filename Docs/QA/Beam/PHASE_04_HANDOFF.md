@@ -36,6 +36,14 @@ See `PHASE_04_DEFECT_REGISTER.md` for the full capability matrix, findings, seve
 
 Because items 1–5 are core implementation boundaries, `PHASE CODE COMPLETE = NO`. Host runtime acceptance is separately `HOST_REQUIRED / NOT_EXECUTED`; it must not be represented as PASS.
 
+## Phase 04B consolidated contract audit (2026-10-12)
+
+The repository was searched for approved detailing schedules, construction-detail conventions, and Beam-specific input schemas. No authoritative rule was found for additional-bar curtailment stations, secondary-layer elevations, skin-bar spacing, explicit hook identity/orientation, support-end anchorage, or local-face cover placement. These are `REQUIRES_ENGINEERING_APPROVAL`; do not re-enable legacy fixed-fraction routines or claim code compliance. The supported generator remains fail-closed for positive additional/skin-bar requests.
+
+The active Beam form supplies zero extra counts and disables automatic/quantity side bars. The `BeamRebarSettings` persistence model still has positive legacy defaults for these fields but is not consumed by the active form/generator path; any future template integration must explicitly migrate/disclose legacy values. A focused static regression assertion now verifies the extra-bar rejection precedes the legacy generation call, and `Test-All.ps1` is synchronized to the resulting K-Rebar assertion count. No production Beam source was changed because repository evidence does not resolve the required engineering decisions.
+
+Fresh validation on 2026-10-12: K-Rebar 148/148; Rebar configuration 37/37; Golden Regression 96 assertions; Beam/Rebar offline layout 17,443 checks / 348 renders; WPF UI layout 100 icons / 10 surfaces / 43 renders; Runtime QA structural audit 50/50; `Test-All.ps1` 2,767/2,767; Revit 2024 Release 0 errors / 210 warnings; Revit 2025 Release 0 errors / 208 warnings; `git diff --check` PASS. Live Revit QA remains `NOT_EXECUTED`; static checks and compilation are not host execution.
+
 ## Validation performed
 
 - `Verify-KRebar.ps1`: 147/147 static assertions PASS.
@@ -51,7 +59,7 @@ Because items 1–5 are core implementation boundaries, `PHASE CODE COMPLETE = N
 
 1. `git fetch origin --prune`; switch to `fix/preview-hardening`; confirm clean status and record `git rev-parse HEAD`, `git rev-parse origin/fix/preview-hardening`, and `git rev-parse origin/master`.
 2. Confirm local and remote feature tips match. The current pushed implementation checkpoint is `19fca67cda2cdcd004bff91f042b1af0724a01e7`; final documentation/final-test commits, if any, will be descendants. Master must remain at the recorded baseline.
-3. Run `Test-All.ps1` and record the final weighted suite total (expected 2,766 after the additional Beam stale-context assertion), plus `git diff --check`.
-4. Close P1 product-contract gaps with an approved Beam detailing specification, not inferred semantics; add domain/host assertions and update both Phase 04 docs and the cumulative root register.
+3. Run focused Beam/Rebar regression, Golden Regression, full `Test-All.ps1`, Revit 2024/2025 Release builds, and `git diff --check`; use the checked-in expected counts and report fresh outputs.
+4. Obtain an approved Beam detailing specification that resolves each `REQUIRES_ENGINEERING_APPROVAL` item before implementing the corresponding input model, generator geometry, UI, fingerprint, preview roles, parity and host assertions. Do not infer stations, layers, hooks, cover mapping, support conditions or code compliance from legacy labels/defaults.
 5. Only after a disposable detached QA file is explicitly confirmed, run `BR-PREVIEW-RECT`, `BR-PREVIEW-ROTATED`, `BEAM_UNDO`, `BEAM_CANCEL`, `BEAM_DUPLICATE`, `BEAM_SUPPORT_STALE`, and `BEAM_GEOMETRY_REJECTION`. Record actual model fingerprints, transaction rollback and parity evidence. Until then report `HOST_REQUIRED / NOT_EXECUTED`.
 6. Do not merge into master, force push, start a later phase or work on another K-TOOL module.
