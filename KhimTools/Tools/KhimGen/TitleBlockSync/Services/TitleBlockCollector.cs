@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,7 +30,7 @@ namespace KhimTools.TitleBlockSync.Services
             if (doc == null) return result;
             foreach (ViewSheet sheet in new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>())
                 if (sheet != null && !sheet.IsPlaceholder) result.Add(sheet);
-            return result.OrderBy(s => s.SheetNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase).ThenBy(s => s.Id.IntegerValue).ToList();
+            return result.OrderBy(s => s.SheetNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase).ThenBy(s => s.Id.ToCheckedIntValue()).ToList();
         }
 
         public static IList<FamilyInstance> CollectTitleBlocks(Document doc, ViewSheet sheet)
@@ -38,7 +39,7 @@ namespace KhimTools.TitleBlockSync.Services
             if (doc == null || sheet == null) return result;
             foreach (FamilyInstance instance in new FilteredElementCollector(doc, sheet.Id).OfCategory(BuiltInCategory.OST_TitleBlocks).WhereElementIsNotElementType().Cast<FamilyInstance>())
                 if (instance != null) result.Add(instance);
-            return result.OrderBy(x => x.Id.IntegerValue).ToList();
+            return result.OrderBy(x => x.Id.ToCheckedIntValue()).ToList();
         }
 
         public static TitleBlockInfo Analyze(Document doc, ViewSheet sheet, FamilyInstance block)
@@ -88,7 +89,7 @@ namespace KhimTools.TitleBlockSync.Services
         {
             if (sheet == null) return string.Empty;
             var ids = new List<string>();
-            foreach (ElementId id in sheet.GetAllRevisionIds()) ids.Add(id.IntegerValue.ToString());
+            foreach (ElementId id in sheet.GetAllRevisionIds()) ids.Add(id.ToCheckedIntValue().ToString());
             ids.Sort(StringComparer.Ordinal);
             return string.Join(",", ids);
         }
@@ -99,11 +100,11 @@ namespace KhimTools.TitleBlockSync.Services
             if (source != null)
             {
                 parts.Add(source.Sheet.UniqueId); parts.Add(source.SheetNumber); parts.Add(source.SheetName);
-                parts.Add(source.TitleBlock.UniqueId); parts.Add(source.TitleBlock.GetTypeId().IntegerValue.ToString()); parts.Add(source.RevisionFingerprint);
+                parts.Add(source.TitleBlock.UniqueId); parts.Add(source.TitleBlock.GetTypeId().ToCheckedIntValue().ToString()); parts.Add(source.RevisionFingerprint);
             }
             if (targets != null)
                 foreach (TitleBlockInfo target in targets.OrderBy(x => x.Sheet.UniqueId, StringComparer.Ordinal))
-                    parts.Add(target.Sheet.UniqueId + ":" + target.TitleBlock.UniqueId + ":" + target.TitleBlock.GetTypeId().IntegerValue + ":" + target.RevisionFingerprint);
+                    parts.Add(target.Sheet.UniqueId + ":" + target.TitleBlock.UniqueId + ":" + target.TitleBlock.GetTypeId().ToCheckedIntValue() + ":" + target.RevisionFingerprint);
             if (parameters != null)
                 foreach (KhimTools.ParameterTransfer.Models.ParameterTransferPlan p in parameters.OrderBy(x => x.Key.ToString(), StringComparer.Ordinal))
                     parts.Add(p.Key + "=" + (p.SourceValue == null ? string.Empty : p.SourceValue.DisplayValue));
@@ -116,7 +117,7 @@ namespace KhimTools.TitleBlockSync.Services
             string name = parameter.Definition == null ? string.Empty : parameter.Definition.Name ?? string.Empty;
             if (name.IndexOf("sheet number", StringComparison.OrdinalIgnoreCase) >= 0 || name.IndexOf("sheet name", StringComparison.OrdinalIgnoreCase) >= 0) return true;
             if (name.IndexOf("revision", StringComparison.OrdinalIgnoreCase) >= 0) return true;
-            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.IntegerValue; return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
+            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.ToCheckedIntValue(); return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[TitleBlockSync] sheet protection probe: " + ex.Message); return false; }
         }
 

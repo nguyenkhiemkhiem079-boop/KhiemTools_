@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,7 +18,7 @@ namespace KhimTools.SheetCopy.Services
             var sheets = new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>()
                 .Where(s => s != null && !IsPlaceholder(s))
                 .OrderBy(s => s.SheetNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(s => s.Id.IntegerValue).ToList();
+                .ThenBy(s => s.Id.ToCheckedIntValue()).ToList();
             foreach (ViewSheet sheet in sheets) result.Add(AnalyzeSheet(doc, sheet, activeSheet != null && sheet.Id == activeSheet.Id));
             return result;
         }
@@ -61,7 +62,7 @@ namespace KhimTools.SheetCopy.Services
             }
 
             foreach (Viewport viewport in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(Viewport)).Cast<Viewport>()
-                .OrderBy(v => v.GetBoxCenter().Y).ThenBy(v => v.GetBoxCenter().X).ThenBy(v => v.Id.IntegerValue))
+                .OrderBy(v => v.GetBoxCenter().Y).ThenBy(v => v.GetBoxCenter().X).ThenBy(v => v.Id.ToCheckedIntValue()))
             {
                 View view = doc.GetElement(viewport.ViewId) as View;
                 if (view == null) continue;
@@ -82,7 +83,7 @@ namespace KhimTools.SheetCopy.Services
             }
 
             foreach (ScheduleSheetInstance schedule in new FilteredElementCollector(doc, sheet.Id).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
-                .OrderBy(s => s.Id.IntegerValue))
+                .OrderBy(s => s.Id.ToCheckedIntValue()))
             {
                 bool revision = false;
                 try { revision = schedule.IsTitleblockRevisionSchedule; } catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[SheetCopy] revision schedule probe: " + ex.Message); }
@@ -101,9 +102,9 @@ namespace KhimTools.SheetCopy.Services
             }
 
             foreach (Element element in new FilteredElementCollector(doc, sheet.Id).WhereElementIsNotElementType().ToElements()
-                .OrderBy(e => e.Id.IntegerValue))
+                .OrderBy(e => e.Id.ToCheckedIntValue()))
             {
-                if (element is Viewport || element is ScheduleSheetInstance || element is FamilyInstance && element.Category != null && element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_TitleBlocks) continue;
+                if (element is Viewport || element is ScheduleSheetInstance || element is FamilyInstance && element.Category != null && element.Category.Id.ToCheckedIntValue() == (int)BuiltInCategory.OST_TitleBlocks) continue;
                 SheetCopyContentKind kind = ClassifySheetOwnedAnnotation(element);
                 var content = new SheetCopyContentItem { SourceElementId = element.Id, SourceUniqueId = element.UniqueId,
                     SourceName = element.Name ?? string.Empty, ContentKind = kind,
@@ -131,7 +132,7 @@ namespace KhimTools.SheetCopy.Services
         private static SheetCopyContentKind ClassifySheetOwnedAnnotation(Element element)
         {
             if (element == null || element.Category == null) return SheetCopyContentKind.UNSUPPORTED;
-            BuiltInCategory category = (BuiltInCategory)element.Category.Id.IntegerValue;
+            BuiltInCategory category = (BuiltInCategory)element.Category.Id.ToCheckedIntValue();
             if (element is TextNote || element is DetailCurve || element is FilledRegion ||
                 category == BuiltInCategory.OST_GenericAnnotation || category == BuiltInCategory.OST_IOSDetailGroups ||
                 category == BuiltInCategory.OST_RasterImages) return SheetCopyContentKind.SHEET_ANNOTATION;

@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -116,9 +117,9 @@ namespace KhimTools.ScheduleSplit.Services
 
         public static string BuildFingerprint(ScheduleSourceInfo source, ScheduleSplitPlan plan, ScheduleSplitOptions options)
         {
-            return string.Join("|", source == null ? string.Empty : source.Fingerprint, plan.SourceScheduleId.IntegerValue,
-                plan.SourceInstanceId.IntegerValue, plan.SegmentCount, options == null ? string.Empty : options.Distribution.ToString(),
-                string.Join(",", plan.TargetSheets.Select(s => s.SheetId.IntegerValue.ToString())));
+            return string.Join("|", source == null ? string.Empty : source.Fingerprint, plan.SourceScheduleId.ToCheckedIntValue(),
+                plan.SourceInstanceId.ToCheckedIntValue(), plan.SegmentCount, options == null ? string.Empty : options.Distribution.ToString(),
+                string.Join(",", plan.TargetSheets.Select(s => s.SheetId.ToCheckedIntValue().ToString())));
         }
 
         private static ScheduleSplitPlan Block(ScheduleSplitPlan plan, ScheduleSplitStatusCode status, string message)

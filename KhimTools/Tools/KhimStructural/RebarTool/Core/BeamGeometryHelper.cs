@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,7 +29,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (beam == null) throw new ArgumentNullException(nameof(beam));
             if (!beam.IsValidObject || beam.Category == null ||
-                beam.Category.BuiltInCategory != BuiltInCategory.OST_StructuralFraming ||
+                beam.Category.GetBuiltInCategoryCompat() != BuiltInCategory.OST_StructuralFraming ||
                 beam.StructuralType != Autodesk.Revit.DB.Structure.StructuralType.Beam)
                 throw new InvalidOperationException("Beam reinforcement supports valid Structural Framing beam instances only.");
             LocationCurve location = beam.Location as LocationCurve;

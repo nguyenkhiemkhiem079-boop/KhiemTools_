@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -24,7 +25,7 @@ namespace KhimTools.FilterManager.Services
                 result.Add(Create(filter, FilterDefinitionType.ParameterFilter, true));
             foreach (SelectionFilterElement filter in new FilteredElementCollector(doc).OfClass(typeof(SelectionFilterElement)).Cast<SelectionFilterElement>())
                 result.Add(Create(filter, FilterDefinitionType.SelectionFilter, false));
-            return result.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Id.IntegerValue).ToList();
+            return result.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Id.ToCheckedIntValue()).ToList();
         }
 
         public static FilterDefinitionInfo Describe(Document doc, ElementId filterId)

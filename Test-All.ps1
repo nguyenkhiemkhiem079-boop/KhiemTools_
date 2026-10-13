@@ -238,6 +238,11 @@ $suites = @(
         ExpectedCount = 8
     },
     @{
+        Name = "Revit 2022-2026 Source API Compatibility"
+        Script = Join-Path $scriptDir "Tools\Verify-RevitCompatibility.ps1"
+        ExpectedCount = 25
+    },
+    @{
         Name = "CopyLink Cross-Module Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-CopyLinkAcceptance.ps1"
         ExpectedCount = 8

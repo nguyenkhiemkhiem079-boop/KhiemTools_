@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,7 +19,7 @@ namespace KhimTools.ParameterManager.Services
             if (scope == ParameterScopeMode.TYPE)
             {
                 var typeIds = new HashSet<int>();
-                foreach (Element instance in elements) { ElementId typeId = instance == null ? null : instance.GetTypeId(); Element type = typeId == null ? null : doc.GetElement(typeId); if (type != null && typeIds.Add(type.Id.IntegerValue)) targets.Add(type); }
+                foreach (Element instance in elements) { ElementId typeId = instance == null ? null : instance.GetTypeId(); Element type = typeId == null ? null : doc.GetElement(typeId); if (type != null && typeIds.Add(type.Id.ToCheckedIntValue())) targets.Add(type); }
             }
             else targets.AddRange(elements);
             foreach (Element element in targets)

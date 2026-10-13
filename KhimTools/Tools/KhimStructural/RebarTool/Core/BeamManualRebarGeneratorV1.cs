@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -127,7 +128,7 @@ namespace KhimTools.RebarTool.Core
                 ValidateCreatedAgainstExisting(bar, type, existingBars.Concat(created));
                 created.Add(bar);
                 if (roleByBarId != null)
-                    roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = group.Role == BeamManualBarRole.UserDefined
+                    roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = group.Role == BeamManualBarRole.UserDefined
                         ? "manual-user:" + (group.UserLabel ?? string.Empty)
                         : "manual-" + group.Role.ToString().ToLowerInvariant();
             }
@@ -158,7 +159,7 @@ namespace KhimTools.RebarTool.Core
                 ValidateCreatedAgainstExisting(stirrup, type, existingBars.Concat(created));
                 created.Add(stirrup);
                 if (roleByBarId != null)
-                    roleByBarId[stirrup.Id.Value.ToString(CultureInfo.InvariantCulture)] = "manual-" + group.Role.ToString().ToLowerInvariant();
+                    roleByBarId[stirrup.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = "manual-" + group.Role.ToString().ToLowerInvariant();
             }
             return created;
         }
@@ -343,7 +344,7 @@ namespace KhimTools.RebarTool.Core
         private void ValidateHostIdentity(BeamManualDetailingPlanV1 plan, FamilyInstance beam)
         {
             if (plan == null || beam == null || !beam.IsValidObject || beam.Document != _document ||
-                beam.Category == null || beam.Category.BuiltInCategory != BuiltInCategory.OST_StructuralFraming ||
+                beam.Category == null || beam.Category.GetBuiltInCategoryCompat() != BuiltInCategory.OST_StructuralFraming ||
                 beam.StructuralType != Autodesk.Revit.DB.Structure.StructuralType.Beam)
                 throw new InvalidOperationException("A valid Structural Framing Beam in the active document is required.");
             if (!string.Equals(plan.HostUniqueId, beam.UniqueId, StringComparison.Ordinal) ||

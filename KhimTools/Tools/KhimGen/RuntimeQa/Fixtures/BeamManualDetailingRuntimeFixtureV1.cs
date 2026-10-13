@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -85,7 +86,7 @@ namespace KhimTools.RuntimeQa.Fixtures
             var request = new RebarPreviewRequest(fingerprint, () => generator.Generate(plan, beam, roles),
                 () => generator.Fingerprint(plan, beam),
                 new Dictionary<string, string> { { "HostId", beam.UniqueId }, { "HostGeometry", plan.Frame.HostGeometrySignature } },
-                bar => roles.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out string role) ? role : string.Empty);
+                bar => roles.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out string role) ? role : string.Empty);
             RuntimeQaModelFingerprint beforePreview = RuntimeQaSafetyGuard.CaptureFingerprint(doc);
             RebarPreviewSnapshot preview = RebarPreviewService.Capture(doc, new[] { request });
             string previewRollbackMessage;

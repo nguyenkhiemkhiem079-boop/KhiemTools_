@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ namespace KhimTools.ParameterManager.Services
             IEnumerable<Element> values = source ?? Enumerable.Empty<Element>();
             if (!string.IsNullOrWhiteSpace(search)) values = values.Where(e => ((e.Name ?? string.Empty) + " " + (e.Category == null ? string.Empty : e.Category.Name)).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
             if (predicate != null) values = values.Where(predicate);
-            return values.OrderBy(e => e.Id.IntegerValue).ToList();
+            return values.OrderBy(e => e.Id.ToCheckedIntValue()).ToList();
         }
     }
 }

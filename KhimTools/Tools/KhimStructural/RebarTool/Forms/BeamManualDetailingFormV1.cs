@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -144,7 +145,7 @@ namespace KhimTools.RebarTool.Forms
                 Dock = DockStyle.Fill,
                 Height = 56,
                 Text = "BEAM MANUAL DETAILING V1 — geometry validation only; structural design/compliance not verified.\r\n" +
-                    "Beam / Dầm: " + (_beam == null ? "SYNTHETIC LAYOUT PREVIEW" : _beam.Name + " / " + _beam.Id.Value.ToString(CultureInfo.InvariantCulture)) +
+                    "Beam / Dầm: " + (_beam == null ? "SYNTHETIC LAYOUT PREVIEW" : _beam.Name + " / " + _beam.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)) +
                     " · Frame x=Right, y=Up, s=Beam direction · dimensions in mm.",
                 Font = new Font("Segoe UI Semibold", 10F),
                 ForeColor = Color.FromArgb(31, 41, 55),
@@ -697,7 +698,7 @@ namespace KhimTools.RebarTool.Forms
                     () => _generator.Generate(candidate, _beam, roleByBar),
                     () => _generator.Fingerprint(ReadPlanFromUi(), _beam),
                     new Dictionary<string, string> { { "HostId", BeamHostId(_beam) }, { "HostGeometry", candidate.Frame.HostGeometrySignature } },
-                    bar => roleByBar.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out string role) ? role : string.Empty);
+                    bar => roleByBar.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out string role) ? role : string.Empty);
                 RebarPreviewSnapshot detached = RebarPreviewService.Capture(_document, new[] { request });
                 using (var preview = new RebarSolverPreviewForm(detached))
                 {

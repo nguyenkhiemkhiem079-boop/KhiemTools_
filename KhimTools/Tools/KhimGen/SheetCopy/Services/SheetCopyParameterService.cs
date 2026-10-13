@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
@@ -27,7 +28,7 @@ namespace KhimTools.SheetCopy.Services
         public static bool IsProtected(Parameter parameter, string name)
         {
             if (ProtectedNames.Contains(name ?? string.Empty)) return true;
-            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.IntegerValue; return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
+            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.ToCheckedIntValue(); return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[SheetCopy] protected parameter probe: " + ex.Message); return false; }
         }
         private static SheetCopyStatusCode Map(ParameterTransferStatus status)

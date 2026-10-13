@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,7 @@ namespace KhimTools.SlabStep.Services
                     SlabPanelInfo b = result.Panels[j];
                     if (!b.IsSupported || !CanTouch(a.BoundingBox, b.BoundingBox, options.GeometryToleranceMm)) continue;
                     result.BoundingBoxPairs++;
-                    string key = a.FloorId.IntegerValue < b.FloorId.IntegerValue ? a.FloorId + "|" + b.FloorId : b.FloorId + "|" + a.FloorId;
+                    string key = a.FloorId.ToCheckedIntValue() < b.FloorId.ToCheckedIntValue() ? a.FloorId + "|" + b.FloorId : b.FloorId + "|" + a.FloorId;
                     if (!seen.Add(key)) continue;
                     double delta = Math.Abs(a.TopElevation - b.TopElevation);
                     double deltaMm = SlabStepService.InternalToMillimetres(delta);

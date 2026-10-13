@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using Autodesk.Revit.DB;
 
@@ -13,10 +14,10 @@ namespace KhimTools.ModifyObjects.Core
             foreach (ModifyObjectSourceSnapshot source in plan.Sources)
             {
                 Element element = doc == null ? null : doc.GetElement(source.ElementId);
-                if (element == null) { result.IsValid = false; result.Errors.Add("Element missing: " + source.ElementId.IntegerValue); result.Statuses.Add(ModifyObjectStatus.INVALID_SELECTION); continue; }
-                if (element.Pinned) { result.IsValid = false; result.Errors.Add("PINNED: " + element.Id.IntegerValue); result.Statuses.Add(ModifyObjectStatus.PINNED); }
-                if (source.GroupId != null && source.GroupId != ElementId.InvalidElementId) { result.IsValid = false; result.Errors.Add("GROUP_CONSTRAINED: " + element.Id.IntegerValue); result.Statuses.Add(ModifyObjectStatus.GROUP_CONSTRAINED); }
-                if (element.DesignOption != null) result.Warnings.Add("DESIGN_OPTION_BLOCKED review required: " + element.Id.IntegerValue);
+                if (element == null) { result.IsValid = false; result.Errors.Add("Element missing: " + source.ElementId.ToCheckedIntValue()); result.Statuses.Add(ModifyObjectStatus.INVALID_SELECTION); continue; }
+                if (element.Pinned) { result.IsValid = false; result.Errors.Add("PINNED: " + element.Id.ToCheckedIntValue()); result.Statuses.Add(ModifyObjectStatus.PINNED); }
+                if (source.GroupId != null && source.GroupId != ElementId.InvalidElementId) { result.IsValid = false; result.Errors.Add("GROUP_CONSTRAINED: " + element.Id.ToCheckedIntValue()); result.Statuses.Add(ModifyObjectStatus.GROUP_CONSTRAINED); }
+                if (element.DesignOption != null) result.Warnings.Add("DESIGN_OPTION_BLOCKED review required: " + element.Id.ToCheckedIntValue());
             }
             return result;
         }

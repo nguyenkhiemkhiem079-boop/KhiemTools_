@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,8 +16,8 @@ namespace KhimTools.ScheduleSplit.Services
             var allowedSheets = activeSheet == null ? null : new HashSet<ElementId> { activeSheet.Id };
             var instances = new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
                 .Where(i => !IsRevision(i) && (allowedSheets == null || allowedSheets.Contains(i.OwnerViewId)))
-                .OrderBy(i => i.OwnerViewId.IntegerValue).ThenBy(i => i.Point == null ? double.MaxValue : i.Point.Y)
-                .ThenBy(i => i.Point == null ? double.MaxValue : i.Point.X).ThenBy(i => i.Id.IntegerValue).ToList();
+                .OrderBy(i => i.OwnerViewId.ToCheckedIntValue()).ThenBy(i => i.Point == null ? double.MaxValue : i.Point.Y)
+                .ThenBy(i => i.Point == null ? double.MaxValue : i.Point.X).ThenBy(i => i.Id.ToCheckedIntValue()).ToList();
             foreach (ScheduleSheetInstance instance in instances)
             {
                 ViewSchedule schedule = doc.GetElement(instance.ScheduleId) as ViewSchedule;
@@ -58,7 +59,7 @@ namespace KhimTools.ScheduleSplit.Services
                 IsInternalSchedule = schedule.IsInternalKeynoteSchedule
             };
             foreach (ScheduleSheetInstance instance in new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>()
-                .Where(i => i.ScheduleId == schedule.Id).OrderBy(i => i.OwnerViewId.IntegerValue).ThenBy(i => i.Id.IntegerValue))
+                .Where(i => i.ScheduleId == schedule.Id).OrderBy(i => i.OwnerViewId.ToCheckedIntValue()).ThenBy(i => i.Id.ToCheckedIntValue()))
             {
                 info.PlacementInstanceIds.Add(instance.Id);
                 info.PlacementSheetIds.Add(instance.OwnerViewId);
@@ -70,9 +71,9 @@ namespace KhimTools.ScheduleSplit.Services
         public static string BuildFingerprint(ScheduleSourceInfo info)
         {
             if (info == null) return string.Empty;
-            string placements = string.Join(",", info.PlacementInstanceIds.Select(id => id.IntegerValue.ToString()));
+            string placements = string.Join(",", info.PlacementInstanceIds.Select(id => id.ToCheckedIntValue().ToString()));
             string position = info.Position == null ? string.Empty : info.Position.X + ":" + info.Position.Y + ":" + info.Position.Z;
-            return string.Join("|", info.ScheduleUniqueId, info.InstanceId.IntegerValue, info.SourceSheetId.IntegerValue,
+            return string.Join("|", info.ScheduleUniqueId, info.InstanceId.ToCheckedIntValue(), info.SourceSheetId.ToCheckedIntValue(),
                 info.IsSplit, info.SegmentCount, info.SegmentIndex, position, placements);
         }
 

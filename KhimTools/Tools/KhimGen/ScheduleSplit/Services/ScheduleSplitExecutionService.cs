@@ -75,7 +75,7 @@ namespace KhimTools.ScheduleSplit.Services
                                 if (instance != null)
                                 {
                                     instance.Point = segment.PlannedPosition;
-                                    instance.SegmentIndex = segment.SegmentIndex;
+                                    ScheduleSplitApiAdapter.SetSegmentIndex(instance, segment.SegmentIndex);
                                 }
                             }
                             if (instance == null) instance = ScheduleSegmentPlacementService.PlaceSegment(doc, segment.TargetSheetId, working.Id, segment.PlannedPosition, segment.SegmentIndex);

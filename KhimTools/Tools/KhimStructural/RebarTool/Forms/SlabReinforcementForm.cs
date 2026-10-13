@@ -1711,7 +1711,7 @@ namespace KhimTools.RebarTool.Forms
                     bar =>
                     {
                         string role;
-                        string id = bar.Id.Value.ToString(CultureInfo.InvariantCulture);
+                        string id = bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture);
                         return roleByBarId.TryGetValue(id, out role) ? role : string.Empty;
                     });
                 }).ToArray();

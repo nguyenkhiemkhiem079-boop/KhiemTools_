@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using Autodesk.Revit.DB;
 using KhimTools.ParameterTransfer.Models;
@@ -10,12 +11,12 @@ namespace KhimTools.ModifyObjects.Services
         public static bool IsVerticalColumn(Element element)
         {
             FamilyInstance instance = element as FamilyInstance;
-            return instance != null && element.Category != null && element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralColumns && instance.Location is LocationPoint;
+            return instance != null && element.Category != null && element.Category.Id.ToCheckedIntValue() == (int)BuiltInCategory.OST_StructuralColumns && instance.Location is LocationPoint;
         }
         public static bool IsStraightBeam(Element element)
         {
             FamilyInstance instance = element as FamilyInstance; LocationCurve location = element == null ? null : element.Location as LocationCurve;
-            return instance != null && element.Category != null && element.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralFraming && location != null && location.Curve is Line;
+            return instance != null && element.Category != null && element.Category.Id.ToCheckedIntValue() == (int)BuiltInCategory.OST_StructuralFraming && location != null && location.Curve is Line;
         }
         public static bool IsLine(Element element) { LocationCurve location = element == null ? null : element.Location as LocationCurve; return location != null && location.Curve is Line; }
         public static bool IsPinnedOrGrouped(Element element) { return element == null || element.Pinned || (element.GroupId != null && element.GroupId != ElementId.InvalidElementId); }

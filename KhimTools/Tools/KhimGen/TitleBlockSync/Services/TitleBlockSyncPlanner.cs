@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -31,7 +32,7 @@ namespace KhimTools.TitleBlockSync.Services
             if (plan.Options.SyncSheetParameters) AddItems(plan, sourceSheet, TitleBlockSyncScope.SHEET, selected, request.SelectedParameterKeys == null || request.SelectedParameterKeys.Count == 0);
             var targetInfos = new List<TitleBlockInfo>();
             IEnumerable<TitleBlockSyncTarget> targets = request.Targets == null ? Enumerable.Empty<TitleBlockSyncTarget>() : request.Targets.Where(t => t != null && t.IsSelected);
-            foreach (TitleBlockSyncTarget requested in targets.OrderBy(t => t.SheetNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.SheetId == null ? 0 : t.SheetId.IntegerValue))
+            foreach (TitleBlockSyncTarget requested in targets.OrderBy(t => t.SheetNumber ?? string.Empty, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.SheetId == null ? 0 : t.SheetId.ToCheckedIntValue()))
             {
                 ViewSheet sheet = doc.GetElement(requested.SheetId) as ViewSheet;
                 if (sheet == null || sheet.IsPlaceholder) { plan.Warnings.Add("TARGET_SHEET_MISSING:" + requested.SheetId); continue; }

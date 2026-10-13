@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -300,7 +301,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 bar =>
                 {
                     string role;
-                    return bar != null && roles.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                    return bar != null && roles.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
                 });
         }
 

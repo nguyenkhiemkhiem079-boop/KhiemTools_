@@ -375,7 +375,7 @@ namespace KhimTools.TextAlign.Services
             }
             var family = element as FamilyInstance;
             if (family == null || family.Category == null) return false;
-            BuiltInCategory category = (BuiltInCategory)family.Category.Id.IntegerValue;
+            BuiltInCategory category = (BuiltInCategory)family.Category.Id.ToCheckedIntValue();
             if (category == BuiltInCategory.OST_GenericAnnotation)
             {
                 kind = TextAlignElementKind.GenericAnnotation;
@@ -626,7 +626,7 @@ namespace KhimTools.TextAlign.Services
             if (items == null || items.Count == 0) return targets;
             if (operation == AlignType.HorizontalEquals)
             {
-                List<TextAlignItem> sorted = items.OrderBy(item => item.Bounds.CenterU).ThenBy(item => item.ElementId.IntegerValue).ToList();
+                List<TextAlignItem> sorted = items.OrderBy(item => item.Bounds.CenterU).ThenBy(item => item.ElementId.ToCheckedIntValue()).ToList();
                 double first = sorted.First().Bounds.CenterU;
                 double last = sorted.Last().Bounds.CenterU;
                 for (int i = 0; i < sorted.Count; i++)
@@ -638,7 +638,7 @@ namespace KhimTools.TextAlign.Services
             }
             if (operation == AlignType.VerticalEquals)
             {
-                List<TextAlignItem> sorted = items.OrderByDescending(item => item.Bounds.CenterV).ThenBy(item => item.ElementId.IntegerValue).ToList();
+                List<TextAlignItem> sorted = items.OrderByDescending(item => item.Bounds.CenterV).ThenBy(item => item.ElementId.ToCheckedIntValue()).ToList();
                 double first = sorted.First().Bounds.CenterV;
                 double last = sorted.Last().Bounds.CenterV;
                 for (int i = 0; i < sorted.Count; i++)

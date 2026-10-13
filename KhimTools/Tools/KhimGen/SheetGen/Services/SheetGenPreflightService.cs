@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -40,9 +41,9 @@ namespace KhimTools.SheetGen.Services
             foreach (var sheet in new FilteredElementCollector(doc).OfClass(typeof(ViewSheet)).Cast<ViewSheet>())
                 existingNumbers.Add(sheet.SheetNumber ?? "");
             foreach (var vp in new FilteredElementCollector(doc).OfClass(typeof(Viewport)).Cast<Viewport>())
-                placedViewIds.Add(vp.ViewId.IntegerValue);
+                placedViewIds.Add(vp.ViewId.ToCheckedIntValue());
             foreach (var si in new FilteredElementCollector(doc).OfClass(typeof(ScheduleSheetInstance)).Cast<ScheduleSheetInstance>())
-                placedViewIds.Add(si.ScheduleId.IntegerValue);
+                placedViewIds.Add(si.ScheduleId.ToCheckedIntValue());
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var seenAssignedViews = new HashSet<int>();
@@ -72,7 +73,7 @@ namespace KhimTools.SheetGen.Services
 
                 ResolveTitleBlock(doc, item, titleBlocks, row);
                 ResolveView(item, views, placedViewIds, row);
-                if (row.Severity != SheetValidationSeverity.Error && item.ContentKind == SheetContentKind.NormalView && item.AssignedViewId != null && item.AssignedViewId != ElementId.InvalidElementId && !seenAssignedViews.Add(item.AssignedViewId.IntegerValue))
+                if (row.Severity != SheetValidationSeverity.Error && item.ContentKind == SheetContentKind.NormalView && item.AssignedViewId != null && item.AssignedViewId != ElementId.InvalidElementId && !seenAssignedViews.Add(item.AssignedViewId.ToCheckedIntValue()))
                     AddError(row, item, SheetGenStatusCode.ViewAlreadyPlaced, "The assigned view is used by another row in this batch.", "Choose a different view or clear this assignment.");
 
                 if (row.Severity == SheetValidationSeverity.None)
@@ -173,7 +174,7 @@ namespace KhimTools.SheetGen.Services
                 AddError(row, item, SheetGenStatusCode.UnsupportedView, $"View '{view.Name}' ({view.ViewType}) cannot be placed on a sheet.", "Choose a normal view, legend, or schedule.");
                 return;
             }
-            if (item.ContentKind == SheetContentKind.NormalView && placedViewIds.Contains(view.Id.IntegerValue))
+            if (item.ContentKind == SheetContentKind.NormalView && placedViewIds.Contains(view.Id.ToCheckedIntValue()))
                 AddError(row, item, SheetGenStatusCode.ViewAlreadyPlaced, $"View '{view.Name}' is already placed on a sheet.", "Choose an unplaced view or clear the assignment.");
         }
 

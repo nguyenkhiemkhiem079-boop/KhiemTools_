@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -113,7 +114,7 @@ namespace KhimTools.RebarTool.Core
             if (input?.Beam == null) throw new ArgumentException("A valid Structural Framing beam is required.", nameof(input));
             if (_doc == null || input.Beam.Document != _doc || !input.Beam.IsValidObject)
                 throw new InvalidOperationException("The selected Beam must be valid and belong to the generator's active document.");
-            if (input.Beam.Category == null || input.Beam.Category.BuiltInCategory != BuiltInCategory.OST_StructuralFraming)
+            if (input.Beam.Category == null || input.Beam.Category.GetBuiltInCategoryCompat() != BuiltInCategory.OST_StructuralFraming)
                 throw new InvalidOperationException("Beam reinforcement supports Structural Framing hosts only.");
             if (input.TopContinuousQty < 2 || input.BottomContinuousQty < 2)
                 throw new InvalidOperationException("Beam reinforcement requires at least two continuous top bars and two continuous bottom bars.");
@@ -314,7 +315,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (roleByBarId == null) return;
             foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
-                if (bar != null) roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
+                if (bar != null) roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         // ===== TOP CONTINUOUS =====
@@ -887,7 +888,7 @@ namespace KhimTools.RebarTool.Core
             return WorkflowFingerprint.Compute(values);
         }
 
-        private static string FormatElementId(ElementId id) => id == null ? string.Empty : id.Value.ToString(CultureInfo.InvariantCulture);
+        private static string FormatElementId(ElementId id) => id == null ? string.Empty : id.ToLongValue().ToString(CultureInfo.InvariantCulture);
 
         private static string FormatBounds(BoundingBoxXYZ bounds)
         {

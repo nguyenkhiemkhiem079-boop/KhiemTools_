@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,8 +38,8 @@ namespace KhimTools.ParameterManager.Services
             }
             if (request.Options != null && request.Options.Filter != null) result = result.Where(request.Options.Filter).ToList();
             var unique = new Dictionary<int, Element>();
-            foreach (Element e in result) if (!unique.ContainsKey(e.Id.IntegerValue)) unique.Add(e.Id.IntegerValue, e);
-            return unique.Values.OrderBy(e => e.Id.IntegerValue).ToList();
+            foreach (Element e in result) if (!unique.ContainsKey(e.Id.ToCheckedIntValue())) unique.Add(e.Id.ToCheckedIntValue(), e);
+            return unique.Values.OrderBy(e => e.Id.ToCheckedIntValue()).ToList();
         }
 
         public static IList<Element> ResolveTargets(Document doc, ParameterManagerRequest request)
@@ -46,16 +47,16 @@ namespace KhimTools.ParameterManager.Services
             IList<Element> elements = Collect(doc, request);
             if (request == null || request.ParameterScope != ParameterScopeMode.TYPE) return elements;
             var types = new Dictionary<int, Element>();
-            foreach (Element e in elements) { ElementId typeId = e.GetTypeId(); Element type = typeId == null ? null : doc.GetElement(typeId); if (type != null && !types.ContainsKey(type.Id.IntegerValue)) types.Add(type.Id.IntegerValue, type); }
-            return types.Values.OrderBy(e => e.Id.IntegerValue).ToList();
+            foreach (Element e in elements) { ElementId typeId = e.GetTypeId(); Element type = typeId == null ? null : doc.GetElement(typeId); if (type != null && !types.ContainsKey(type.Id.ToCheckedIntValue())) types.Add(type.Id.ToCheckedIntValue(), type); }
+            return types.Values.OrderBy(e => e.Id.ToCheckedIntValue()).ToList();
         }
 
         public static IList<ElementId> CollectCategories(Document doc, ElementId viewId)
         {
             var ids = new Dictionary<int, ElementId>();
             if (doc == null || viewId == null || viewId == ElementId.InvalidElementId) return ids.Values.ToList();
-            foreach (Element e in new FilteredElementCollector(doc, viewId).WhereElementIsNotElementType()) if (e != null && e.Category != null && !ids.ContainsKey(e.Category.Id.IntegerValue)) ids.Add(e.Category.Id.IntegerValue, e.Category.Id);
-            return ids.Values.OrderBy(x => x.IntegerValue).ToList();
+            foreach (Element e in new FilteredElementCollector(doc, viewId).WhereElementIsNotElementType()) if (e != null && e.Category != null && !ids.ContainsKey(e.Category.Id.ToCheckedIntValue())) ids.Add(e.Category.Id.ToCheckedIntValue(), e.Category.Id);
+            return ids.Values.OrderBy(x => x.ToCheckedIntValue()).ToList();
         }
     }
 }

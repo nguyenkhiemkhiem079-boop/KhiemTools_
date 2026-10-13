@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -98,7 +99,7 @@ namespace KhimTools.RebarTool.Core
         {
             if (roleByBarId == null) return;
             foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
-                if (bar != null) roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
+                if (bar != null) roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private List<Rebar> CreateMainBars(CircularColumnRebarInput input,

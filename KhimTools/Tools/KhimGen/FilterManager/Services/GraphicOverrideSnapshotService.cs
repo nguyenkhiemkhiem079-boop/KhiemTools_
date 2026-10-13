@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -32,7 +33,7 @@ namespace KhimTools.FilterManager.Services
         private static string Format(object value)
         {
             if (value == null) return "<null>";
-            ElementId id = value as ElementId; if (id != null) return "ElementId:" + id.IntegerValue.ToString(CultureInfo.InvariantCulture);
+            ElementId id = value as ElementId; if (id != null) return "ElementId:" + id.ToCheckedIntValue().ToString(CultureInfo.InvariantCulture);
             Color color = value as Color; if (color != null) return "Color:" + color.Red + "," + color.Green + "," + color.Blue;
             return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
         }

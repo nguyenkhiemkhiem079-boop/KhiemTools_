@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
@@ -18,14 +19,14 @@ namespace KhimTools.ParameterManager.Services
             foreach (ParameterEditItem item in plan.Items)
             {
                 Element element = doc.GetElement(plan.Request.ParameterScope == ParameterScopeMode.TYPE ? item.TypeId : item.ElementId);
-                if (element == null) { item.Status = ParameterManagerStatus.ELEMENT_MISSING; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": ELEMENT_MISSING"); result.Items.Add(item); continue; }
+                if (element == null) { item.Status = ParameterManagerStatus.ELEMENT_MISSING; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": ELEMENT_MISSING"); result.Items.Add(item); continue; }
                 Parameter parameter = ParameterTransferService.FindMatchingParameter(element, plan.SelectedParameterKey);
-                if (parameter == null) { item.Status = ParameterManagerStatus.PARAMETER_MISSING; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": PARAMETER_MISSING"); result.Items.Add(item); continue; }
-                if (ParameterManagerPolicy.IsProtected(parameter) && !plan.Request.Options.AllowProtectedParameters) { item.Status = ParameterManagerStatus.PARAMETER_PROTECTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": PARAMETER_PROTECTED"); }
-                else if (parameter.IsReadOnly) { item.Status = ParameterManagerStatus.PARAMETER_READ_ONLY; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": READ_ONLY"); }
-                else if (item.ProposedValue != null && parameter.StorageType != item.ProposedValue.StorageType) { item.Status = ParameterManagerStatus.STORAGE_TYPE_UNSUPPORTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": STORAGE_TYPE_UNSUPPORTED"); }
-                else if (item.ProposedValue != null && !string.IsNullOrEmpty(item.ProposedValue.DataTypeId) && !string.IsNullOrEmpty(ParameterTransferService.SafeDataType(parameter)) && !string.Equals(item.ProposedValue.DataTypeId, ParameterTransferService.SafeDataType(parameter), StringComparison.Ordinal)) { item.Status = ParameterManagerStatus.DATA_TYPE_UNSUPPORTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": DATA_TYPE_UNSUPPORTED"); }
-                else if (element.GroupId != null && element.GroupId != ElementId.InvalidElementId) { item.Status = ParameterManagerStatus.GROUP_CONSTRAINED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.IntegerValue + ": GROUP_CONSTRAINED"); }
+                if (parameter == null) { item.Status = ParameterManagerStatus.PARAMETER_MISSING; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": PARAMETER_MISSING"); result.Items.Add(item); continue; }
+                if (ParameterManagerPolicy.IsProtected(parameter) && !plan.Request.Options.AllowProtectedParameters) { item.Status = ParameterManagerStatus.PARAMETER_PROTECTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": PARAMETER_PROTECTED"); }
+                else if (parameter.IsReadOnly) { item.Status = ParameterManagerStatus.PARAMETER_READ_ONLY; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": READ_ONLY"); }
+                else if (item.ProposedValue != null && parameter.StorageType != item.ProposedValue.StorageType) { item.Status = ParameterManagerStatus.STORAGE_TYPE_UNSUPPORTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": STORAGE_TYPE_UNSUPPORTED"); }
+                else if (item.ProposedValue != null && !string.IsNullOrEmpty(item.ProposedValue.DataTypeId) && !string.IsNullOrEmpty(ParameterTransferService.SafeDataType(parameter)) && !string.Equals(item.ProposedValue.DataTypeId, ParameterTransferService.SafeDataType(parameter), StringComparison.Ordinal)) { item.Status = ParameterManagerStatus.DATA_TYPE_UNSUPPORTED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": DATA_TYPE_UNSUPPORTED"); }
+                else if (element.GroupId != null && element.GroupId != ElementId.InvalidElementId) { item.Status = ParameterManagerStatus.GROUP_CONSTRAINED; item.Action = ParameterManagerAction.BLOCKED; result.IsValid = false; result.Errors.Add(item.ElementId.ToCheckedIntValue() + ": GROUP_CONSTRAINED"); }
                 result.Items.Add(item);
             }
             return result;

@@ -992,7 +992,7 @@ namespace KhimTools.RebarTool.Forms
                         bar =>
                         {
                             string role;
-                            return bar != null && roleByBarId.TryGetValue(bar.Id.Value.ToString(System.Globalization.CultureInfo.InvariantCulture), out role)
+                            return bar != null && roleByBarId.TryGetValue(bar.Id.ToLongValue().ToString(System.Globalization.CultureInfo.InvariantCulture), out role)
                                 ? role : string.Empty;
                         });
                 }).ToArray();

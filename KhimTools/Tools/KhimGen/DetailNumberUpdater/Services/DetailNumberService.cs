@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -355,7 +356,7 @@ namespace KhimTools.DetailNumberUpdater.Services
                 .OrderByDescending(p => p.Item1.GetBoxCenter().Y)
                 .ThenBy(p => p.Item1.GetBoxCenter().X)
                 .ThenBy(p => p.Item2.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(p => p.Item1.Id.IntegerValue)
+                .ThenBy(p => p.Item1.Id.ToCheckedIntValue())
                 .ToList();
         }
 
@@ -461,9 +462,9 @@ namespace KhimTools.DetailNumberUpdater.Services
                             result.Results.Add(ToResult(candidate, false));
                             continue;
                         }
-                        string temporary = "__KTOOLS_TMP_" + candidate.ViewportId.IntegerValue;
+                        string temporary = "__KTOOLS_TMP_" + candidate.ViewportId.ToCheckedIntValue();
                         int suffix = 1;
-                        while (used.Contains(temporary)) temporary = "__KTOOLS_TMP_" + candidate.ViewportId.IntegerValue + "_" + suffix++;
+                        while (used.Contains(temporary)) temporary = "__KTOOLS_TMP_" + candidate.ViewportId.ToCheckedIntValue() + "_" + suffix++;
                         try
                         {
                             using (var tx = new Transaction(doc, "Stage temporary detail number"))

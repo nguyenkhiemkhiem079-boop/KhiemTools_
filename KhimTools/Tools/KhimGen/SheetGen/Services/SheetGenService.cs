@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -275,7 +276,7 @@ namespace KhimTools.SheetGen.Services
             }
         }
 
-        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.IntegerValue.ToString(CultureInfo.InvariantCulture);
+        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.ToCheckedIntValue().ToString(CultureInfo.InvariantCulture);
         private static string CsvEscape(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
 
         public static SheetGenImportResult ImportFromCsvDetailed(string filePath, IList<TitleBlockOption> titleBlocks, IList<ViewOption> views)

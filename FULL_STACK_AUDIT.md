@@ -26,6 +26,14 @@ Wave 1 verification: Golden Regression 134 executed assertions PASS; K-Rebar 159
 
 The cross-module audit and current validation results will be recorded below as they complete. Unsupported Wall reinforcement, support extensions, design-code calculations or inferred project reinforcement values will not be introduced without an accepted contract.
 
+## Wave 2 — Revit API compatibility recovery
+
+Actual builds against installed API DLLs exposed 42 errors on Revit 2022, 20 on 2023 and 101 on 2026. Corrected production ID reads through the existing version-aware adapter: modern identities retain 64-bit values; legacy int-backed data uses checked conversion so large IDs are never truncated. Category identities use the same compatibility boundary. Mechanical call-site edits preserve existing geometry, quantities and transaction behavior; snapshot `IntegerValue` data properties are unchanged.
+
+Schedule Split previously claimed capability unconditionally and directly referenced APIs absent in Revit 2022. Its adapter now discovers the exact segment/placement signatures at runtime, blocks the workflow before mutation when unavailable, uses the existing checked execution path when available, and propagates underlying API failures. Revit 2022 Schedule Split is explicitly unavailable; no synthetic split or placement fallback is generated.
+
+New canonical gate `Tools/Verify-RevitCompatibility.ps1`: 20 executable synthetic old/new API assertions plus five actual source builds. Revit 2022/2023/2024/2025/2026 all compile with zero errors after correction. Warnings in the captured full builds: 0/0/10/8/144. Those results verify source API compatibility, not live runtime loading or model behavior. Focused K-Rebar 159, Schedule Split 49, Parameter Manager 174, Viewport Align 67, Architectural 39, MEP 31, QS 49 and runtime-harness static 50 gates pass. Legacy int-backed workflows still reject IDs above Int32 range rather than silently changing persisted contracts; full 64-bit storage migration is a documented remaining boundary.
+
 ## Delivery state
 
 Recovery inventory is complete. Module audit, coordinated corrections, fresh full regression/build/package evidence and PR review remain in progress. This report does not certify production readiness.

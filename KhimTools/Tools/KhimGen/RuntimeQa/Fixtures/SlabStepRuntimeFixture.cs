@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Globalization;
 using System.Linq;
@@ -46,7 +47,7 @@ namespace KhimTools.RuntimeQa.Fixtures
             Check(result, "SLAB42_PREVIEW_REPEAT", "Repeated preview is deterministic", Signature(first) == Signature(second), "Same sorted floor-pair/boundary snapshot", "first=" + Signature(first) + "; second=" + Signature(second), "Scan is the current preview path; it does not create model elements.", QaSeverity.CRITICAL);
             Check(result, "SLAB42_PREVIEW_READ_ONLY", "Preview does not mutate the model", SameModel(beforePreview, RuntimeQaSafetyGuard.CaptureFingerprint(doc)), "Unchanged element/view/sheet counts and IDs", "Compared before and after two scans", "Preview uses SlabStepDetector and geometry reads only.", QaSeverity.CRITICAL);
 
-            SlabStepCandidate candidate = first.Candidates.OrderBy(x => x.High.FloorId.IntegerValue).ThenBy(x => x.Low.FloorId.IntegerValue).First();
+            SlabStepCandidate candidate = first.Candidates.OrderBy(x => x.High.FloorId.ToCheckedIntValue()).ThenBy(x => x.Low.FloorId.ToCheckedIntValue()).First();
             double heightMm = SlabStepService.InternalToMillimetres(candidate.StepHeight);
             var settings = new SlabStepSettings { HeightParameterName = "h", SelectedFamilyName = symbol.Family.Name, SelectedSymbolName = symbol.Name };
             SlabStepExecutionResult invalid = SlabStepService.GenerateSlabStepWithResult(doc, null, symbol, settings, heightMm, 0, 0, candidate.Low.Floor);
@@ -80,14 +81,14 @@ namespace KhimTools.RuntimeQa.Fixtures
         private static bool SameModel(RuntimeQaModelFingerprint left, RuntimeQaModelFingerprint right)
         {
             return left != null && right != null && left.ElementCount == right.ElementCount && left.SheetCount == right.SheetCount && left.ViewCount == right.ViewCount &&
-                left.ElementIds.Select(x => x.IntegerValue).OrderBy(x => x).SequenceEqual(right.ElementIds.Select(x => x.IntegerValue).OrderBy(x => x));
+                left.ElementIds.Select(x => x.ToCheckedIntValue()).OrderBy(x => x).SequenceEqual(right.ElementIds.Select(x => x.ToCheckedIntValue()).OrderBy(x => x));
         }
 
         private static string Signature(SlabScanResult scan)
         {
             if (scan == null) return string.Empty;
             return string.Join("|", scan.Candidates.SelectMany(candidate => candidate.Boundaries.Select(boundary =>
-                    candidate.High.FloorId.IntegerValue + ":" + candidate.Low.FloorId.IntegerValue + ":" +
+                    candidate.High.FloorId.ToCheckedIntValue() + ":" + candidate.Low.FloorId.ToCheckedIntValue() + ":" +
                     candidate.StepHeight.ToString("R", CultureInfo.InvariantCulture) + ":" + BoundarySignature(boundary.Curve)))
                 .OrderBy(value => value, StringComparer.Ordinal));
         }

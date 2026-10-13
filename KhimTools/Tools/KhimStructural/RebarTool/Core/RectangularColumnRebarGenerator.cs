@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -533,7 +534,7 @@ namespace KhimTools.RebarTool.Core
         private static void RecordRole(Rebar bar, string role, IDictionary<string, string> roleByBarId)
         {
             if (bar != null && roleByBarId != null)
-                roleByBarId[bar.Id.Value.ToString(CultureInfo.InvariantCulture)] = role;
+                roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private static List<double> BuildLongitudinalXLines(double halfB, int barsB)

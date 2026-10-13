@@ -49,7 +49,7 @@ Assert-True ($service -match 'INCOMPATIBLE_REFERENCE_TYPE') 'Cross-type prefligh
 Assert-True ($service -match 'GetBoxOutline|GetBoundingBox') 'Sheet-space viewport geometry is missing.'
 Assert-True ($service -match 'target\.Width\s*/\s*2') 'Left/right alignment does not use target width.'
 Assert-True ($service -match 'target\.Height\s*/\s*2') 'Top/bottom alignment does not use target height.'
-Assert-True ($service -match 'ThenBy\(r\s*=>\s*r\.Item1\.ViewportOrScheduleId\.IntegerValue\)') 'Distribution tie ordering is not deterministic.'
+Assert-True ($service -match 'ThenBy\(r\s*=>\s*r\.Item1\.ViewportOrScheduleId\.ToCheckedIntValue\(\)\)') 'Distribution tie ordering is not deterministic.'
 Assert-True ($service -match 'ordered\.Count\s*<\s*3') 'Two-item distribution guard is missing.'
 
 # Title writes must produce structured outcomes and no actionable silent catch.

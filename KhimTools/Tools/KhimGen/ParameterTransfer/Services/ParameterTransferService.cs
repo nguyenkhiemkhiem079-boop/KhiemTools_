@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
@@ -23,7 +24,7 @@ namespace KhimTools.ParameterTransfer.Services
             key.DataTypeId = SafeDataType(parameter);
             try
             {
-                int raw = parameter.Id == null ? 0 : parameter.Id.IntegerValue;
+                int raw = parameter.Id == null ? 0 : parameter.Id.ToCheckedIntValue();
                 if (raw < 0 && Enum.IsDefined(typeof(BuiltInParameter), raw))
                 {
                     key.IdentityKind = ParameterIdentityKind.BUILT_IN;
@@ -80,7 +81,7 @@ namespace KhimTools.ParameterTransfer.Services
                     case StorageType.String: snapshot.StringValue = parameter.AsString(); snapshot.IsBlank = string.IsNullOrEmpty(snapshot.StringValue); snapshot.DisplayValue = snapshot.StringValue ?? string.Empty; break;
                     case StorageType.Integer: snapshot.IntegerValue = parameter.AsInteger(); snapshot.DisplayValue = snapshot.IntegerValue.ToString(); break;
                     case StorageType.Double: snapshot.DoubleValue = parameter.AsDouble(); snapshot.DisplayValue = snapshot.DoubleValue.ToString("R", System.Globalization.CultureInfo.InvariantCulture); break;
-                    case StorageType.ElementId: snapshot.ElementIdValue = parameter.AsElementId() ?? ElementId.InvalidElementId; snapshot.IsBlank = snapshot.ElementIdValue == ElementId.InvalidElementId; snapshot.DisplayValue = snapshot.ElementIdValue.IntegerValue.ToString(); break;
+                    case StorageType.ElementId: snapshot.ElementIdValue = parameter.AsElementId() ?? ElementId.InvalidElementId; snapshot.IsBlank = snapshot.ElementIdValue == ElementId.InvalidElementId; snapshot.DisplayValue = snapshot.ElementIdValue.ToCheckedIntValue().ToString(); break;
                     default: snapshot.IsBlank = true; break;
                 }
             }
@@ -117,7 +118,7 @@ namespace KhimTools.ParameterTransfer.Services
 
         public static bool IsIdentityParameter(Parameter parameter)
         {
-            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.IntegerValue; return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
+            try { BuiltInParameter bip = (BuiltInParameter)parameter.Id.ToCheckedIntValue(); return bip == BuiltInParameter.SHEET_NUMBER || bip == BuiltInParameter.SHEET_NAME; }
             catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[ParameterTransfer] identity probe: " + ex.Message); return false; }
         }
 

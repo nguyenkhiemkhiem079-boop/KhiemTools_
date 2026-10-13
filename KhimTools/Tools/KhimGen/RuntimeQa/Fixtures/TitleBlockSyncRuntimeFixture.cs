@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,7 +35,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 var request = new TitleBlockSyncRequest { Document = doc, SourceSheetId = source.Id, SourceTitleBlockId = blocks[0].Id, Options = new TitleBlockSyncOptions { SyncTitleBlockType = true, SyncInstanceParameters = false, SyncSheetParameters = true } }; request.Targets.Add(new TitleBlockSyncTarget { SheetId = target.Id, SheetUniqueId = target.UniqueId, SheetNumber = target.SheetNumber, SheetName = target.Name }); request.SelectedParameterKeys.Add(ParameterTransferService.CreateKey(writable));
                 TitleBlockSyncPlan plan = TitleBlockSyncPlanner.BuildPlan(doc, request); Check(result, "TB33_PLAN", "Production plan", plan.Status == TitleBlockSyncStatusCode.READY, "READY", plan.Status.ToString(), "Fixture uses production planner.", QaSeverity.CRITICAL);
                 var execution = TitleBlockSyncExecutionService.Execute(doc, plan); Check(result, "TB33_EXECUTE", "Production execution", execution.Synced == 1 || execution.NoChange == 1, "Synced or NO_CHANGE", execution.Synced + "/" + execution.NoChange, "Fixture uses production execution and per-target transaction.", QaSeverity.CRITICAL);
-                Parameter targetValue = target.get_Parameter((BuiltInParameter)writable.Id.IntegerValue); Check(result, "TB33_VERIFY", "Target parameter verification", targetValue != null && targetValue.AsString() == "KTOOLS-QA", "KTOOLS-QA", targetValue == null ? "missing" : targetValue.AsString(), "Target value is verified before fixture rollback.", QaSeverity.CRITICAL);
+                Parameter targetValue = target.get_Parameter((BuiltInParameter)writable.Id.ToCheckedIntValue()); Check(result, "TB33_VERIFY", "Target parameter verification", targetValue != null && targetValue.AsString() == "KTOOLS-QA", "KTOOLS-QA", targetValue == null ? "missing" : targetValue.AsString(), "Target value is verified before fixture rollback.", QaSeverity.CRITICAL);
                 Check(result, "TB33_SOURCE", "Source unchanged", source.SheetNumber.StartsWith("KTB-SRC-", StringComparison.Ordinal), "Source identity retained", source.SheetNumber, "Source sheet identity remains stable.", QaSeverity.CRITICAL);
             }
         }

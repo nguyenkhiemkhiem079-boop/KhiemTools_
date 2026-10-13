@@ -111,7 +111,7 @@ namespace KhimTools.ScheduleSplit.Forms
             _preview.Rows.Clear(); if (plan == null) return;
             foreach (ScheduleSegmentPlan segment in plan.Segments) { ScheduleSplitPreflightResult d = null; foreach (ScheduleSplitPreflightResult candidate in diagnostics) if (candidate.SegmentIndex == segment.SegmentIndex) { d = candidate; break; } _preview.Rows.Add(segment.SegmentIndex + 1, Math.Round(UnitUtils.ConvertFromInternalUnits(segment.HeightInternal, UnitTypeId.Millimeters), 1), segment.TargetSheetNumber, segment.PlannedPosition == null ? "" : segment.PlannedPosition.ToString(), d == null ? segment.Status.ToString() : d.Status.ToString()); }
         }
-        private sealed class SourceRow { public ScheduleSourceInfo Info { get; } public SourceRow(ScheduleSourceInfo info) { Info = info; } public override string ToString() { return Info.SourceSheetNumber + " - " + Info.ScheduleName + " [" + Info.InstanceId.IntegerValue + "]"; } }
+        private sealed class SourceRow { public ScheduleSourceInfo Info { get; } public SourceRow(ScheduleSourceInfo info) { Info = info; } public override string ToString() { return Info.SourceSheetNumber + " - " + Info.ScheduleName + " [" + Info.InstanceId.ToCheckedIntValue() + "]"; } }
         private sealed class TargetRow { public ViewSheet Sheet { get; } public TargetRow(ViewSheet sheet) { Sheet = sheet; } public override string ToString() { return Sheet.SheetNumber + " - " + Sheet.Name; } }
     }
 }

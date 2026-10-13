@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -43,7 +44,7 @@ namespace KhimTools.QuantityTakeoff.Services
             foreach (var e in collector)
             {
                 if (e.Category == null) continue;
-                var d = new QsElementData { ElementId = e.Id, UniqueId = e.UniqueId, CategoryId = e.Category.Id.IntegerValue,
+                var d = new QsElementData { ElementId = e.Id, UniqueId = e.UniqueId, CategoryId = e.Category.Id.ToCheckedIntValue(),
                     CategoryName = e.Category.Name ?? "", TypeId = e.GetTypeId(), SourceDocumentTitle = doc.Title };
                 var type = doc.GetElement(d.TypeId) as ElementType;
                 d.TypeName = type?.Name ?? ""; d.FamilyName = (type as FamilySymbol)?.FamilyName ?? "";

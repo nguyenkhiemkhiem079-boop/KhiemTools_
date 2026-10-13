@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -256,7 +257,7 @@ namespace KhimTools.QuantityTakeoff.Services
             if (quantity <= 1e-9) return;
             Document doc = element.Document;
             string category = element.Category?.Name ?? "";
-            int categoryId = element.Category?.Id.IntegerValue ?? 0;
+            int categoryId = element.Category?.Id.ToCheckedIntValue() ?? 0;
             ElementType type = doc.GetElement(element.GetTypeId()) as ElementType;
             string typeName = type?.Name ?? "";
             string familyName = (type as FamilySymbol)?.FamilyName ?? "";

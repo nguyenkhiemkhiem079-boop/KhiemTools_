@@ -826,7 +826,7 @@ namespace KhimTools.RebarTool.Forms
                     bar =>
                     {
                         string role;
-                        return roleByBarId.TryGetValue(bar.Id.Value.ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                        return roleByBarId.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
                     });
                 }).ToArray();
                 _previewLifecycle.BeginGeneration();

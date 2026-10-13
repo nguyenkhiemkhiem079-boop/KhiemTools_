@@ -530,7 +530,7 @@ namespace KhimTools.SlabStep.Forms
                 if (_scanResult.Candidates.Count == 0) { TaskDialog.Show("SLAB STEP DETECTOR", text + "Không tìm thấy chuyển tiếp sàn."); return; }
                 text += string.Join("\n", _scanResult.Candidates.Select((x, i) => $"{i + 1}. High {x.High.FloorId} → Low {x.Low.FloorId} | ΔH {SlabStepService.InternalToMillimetres(x.StepHeight):0.#} mm | Shared {SlabStepService.InternalToMillimetres(x.TotalBoundaryLength):0.#} mm"));
                 TaskDialog.Show("SLAB STEP DETECTOR", text);
-                var candidate = _scanResult.Candidates.OrderBy(x => x.High.FloorId.IntegerValue).ThenBy(x => x.Low.FloorId.IntegerValue).First(); _floorHigh = candidate.High.Floor; _floorLow = candidate.Low.Floor; _sharedBoundaryCurves = candidate.Boundaries.Select(x => x.Curve).ToList(); CapturePreviewIdentity(); UpdateFloorValues();
+                var candidate = _scanResult.Candidates.OrderBy(x => x.High.FloorId.ToCheckedIntValue()).ThenBy(x => x.Low.FloorId.ToCheckedIntValue()).First(); _floorHigh = candidate.High.Floor; _floorLow = candidate.Low.Floor; _sharedBoundaryCurves = candidate.Boundaries.Select(x => x.Curve).ToList(); CapturePreviewIdentity(); UpdateFloorValues();
                 _lblLowFloorInfo.Text = $"Cao: ID {_floorHigh.Id} · Thấp: ID {_floorLow.Id} · h={_txtHeight.Text} mm";
                 _lblBoundaryInfo.Text = $"Scanner: {_scanResult.Candidates.Count} candidates · candidate đầu tiên.";
             }
