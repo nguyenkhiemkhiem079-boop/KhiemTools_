@@ -363,6 +363,29 @@ static class Program
         Check(returnBars[0].Centerline.Count == 3 && returnBars[0].Centerline[0].StationMm == 200 &&
               returnBars[0].Centerline[1].StationMm == 120 && returnBars[0].Centerline[2].StationMm == 5900,
             "Manual builder preserves explicit start-return vertices, anchor and full longitudinal path order");
+        explicitReturn.BarGroups[0].Bars[0].StartDetail.ReturnPoints = new List<BeamManualPointV1>
+        {
+            new BeamManualPointV1 { StationMm = 200, XMm = -60, YMm = 160 },
+            new BeamManualPointV1 { StationMm = 160, XMm = -80, YMm = 160 },
+            new BeamManualPointV1 { StationMm = 120, XMm = -80, YMm = 210 }
+        };
+        Check(!BeamManualPlanValidatorV1.Validate(explicitReturn, true).IsValid,
+            "Manual plan rejects a non-coplanar return and longitudinal path before Revit curve creation");
+        BeamManualPoint3V1[] verticalReturn = { new BeamManualPoint3V1(-80, 160, 200), new BeamManualPoint3V1(-80, 210, 120), new BeamManualPoint3V1(-80, 210, 5900) };
+        Check(BeamManualPathGeometryV1.TryGetPlaneNormal(verticalReturn, out BeamManualPoint3V1 verticalNormal) && Math.Abs(verticalNormal.X - 1) < 1e-12,
+            "Vertical return preserves the legacy local-right curve plane and hook orientation convention");
+        BeamManualPoint3V1[] horizontalReturn = { new BeamManualPoint3V1(-60, 210, 200), new BeamManualPoint3V1(-80, 210, 120), new BeamManualPoint3V1(-80, 210, 5900) };
+        Check(BeamManualPathGeometryV1.TryGetPlaneNormal(horizontalReturn, out BeamManualPoint3V1 horizontalNormal) && Math.Abs(horizontalNormal.Y - 1) < 1e-12 && Math.Abs(horizontalNormal.X) < 1e-12,
+            "Horizontal return derives local-up plane normal instead of supplying Revit an incompatible local-right normal");
+        Check(BeamManualPathGeometryV1.TryGetPlaneNormal(new[] { verticalReturn[1], verticalReturn[2] }, out BeamManualPoint3V1 straightNormal) && Math.Abs(straightNormal.X - 1) < 1e-12,
+            "Straight manual centerlines retain local-right normal for loaded hooks");
+        Check(BeamManualPathGeometryV1.TryGetPlaneNormal(verticalReturn.Reverse().ToArray(), out BeamManualPoint3V1 reversedNormal) && Math.Abs(reversedNormal.X - 1) < 1e-12,
+            "Reversing planar vertices keeps the documented canonical normal sign stable");
+        explicitReturn.BarGroups[0].Bars[0].StartDetail.ReturnPoints = null;
+        bool malformedReturnRejected = false;
+        try { malformedReturnRejected = !BeamManualPlanValidatorV1.Validate(explicitReturn, true).IsValid; }
+        catch (NullReferenceException) { }
+        Check(malformedReturnRejected, "Missing persisted return vertices produce validation diagnostics instead of a null-reference failure");
 
         BeamManualDetailingPlanV1 missingStations = CreateManualPlan();
         missingStations.StirrupGroups.Add(new BeamManualStirrupGroupV1
@@ -392,6 +415,22 @@ static class Program
         Check(BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid &&
               BeamManualLayoutBuilderV1.BuildStirrups(explicitStirrup).Count == 2,
             "Manual builder resolves explicit closed stirrup/hanger contours at every user-listed station");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 0 };
+        Check(!BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Manual stirrup diameter envelope cannot extend past the physical Beam start face");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { explicitStirrup.Frame.LengthMm };
+        Check(!BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Manual stirrup diameter envelope cannot extend past the physical Beam finish face");
+        explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 5, explicitStirrup.Frame.LengthMm - 5 };
+        Check(BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid,
+            "Explicit 10 mm test stirrups exactly one radius inside both Beam end faces remain valid");
+        BeamManualPointV1 savedContourPoint = explicitStirrup.StirrupGroups[0].SectionPath[1];
+        explicitStirrup.StirrupGroups[0].SectionPath[1] = null;
+        bool malformedContourRejected = false;
+        try { malformedContourRejected = !BeamManualPlanValidatorV1.Validate(explicitStirrup, true).IsValid; }
+        catch (NullReferenceException) { }
+        Check(malformedContourRejected, "Malformed persisted stirrup points produce validation diagnostics instead of a null-reference failure");
+        explicitStirrup.StirrupGroups[0].SectionPath[1] = savedContourPoint;
         explicitStirrup.StirrupGroups[0].StationsMm = new List<double> { 200 };
         explicitStirrup.StirrupGroups[0].SectionPath[2].YMm = 205;
         explicitStirrup.StirrupGroups[0].SectionPath[3].YMm = 205;

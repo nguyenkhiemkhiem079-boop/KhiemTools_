@@ -100,6 +100,11 @@ namespace KhimTools.RebarTool.Core
                 RebarHookType startHook = ResolveHookType(source.StartDetail);
                 RebarHookType finishHook = ResolveHookType(source.FinishDetail);
                 XYZ[] worldPoints = resolved.Centerline.Select(point => ToWorld(profile, point)).ToArray();
+                if (!BeamManualPathGeometryV1.TryGetPlaneNormal(resolved.Centerline.Select(point =>
+                    new BeamManualPoint3V1(point.XMm, point.YMm, point.StationMm)).ToArray(), out BeamManualPoint3V1 localNormal))
+                    throw new InvalidOperationException("Manual bar group " + resolved.GroupId + " must have one finite coplanar centerline path.");
+                XYZ curveNormal = (profile.RightVector * localNormal.X + profile.UpVector * localNormal.Y +
+                    profile.Direction * localNormal.Z).Normalize();
                 if (worldPoints.Length < 2 || worldPoints.Zip(worldPoints.Skip(1), (a, b) => a.DistanceTo(b) <= 1e-9).Any(zero => zero))
                     throw new InvalidOperationException("A Manual v1 bar resolved to an empty or zero-length Revit centerline segment.");
                 ValidateNoExistingBarOverlap(existingBars, worldPoints, type);
@@ -109,7 +114,7 @@ namespace KhimTools.RebarTool.Core
                 for (int index = 0; index + 1 < worldPoints.Length; index++)
                     curves.Add(Line.CreateBound(worldPoints[index], worldPoints[index + 1]));
                 Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(_document, RebarStyle.Standard,
-                    type, startHook, finishHook, beam, profile.RightVector, curves,
+                    type, startHook, finishHook, beam, curveNormal, curves,
                     ToHookOrientation(source.StartDetail), ToHookOrientation(source.FinishDetail),
                     allowLegacyFallback: false);
                 if (bar == null || !bar.IsValidObject)
@@ -316,7 +321,7 @@ namespace KhimTools.RebarTool.Core
                     x + radiusMm > widthMm / 2.0 - right.ClearCoverMm + tolerance ||
                     y + radiusMm > heightMm / 2.0 - top.ClearCoverMm + tolerance ||
                     y - radiusMm < -heightMm / 2.0 + bottom.ClearCoverMm - tolerance ||
-                    station < -tolerance || station > lengthMm + tolerance)
+                    !BeamManualPathGeometryV1.IsStationEnvelopeInside(station, lengthMm, 2 * radiusMm))
                     throw new InvalidOperationException("Revit's solved Manual Rebar centerline/bend violates the explicit Beam face-cover or physical host envelope. The transaction will roll back.");
             }
         }

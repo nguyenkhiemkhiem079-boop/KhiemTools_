@@ -113,6 +113,63 @@ namespace KhimTools.RebarTool.Core
         private static double Clamp(double value) => value < 0 ? 0 : value > 1 ? 1 : value;
     }
 
+    /// <summary>Pure local-mm geometry shared by input validation and the Revit adapter.</summary>
+    public static class BeamManualPathGeometryV1
+    {
+        public static bool IsStationEnvelopeInside(double stationMm, double lengthMm, double diameterMm)
+        {
+            if (!Finite(stationMm) || !Finite(lengthMm) || !Finite(diameterMm) || lengthMm <= 0 || diameterMm <= 0) return false;
+            double radius = diameterMm / 2.0;
+            double tolerance = BeamManualPlanValidatorV1.GeometryToleranceMm;
+            return stationMm >= radius - tolerance && stationMm <= lengthMm - radius + tolerance;
+        }
+
+        /// <summary>
+        /// Derives the plane from actual local (x,y,s) vertices. A straight path
+        /// retains local Right when possible. Curved-path normal sign is canonical
+        /// (first non-zero x/y/s component positive), so hook orientation is stable.
+        /// Uses the documented numerical 0.01 mm tolerance, not a detailing value.
+        /// </summary>
+        public static bool TryGetPlaneNormal(IReadOnlyList<BeamManualPoint3V1> points, out BeamManualPoint3V1 normal)
+        {
+            normal = default(BeamManualPoint3V1);
+            if (points == null || points.Count < 2 || points.Any(point => !Finite(point.X) || !Finite(point.Y) || !Finite(point.Z))) return false;
+            double tolerance = BeamManualPlanValidatorV1.GeometryToleranceMm;
+            double toleranceSquared = tolerance * tolerance;
+            for (int index = 1; index < points.Count; index++)
+                if (Dot(Subtract(points[index], points[index - 1]), Subtract(points[index], points[index - 1])) <= toleranceSquared) return false;
+            BeamManualPoint3V1 origin = points[0];
+            BeamManualPoint3V1 axis = points.Select(point => Subtract(point, origin)).OrderByDescending(vector => Dot(vector, vector)).First();
+            double axisLength = Math.Sqrt(Dot(axis, axis));
+            if (axisLength <= tolerance) return false;
+            axis = Scale(axis, 1.0 / axisLength);
+            BeamManualPoint3V1 cross = points.Select(point => Cross(axis, Subtract(point, origin)))
+                .OrderByDescending(vector => Dot(vector, vector)).First();
+            double crossLength = Math.Sqrt(Dot(cross, cross));
+            if (crossLength <= tolerance)
+            {
+                var preferred = Math.Abs(axis.X) < 0.9 ? new BeamManualPoint3V1(1, 0, 0) : new BeamManualPoint3V1(0, 1, 0);
+                normal = Subtract(preferred, Scale(axis, Dot(preferred, axis)));
+                normal = Scale(normal, 1.0 / Math.Sqrt(Dot(normal, normal)));
+            }
+            else
+            {
+                normal = Scale(cross, 1.0 / crossLength);
+                BeamManualPoint3V1 planeNormal = normal;
+                if (points.Any(point => Math.Abs(Dot(Subtract(point, origin), planeNormal)) > tolerance)) return false;
+            }
+            double signComponent = Math.Abs(normal.X) > 1e-12 ? normal.X : Math.Abs(normal.Y) > 1e-12 ? normal.Y : normal.Z;
+            if (signComponent < 0) normal = Scale(normal, -1);
+            return true;
+        }
+
+        private static bool Finite(double value) => !double.IsNaN(value) && !double.IsInfinity(value);
+        private static BeamManualPoint3V1 Subtract(BeamManualPoint3V1 a, BeamManualPoint3V1 b) => new BeamManualPoint3V1(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+        private static BeamManualPoint3V1 Scale(BeamManualPoint3V1 point, double factor) => new BeamManualPoint3V1(point.X * factor, point.Y * factor, point.Z * factor);
+        private static double Dot(BeamManualPoint3V1 a, BeamManualPoint3V1 b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z;
+        private static BeamManualPoint3V1 Cross(BeamManualPoint3V1 a, BeamManualPoint3V1 b) => new BeamManualPoint3V1(a.Y * b.Z - a.Z * b.Y, a.Z * b.X - a.X * b.Z, a.X * b.Y - a.Y * b.X);
+    }
+
     public sealed class BeamManualEndDetailV1
     {
         public BeamManualEndDetailKind Kind { get; set; }
@@ -315,6 +372,8 @@ namespace KhimTools.RebarTool.Core
                         ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.EndStationMm, XMm = bar.XMm, YMm = bar.YMm },
                             group.BarType.DiameterMm, frame, plan.Covers, id, field, Add);
                     }
+                    if (!BeamManualPathGeometryV1.TryGetPlaneNormal(BuildBarPath(bar), out _))
+                        Add(id, field + ".path", "Explicit return and longitudinal vertices must form one finite coplanar path with non-zero adjacent segments.");
                     groupBars.Add(Tuple.Create(id, group, bar));
                 }
             }
@@ -337,6 +396,9 @@ namespace KhimTools.RebarTool.Core
                     {
                         if (!IsFinite(station) || frame == null || station < -GeometryToleranceMm || station > frame.LengthMm + GeometryToleranceMm)
                             Add(stirrup.GroupId, "stationsMm", "Every explicit stirrup station must be finite and within the supported Beam concrete.");
+                        if (frame != null && stirrup.BarType != null &&
+                            !BeamManualPathGeometryV1.IsStationEnvelopeInside(station, frame.LengthMm, stirrup.BarType.DiameterMm))
+                            Add(stirrup.GroupId, "stationsMm", "Physical stirrup diameter envelope must remain inside both Beam end faces; no end-face cover is inferred.");
                     }
                     if (stirrup.StationsMm.Any(station => !IsFinite(station)) == false &&
                         stirrup.StationsMm.Zip(stirrup.StationsMm.Skip(1), (left, right) => right <= left + GeometryToleranceMm).Any(overlap => overlap))
@@ -587,7 +649,8 @@ namespace KhimTools.RebarTool.Core
         {
             foreach (BeamManualStirrupGroupV1 group in plan.StirrupGroups ?? new List<BeamManualStirrupGroupV1>())
             {
-                if (group == null || !group.Enabled || group.BarType == null || group.SectionPath == null) continue;
+                if (group == null || !group.Enabled || group.BarType == null || group.SectionPath == null ||
+                    group.SectionPath.Any(point => point == null || !IsFinite(point.XMm) || !IsFinite(point.YMm))) continue;
                 double stirrupRadius = group.BarType.DiameterMm / 2.0;
                 foreach (double station in group.StationsMm ?? new List<double>())
                 foreach (var bar in bars)
@@ -613,6 +676,10 @@ namespace KhimTools.RebarTool.Core
 
         private static IReadOnlyList<BeamManualPoint3V1> BuildBarPath(BeamManualBarV1 bar)
         {
+            if (bar == null) return null;
+            foreach (BeamManualEndDetailV1 detail in new[] { bar.StartDetail, bar.FinishDetail })
+                if (detail?.Kind == BeamManualEndDetailKind.ExplicitCurveReturn &&
+                    (detail.ReturnPoints == null || detail.ReturnPoints.Any(point => point == null))) return null;
             var points = new List<BeamManualPoint3V1>();
             if (bar.StartDetail?.Kind == BeamManualEndDetailKind.ExplicitCurveReturn)
                 points.AddRange(bar.StartDetail.ReturnPoints.Select(point => new BeamManualPoint3V1(point.XMm, point.YMm, point.StationMm)));

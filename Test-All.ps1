@@ -56,7 +56,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 157
+        ExpectedCount = 159
     },
     @{
         Name = "Rebar Configuration Persistence & Recovery"
@@ -105,7 +105,7 @@ $suites = @(
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
         # Exact Manual/other golden total is asserted by Verify-Phase17GoldenPerformance.ps1.
-        ExpectedCount = 124
+        ExpectedCount = 134
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"

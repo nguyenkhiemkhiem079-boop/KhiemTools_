@@ -18,9 +18,11 @@ Recovery starting feature tip: `308bf4146663e00e04f5d7bcb500cbf188af438f`.
 
 Inspect actual source and current executable gates; historical Phase reports are context, not proof. Prioritize physical Rebar geometry, exact types, canonical plans, preview/Create parity and rollback. Compile both supported acceptance targets and validate the current-source installer package. Live mutation tests require a confirmed disposable supported Revit model; offline/source tests never certify host acceptance.
 
-## Wave 1 — implementation audit (in progress)
+## Wave 1 — coordinated Rebar correction
 
-The Beam Manual v1 trace identified two candidate issues requiring deterministic reproduction: longitudinal return curves use a fixed local-right plane normal, and stirrup station/solved-path checks may omit bar radius at Beam end faces. Confirm and fix them before claiming the affected support.
+Confirmed and corrected four P1 findings: non-coplanar longitudinal return paths were accepted by the input validator; every return used the local-right normal even for a horizontal return; stirrup end stations and solved centerlines omitted physical radius at Beam end faces; malformed persisted return/contour points could reach null dereferences in collision checks. Two regressions failed against the original code (non-coplanar path, stirrup at station zero); the coordinated correction passes ten additional numerical/validation regressions. A pure geometry helper now derives the canonical path plane and shares the physical end-envelope rule with the Revit adapter. Existing straight/vertical hook-plane conventions remain stable; no engineering value is added.
+
+Wave 1 verification: Golden Regression 134 executed assertions PASS; K-Rebar 159/159 static checks PASS; dependency restore PASS; Revit 2024 Release 0 errors / 210 warnings; Revit 2025 Release 0 errors / 208 warnings. Actual Revit generation, hook compatibility and undo remain host-required. Full canonical regression/package validation is scheduled after the cross-module audit.
 
 The cross-module audit and current validation results will be recorded below as they complete. Unsupported Wall reinforcement, support extensions, design-code calculations or inferred project reinforcement values will not be introduced without an accepted contract.
 
