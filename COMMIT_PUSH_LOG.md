@@ -8,6 +8,7 @@ Branch: `fix/preview-hardening`. Starting tip: `308bf4146663e00e04f5d7bcb500cbf1
 | Rebar geometry | [93a970a06a9176b729c225b6cc57eb0c88a66f77](https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/commit/93a970a06a9176b729c225b6cc57eb0c88a66f77) | Golden134, K-Rebar159, 2024/2025 builds |
 | API compatibility | [93d86e343763186a1f4026204a95df490e270cd1](https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/commit/93d86e343763186a1f4026204a95df490e270cd1) | Five actual API builds, 20 synthetic adapter checks, focused module gates |
 | Release/UI/regression | [7529d6cce2b359763ecd3c77e43a5213ba781863](https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/commit/7529d6cce2b359763ecd3c77e43a5213ba781863) | Full 48 suites, updater6, payload134, Manual734/18 |
+| Final audit handoff | [d5b1bc2a03151ff1fe88ebfdbc46e12eed16b280](https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/commit/d5b1bc2a03151ff1fe88ebfdbc46e12eed16b280) | Six required reports and acceptance/handoff reconciliation; documentation only |
 
 After every listed push: fetch origin and compare local HEAD to `origin/fix/preview-hardening`; equality was verified. Source checkpoint master remained baseline. Only genuine source/docs/tests were staged; binaries, machine logs and external archives are excluded.
 

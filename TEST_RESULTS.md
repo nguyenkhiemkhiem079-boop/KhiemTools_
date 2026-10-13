@@ -96,4 +96,3 @@ Build current candidates with `Installer/Build-Installer.ps1 -Configuration Rele
 Local evidence: `artifacts/full-stack-20261013/test-all.log`, `manual-layout.log`, `installer-build.log`; machine-readable `artifacts/full-stack-qa/latest.json`; isolated build logs `artifacts/revit-compatibility/build-<year>.log`; layout bounds/images `artifacts/ui-qa/rebar`; package hashes and complete manifest `Installer/Output/SHA256SUMS.txt` and `PAYLOAD_SHA256.json`. No live result is manufactured from this evidence.
 
 GitHub checks queried for the code checkpoint: no combined statuses and no PR-triggered workflow runs returned. This means NO REPORTED CHECKS, not CI PASS. Draft PR requires human review and host/release acceptance; no master merge.
-
