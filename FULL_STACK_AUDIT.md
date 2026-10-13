@@ -1,5 +1,7 @@
 # Full-stack recovery and audit — 2026-10-13
 
+Next-implementation Wave1 fromcc31ab52: bound rectangular Column/Beam support extensions wired UI→versioned plan/store→exact solid envelope→production preview/Create, with support-neighborhood stale/collision checks and atomic batch postconditions. Golden157/K-Rebar163 and API2022–2026 builds pass; offline Manual/support UI812 checks/27renders pass. Host fixture registered, not executed. No engineering defaults. Recovery is not repeated; older single-host/support-unavailable statements below are historical. Details: Docs/QA/Beam/SUPPORT_EXTENSION_WAVE.md.
+
 Repository: `nguyenkhiemkhiem079-boop/KhiemTools_`; integration branch: `fix/preview-hardening`.
 Verified remote master baseline: `601d1feb8731356f3ac2f509aa5aabeecbd8fd3a`.
 Recovery starting feature tip: `308bf4146663e00e04f5d7bcb500cbf188af438f`.

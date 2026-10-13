@@ -1,5 +1,7 @@
 # Beam Manual Detailing Contract v1 status — 2026-10-13
 
+Superseding Wave1: support extensions are now implemented for explicitly bound same-document verified rectangular Column/Beam supports, explicit uniform exposed support-face cover and actual Line/Arc physical CSG envelope. Independent multi-Beam assignment is retained. See Docs/QA/Beam/SUPPORT_EXTENSION_WAVE.md for bounds and acceptance. Revit support kernel/actual Undo acceptance remains NOT_EXECUTED; the full contract/release is not certified by these code changes. Historical unavailable-support statements below are retained as prior checkpoint context, not current feature status.
+
 Authority: `Docs/Engineering/Beam/MANUAL_DETAILING_CONTRACT_V1.md`; acceptance matrix: `Docs/QA/Beam/PHASE_04C_ACCEPTANCE_MATRIX.md`.
 
 FULL_CONTRACT_IMPLEMENTATION = PARTIAL

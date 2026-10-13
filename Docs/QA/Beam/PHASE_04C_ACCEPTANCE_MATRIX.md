@@ -22,6 +22,8 @@ The authoritative approved software input/geometry contract is mirrored verbatim
 
 ## Final disposition
 
+Wave1 superseding acceptance: support extensions now wired for exact same-document physically verified rectangular structural Column/Beam supports with explicit uniform exposed support cover and continuation intent. Real Line/Arc volume + endpoint envelope is checked against concrete union/exposed cover shells; same production capture/Create, support-neighbor staleness, batch atomicity and typed store. Golden157/K-Rebar163, five source builds, full50 suites PASS; focused UI812/27. BR-MANUAL-SUPPORT-ROLLBACK REGISTERED/COMPILED, NOT_EXECUTED. Historical unavailable-support notes below no longer describe that bounded code slice. Unsupported support geometry, design sufficiency and actual host acceptance are still not certified.
+
 ### Superseding recovery verification — 2026-10-13
 
 Historical counts below are retained as dated context, not current proof. Current code checkpoint `7529d6cce2b359763ecd3c77e43a5213ba781863`: K-Rebar159, Golden134, config37, canonical48/48 suites (2984 configured weight), full offline layout17987/360, focused Manual734/18. Revit2022–2026 source builds zero errors; 2024/2025 warnings10/8. The previous 720-check Manual result did not detect minimum-height clamping at 1366x768; corrected minimum size and explicit requested-profile assertions supersede it. Four Manual geometry findings were corrected; see root REBAR_QA_REPORT.md. Full contract PARTIAL, supported slice code complete, HOST_ACCEPTANCE NOT_EXECUTED and PRODUCTION_READY NO.

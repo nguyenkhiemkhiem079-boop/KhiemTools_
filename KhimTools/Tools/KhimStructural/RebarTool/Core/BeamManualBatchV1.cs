@@ -48,7 +48,7 @@ namespace KhimTools.RebarTool.Core
                 {
                     int index = i;
                     // Earlier commits may trigger model changes; check the next host again inside the group.
-                    if (!String.Equals(fingerprints[index], generator.Fingerprint(batch[index].Plan, hosts[index]), StringComparison.Ordinal))
+                    if (!String.Equals(fingerprints[index], generator.Fingerprint(batch[index].Plan, hosts[index], result), StringComparison.Ordinal))
                         throw new InvalidOperationException("Manual host changed during batch; whole assignment rolled back.");
                     IList<Rebar> output = TransactionBoundary.Execute(document, "Create Manual Beam " + (index + 1), () =>
                     {
@@ -70,6 +70,7 @@ namespace KhimTools.RebarTool.Core
                     {
                         if (!String.Equals(generator.GetCurrentFrame(hosts[i]).HostGeometrySignature,
                             batch[i].Plan.Frame.HostGeometrySignature, StringComparison.Ordinal) ||
+                            !String.Equals(generator.Fingerprint(batch[i].Plan, hosts[i], result), fingerprints[i], StringComparison.Ordinal) ||
                             !RebarPreviewService.Matches(batch[i].Preview, fingerprints[i], outputByHost[i]))
                             throw new InvalidOperationException("A completed Manual host/output changed during batch; whole assignment rolled back.");
                     }

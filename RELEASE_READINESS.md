@@ -1,5 +1,7 @@
 # Release readiness — 2026-10-13
 
+Superseding Wave1 candidate: MSI SHA256 `54ac3fdd4d6ebb668ecbe4df849e4b3b25ba54c01d1063c84b8c4a4af94aca4e`; bootstrapper `b76680fbb40d09853aa198e8382abddfa2220c80d2fda5477db9f632ed5750de`. Complete payload134 and canonical50 suites/3030 weight PASS, five API builds zero errors. Bound rectangular support extension implemented, real support CSG/Undo NOT_EXECUTED. Older hashes/unsupported-support notes below are historical. Signing/lifecycle remain pending; no install or release publication.
+
 SOURCE_DELIVERY = feature branch checkpoints; reviewed integration PR required
 CODE_SIDE_RECOVERY = completed for audited supported scope
 FULL_PRODUCT_FEATURE_COMPLETE = NO

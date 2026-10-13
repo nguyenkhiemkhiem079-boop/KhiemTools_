@@ -52,7 +52,7 @@ namespace KhimTools.RebarTool.Core
             return SnapshotFrame(beam, RequireBeamProfile(beam));
         }
 
-        public string Fingerprint(BeamManualDetailingPlanV1 plan, FamilyInstance beam)
+        public string Fingerprint(BeamManualDetailingPlanV1 plan, FamilyInstance beam, IEnumerable<Rebar> ownedBatchBars = null)
         {
             ValidateHostIdentity(plan, beam);
             BeamManualFrameV1 current = GetCurrentFrame(beam);
@@ -65,11 +65,13 @@ namespace KhimTools.RebarTool.Core
                 .Concat(ResolveHookReferences(plan).Select(type => string.Join("HOOK", type.UniqueId, type.VersionGuid.ToString("D"), type.Name)))
                 .Concat(ResolveShapeReferences(plan).Select(shape => string.Join("SHAPE", shape.UniqueId, shape.VersionGuid.ToString("D"), shape.Name, shape.RebarStyle)))
                 .ToArray();
-            string[] existingRebarState = GetHostedRebar(beam)
+            var supports = ResolveSupportGeometry(plan, beam);
+            var excluded = new HashSet<string>((ownedBatchBars ?? Enumerable.Empty<Rebar>()).Select(bar => bar.UniqueId), StringComparer.Ordinal);
+            string[] existingRebarState = GetRelevantRebar(beam, supports).Where(bar => !excluded.Contains(bar.UniqueId))
                 .Select(RebarPreviewService.FingerprintBar)
                 .OrderBy(value => value, StringComparer.Ordinal).ToArray();
             return WorkflowFingerprint.Compute(new[] { BeamManualLayoutBuilderV1.Fingerprint(plan), current.HostGeometrySignature,
-                GetDocumentKey(), beam.UniqueId, beam.VersionGuid.ToString("D") }.Concat(typeState).Concat(existingRebarState));
+                GetDocumentKey(), beam.UniqueId, beam.VersionGuid.ToString("D"), supports?.StateFingerprint }.Concat(typeState).Concat(existingRebarState));
         }
 
         public IList<Rebar> Generate(BeamManualDetailingPlanV1 plan, FamilyInstance beam,
@@ -84,14 +86,13 @@ namespace KhimTools.RebarTool.Core
                 throw new InvalidOperationException("Beam geometry or local orientation changed since this Manual v1 plan was authored.");
             BeamManualPlanValidatorV1.Validate(plan, requireResolvedReferences: true).ThrowIfInvalid();
 
-            if (plan.SupportEnds.Count != 2 || plan.SupportEnds.Any(end => end == null || end.Mode != BeamManualSupportMode.UserDefinedFreeEndWithinHost))
-                throw new InvalidOperationException("This Manual v1 generator supports only explicit free ends within the Beam host. Verified-support extension is not enabled.");
+            BeamManualSupportGeometryV1 supports = ResolveSupportGeometry(plan, beam);
 
             ResolvePlanReferences(plan);
             ResolveHookReferences(plan);
             ResolveShapeReferences(plan);
             IReadOnlyList<BeamManualResolvedBarV1> bars = BeamManualLayoutBuilderV1.Build(plan);
-            Rebar[] existingBars = GetHostedRebar(beam).ToArray();
+            Rebar[] existingBars = GetRelevantRebar(beam, supports).ToArray();
             var created = new List<Rebar>();
             foreach (BeamManualResolvedBarV1 resolved in bars)
             {
@@ -114,6 +115,7 @@ namespace KhimTools.RebarTool.Core
                 var curves = new List<Curve>();
                 for (int index = 0; index + 1 < worldPoints.Length; index++)
                     curves.Add(Line.CreateBound(worldPoints[index], worldPoints[index + 1]));
+                supports?.ValidateCurves(curves, type.BarModelDiameter * 0.5);
                 Rebar bar = RebarShapeCreationHelper.CreateFromCurvesSafe(_document, RebarStyle.Standard,
                     type, startHook, finishHook, beam, curveNormal, curves,
                     ToHookOrientation(source.StartDetail), ToHookOrientation(source.FinishDetail),
@@ -124,7 +126,8 @@ namespace KhimTools.RebarTool.Core
                     throw new InvalidOperationException("Revit changed the requested Manual bar host, exact type, or single-bar quantity; refusing substituted output.");
                 if ((startHook != null && bar.GetHookTypeId(0) != startHook.Id) || (finishHook != null && bar.GetHookTypeId(1) != finishHook.Id))
                     throw new InvalidOperationException("Revit did not preserve the exact explicitly selected hook identities; creation is rolled back.");
-                ValidateCreatedEnvelope(bar, profile, type.BarModelDiameter * 0.5, plan.Covers, false);
+                if (supports == null) ValidateCreatedEnvelope(bar, profile, type.BarModelDiameter * 0.5, plan.Covers, false);
+                else supports.ValidateCurves(bar.GetCenterlineCurves(false, false, false, MultiplanarOption.IncludeAllMultiplanarCurves, 0), type.BarModelDiameter * 0.5);
                 ValidateCreatedAgainstExisting(bar, type, existingBars.Concat(created));
                 created.Add(bar);
                 if (roleByBarId != null)
@@ -164,10 +167,28 @@ namespace KhimTools.RebarTool.Core
             return created;
         }
 
-        private IEnumerable<Rebar> GetHostedRebar(FamilyInstance beam)
+        public BeamManualSupportEndV1 BindSupport(FamilyInstance beam, BeamManualEnd end, FamilyInstance support, double coverMm, string intent) =>
+            BeamManualSupportGeometryV1.Bind(_document, beam, end, support, coverMm, intent, GetDocumentKey());
+
+        private BeamManualSupportGeometryV1 ResolveSupportGeometry(BeamManualDetailingPlanV1 plan, FamilyInstance beam) =>
+            plan.SupportEnds.Any(end => end.Mode != BeamManualSupportMode.UserDefinedFreeEndWithinHost)
+                ? new BeamManualSupportGeometryV1(_document, beam, plan, RequireBeamProfile(beam)) : null;
+
+        private IEnumerable<Rebar> GetRelevantRebar(FamilyInstance beam, BeamManualSupportGeometryV1 geometry)
         {
+            var supportIds = new HashSet<ElementId>((geometry?.Supports ?? Array.Empty<FamilyInstance>()).Select(host => host.Id));
+            var filters = (geometry?.Supports ?? Array.Empty<FamilyInstance>()).Select(host =>
+            {
+                BoundingBoxXYZ box = host.get_BoundingBox(null) ?? throw new InvalidOperationException("Support bounds are unavailable for interference preflight.");
+                XYZ[] points = (from x in new[]{box.Min.X,box.Max.X} from y in new[]{box.Min.Y,box.Max.Y}
+                    from z in new[]{box.Min.Z,box.Max.Z} select (box.Transform ?? Transform.Identity).OfPoint(new XYZ(x,y,z))).ToArray();
+                return new BoundingBoxIntersectsFilter(new Outline(
+                    new XYZ(points.Min(p=>p.X),points.Min(p=>p.Y),points.Min(p=>p.Z)),
+                    new XYZ(points.Max(p=>p.X),points.Max(p=>p.Y),points.Max(p=>p.Z))));
+            }).ToArray();
             return new FilteredElementCollector(_document).OfClass(typeof(Rebar)).Cast<Rebar>()
-                .Where(bar => bar.IsValidObject && bar.Document == _document && bar.GetHostId() == beam.Id)
+                .Where(bar => bar.IsValidObject && bar.Document == _document && (bar.GetHostId() == beam.Id ||
+                    supportIds.Contains(bar.GetHostId()) || filters.Any(filter => filter.PassesFilter(_document, bar.Id))))
                 .ToArray();
         }
 

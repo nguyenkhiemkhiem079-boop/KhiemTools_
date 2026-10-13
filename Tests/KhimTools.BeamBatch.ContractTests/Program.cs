@@ -99,7 +99,7 @@ namespace KhimTools.RebarTool.Core
     public class BeamManualRebarGeneratorV1
     {
         readonly Document d; public BeamManualRebarGeneratorV1(Document document) { d=document; }
-        public string Fingerprint(BeamManualDetailingPlanV1 plan,FamilyInstance host)=>host.UniqueId;
+        public string Fingerprint(BeamManualDetailingPlanV1 plan,FamilyInstance host,IEnumerable<Rebar> ownedBatchBars=null)=>host.UniqueId;
         public BeamManualFrameV1 GetCurrentFrame(FamilyInstance host)=>new BeamManualFrameV1 { HostGeometrySignature=host.UniqueId=="A" && d.EarlierGeometryChanged?"CHANGED_QA":host.UniqueId };
         public IList<Rebar> Generate(BeamManualDetailingPlanV1 plan,FamilyInstance host)
         {

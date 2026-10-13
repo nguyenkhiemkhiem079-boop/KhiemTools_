@@ -229,6 +229,10 @@ namespace KhimTools.RebarTool.Core
         public BeamManualSupportMode Mode { get; set; }
         public string SupportHostUniqueId { get; set; }
         public string IntendedContinuation { get; set; }
+        public string SupportDocumentKey { get; set; }
+        public string SupportGeometrySignature { get; set; }
+        /// <summary>Explicit uniform clear cover on exposed support faces, mm. Null is not zero.</summary>
+        public double? SupportClearCoverMm { get; set; }
     }
 
     /// <summary>
@@ -355,22 +359,20 @@ namespace KhimTools.RebarTool.Core
                     Finite(bar.StartStationMm, id, field + ".startStationMm", Add);
                     Finite(bar.EndStationMm, id, field + ".endStationMm", Add);
                     if (bar.EndStationMm <= bar.StartStationMm) Add(id, field + ".stations", "End station must be greater than start station.");
-                    if (frame != null && (bar.StartStationMm < -GeometryToleranceMm || bar.EndStationMm > frame.LengthMm + GeometryToleranceMm))
-                        Add(id, field + ".stations", "Station must remain within the verified Beam concrete; support extension is not enabled by this plan validator.");
                     if (frame != null && group.BarType != null && IsFinite(group.BarType.DiameterMm) && group.BarType.DiameterMm > 0)
                     {
-                        double endRadius = group.BarType.DiameterMm / 2.0;
-                        if (bar.StartStationMm < endRadius - GeometryToleranceMm || bar.EndStationMm > frame.LengthMm - endRadius + GeometryToleranceMm)
-                            Add(id, field + ".stations", "Straight bar diameter envelope must remain inside both physical Beam end faces; end-face cover is not inferred.");
+                        if (!BeamManualSupportPolicyV1.PermitsStation(bar.StartStationMm, frame.LengthMm, group.BarType.DiameterMm, plan.SupportEnds) ||
+                            !BeamManualSupportPolicyV1.PermitsStation(bar.EndStationMm, frame.LengthMm, group.BarType.DiameterMm, plan.SupportEnds))
+                            Add(id, field + ".stations", "Bar diameter envelope outside a Beam end requires that end's explicitly bound verified support and cover. Solid containment remains a mandatory adapter gate.");
                     }
                     if (string.IsNullOrWhiteSpace(bar.LayerId)) Add(id, field + ".layerId", "Explicit layer identity is required, including for a single layer.");
-                    ValidateEnd(bar.StartDetail, group.BarType, requireResolvedReferences, id, field + ".startDetail", Add, bar, true, frame, plan.Covers);
-                    ValidateEnd(bar.FinishDetail, group.BarType, requireResolvedReferences, id, field + ".finishDetail", Add, bar, false, frame, plan.Covers);
+                    ValidateEnd(bar.StartDetail, group.BarType, requireResolvedReferences, id, field + ".startDetail", Add, bar, true, frame, plan.Covers, plan.SupportEnds);
+                    ValidateEnd(bar.FinishDetail, group.BarType, requireResolvedReferences, id, field + ".finishDetail", Add, bar, false, frame, plan.Covers, plan.SupportEnds);
                     if (group.BarType != null && frame != null && IsFinite(bar.XMm) && IsFinite(bar.YMm))
                     {
-                        ValidateEnvelope(bar, group.BarType.DiameterMm, frame, plan.Covers, id, field, Add);
+                        ValidateEnvelope(bar, group.BarType.DiameterMm, frame, plan.Covers, id, field, Add, plan.SupportEnds);
                         ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.EndStationMm, XMm = bar.XMm, YMm = bar.YMm },
-                            group.BarType.DiameterMm, frame, plan.Covers, id, field, Add);
+                            group.BarType.DiameterMm, frame, plan.Covers, id, field, Add, plan.SupportEnds);
                     }
                     if (!BeamManualPathGeometryV1.TryGetPlaneNormal(BuildBarPath(bar), out _))
                         Add(id, field + ".path", "Explicit return and longitudinal vertices must form one finite coplanar path with non-zero adjacent segments.");
@@ -413,7 +415,7 @@ namespace KhimTools.RebarTool.Core
             }
             if (totalBars > MaximumBars) Add(string.Empty, "barGroups/stirrupGroups", "Combined longitudinal-bar and individual-stirrup count exceeds the software safety limit.");
             ValidateCoverMap(plan.Covers, Add);
-            ValidateSupportMap(plan.SupportEnds, plan.HostUniqueId, Add);
+            ValidateSupportMap(plan.SupportEnds, plan.HostUniqueId, plan.DocumentKey, Add);
             ValidateCollisions(groupBars, issues);
             ValidateStirrupBarCollisions(plan, groupBars, issues);
             return new BeamManualValidationResultV1(issues);
@@ -502,7 +504,7 @@ namespace KhimTools.RebarTool.Core
 
         private static void ValidateEnd(BeamManualEndDetailV1 detail, BeamManualElementReferenceV1 barType,
             bool requireResolved, string group, string field, AddIssue add, BeamManualBarV1 bar = null,
-            bool isStart = false, BeamManualFrameV1 frame = null, IList<BeamManualCoverV1> covers = null)
+            bool isStart = false, BeamManualFrameV1 frame = null, IList<BeamManualCoverV1> covers = null, IList<BeamManualSupportEndV1> supports = null)
         {
             if (detail == null) { add(group, field, "Explicit end-detail selection is required."); return; }
             if (!Enum.IsDefined(typeof(BeamManualEndDetailKind), detail.Kind) || detail.Kind == BeamManualEndDetailKind.Unspecified) { add(group, field, "An explicit end-detail choice is required."); return; }
@@ -534,7 +536,7 @@ namespace KhimTools.RebarTool.Core
                         if (detail.ReturnPoints.Zip(detail.ReturnPoints.Skip(1), (a, b) => Math.Sqrt(Math.Pow(a.StationMm - b.StationMm, 2) + Math.Pow(a.XMm - b.XMm, 2) + Math.Pow(a.YMm - b.YMm, 2)) <= GeometryToleranceMm).Any(zero => zero))
                             add(group, field + ".returnPoints", "Adjacent explicit return points must describe non-zero centerline segments.");
                         foreach (BeamManualPointV1 point in detail.ReturnPoints)
-                            ValidateEnvelope(point, barType.DiameterMm, frame, covers, group, field + ".returnPoints", add);
+                            ValidateEnvelope(point, barType.DiameterMm, frame, covers, group, field + ".returnPoints", add, supports);
                     }
                     break;
                 case BeamManualEndDetailKind.Unsupported:
@@ -584,9 +586,12 @@ namespace KhimTools.RebarTool.Core
             if (covers.Any(cover => cover != null && (!Enum.IsDefined(typeof(BeamManualCoverFace), cover.Face) || cover.Face == BeamManualCoverFace.Unspecified))) add(string.Empty, "covers", "Unknown cover face.");
         }
 
-        private static void ValidateSupportMap(IList<BeamManualSupportEndV1> supports, string hostUniqueId, AddIssue add)
+        private static void ValidateSupportMap(IList<BeamManualSupportEndV1> supports, string hostUniqueId, string documentKey, AddIssue add)
         {
             if (supports == null) return;
+            if (supports.Where(item => item != null && !string.IsNullOrWhiteSpace(item.SupportHostUniqueId))
+                .GroupBy(item => item.SupportHostUniqueId, StringComparer.Ordinal).Any(group => group.Count() > 1))
+                add(string.Empty, "supportEnds", "Start and finish require distinct support identities; one support spanning both ends is not an implemented condition.");
             foreach (BeamManualEnd end in Enum.GetValues(typeof(BeamManualEnd)).Cast<BeamManualEnd>().Where(value => value != BeamManualEnd.Unspecified))
             {
                 BeamManualSupportEndV1[] matches = supports.Where(support => support != null && support.End == end).ToArray();
@@ -599,21 +604,32 @@ namespace KhimTools.RebarTool.Core
                 if (support.Mode == BeamManualSupportMode.UserDefinedFreeEndWithinHost && string.IsNullOrWhiteSpace(support.IntendedContinuation))
                     add(string.Empty, "supportEnds." + end + ".intendedContinuation", "Explicit free-end intent is required; this does not certify development length.");
                 if (support.SupportHostUniqueId == hostUniqueId) add(string.Empty, "supportEnds." + end + ".supportHostUniqueId", "Support identity cannot point back to the Beam host itself.");
+                if (support.Mode == BeamManualSupportMode.VerifiedColumn || support.Mode == BeamManualSupportMode.VerifiedStructuralBeam)
+                {
+                    if (!BeamManualSupportPolicyV1.IsBound(support) || support.SupportDocumentKey != documentKey)
+                        add(string.Empty, "supportEnds." + end, "Support must be explicitly bound in this document with verified geometry signature, finite non-negative user cover and continuation intent. No support or cover default is supplied.");
+                }
             }
             if (supports.Any(support => support != null && (!Enum.IsDefined(typeof(BeamManualEnd), support.End) || support.End == BeamManualEnd.Unspecified))) add(string.Empty, "supportEnds", "Unknown Beam end.");
         }
 
         private static void ValidateEnvelope(BeamManualBarV1 bar, double diameterMm, BeamManualFrameV1 frame,
-            IList<BeamManualCoverV1> covers, string group, string field, AddIssue add)
+            IList<BeamManualCoverV1> covers, string group, string field, AddIssue add, IList<BeamManualSupportEndV1> supports = null)
         {
-            ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.StartStationMm, XMm = bar.XMm, YMm = bar.YMm }, diameterMm, frame, covers, group, field, add);
+            ValidateEnvelope(new BeamManualPointV1 { StationMm = bar.StartStationMm, XMm = bar.XMm, YMm = bar.YMm }, diameterMm, frame, covers, group, field, add, supports);
         }
 
         private static void ValidateEnvelope(BeamManualPointV1 point, double diameterMm, BeamManualFrameV1 frame,
-            IList<BeamManualCoverV1> covers, string group, string field, AddIssue add)
+            IList<BeamManualCoverV1> covers, string group, string field, AddIssue add, IList<BeamManualSupportEndV1> supports = null)
         {
             if (point == null || frame == null || !IsFinite(diameterMm) || diameterMm <= 0 || covers == null) return;
             double radius = diameterMm / 2.0;
+            if (point.StationMm < 0 || point.StationMm > frame.LengthMm)
+            {
+                if (!BeamManualSupportPolicyV1.PermitsStation(point.StationMm, frame.LengthMm, diameterMm, supports))
+                    add(group, field + ".stationMm", "Outside-Beam path requires explicit verified support; solid/cover containment must be proven before generation.");
+                return; // Outside x/y belong to the selected support frame, not the Beam section.
+            }
             BeamManualCoverV1 left = FindCover(covers, BeamManualCoverFace.Left);
             BeamManualCoverV1 right = FindCover(covers, BeamManualCoverFace.Right);
             BeamManualCoverV1 top = FindCover(covers, BeamManualCoverFace.Top);
@@ -627,7 +643,7 @@ namespace KhimTools.RebarTool.Core
                 add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned top-face clear cover.");
             if (point.YMm - radius < -frame.HeightMm / 2.0 + bottom.ClearCoverMm - GeometryToleranceMm)
                 add(group, field + ".yMm", "Physical bar diameter envelope violates the independently assigned bottom-face clear cover.");
-            if (point.StationMm < radius - GeometryToleranceMm || point.StationMm > frame.LengthMm - radius + GeometryToleranceMm)
+            if (!BeamManualSupportPolicyV1.PermitsStation(point.StationMm, frame.LengthMm, diameterMm, supports))
                 add(group, field + ".stationMm", "Physical centerline point violates the Beam end-face diameter envelope; support extension is not assumed.");
         }
 
@@ -778,7 +794,8 @@ namespace KhimTools.RebarTool.Core
             foreach (BeamManualCoverV1 cover in (plan.Covers ?? new List<BeamManualCoverV1>()).OrderBy(item => item?.Face))
                 values.Add(string.Join("|", cover?.Face.ToString(), cover?.Source.ToString(), Number(cover?.ClearCoverMm), cover?.RevitCoverTypeDocumentKey, cover?.RevitCoverTypeUniqueId));
             foreach (BeamManualSupportEndV1 support in (plan.SupportEnds ?? new List<BeamManualSupportEndV1>()).OrderBy(item => item?.End))
-                values.Add(string.Join("|", support?.End.ToString(), support?.Mode.ToString(), support?.SupportHostUniqueId, support?.IntendedContinuation));
+                values.Add(string.Join("|", support?.End.ToString(), support?.Mode.ToString(), support?.SupportHostUniqueId, support?.IntendedContinuation,
+                    support?.SupportDocumentKey, support?.SupportGeometrySignature, Number(support?.SupportClearCoverMm)));
             foreach (BeamManualBarGroupV1 group in (plan.BarGroups ?? new List<BeamManualBarGroupV1>()).OrderBy(item => item?.GroupId, StringComparer.Ordinal))
             {
                 values.Add(string.Join("|", group?.GroupId, group?.Role.ToString(), group?.Enabled.ToString(), group?.UserLabel,

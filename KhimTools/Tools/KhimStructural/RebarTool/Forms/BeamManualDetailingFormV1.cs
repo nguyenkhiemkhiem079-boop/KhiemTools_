@@ -195,7 +195,7 @@ namespace KhimTools.RebarTool.Forms
             var disclosure = new Label
             {
                 Dock = DockStyle.Fill, AutoSize = false, Height = 38,
-                Text = "Geometry only; support extensions unavailable. / Chỉ kiểm tra hình học; chưa hỗ trợ kéo dài qua gối.",
+                Text = "Geometry only; extensions need explicit verified rectangular support + cover. / Kéo dài cần gối chữ nhật và lớp bảo vệ xác minh.",
                 ForeColor = Color.DarkRed, Padding = new Padding(4, 4, 4, 2)
             };
             root.Controls.Add(disclosure, 0, 4);
@@ -383,6 +383,7 @@ namespace KhimTools.RebarTool.Forms
             combo.DropDownStyle = ComboBoxStyle.DropDownList;
             combo.Items.Add("Select / Chọn điều kiện đầu mút…");
             combo.Items.Add("Free end in Beam / Đầu tự do trong dầm (development not verified / chưa xác nhận neo)");
+            combo.Items.Add("Bind support + cover… / Chọn gối + lớp bảo vệ…");
             combo.SelectedIndex = 0;
             combo.Width = 260;
         }
@@ -401,7 +402,8 @@ namespace KhimTools.RebarTool.Forms
             foreach (BeamManualSupportEndV1 support in saved.SupportEnds)
             {
                 ComboBox combo = support.End == BeamManualEnd.Start ? _supportStart : _supportFinish;
-                combo.SelectedIndex = support.Mode == BeamManualSupportMode.UserDefinedFreeEndWithinHost ? 1 : 0;
+                combo.Tag = support.Mode == BeamManualSupportMode.UserDefinedFreeEndWithinHost ? null : support;
+                combo.SelectedIndex = support.Mode == BeamManualSupportMode.UserDefinedFreeEndWithinHost ? 1 : 2;
             }
             foreach (BeamManualBarGroupV1 group in saved.BarGroups ?? new List<BeamManualBarGroupV1>())
             foreach (BeamManualBarV1 bar in group.Bars ?? new List<BeamManualBarV1>())
@@ -508,6 +510,8 @@ namespace KhimTools.RebarTool.Forms
             foreach (TextBox cover in _covers) cover.TextChanged += (s, e) => InvalidatePreview();
             _supportStart.SelectedIndexChanged += (s, e) => InvalidatePreview();
             _supportFinish.SelectedIndexChanged += (s, e) => InvalidatePreview();
+            _supportStart.SelectionChangeCommitted += (s, e) => BindSupportFromUi(_supportStart, BeamManualEnd.Start);
+            _supportFinish.SelectionChangeCommitted += (s, e) => BindSupportFromUi(_supportFinish, BeamManualEnd.Finish);
             RefreshSketchSnapshot();
         }
 
@@ -546,11 +550,11 @@ namespace KhimTools.RebarTool.Forms
                     StartDetail = startDetail, FinishDetail = finishDetail });
             }
             plan.Covers = ReadCovers();
-            if (_supportStart.SelectedIndex != 1 || _supportFinish.SelectedIndex != 1)
+            if (_supportStart.SelectedIndex < 1 || _supportFinish.SelectedIndex < 1)
                 throw new InvalidOperationException("Choose an explicit supported end condition for both Beam ends.");
             plan.SupportEnds = new List<BeamManualSupportEndV1>
             {
-                FreeEnd(BeamManualEnd.Start), FreeEnd(BeamManualEnd.Finish)
+                ReadSupport(_supportStart, BeamManualEnd.Start), ReadSupport(_supportFinish, BeamManualEnd.Finish)
             };
             plan.StirrupGroups = ReadStirrupsFromUi();
             plan.CodeVerified = false;
@@ -571,6 +575,55 @@ namespace KhimTools.RebarTool.Forms
             Mode = BeamManualSupportMode.UserDefinedFreeEndWithinHost,
             IntendedContinuation = "User explicitly terminates bar at the entered station within Beam host; development length is not verified."
         };
+
+        private static BeamManualSupportEndV1 ReadSupport(ComboBox combo, BeamManualEnd end)
+        {
+            if (combo.SelectedIndex == 1) return FreeEnd(end);
+            var support = combo.Tag as BeamManualSupportEndV1;
+            if (combo.SelectedIndex != 2 || support == null || support.End != end || !BeamManualSupportPolicyV1.IsBound(support))
+                throw new InvalidOperationException("Explicitly bind the " + end + " support/cover before saving or solving.");
+            return support;
+        }
+
+        private sealed class SupportChoice
+        {
+            public FamilyInstance Host { get; }
+            private readonly string _display;
+            public SupportChoice(FamilyInstance host) { Host = host; _display = host.Category.Name + " · " + host.Name + " · " + host.Id.ToLongValue(); }
+            public override string ToString() => _display;
+        }
+
+        private void BindSupportFromUi(ComboBox combo, BeamManualEnd end)
+        {
+            InvalidatePreview();
+            if (combo.SelectedIndex != 2 || _document == null) { combo.Tag = null; return; }
+            try
+            {
+                var choices = new FilteredElementCollector(_document).OfClass(typeof(FamilyInstance)).Cast<FamilyInstance>()
+                    .Where(host => host.Id != _beam.Id && (host.Category.IsCategory(BuiltInCategory.OST_StructuralColumns) ||
+                        host.Category.IsCategory(BuiltInCategory.OST_StructuralFraming)))
+                    .OrderBy(host => host.Id.ToLongValue()).Select(host => new SupportChoice(host)).ToList();
+                using (var dialog = new BeamSupportBindingFormV1(end.ToString()))
+                {
+                    var picker = dialog.SupportPicker; picker.DataSource=choices; picker.SelectedIndex = -1;
+                    var cover = dialog.CoverInput;
+                    var intent = dialog.IntentInput;
+                    var accept = dialog.BindButton;
+                    accept.Click += (s,e) =>
+                    {
+                        try {
+                            var choice = picker.SelectedItem as SupportChoice;
+                            if (choice == null) throw new InvalidOperationException("Choose the exact support; no automatic selection.");
+                            var bound = _generator.BindSupport(_beam, end, choice.Host, ParseMm(cover.Text, "support", "clear cover"), intent.Text);
+                            combo.Tag = bound; dialog.DialogResult = DialogResult.OK;
+                        } catch (Exception ex) { MessageBox.Show(dialog, ex.Message, "Support blocked", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+                    };
+                    if (dialog.ShowDialog(this) != DialogResult.OK) { combo.Tag = null; combo.SelectedIndex = 0; }
+                }
+                UpdateState("Support selection changed / Gối đã đổi — solve again; development and structural compliance not verified.");
+            }
+            catch (Exception ex) { combo.Tag = null; combo.SelectedIndex = 0; UpdateState("Support binding blocked: " + ex.Message); }
+        }
 
         private static BeamManualEndDetailV1 StraightDetail() => new BeamManualEndDetailV1 { Kind = BeamManualEndDetailKind.StraightAtStation };
 

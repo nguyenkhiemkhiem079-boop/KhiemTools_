@@ -1,5 +1,7 @@
 # Rebar QA report — 2026-10-13
 
+Wave1 support implementation supersedes prior unavailable-support boundary: exact bound rectangular Column/Beam support identity, explicit uniform exposed cover/intent, exact transient concrete/cover-shell and Line/Arc envelope gate, support-neighbor stale/interference handling, same solver/Create plan. Golden157 and K-Rebar163 pass; host fixture BR-MANUAL-SUPPORT-ROLLBACK is REGISTERED/COMPILED, NOT_EXECUTED. Undo/kernel/bends/support resource matrix remains host-required. No project engineering values inferred. See Docs/QA/Beam/SUPPORT_EXTENSION_WAVE.md.
+
 Latest continuation evidence: canonical50/50 suites PASS (3005 configured weight); batch11 synthetic assertions additionally check whole rollback on later failure, final host/output recheck, empty/foreign/duplicate assignments and failed group start. These are orchestration tests, not live model fingerprints or geometry proof. Host acceptance remains NOT_EXECUTED. See DEVELOPMENT_CONTINUATION_HANDOFF.md for unimplemented support/Wall work and 2D schematic parity gaps.
 
 PR #3 continuation: independent multi-Beam editing/accepted preview and atomic Create are wired; no plan copy/scale. K-Rebar160, Golden140, full canonical48 suites PASS; live multi-host parity/rollback/Undo pending. Support extensions/Wall remain unsupported. The historical single-host support statements below are superseded only for independently authored batch assignment.

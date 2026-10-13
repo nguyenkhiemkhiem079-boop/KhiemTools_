@@ -54,7 +54,7 @@ foreach ($row in $catalog.deploymentScenarios) {
 
 $allDomains = @($catalog.fixtureScenarios.domain) + @($catalog.manualScenarios.domain) + @($catalog.deploymentScenarios.domain)
 foreach ($domain in $catalog.requiredDomains) { Assert ($allDomains -contains $domain) "Required host domain $domain has scenario coverage" }
-Assert ($catalog.fixtureScenarios.Count -eq 31) 'All 31 registered Revit runtime fixtures have scenario rows'
+Assert ($catalog.fixtureScenarios.Count -eq 32) 'All 32 registered Revit runtime fixtures have scenario rows'
 Assert ($catalog.manualScenarios.id -contains 'COLUMN_CREATE_UNDO' -and $catalog.manualScenarios.id -contains 'COLUMN_GOLDEN_LAYOUT' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_CREATE_UNDO' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_CANCEL' -and $catalog.manualScenarios.id -contains 'CIRCULAR_COLUMN_DUPLICATE' -and $catalog.manualScenarios.id -contains 'BEAM_CANCEL' -and $catalog.manualScenarios.id -contains 'SLAB_GOLDEN_LAYOUT' -and $catalog.manualScenarios.id -contains 'SLAB_DUPLICATE') 'Rectangular/circular column, beam, and slab golden/create/cancel/undo/duplicate scenarios are covered'
 Assert ($catalog.manualScenarios.id -contains 'REBAR_PREVIEW_REFRESH' -and $catalog.manualScenarios.id -contains 'REBAR_MODEL_INTEGRITY') 'Preview refresh and model integrity scenarios are covered'
 Assert ($catalog.manualScenarios.Count -eq 16) 'All sixteen mandatory Rebar manual scenarios are registered'

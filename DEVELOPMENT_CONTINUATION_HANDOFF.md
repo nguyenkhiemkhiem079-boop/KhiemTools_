@@ -1,5 +1,7 @@
 # PR #3 development continuation checkpoint
 
+Superseding Wave1: support extension implementation is now present for exact verified rectangular Column/Beam supports with explicit uniform exposed cover and physical CSG gate. Do not reimplement item1 below; it is historical remaining-work context. Read Docs/QA/Beam/SUPPORT_EXTENSION_WAVE.md and current TEST_RESULTS.md. Next code wave: Wall reinforcement; Column-hosted Wall meaning was queried and must not silently change host identity. Live support kernel/Undo remains NOT_EXECUTED; no release or merge.
+
 Branch `fix/preview-hardening`; resumed `171bdf8f2f31e9de16dcda6772fc01e7fe0ec1f1`. Do not restart recovery or overwrite retained history. This is PARTIAL delivery of the new development mission, not completion of all requested features.
 
 ## Implemented

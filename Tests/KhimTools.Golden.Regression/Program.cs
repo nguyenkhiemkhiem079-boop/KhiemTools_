@@ -40,6 +40,7 @@ static class Program
         RunBeamStirrupLayoutCases();
         RunBeamManualPlanCases();
         RunBeamManualBatchCases();
+        RunBeamSupportCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -51,6 +52,49 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunBeamSupportCases()
+    {
+        // Synthetic values test input permission/fingerprints, NOT Revit CSG or anchorage adequacy.
+        var plan=CreateManualPlan();
+        BeamManualSupportEndV1 Bound(BeamManualEnd end) => new BeamManualSupportEndV1 { End=end,
+            Mode=BeamManualSupportMode.VerifiedColumn, SupportHostUniqueId="QA_SUPPORT_"+end,
+            SupportDocumentKey=plan.DocumentKey, SupportGeometrySignature="QA_SOLID_STATE", SupportClearCoverMm=30,
+            IntendedContinuation="QA_ONLY explicit continuation; no structural verification" };
+        var start=Bound(BeamManualEnd.Start); var finish=Bound(BeamManualEnd.Finish);
+        Check(!BeamManualSupportPolicyV1.PermitsStation(-100,6000,16,plan.SupportEnds),"Free end cannot silently enable negative station");
+        Check(BeamManualSupportPolicyV1.PermitsStation(-100,6000,16,new[]{start}),"Bound start grants input permission; adapter must prove solid containment");
+        Check(!BeamManualSupportPolicyV1.PermitsStation(6100,6000,16,new[]{start}),"Start support cannot authorize finish extension");
+        Check(BeamManualSupportPolicyV1.PermitsStation(6100,6000,16,new[]{finish}),"Bound finish grants input permission only");
+        Check(!BeamManualSupportPolicyV1.PermitsStation(-100,6000,16,new[]{start,start}),"Ambiguous duplicate end bindings are rejected");
+        start.SupportClearCoverMm=null; Check(!BeamManualSupportPolicyV1.IsBound(start),"Missing support cover is not zero");
+        start.SupportClearCoverMm=double.NaN; Check(!BeamManualSupportPolicyV1.IsBound(start),"Nonfinite support cover is rejected");
+        start.SupportClearCoverMm=-1; Check(!BeamManualSupportPolicyV1.IsBound(start),"Negative support cover is rejected");
+        start.SupportClearCoverMm=0; Check(BeamManualSupportPolicyV1.IsBound(start),"Explicit zero is retained, not replaced by a product cover default");
+        start.SupportGeometrySignature=null; Check(!BeamManualSupportPolicyV1.IsBound(start),"Unverified support signature is blocked");
+        start=Bound(BeamManualEnd.Start); plan.SupportEnds[0]=start;
+        plan.BarGroups[0].Bars[0].StartStationMm=-100;
+        Check(BeamManualPlanValidatorV1.Validate(plan,true).IsValid,"Supported extension inputs preserve explicit negative station for adapter preflight");
+        Check(BeamManualLayoutBuilderV1.Build(plan)[0].Centerline[0].StationMm==-100,"Canonical plan does not clamp extension to Beam start");
+        string before=BeamManualLayoutBuilderV1.Fingerprint(plan); start.SupportClearCoverMm+=1;
+        Check(before!=BeamManualLayoutBuilderV1.Fingerprint(plan),"Support cover change invalidates input fingerprint");
+        before=BeamManualLayoutBuilderV1.Fingerprint(plan); start.SupportGeometrySignature="QA_MOVED";
+        Check(before!=BeamManualLayoutBuilderV1.Fingerprint(plan),"Support geometry state invalidates input fingerprint");
+        start.SupportDocumentKey="QA_FOREIGN"; Check(!BeamManualPlanValidatorV1.Validate(plan,true).IsValid,"Foreign support document is rejected");
+        start.SupportDocumentKey=plan.DocumentKey; finish.SupportHostUniqueId=start.SupportHostUniqueId; plan.SupportEnds[1]=finish;
+        Check(!BeamManualPlanValidatorV1.Validate(plan,true).IsValid,"Same support on both ends fails closed");
+        plan.SupportEnds[1]=CreateManualPlan().SupportEnds[1];
+        string directory=System.IO.Path.Combine(System.IO.Path.GetTempPath(),"KTOOL_SUPPORT_QA_"+Guid.NewGuid().ToString("N"));
+        try {
+            var store=new BeamManualDetailingPlanStoreV1(directory,plan.DocumentKey,plan.HostUniqueId);
+            store.Save(plan,0); var loaded=store.Load();
+            Check(loaded.SupportEnds[0].SupportHostUniqueId==start.SupportHostUniqueId &&
+                loaded.SupportEnds[0].SupportGeometrySignature==start.SupportGeometrySignature &&
+                loaded.SupportEnds[0].SupportClearCoverMm==start.SupportClearCoverMm &&
+                loaded.SupportEnds[0].SupportDocumentKey==start.SupportDocumentKey &&
+                loaded.BarGroups[0].Bars[0].StartStationMm==-100,"Production store roundtrip retains exact support/cover/state and negative station");
+        } finally { if(System.IO.Directory.Exists(directory))System.IO.Directory.Delete(directory,true); }
     }
 
     private static void RunBeamManualBatchCases()
