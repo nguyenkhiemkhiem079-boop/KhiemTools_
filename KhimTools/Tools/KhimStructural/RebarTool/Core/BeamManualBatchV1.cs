@@ -43,21 +43,37 @@ namespace KhimTools.RebarTool.Core
             return TransactionBoundary.ExecuteGroup(document, "K-TOOLS — Atomic Manual Beam assignment", () =>
             {
                 var result = new List<Rebar>();
+                var outputByHost = new List<IList<Rebar>>();
                 for (int i = 0; i < batch.Length; i++)
                 {
                     int index = i;
                     // Earlier commits may trigger model changes; check the next host again inside the group.
                     if (!String.Equals(fingerprints[index], generator.Fingerprint(batch[index].Plan, hosts[index]), StringComparison.Ordinal))
                         throw new InvalidOperationException("Manual host changed during batch; whole assignment rolled back.");
-                    result.AddRange(TransactionBoundary.Execute(document, "Create Manual Beam " + (index + 1), () =>
+                    IList<Rebar> output = TransactionBoundary.Execute(document, "Create Manual Beam " + (index + 1), () =>
                     {
                         IList<Rebar> bars = generator.Generate(batch[index].Plan, hosts[index]);
                         document.Regenerate();
                         if (bars == null || bars.Count == 0 || !RebarPreviewService.Matches(batch[index].Preview, fingerprints[index], bars))
                             throw new InvalidOperationException("Manual batch geometry parity failed; whole assignment rolled back.");
                         return bars;
-                    }));
+                    });
+                    outputByHost.Add(output);
+                    result.AddRange(output);
                 }
+                // A later host commit may trigger an updater/join change to an earlier host.
+                // Recheck ALL completed output before assimilation, not only immediately after generation.
+                TransactionBoundary.Execute(document, "Verify complete Manual batch", () =>
+                {
+                    document.Regenerate();
+                    for (int i = 0; i < batch.Length; i++)
+                    {
+                        if (!String.Equals(generator.GetCurrentFrame(hosts[i]).HostGeometrySignature,
+                            batch[i].Plan.Frame.HostGeometrySignature, StringComparison.Ordinal) ||
+                            !RebarPreviewService.Matches(batch[i].Preview, fingerprints[i], outputByHost[i]))
+                            throw new InvalidOperationException("A completed Manual host/output changed during batch; whole assignment rolled back.");
+                    }
+                });
                 return (IList<Rebar>)result;
             });
         }

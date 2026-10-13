@@ -6,7 +6,7 @@
     2. Builds K-TOOLS.MSI using WiX Toolset.
     3. Builds K-TOOLS-Setup.exe (Bootstrapper).
     4. Computes SHA-256 hashes for release distribution.
-    5. Optionally signs artifacts if code signing certificate is available.
+    5. Writes hashes/provenance; signing is a separate explicit release gate.
     6. Updates update_info.json release manifest.
 #>
 

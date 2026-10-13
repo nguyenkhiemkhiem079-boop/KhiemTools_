@@ -9,10 +9,16 @@
 [CmdletBinding()]
 param(
     [switch]$SkipStaticAudit,
-    [switch]$AllowExistingInstallationRemoval
+    [switch]$AllowExistingInstallationRemoval,
+    [string]$ConfirmedDisposableMachineName
 )
 
 $ErrorActionPreference = "Stop"
+if ($SkipStaticAudit) { throw "BLOCKED: mandatory current-source QA cannot be bypassed for installer lifecycle execution." }
+if ([string]::IsNullOrWhiteSpace($ConfirmedDisposableMachineName) -or
+    ![string]::Equals($ConfirmedDisposableMachineName, $env:COMPUTERNAME, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "BLOCKED: explicit confirmation of this disposable VM machine name is required before any installer mutation. Never run on a production workstation."
+}
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Resolve-Path "$scriptDir\.."
 $outputDir = Join-Path $scriptDir "Output"
@@ -45,16 +51,21 @@ Write-Host "=================================================================" -
 # -----------------------------------------------------------------------------
 Write-Host "`n>>> SECTION A: STATIC MSI AUDIT & SPECIFICATION VALIDATION <<<" -ForegroundColor Yellow
 $staticPassed = 0
-$staticTotal = 76
+$staticTotal = 0
 
 if (-not $SkipStaticAudit) {
     $masterTest = Join-Path $projectRoot "Test-All.ps1"
     & powershell -ExecutionPolicy Bypass -File $masterTest
     if ($LASTEXITCODE -eq 0) {
-        $staticPassed = 76
-        Write-Host "`n[STATIC AUDIT SUMMARY] 76 / 76 PASSED (100% GREEN)" -ForegroundColor Green
+        $staticEvidence = Get-Content (Join-Path $projectRoot 'artifacts/full-stack-qa/latest.json') -Raw | ConvertFrom-Json
+        if ($staticEvidence.Status -ne 'PASS' -or $staticEvidence.ExecutedSuites -le 0 -or
+            $staticEvidence.ExecutedSuites -ne $staticEvidence.PassedSuites) { throw 'Canonical per-suite evidence is missing or failed; installer mutation blocked.' }
+        $staticPassed = $staticEvidence.PassedSuites
+        $staticTotal = $staticEvidence.ExecutedSuites
+        Write-Host "`n[STATIC AUDIT SUMMARY] $staticPassed / $staticTotal executed suites PASSED (not live host acceptance)" -ForegroundColor Green
     } else {
         Write-Host "`n[STATIC AUDIT SUMMARY] STATIC AUDIT FAILED (ExitCode $LASTEXITCODE)" -ForegroundColor Red
+        throw "Static QA failed; installer mutation is blocked."
     }
 } else {
     Write-Host "Static audit skipped by parameter." -ForegroundColor Yellow

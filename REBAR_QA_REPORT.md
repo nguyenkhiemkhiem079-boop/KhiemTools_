@@ -1,5 +1,7 @@
 # Rebar QA report — 2026-10-13
 
+Latest continuation evidence: canonical50/50 suites PASS (3005 configured weight); batch11 synthetic assertions additionally check whole rollback on later failure, final host/output recheck, empty/foreign/duplicate assignments and failed group start. These are orchestration tests, not live model fingerprints or geometry proof. Host acceptance remains NOT_EXECUTED. See DEVELOPMENT_CONTINUATION_HANDOFF.md for unimplemented support/Wall work and 2D schematic parity gaps.
+
 PR #3 continuation: independent multi-Beam editing/accepted preview and atomic Create are wired; no plan copy/scale. K-Rebar160, Golden140, full canonical48 suites PASS; live multi-host parity/rollback/Undo pending. Support extensions/Wall remain unsupported. The historical single-host support statements below are superseded only for independently authored batch assignment.
 
 Start: `308bf4146663e00e04f5d7bcb500cbf188af438f`; branch `fix/preview-hardening`.

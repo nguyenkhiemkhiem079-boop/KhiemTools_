@@ -1,5 +1,7 @@
 # Test results — 2026-10-13
 
+Latest continuation batch: Test-All PASS50/50 executable suites, 3005 configured weight, 243.56s. K-Rebar160/160, Golden140, batch orchestration11 (production code linked to synthetic API doubles), installer safety3 (two rejected launches plus gate ordering). All Revit2022–2026 source builds zero errors; payload134 and existing UI/config/module gates pass. New actual scripts: `Tools/Verify-BeamBatchContract.ps1` and `Tools/Verify-InstallerSafety.ps1`, both exit0. Evidence `artifacts/full-stack-20261013/batch2-test-all.log`, `batch2-installer.log` and canonical latest.json. Current source was tested uncommitted atop7366e216 then committed unchanged. Signing readiness returns BLOCKED/exit2, both candidates NotSigned, lifecycle/live Revit NOT_EXECUTED. A Windows PowerShell5.1 expected-stderr handling defect in the new safety probe was fixed and the native5.1 probe/canonical gate passed; no mutation occurred.
+
 Continuation checkpoint (independent multi-Beam Manual assignment): Test-All PASS48/48 suites, 2991 configured weight, 234.62s; K-Rebar160, Golden140; source builds2022–2026 zero errors. Installer rebuilt; complete payload gate PASS. Existing layout/UI/configuration gates pass. Log `artifacts/full-stack-20261013/batch-test-all.log`, build `batch-installer.log`. No host execution; identity goldens are not transaction or geometry acceptance. Prior source report below is preserved.
 
 Final production source checkpoint: `7529d6cce2b359763ecd3c77e43a5213ba781863`.

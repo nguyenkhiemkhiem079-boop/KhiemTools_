@@ -79,6 +79,8 @@ Four confirmed Beam Manual v1 P1 findings are corrected in a coordinated batch: 
 Full-stack API P1 defects corrected: version-specific ElementId access failed 2022/2023/2026 compilation, and Schedule Split directly referenced newer APIs while reporting availability on 2022. Shared ID/category adapters and explicit runtime schedule capability checks now allow all five advertised years to compile. Twenty old/new synthetic contract assertions pass. Live loading on each advertised host remains unexecuted; legacy int-backed storage deliberately rejects overflow and has not been silently migrated.
 ## Full-stack recovery audit — 2026-10-13 release/UI batch
 
+PR #3 continuation: multi-Beam independent assignment implemented; full requested continuation remains incomplete. P1 batch late-change risk resolved with final all-host geometry/output parity recheck and 11 synthetic orchestration cases. P1 real-installer safety gaps resolved with disposable-machine opt-in, mandatory fail-closed static QA and actual suite accounting; no installer mutation. Support extension, Wall, MEP creation and solved 2D completeness remain acceptance work, not closed defects. Host/VM/certificate confirmations requested and pending. See DEVELOPMENT_CONTINUATION_HANDOFF.md.
+
 - P1 UPDATER-TRUTH: offline failures fabricated release metadata; RESOLVED with unavailable UI and six executable discovery checks.
 - P1 PAYLOAD-PROVENANCE: no complete current-source/extracted-byte evidence; RESOLVED with 132-file manifest, source fingerprint and 134-check canonical payload verifier.
 - P1 BUILD-OUTPUT-ISOLATION: compatibility builds could replace packaged shared outputs; RESOLVED with year-specific isolated build paths.

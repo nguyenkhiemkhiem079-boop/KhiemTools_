@@ -8,10 +8,12 @@ PRODUCTION_READY = NO
 
 The source builds against installed Revit 2022–2026 API assemblies. Current-source MSI/bootstrapper candidates build without installation. Complete MSI extraction verifies 132 payload files against captured actual build inputs and the product-source fingerprint. This is package evidence, not live loading or deployment certification.
 
-Rebuilt multi-Beam continuation QA candidate hashes (supersede recovery candidates):
+Rebuilt batch-integrity continuation QA candidate hashes (supersede previous candidates):
 
-- `Installer/Output/K-TOOLS.msi`: `f839458fa1fd8e79ac1e89d84bec909a0edf53775a003d436e328d168c8e136e`
-- `Installer/Output/K-TOOLS-Setup.exe`: `d8e3c3fff26562619be0b6f9e283eaf93d3fe2e179de98154884daf215dc39cd`
+- `Installer/Output/K-TOOLS.msi`: `f7b8d1df495b59bb438e006b7beb07927177572bb3b488df6346b8fae00199b6`
+- `Installer/Output/K-TOOLS-Setup.exe`: `ee254afc93c3ea383928468ef15530d305b699718116cc83ef331f8240fc3aac`
+
+Read-only `Tools/Verify-SigningReadiness.ps1` reports BLOCKED/exit2: current MSI/bootstrapper NotSigned, trusted timestamped signatures absent. Real lifecycle harness now requires exact `-ConfirmedDisposableMachineName`, disallows skipped static QA and stops on failed/missing canonical evidence. Safety probes PASS3 without installing. VM and certificate authorization are requested but not confirmed. Full real lifecycle remains NOT_EXECUTED, not certified by static/source checks.
 
 Candidates are unsigned (Authenticode NotSigned), ignored local build outputs, not published releases. No installer, repair, upgrade, uninstall, updater download/install or user addin deployment was executed. Shared legacy/modern bundle bindings need actual year-specific host loading tests. Revit 2022 Schedule Split is explicitly unavailable; legacy int-backed persistence rejects >Int32 identities rather than truncating them.
 

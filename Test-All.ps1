@@ -253,6 +253,16 @@ $suites = @(
         ExpectedCount = 6
     },
     @{
+        Name = "Beam Manual Batch Orchestration Contract"
+        Script = Join-Path $scriptDir "Tools\Verify-BeamBatchContract.ps1"
+        ExpectedCount = 11
+    },
+    @{
+        Name = "Disposable Installer Lifecycle Safety Guard"
+        Script = Join-Path $scriptDir "Tools\Verify-InstallerSafety.ps1"
+        ExpectedCount = 3
+    },
+    @{
         Name = "CopyLink Cross-Module Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-CopyLinkAcceptance.ps1"
         ExpectedCount = 8

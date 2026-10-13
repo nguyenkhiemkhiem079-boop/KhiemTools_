@@ -1271,6 +1271,7 @@ namespace KhimTools.RebarTool.Forms
                 if (_selectedBeams.Count == 1)
                 {
                     using (var editor = new BeamManualDetailingFormV1(_doc, _selectedBeams[0])) editor.ShowDialog(this);
+                    MarkPreviewStale();
                     return;
                 }
                 try
@@ -1287,6 +1288,7 @@ namespace KhimTools.RebarTool.Forms
                     }
                     if (MessageBox.Show(this, "Create all " + assignments.Count + " independently reviewed Beam plans atomically? No plan is scaled or copied. Geometry only; structural compliance not verified.\nTạo toàn bộ plan đã duyệt?", "Manual v1 batch", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
                     IList<Rebar> bars = BeamManualBatchV1.Create(_doc, assignments);
+                    MarkPreviewStale();
                     KhimDialogHelper.ShowWarning("Manual v1", "Committed " + bars.Count + " Rebar elements across " + assignments.Count + " hosts. Geometry only; host acceptance pending.");
                 }
                 catch (Exception ex) { KhimDialogHelper.ShowWarning("Manual v1 batch blocked / rolled back", ex.Message); }
