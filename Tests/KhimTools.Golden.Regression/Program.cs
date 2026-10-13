@@ -42,6 +42,7 @@ static class Program
         RunBeamManualBatchCases();
         RunBeamSupportCases();
         RunWallManualCases();
+        RunMepCutCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -53,6 +54,25 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunMepCutCases()
+    {
+        var p=KhimTools.MEP.Penetrations.MepOpeningCutPlanV1.Resolve(100,300,400,600,2000,2000,25);
+        Check(p.X0==75&&p.X1==325&&p.Y0==375&&p.Y1==625,"MEP explicit per-side clearance expands actual rectangle");
+        Check(p.ClearanceMm==25,"MEP reviewed clearance preserved");
+        p=KhimTools.MEP.Penetrations.MepOpeningCutPlanV1.Resolve(100,300,400,600,2000,2000,0);
+        Check(p.X0==100&&p.X1==300,"MEP explicit zero clearance is not a default50");
+        bool Reject(double x0,double x1,double y0,double y1,double w,double h,double? c){try{KhimTools.MEP.Penetrations.MepOpeningCutPlanV1.Resolve(x0,x1,y0,y1,w,h,c);return false;}catch(ArgumentException){return true;}}
+        Check(Reject(100,300,400,600,2000,2000,null),"MEP absent clearance rejected");
+        Check(Reject(100,300,400,600,2000,2000,-1),"MEP negative clearance rejected");
+        Check(Reject(100,300,400,600,2000,2000,double.NaN),"MEP nonfinite clearance rejected");
+        Check(Reject(double.PositiveInfinity,300,400,600,2000,2000,0),"MEP nonfinite extent rejected");
+        Check(Reject(300,100,400,600,2000,2000,0),"MEP reversed width rejected, not normalized silently");
+        Check(Reject(100,100,400,600,2000,2000,0),"MEP zero area rejected");
+        Check(Reject(100,300,400,600,0,2000,0),"MEP invalid host extent rejected");
+        Check(Reject(100,300,400,600,2000,2000,100),"MEP host edge contact rejected, no fabricated edge cover");
+        Check(Reject(100,300,400,600,325,2000,25),"MEP right-boundary breach rejected, never clamped");
     }
 
     private static void RunWallManualCases()

@@ -89,7 +89,7 @@ $suites = @(
     @{
         Name = "UI Command Contract Metadata Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
-        ExpectedCount = 220
+        ExpectedCount = 222
     },
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
@@ -99,7 +99,7 @@ $suites = @(
     @{
         Name = "Phase 15 Host Scenario Catalog & Registration"
         Script = Join-Path $scriptDir "Tools\Verify-Phase15ScenarioCatalog.ps1"
-        ExpectedCount = 252
+        ExpectedCount = 257
     },
     @{
         Name = "Phase 16 Reliability & Security Static Audit"
@@ -110,7 +110,7 @@ $suites = @(
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
         # Exact Manual/other golden total is asserted by Verify-Phase17GoldenPerformance.ps1.
-        ExpectedCount = 177
+        ExpectedCount = 189
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
@@ -266,6 +266,11 @@ $suites = @(
         Name = "CopyLink Cross-Module Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-CopyLinkAcceptance.ps1"
         ExpectedCount = 8
+    },
+    @{
+        Name = "Confirmed Native MEP Opening Creation"
+        Script = Join-Path $scriptDir "Tools\Verify-MepOpeningCreation.ps1"
+        ExpectedCount = 13
     }
 )
 

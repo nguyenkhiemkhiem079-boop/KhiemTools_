@@ -641,6 +641,9 @@ namespace KhimTools.Core
                 Image = LoadImage("icon_mep_tags_16.png")
             };
             panel.AddStackedItems(openingData, tagData);
+            panel.AddItem(new PushButtonData("CmdMepOpeningCreateV1","MEP Opening"+Environment.NewLine+"Confirm",assemblyPath,"KhimTools.MEP.Penetrations.CmdMepOpeningCreateV1") {
+                ToolTip="Explicit per-side clearance, reviewed conservative actual-clash rectangle, supported local Wall/Floor only; native cut verified or rolled back. No structural/fire approval or automatic reinforcement changes.",
+                LargeImage=LoadImage("icon_mep_openings_32.png"),Image=LoadImage("icon_mep_openings_16.png") });
         }
 
         private static void BuildQuantitySurveyingPanel(UIControlledApplication application, string assemblyPath)

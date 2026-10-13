@@ -1,5 +1,9 @@
 # Cumulative Phase Defect Register — Slab Reinforcement
 
+## Next implementation Wave3 — MEP opening
+
+Bounded local Wall/Floor native opening implementation: Docs/QA/MEP/CONFIRMED_OPENING_WAVE.md. No P0 confirmed in supported code-side slice. P1 native cut/clash/rollback/Undo/UI and safety matrix remains HOST_REQUIRED, fixture registered NOT_EXECUTED; do not treat code builds as closeout. P2 conservative geometry may enlarge rotated-Wall cuts and system/fabric resources block globally; deliberately disclosed limitations pending reviewed exact profile/system adapter expansion. Beam/link/oblique/advanced hosts not supported; engineering/fire approval not inferred.
+
 ## Next implementation Wave2 — Wall (2026-10-14)
 
 Confirmed ownership: Wall-hosted bars extending into independently selected verified boundary Columns. See Docs/QA/Wall/WALL_MANUAL_WAVE.md. P0: none confirmed in the bounded supported code-side slice. P1 resolved: root layout width overflow; ignored unknown JSON fields; approximated curved-neighbor collision (now explicitly blocked). P2 resolved: blank-render sampling alias with unchanged threshold and bitmap self-tests; quadratic collision diagnostics; misleading Beam design-code tooltip. Host acceptance remains P1 HOST_REQUIRED: native Wall/Column CSG, cover/flip/rotation, stale/duplicates, rollback/unrelated bar integrity and Undo; fixture REGISTERED/COMPILED, NOT_EXECUTED. Advanced non-prismatic/opened/curved/slanted Walls and unsupported detailing remain explicitly unsupported, not complete.

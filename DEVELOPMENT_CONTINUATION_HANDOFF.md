@@ -1,5 +1,7 @@
 # PR #3 development continuation checkpoint
 
+Wave3 continuation: reviewed native MEP Wall/Floor cuts implemented for the explicitly bounded unjoined/perpendicular/local geometry slice; conservative proposals and no silent reinforcement redesign. Docs/QA/MEP/CONFIRMED_OPENING_WAVE.md is current, older MEP-not-implemented notes are historical. Next source wave: solved preview parity; use verified latest feature SHA/PR head, not prior checkpoint. Live host and installer lifecycle/signing remain pending, no merge or release.
+
 ## Current Wave2 handoff — supersedes historical remaining-work statements
 
 User confirmed option1: Wall-owned bars extend into selected verified boundary Columns; Column is never substituted as host. Explicit Wall straight-prism generation, exact type/endpoints/six covers, versioned strict JSON persistence, native concrete/cover envelopes, solver rollback preview, detached elevation/3D, stale/duplicates and parity-protected atomic Create are implemented. See Docs/QA/Wall/WALL_MANUAL_WAVE.md for exact rejected geometry/detail boundaries and host scenario. Native kernel, rollback/Undo and actual covers remain HOST_REQUIRED; fixture registration/compilation is not live acceptance.

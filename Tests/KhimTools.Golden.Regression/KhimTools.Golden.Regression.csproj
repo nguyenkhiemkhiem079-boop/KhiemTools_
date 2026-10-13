@@ -20,6 +20,7 @@
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualBatchIdentityV1.cs" Link="BeamManualBatchIdentityV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualSupportPolicyV1.cs" Link="BeamManualSupportPolicyV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\WallManualPlanV1.cs" Link="WallManualPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimMEP\Penetrations\MepOpeningCutPlanV1.cs" Link="MepOpeningCutPlanV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanStoreV1.cs" Link="BeamManualDetailingPlanStoreV1.cs" />
   </ItemGroup>
 </Project>

@@ -5,6 +5,7 @@
   "targetRevitVersions": ["2024", "2025"],
   "requiredDomains": ["STAGE4", "ARCHITECTURAL", "MEP", "QS", "REBAR", "UI_PREVIEW", "DEPLOYMENT"],
   "fixtureScenarios": [
+    { "id": "MEP-NATIVE-OPENING-ROLLBACK", "domain": "MEP", "scenario": "Actual local Wall/Floor clash, explicit reviewed native cut postconditions and fixture-only post-cut failure with identity/state rollback", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "WALL-MANUAL-OWNERSHIP-ROLLBACK", "domain": "REBAR", "scenario": "Explicit Wall-hosted baseline and verified boundary-Column extension, actual solver/Create parity and state rollback; Column never becomes host", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "BR-MANUAL-SUPPORT-ROLLBACK", "domain": "REBAR", "scenario": "Explicit verified support extension, exact CSG cover/envelope, preview/Create parity and whole-group rollback; QA-only synthetic resources", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "SG", "domain": "UI_PREVIEW", "scenario": "Sheet generation UI and service preview", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },

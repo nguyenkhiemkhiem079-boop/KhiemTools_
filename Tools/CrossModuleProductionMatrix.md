@@ -4,6 +4,8 @@ Source-backed trace of the Architectural, MEP, QS and selected shared-core/struc
 
 ## Active command → backend matrix
 
+Wave3 addition: CmdMepOpeningCreateV1 → exact selected local MEP/Wall or horizontal axis-aligned rectangular Floor → explicit per-side clearance → native actual-solid clash → conservative reviewed full-clash bounding rectangle → explicit user confirmation → caller-owned atomic native opening → actual removed-solid/clash-clearance postconditions. Existing-Rebar conservative envelopes reject; system/fabric reinforcing resources block until supported. Linked/Beam/oblique/curved/opened/non-prismatic hosts rejected. Legacy CmdMepOpenings remains read-only50mm coordination estimates, not creation defaults. Native cut/rollback/Undo HOST_REQUIRED, not live verified.
+
 Wave2 addition: `CmdWallRebar` → WallManualPlanV1/WallRebarGeneratorV1/WallReinforcementForm; exact structural Wall ownership including selected rectangular boundary Column extension, explicit straight endpoints/types/six covers, CSG preflight, rollback production preview, detached solved elevation/3D, stale/duplicates/parity-protected atomic Create. Code-side implementation candidate; HOST_REQUIRED/NOT_EXECUTED, no engineering compliance. Opened/cut/curved/slanted/non-prismatic Wall and hook/tie/design modes unsupported. Existing dated92-command inventory below is superseded by current verifier output.
 
 | Module / ribbon surface | Command → request | Backend / ownership | Result / diagnostics | QA evidence | Status |
