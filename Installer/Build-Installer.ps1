@@ -132,6 +132,19 @@ $netfxExtension = Join-Path $wixExtensionRoot "WixToolset.Netfx.wixext\$wixExten
 $balExtension = Join-Path $wixExtensionRoot "WixToolset.Bal.wixext\$wixExtensionVersion\wixext4\WixToolset.Bal.wixext.dll"
 
 # 4. Build K-TOOLS.msi and (unless skipped) the bootstrapper.
+. (Join-Path $projectRoot 'Tools/ProductSourceFingerprint.ps1')
+$productSourceFingerprint = Get-KToolProductSourceFingerprint $projectRoot
+$payloadInputs = @()
+foreach ($componentFile in (Get-ChildItem (Join-Path $msiProjDir 'Components') -Filter '*.wxs' -File)) {
+    [xml]$componentXml = Get-Content -LiteralPath $componentFile.FullName -Raw
+    foreach ($payloadFile in $componentXml.SelectNodes('//*[local-name()="File"]')) {
+        $payloadInput = [IO.Path]::GetFullPath((Join-Path $msiProjDir ([string]$payloadFile.Source)))
+        if (!(Test-Path -LiteralPath $payloadInput -PathType Leaf)) { throw "MSI payload input is missing: $($payloadFile.Id)" }
+        $payloadRoot = [IO.Path]::GetFullPath([string]$projectRoot).TrimEnd('\','/') + [IO.Path]::DirectorySeparatorChar
+        if (!$payloadInput.StartsWith($payloadRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Payload source is outside the repository: $($payloadFile.Id)" }
+        $payloadInputs += [pscustomobject]@{ Id = [string]$payloadFile.Id; Source = $payloadInput.Substring($payloadRoot.Length).Replace('\','/'); SHA256 = (Get-FileHash -LiteralPath $payloadInput -Algorithm SHA256).Hash.ToLowerInvariant() }
+    }
+}
 Write-Host "`n[Step 4/5] Building K-TOOLS.msi..." -ForegroundColor Cyan
 $targetMsi = Join-Path $outputDir "K-TOOLS.msi"
 $targetBootstrapper = Join-Path $outputDir "K-TOOLS-Setup.exe"
@@ -180,6 +193,13 @@ $checksumLines = foreach ($artifact in ($builtArtifacts | Sort-Object)) {
     Write-Host "  $([System.IO.Path]::GetFileName($artifact)) SHA-256: $hash" -ForegroundColor Green
 }
 [System.IO.File]::WriteAllLines($checksumPath, [string[]]$checksumLines, [System.Text.Encoding]::ASCII)
+[pscustomobject]@{
+    SourceCommit = (& git -C $projectRoot rev-parse HEAD)
+    SourceHasUncommittedChanges = [bool](& git -C $projectRoot status --porcelain)
+    ProductSourceFingerprint = $productSourceFingerprint
+    MsiSHA256 = (Get-FileHash -LiteralPath $targetMsi -Algorithm SHA256).Hash.ToLowerInvariant()
+    Files = $payloadInputs
+} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $outputDir 'PAYLOAD_SHA256.json') -Encoding UTF8
 
 # 5. Manifest Update (if requested)
 $manifestPath = Join-Path $projectRoot "update_info.json"

@@ -27,14 +27,18 @@ internal static class Program
         var schedule = new ViewSchedule();
 #if NEW_API
         Check(new ElementId(1L << 40).ToLongValue() == 1L << 40, "64-bit IDs are preserved");
-        Check(Throws<OverflowException>(() => new ElementId(1L << 40).ToCheckedIntValue()), "Legacy integer storage rejects overflow instead of truncation");
+        Check(Throws<OverflowException>(() => new ElementId(1L << 40).ToCheckedIntValue()) &&
+              Throws<OverflowException>(() => new Category { Id = new ElementId(1L << 40) }.GetBuiltInCategoryCompat()),
+              "Legacy integer storage and category identity reject overflow instead of truncation");
         Check(ScheduleSplitApiAdapter.IsAvailable && ScheduleSplitApiAdapter.CanSplit(schedule, out _), "New schedule capability available");
         ScheduleSplitApiAdapter.Split(schedule, new[] { 20d, 30d });
         Check(ScheduleSplitApiAdapter.GetSegmentCount(schedule) == 2, "Split calls actual discovered method");
         Check(ScheduleSplitApiAdapter.GetSegmentHeights(schedule).SequenceEqual(new[] { 20d, 30d }), "Exact segment heights through adapter");
         Check(ScheduleSplitApiAdapter.GetTotalHeight(schedule) == 10, "Height API returned data is consumed");
         var instance = ScheduleSplitApiAdapter.CreateSegmentInstance(new Document(), new ElementId(1), new ElementId(2), new XYZ(), 2);
-        Check(ScheduleSplitApiAdapter.GetSegmentIndex(instance) == 2, "Exact five-argument placement overload");
+        int originalIndex = ScheduleSplitApiAdapter.GetSegmentIndex(instance);
+        ScheduleSplitApiAdapter.SetSegmentIndex(instance, 1);
+        Check(originalIndex == 2 && ScheduleSplitApiAdapter.GetSegmentIndex(instance) == 1, "Exact placement overload and segment reassignment adapter");
         schedule.ThrowOnSet = true;
         Check(Throws<InvalidOperationException>(() => ScheduleSplitApiAdapter.SetSegmentHeight(schedule, 0, 10)), "Original API failure propagates without reflection wrapping");
 #else

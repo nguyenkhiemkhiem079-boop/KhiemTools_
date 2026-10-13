@@ -13,46 +13,45 @@ namespace KhimTools.Tools.Updater.Services
     {
         private const string UpdateCheckUrl = "https://raw.githubusercontent.com/nguyenkhiemkhiem079-boop/KhiemTools_/master/update_info.json";
         private static readonly HttpClient UpdateHttpClient = new HttpClient();
+        private readonly HttpClient _httpClient;
+
+        public UpdateService(HttpClient httpClient = null) { _httpClient = httpClient ?? UpdateHttpClient; }
 
         public static string GetCurrentVersion()
         {
             Version ver = Assembly.GetExecutingAssembly().GetName().Version;
-            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "v2.0.0";
+            return ver != null ? $"v{ver.Major}.{ver.Minor}.{ver.Build}" : "Unknown";
         }
 
         public async Task<UpdateInfo> CheckForUpdatesAsync()
         {
             string currentVer = GetCurrentVersion();
+            string discoveryError = "Release metadata is unavailable.";
 
             try
             {
-                string json = await UpdateHttpClient.GetStringAsync(new Uri(UpdateCheckUrl));
+                string json = await _httpClient.GetStringAsync(new Uri(UpdateCheckUrl)).ConfigureAwait(false);
                 var updateInfo = JsonConvert.DeserializeObject<UpdateInfo>(json);
-                if (updateInfo != null)
+                if (updateInfo != null && !string.IsNullOrWhiteSpace(updateInfo.LatestVersion) &&
+                    Version.TryParse(updateInfo.LatestVersion.TrimStart('v', 'V').Split('-')[0], out _))
                 {
                     updateInfo.CurrentVersion = currentVer;
+                    updateInfo.DiscoverySucceeded = true;
                     return updateInfo;
                 }
+                discoveryError = "Release metadata has no valid latest_version.";
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[KhimTools.UpdateService] Error fetching update from '{UpdateCheckUrl}': {ex.Message}");
-                // Fallback nếu không có internet hoặc API chưa host
+                discoveryError = "Release metadata could not be verified: " + ex.Message;
             }
 
             return new UpdateInfo
             {
                 CurrentVersion = currentVer,
-                LatestVersion = "v2.7.1",
-                ReleaseDate = DateTime.Now.ToString("yyyy-MM-dd"),
-                DownloadUrl = "https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/latest",
-                Changelog = new List<string>
-                {
-                    "Slab Step Generator - Tự động tạo và đặt Family giật cấp sàn theo ranh giới chọn lọc.",
-                    "Layout Pulldown - Gom nhóm các công cụ SheetGen, ViewportAlign, DetailNumberUpdater và TextAligns.",
-                    "Graphic Overdrive, Auto Grid & Plans, Copy Link Elements.",
-                    "Hỗ trợ bộ cài đặt Bundle tự động đa phiên bản Revit (2020-2028+)."
-                }
+                DiscoverySucceeded = false,
+                DiscoveryError = discoveryError
             };
         }
 

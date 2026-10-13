@@ -87,6 +87,17 @@ foreach ($name in $Forms) {
                     "1920x1080" { $form.Size = [Drawing.Size]::new(1920,1080); break }
                     default { throw "Unsupported UI QA window profile '$sizeMode'." }
                 }
+                $requestedSize = switch ($sizeMode) {
+                    '1366x768' { [Drawing.Size]::new(1366,768) }
+                    '1920x1080' { [Drawing.Size]::new(1920,1080) }
+                    'wide' { [Drawing.Size]::new(1440,900) }
+                }
+                if ($requestedSize) {
+                    $checks++
+                    if ($form.Width -gt $requestedSize.Width -or $form.Height -gt $requestedSize.Height) {
+                        $issues.Add("$name $sizeMode | Requested window profile was enlarged by MinimumSize: actual $($form.Size), requested $requestedSize")
+                    }
+                }
                 $null = $form.Handle
                 $assembly.GetType("KhimTools.Core.KhimUiStyle").GetMethod("StyleControlTree").Invoke($null, @($form)) | Out-Null
                 [Windows.Forms.Form].GetMethod("OnShown", $flags).Invoke($form, @([EventArgs]::Empty)) | Out-Null

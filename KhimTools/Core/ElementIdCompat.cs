@@ -45,7 +45,7 @@ namespace KhimTools.Core
         public static BuiltInCategory GetBuiltInCategoryCompat(this Category category)
         {
             if (category == null) throw new ArgumentNullException(nameof(category));
-            return (BuiltInCategory)category.Id.ToLongValue();
+            return (BuiltInCategory)checked((int)category.Id.ToLongValue());
         }
 
         /// <summary>

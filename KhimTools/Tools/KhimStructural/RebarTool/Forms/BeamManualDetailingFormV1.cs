@@ -121,7 +121,9 @@ namespace KhimTools.RebarTool.Forms
             Text = "Beam Manual Detailing v1 / Bố trí thép dầm thủ công v1 — geometry only / chỉ kiểm tra hình học";
             Width = 1180;
             Height = 760;
-            MinimumSize = new Size(1080, 800);
+            MinimumSize = new Size(1080, 720);
+            Rectangle workingArea = Screen.FromControl(this).WorkingArea;
+            Height = Math.Max(MinimumSize.Height, Math.Min(Height, workingArea.Height));
             StartPosition = FormStartPosition.CenterParent;
             BackColor = Color.White;
             AutoScaleMode = AutoScaleMode.Dpi;
@@ -255,7 +257,7 @@ namespace KhimTools.RebarTool.Forms
             _bars.AllowUserToAddRows = true;
             _bars.AllowUserToDeleteRows = true;
             _bars.AutoGenerateColumns = false;
-            _bars.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _bars.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _bars.RowHeadersVisible = false;
             _bars.EditMode = DataGridViewEditMode.EditOnEnter;
             _bars.Columns.Add(new DataGridViewTextBoxColumn { Name = "GroupId", HeaderText = "Stable group ID", FillWeight = 135 });
@@ -271,6 +273,7 @@ namespace KhimTools.RebarTool.Forms
             AddHookDetailColumns("Start");
             AddEndDetailColumn("Finish detail", "Finish end detail");
             AddHookDetailColumns("Finish");
+            ConfigureReadableColumns(_bars);
             _bars.DataError += (s, e) => { e.ThrowException = false; };
         }
 
@@ -312,7 +315,7 @@ namespace KhimTools.RebarTool.Forms
             _stirrups.AllowUserToAddRows = true;
             _stirrups.AllowUserToDeleteRows = true;
             _stirrups.AutoGenerateColumns = false;
-            _stirrups.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            _stirrups.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             _stirrups.RowHeadersVisible = false;
             _stirrups.EditMode = DataGridViewEditMode.EditOnEnter;
             _stirrups.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stirrup group ID", HeaderText = "Stable group ID", FillWeight = 125 });
@@ -353,7 +356,21 @@ namespace KhimTools.RebarTool.Forms
                 DataSource = new[] { "REJECT_DUPLICATE_STATIONS" }, FillWeight = 105,
                 ToolTipText = "Same-role coincident stations are rejected; no required bars are silently deduplicated."
             });
+            ConfigureReadableColumns(_stirrups);
             _stirrups.DataError += (s, e) => { e.ThrowException = false; };
+        }
+
+        private static void ConfigureReadableColumns(DataGridView grid)
+        {
+            grid.ScrollBars = ScrollBars.Both;
+            foreach (DataGridViewColumn column in grid.Columns)
+            {
+                column.MinimumWidth = column is DataGridViewCheckBoxColumn ? 65 : 100;
+                column.Width = column is DataGridViewCheckBoxColumn ? 65 :
+                    column.Name.IndexOf("return", StringComparison.OrdinalIgnoreCase) >= 0 || column.Name == "Stirrup contour" ? 240 :
+                    column.Name.IndexOf("type", StringComparison.OrdinalIgnoreCase) >= 0 || column.Name == "Stirrup shape" ? 180 :
+                    column.Name == "GroupId" || column.Name == "Stirrup group ID" || column.Name == "Stirrup stations" || column.Name == "Coincident policy" ? 180 : 130;
+            }
         }
 
         private static void ConfigureSupportCombo(ComboBox combo)

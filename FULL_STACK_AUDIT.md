@@ -34,6 +34,31 @@ Schedule Split previously claimed capability unconditionally and directly refere
 
 New canonical gate `Tools/Verify-RevitCompatibility.ps1`: 20 executable synthetic old/new API assertions plus five actual source builds. Revit 2022/2023/2024/2025/2026 all compile with zero errors after correction. Warnings in the captured full builds: 0/0/10/8/144. Those results verify source API compatibility, not live runtime loading or model behavior. Focused K-Rebar 159, Schedule Split 49, Parameter Manager 174, Viewport Align 67, Architectural 39, MEP 31, QS 49 and runtime-harness static 50 gates pass. Legacy int-backed workflows still reject IDs above Int32 range rather than silently changing persisted contracts; full 64-bit storage migration is a documented remaining boundary.
 
+## Wave 3 — release truth, payload integrity and Manual UI
+
+Removed fabricated offline updater version/date/changelog. Discovery now fails closed with a visible unavailable state; six production-linked fake-HTTP contract checks cover success, offline/malformed/missing metadata and official URL routing. This is not a live update/installation test.
+
+The installer captures all 132 actual build-input hashes, a normalized product-source fingerprint and MSI hash. A canonical verifier extracts the MSI and checks every identity and byte hash. Compatibility builds use isolated output/intermediate directories so they cannot overwrite packaged inputs. Package build/inspection never installs the product. Category conversion additionally rejects overflow explicitly.
+
+Manual editor minimum height 800 previously enlarged the requested 1366x768 test window; the harness did not detect that discrepancy. Corrected minimum height to 720, retained scrolling, and gave detailed grids readable horizontally scrollable columns. The harness now rejects enlarged requested window profiles. Focused minimum/1366x768/1920x1080 at 100/125/150% simulated scaling passes 734 checks and 18 renders; real Windows DPI/Revit UI remains unexecuted.
+
+Canonical reporting now records actual suite execution separately from configured audit weights. It fails when any executable suite fails; counts alone are not implementation or runtime evidence.
+
+## Cross-module audit
+
+| Area | Current verified implementation / boundary |
+|---|---|
+| Rebar | Existing Beam, Column, Slab and bounded Foundation plans/generators/previews retained. Manual geometry defects corrected in Wave 1. Wall reinforcement remains unsupported, not an invented feature. All model behavior needs host acceptance. |
+| Beam contract | Explicit Manual slice exists; full approved contract is PARTIAL because verified support extension and multi-Beam Manual assignment are unavailable. No project engineering values/code compliance claimed. |
+| Architectural | QuickArchi, room finish/holes, transformed Room3D, lintel and door workflows inspected; checked mutation/postconditions and current static/domain gates. Real-host acceptance pending. |
+| MEP | Read-only solid clash analysis and checked elevation-note workflows exist. Actual clash-opening creation is NOT_IMPLEMENTED. |
+| QS | Collector native volume/material and explicitly derived steel-density quantities, units, grouping and atomic export inspected. Project quantities/compliance not certified. |
+| Sheets/docs | Existing Stage 3/Wave 1 and schedule/viewport gates retained; unavailable 2022 split API blocks safely. No live sheet mutations tested. |
+| Ribbon/settings | Command metadata, UI contracts, configuration/domain and offline layout gates execute. Reflection registration is not live command execution. |
+| Deployment | Current-source candidate build and complete payload inspection; unsigned and no install/repair/uninstall or real multi-year load acceptance. |
+
+No P0 confirmed in this code-side audit. Confirmed P1 defects were corrected with regression evidence. Host-required risks remain open, not downgraded to PASS. Legacy int-backed workflows deliberately reject >Int32 identities; complete 64-bit persistence migration remains a future boundary.
+
 ## Delivery state
 
 Recovery inventory is complete. Module audit, coordinated corrections, fresh full regression/build/package evidence and PR review remain in progress. This report does not certify production readiness.

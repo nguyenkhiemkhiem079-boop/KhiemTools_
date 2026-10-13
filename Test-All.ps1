@@ -39,6 +39,11 @@ $suites = @(
         ExpectedCount = 14
     },
     @{
+        Name = "Current-source MSI Payload Integrity"
+        Script = Join-Path $scriptDir "Tools\Verify-InstallerPayload.ps1"
+        ExpectedCount = 134
+    },
+    @{
         Name = "Revit Runtime QA & Manifest Verification Suite (Phase 9)"
         Script = Join-Path $scriptDir "Installer\Verify-RevitRuntimeQA.ps1"
         ExpectedCount = 9
@@ -243,6 +248,11 @@ $suites = @(
         ExpectedCount = 25
     },
     @{
+        Name = "Updater Release Discovery Contract"
+        Script = Join-Path $scriptDir "Tools\Verify-UpdaterDiscovery.ps1"
+        ExpectedCount = 6
+    },
+    @{
         Name = "CopyLink Cross-Module Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-CopyLinkAcceptance.ps1"
         ExpectedCount = 8
@@ -252,10 +262,12 @@ $suites = @(
 $allPassed = $true
 $totalPassed = 0
 $totalTests = 0
+$suiteResults = [System.Collections.Generic.List[object]]::new()
 
 foreach ($suite in $suites) {
     Write-Host ">> Executing: $($suite.Name)" -ForegroundColor Yellow
     $startTime = [System.Diagnostics.Stopwatch]::StartNew()
+    $suiteResult = [pscustomobject]@{ Name = $suite.Name; Script = $suite.Script; Status = 'FAIL'; ExitCode = $null; ElapsedMilliseconds = 0; ConfiguredWeight = $suite.ExpectedCount }
     
     try {
         if ($suite.Sta) {
@@ -264,9 +276,11 @@ foreach ($suite in $suites) {
             & powershell -ExecutionPolicy Bypass -File $suite.Script
         }
         $exitCode = $LASTEXITCODE
+        $suiteResult.ExitCode = $exitCode
         $startTime.Stop()
         
         if ($exitCode -eq 0) {
+            $suiteResult.Status = 'PASS'
             Write-Host "   [SUCCESS] $($suite.Name) Passed in $($startTime.ElapsedMilliseconds)ms`n" -ForegroundColor Green
             $totalPassed += $suite.ExpectedCount
             $totalTests += $suite.ExpectedCount
@@ -276,19 +290,37 @@ foreach ($suite in $suites) {
             $totalTests += $suite.ExpectedCount
         }
     } catch {
+        $suiteResult.ExitCode = -1
         Write-Host "   [ERROR] $($suite.Name) encountered exception: $($_.Exception.Message)`n" -ForegroundColor Red
         $allPassed = $false
         $totalTests += $suite.ExpectedCount
     }
+    $startTime.Stop()
+    $suiteResult.ElapsedMilliseconds = $startTime.ElapsedMilliseconds
+    $suiteResults.Add($suiteResult)
 }
 
 $sw.Stop()
+$passedSuites = @($suiteResults | Where-Object Status -eq 'PASS').Count
+$reportDirectory = Join-Path $scriptDir 'artifacts/full-stack-qa'
+New-Item -ItemType Directory -Path $reportDirectory -Force | Out-Null
+[pscustomobject]@{
+    Status = $(if ($allPassed) { 'PASS' } else { 'FAIL' })
+    SourceCommit = (& git -C $scriptDir rev-parse HEAD)
+    SourceHasUncommittedChanges = [bool](& git -C $scriptDir status --porcelain)
+    ExecutedSuites = $suiteResults.Count
+    PassedSuites = $passedSuites
+    ConfiguredPassedWeight = $totalPassed
+    ConfiguredTotalWeight = $totalTests
+    HostRuntime = 'NOT_EXECUTED'
+    Suites = $suiteResults
+} | ConvertTo-Json -Depth 5 | Set-Content (Join-Path $reportDirectory 'latest.json') -Encoding UTF8
 
 Write-Host "=================================================================" -ForegroundColor Cyan
 if ($allPassed) {
-    Write-Host " MASTER QA RESULT: 100% GREEN ($totalPassed / $totalTests AUDITS PASSED)" -ForegroundColor Green
+    Write-Host " MASTER QA RESULT: 100% GREEN ($passedSuites / $($suiteResults.Count) SUITES; $totalPassed / $totalTests CONFIGURED AUDIT WEIGHT)" -ForegroundColor Green
 } else {
-    Write-Host " MASTER QA RESULT: FAILED ($totalPassed / $totalTests AUDITS PASSED)" -ForegroundColor Red
+    Write-Host " MASTER QA RESULT: FAILED ($passedSuites / $($suiteResults.Count) SUITES; $totalPassed / $totalTests CONFIGURED AUDIT WEIGHT)" -ForegroundColor Red
 }
 Write-Host " Total Execution Time: $($sw.Elapsed.TotalSeconds.ToString('F2')) seconds" -ForegroundColor Cyan
 Write-Host "=================================================================`n" -ForegroundColor Cyan

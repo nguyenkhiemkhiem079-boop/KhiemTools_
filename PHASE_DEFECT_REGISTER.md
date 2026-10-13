@@ -77,3 +77,12 @@ This is the latest Beam disposition; earlier Phase 04C checkpoint text in this c
 Four confirmed Beam Manual v1 P1 findings are corrected in a coordinated batch: reject non-coplanar return/core paths, derive the actual curve-plane normal (including horizontal returns), enforce actual bar radius at raw stirrup and solved-path end faces, and safely diagnose malformed persisted path points. No engineering detailing values were invented. Ten new numerical/validation goldens pass (134 total); two new source-integration guards pass (159 K-Rebar total); Revit 2024/2025 builds have zero errors. See `REBAR_QA_REPORT.md` for reproduction and precise scope. All live Revit acceptance remains pending. Full-stack release findings and fresh canonical/package results are recorded in `FULL_STACK_AUDIT.md` and `RELEASE_READINESS.md` when complete.
 
 Full-stack API P1 defects corrected: version-specific ElementId access failed 2022/2023/2026 compilation, and Schedule Split directly referenced newer APIs while reporting availability on 2022. Shared ID/category adapters and explicit runtime schedule capability checks now allow all five advertised years to compile. Twenty old/new synthetic contract assertions pass. Live loading on each advertised host remains unexecuted; legacy int-backed storage deliberately rejects overflow and has not been silently migrated.
+## Full-stack recovery audit — 2026-10-13 release/UI batch
+
+- P1 UPDATER-TRUTH: offline failures fabricated release metadata; RESOLVED with unavailable UI and six executable discovery checks.
+- P1 PAYLOAD-PROVENANCE: no complete current-source/extracted-byte evidence; RESOLVED with 132-file manifest, source fingerprint and 134-check canonical payload verifier.
+- P1 BUILD-OUTPUT-ISOLATION: compatibility builds could replace packaged shared outputs; RESOLVED with year-specific isolated build paths.
+- P1 MANUAL-WINDOW-CLAMP: 800px minimum invalidated requested 1366x768 QA; RESOLVED with 720px minimum and explicit harness assertion.
+- P2 MANUAL-GRID-READABILITY: compressed detailing headers; RESOLVED using readable widths and horizontal scroll, without hiding inputs.
+- P2 QA-ACCOUNTING: configured weights previously presented as actual audits; RESOLVED with per-suite result manifest and separately labeled aggregate weight.
+- OPEN HOST_REQUIRED: disposable Revit generation/parity/rollback/undo and installer lifecycle/signing. No live PASS claimed.
