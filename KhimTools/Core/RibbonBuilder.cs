@@ -427,9 +427,8 @@ namespace KhimTools.Core
                 assemblyPath,
                 "KhimTools.RebarTool.Commands.CmdBeamRebar")
             {
-                ToolTip = "Bố trí thép dầm (Beam Rebar v2.0) chuẩn kết cấu TCVN & Eurocode.",
-                LongDescription = "Hỗ trợ thép chủ chạy suốt (top/bottom), thép gia cường gối L/3, " +
-                    "thép gia cường bụng L/6, thép sườn (skin bars), đai phân vùng A1/A2/A1 và đai treo dầm phụ.",
+                ToolTip = "Beam reinforcement: Legacy Supported or explicit Manual v1; geometry only, structural design/code compliance not verified.",
+                LongDescription = "Manual v1 requires explicit types, positions, stations, face covers and detailing. Support extensions require selected verified supports. No inferred design quantities or cut-off fractions.",
                 LargeImage = LoadImage("rebar_beam_32.png"),
                 Image = LoadImage("rebar_beam_16.png")
             };
@@ -460,6 +459,10 @@ namespace KhimTools.Core
                 Image = LoadImage("rebar_fdn_16.png")
             };
             panel.AddStackedItems(beamData, slabData, fdnData);
+            panel.AddItem(new PushButtonData("CmdWallRebar", "Wall Manual" + Environment.NewLine + "Rebar", assemblyPath,
+                "KhimTools.RebarTool.Commands.CmdWallRebar") {
+                ToolTip = "Explicit Wall-hosted straight bars, exact types/endpoints/covers; optional verified boundary Columns. Geometry only, no structural design approval.",
+                LargeImage=LoadImage("rebar_slab_32.png"), Image=LoadImage("rebar_slab_16.png") });
 
             // 5. Section Cut
             var sectionData = new PushButtonData(

@@ -1,5 +1,7 @@
 # Release readiness — 2026-10-13
 
+Latest Wall candidate (2026-10-14): MSI SHA256 74a1e4c5ecd0d4fc108bac79d25d01cf364d6d188638e265b477e2eef419b65e; bootstrapper013d2f2896430ee240d9db2d8824ab61bc2005a51f3edc2391f48fa32119543f. Current-source build/payload134, canonical50/50 suites/3064 configured weight, all five API builds PASS. Wall straight-prism code slice implemented with Wall ownership; advanced Wall/detail features explicitly unsupported. MEP creation/consolidated preview work remains pending. HOST_ACCEPTANCE=NOT_EXECUTED; PRODUCTION_READY=NO. Package candidate is not a signed or lifecycle-certified release; nothing installed/published. Older candidate hashes/Wall-unimplemented statements below are historical.
+
 Superseding Wave1 candidate: MSI SHA256 `54ac3fdd4d6ebb668ecbe4df849e4b3b25ba54c01d1063c84b8c4a4af94aca4e`; bootstrapper `b76680fbb40d09853aa198e8382abddfa2220c80d2fda5477db9f632ed5750de`. Complete payload134 and canonical50 suites/3030 weight PASS, five API builds zero errors. Bound rectangular support extension implemented, real support CSG/Undo NOT_EXECUTED. Older hashes/unsupported-support notes below are historical. Signing/lifecycle remain pending; no install or release publication.
 
 SOURCE_DELIVERY = feature branch checkpoints; reviewed integration PR required

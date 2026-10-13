@@ -1,5 +1,9 @@
 # Cumulative Phase Defect Register — Slab Reinforcement
 
+## Next implementation Wave2 — Wall (2026-10-14)
+
+Confirmed ownership: Wall-hosted bars extending into independently selected verified boundary Columns. See Docs/QA/Wall/WALL_MANUAL_WAVE.md. P0: none confirmed in the bounded supported code-side slice. P1 resolved: root layout width overflow; ignored unknown JSON fields; approximated curved-neighbor collision (now explicitly blocked). P2 resolved: blank-render sampling alias with unchanged threshold and bitmap self-tests; quadratic collision diagnostics; misleading Beam design-code tooltip. Host acceptance remains P1 HOST_REQUIRED: native Wall/Column CSG, cover/flip/rotation, stale/duplicates, rollback/unrelated bar integrity and Undo; fixture REGISTERED/COMPILED, NOT_EXECUTED. Advanced non-prismatic/opened/curved/slanted Walls and unsupported detailing remain explicitly unsupported, not complete.
+
 Scope: Slab completion work through Micro-Wave 03D.2B and 03E. The handoff baseline was `662f776ddbb71aaa25dc6e2964f91b22c3e9b827` on `fix/preview-hardening`. Findings below are based on the consolidated source, regression, layout, and build audit for this task.
 
 ## P0 — Critical

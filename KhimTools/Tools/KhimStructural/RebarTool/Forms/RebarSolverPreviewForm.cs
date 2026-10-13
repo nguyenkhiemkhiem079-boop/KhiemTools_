@@ -199,6 +199,9 @@ namespace KhimTools.RebarTool.Forms
         {
             switch (role)
             {
+                case "VERTICAL": return "Wall vertical / Thép đứng";
+                case "HORIZONTAL": return "Wall horizontal / Thép ngang";
+                case "USER_DIRECTED": return "Wall explicit direction / Hướng nhập rõ";
                 case "longitudinal": return "Longitudinal / Thép dọc";
                 case "outer-tie": return "Outer tie / Đai ngoài";
                 case "inner-tie-left": return "Inner tie left / Đai trong trái";
@@ -233,6 +236,9 @@ namespace KhimTools.RebarTool.Forms
         {
             switch (role)
             {
+                case "VERTICAL": return Color.DarkGreen;
+                case "HORIZONTAL": return Color.DarkBlue;
+                case "USER_DIRECTED": return Color.Purple;
                 case "longitudinal":
                 case "top-continuous":
                 case "bottom-continuous":

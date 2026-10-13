@@ -1,5 +1,9 @@
 # Phase 8 Rebar preview host scenarios
 
+## Wall continuation — host ownership confirmed
+
+`WALL-MANUAL-OWNERSHIP-ROLLBACK`: REGISTERED/COMPILED, NOT_EXECUTED. Every bar retains Wall host even when extended into verified selected boundary Columns. Missing resources BLOCKED. Detailed supported geometry and positive/negative stale, duplicate, six-cover, flip/rotation, cancel/rollback/Undo plan: Docs/QA/Wall/WALL_MANUAL_WAVE.md. Run only on a confirmed detached disposable model; offline PASS is not host acceptance.
+
 These are Autodesk Revit host checks. Registration is not evidence of execution; all scenarios below remain `REGISTERED_NOT_EXECUTED` until run in Revit and recorded by a host operator.
 
 | Scenario | Class | Required host action and expected result | Status |

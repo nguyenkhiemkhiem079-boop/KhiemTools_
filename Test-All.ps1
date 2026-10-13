@@ -61,7 +61,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 163
+        ExpectedCount = 170
     },
     @{
         Name = "Rebar Configuration Persistence & Recovery"
@@ -89,7 +89,7 @@ $suites = @(
     @{
         Name = "UI Command Contract Metadata Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-UiContracts.ps1"
-        ExpectedCount = 218
+        ExpectedCount = 220
     },
     @{
         Name = "Stage 2 Runtime QA Harness Structural Audit"
@@ -99,7 +99,7 @@ $suites = @(
     @{
         Name = "Phase 15 Host Scenario Catalog & Registration"
         Script = Join-Path $scriptDir "Tools\Verify-Phase15ScenarioCatalog.ps1"
-        ExpectedCount = 247
+        ExpectedCount = 252
     },
     @{
         Name = "Phase 16 Reliability & Security Static Audit"
@@ -110,7 +110,7 @@ $suites = @(
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
         # Exact Manual/other golden total is asserted by Verify-Phase17GoldenPerformance.ps1.
-        ExpectedCount = 157
+        ExpectedCount = 177
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"

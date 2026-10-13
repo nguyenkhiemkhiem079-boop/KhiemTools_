@@ -4,6 +4,8 @@ Source-backed trace of the Architectural, MEP, QS and selected shared-core/struc
 
 ## Active command → backend matrix
 
+Wave2 addition: `CmdWallRebar` → WallManualPlanV1/WallRebarGeneratorV1/WallReinforcementForm; exact structural Wall ownership including selected rectangular boundary Column extension, explicit straight endpoints/types/six covers, CSG preflight, rollback production preview, detached solved elevation/3D, stale/duplicates/parity-protected atomic Create. Code-side implementation candidate; HOST_REQUIRED/NOT_EXECUTED, no engineering compliance. Opened/cut/curved/slanted/non-prismatic Wall and hook/tie/design modes unsupported. Existing dated92-command inventory below is superseded by current verifier output.
+
 | Module / ribbon surface | Command → request | Backend / ownership | Result / diagnostics | QA evidence | Status |
 |---|---|---|---|---|---|
 | Architectural — QuickArchi | `CmdQuickArchi` → `QuickArchiSettings` from the WPF window | `QuickArchiService`; service owns wall/room transactions and per-item rollback | Counts, structured diagnostics, idempotence/postcondition checks | `Verify-KArchitecturalAcceptance.ps1` (39); domain QA (14) | PRODUCTION (host deferred) |

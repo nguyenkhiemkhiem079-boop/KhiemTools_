@@ -16,6 +16,10 @@ $required = @(
     'Core\CircularColumnRebarGenerator.cs',
     'Core\SlabRebarGenerator.cs',
     'Core\FoundationRebarGenerator.cs',
+    'Core\WallManualPlanV1.cs',
+    'Core\WallRebarGeneratorV1.cs',
+    'Forms\WallReinforcementForm.cs',
+    'Commands\CmdWallRebar.cs',
     'Core\RebarGenerationReport.cs',
     'Core\RebarGenerationFailurePreprocessor.cs',
     'Core\RebarShapeCreationHelper.cs',
@@ -255,7 +259,14 @@ Add-Check 'foundation-nonrectangular-hosts-fail-closed' ($foundationGeometry.Con
 
 $wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Filter '*Wall*Rebar*.cs'
 $wallGenerator = Get-ChildItem -LiteralPath (Join-Path $base 'Core') -File -Filter '*Wall*Rebar*.cs'
-Add-Check 'wall-rebar-explicitly-unsupported' ($wallCommand.Count -eq 0 -and $wallGenerator.Count -eq 0) 'No wall command/generator; documentation must retain this boundary.'
+$wallGen = Get-Content -Raw (Join-Path $base 'Core/WallRebarGeneratorV1.cs')
+$wallUi = Get-Content -Raw (Join-Path $base 'Forms/WallReinforcementForm.cs')
+$wallPlan = Get-Content -Raw (Join-Path $base 'Core/WallManualPlanV1.cs')
+Add-Check 'wall-rebar-supported-slice-is-real' ($wallCommand.Count -eq 1 -and $wallGenerator.Count -eq 1 -and $wallGen.Contains('class WallRebarGeneratorV1') -and $wallUi.Contains('RebarPreviewService.Capture') -and $wallUi.Contains('_generator.Generate(_wall,plan') -and $wallUi.Contains('RebarPreviewService.Matches(preview')) 'Exact Wall generation/rollback preview/parity Create are wired; no unsupported engineering/detail mode is silently enabled.'
+Add-Check 'wall-ownership-and-column-extension' ($wallGen.Contains('bar.GetHostId()!=wall.Id') -and $wallGen.Contains('Column-only bars are not a Wall extension') -and $wallGen.Contains('GetRectangularProfile(column)') -and $wallGen.Contains('envelope.ValidateCurves')) 'Boundary Columns are geometry/cover supports only; every generated bar retains the Wall host and physically intersects Wall concrete.'
+Add-Check 'wall-explicit-input-and-spacing' ($wallPlan.Contains('null is not zero') -and $wallPlan.Contains('SquaredDistance') -and $wallUi.Contains('SelectedIndex=-1') -and $wallUi.Contains('TypeNameHandling.None') -and $wallUi.Contains('File.Replace')) 'Types, endpoints, covers, directions and persistence are explicit; numeric spacing checks do not infer code minimums or counts.'
+$wallPaint = [regex]::Match($wallUi,'(?s)private void PaintSolved\(.*').Value
+Add-Check 'wall-solved-elevation-is-detached-not-fake-section' ($wallPaint.Contains('_paths') -and $wallPaint -notmatch '_doc|_wall|UnitUtils|GetElement|Transaction|WallNativeFrame' -and $wallUi.Contains('NOT a section') -and $registryText.Contains('new WallRebarRuntimeFixtureV1()')) '2D uses detached actual solved elevation with layer-projection disclosure; 3D uses solver snapshot. Host fixture registration does not imply execution.'
 
 $columnDrawingPath = Join-Path $base 'Commands\CmdColumnDrawing.cs'
 $columnDrawing = Get-Content -Raw $columnDrawingPath

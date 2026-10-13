@@ -41,6 +41,7 @@ static class Program
         RunBeamManualPlanCases();
         RunBeamManualBatchCases();
         RunBeamSupportCases();
+        RunWallManualCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -52,6 +53,37 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunWallManualCases()
+    {
+        // Synthetic inputs only: live Wall/Column concrete CSG remains host-required.
+        WallManualPlanV1 Plan()=>new WallManualPlanV1 { DocumentKey="QA_DOC",HostUniqueId="QA_WALL",FrameSignature="QA_FRAME",
+            Covers=new WallManualCoversV1{ExteriorMm=30,InteriorMm=35,LeftMm=40,RightMm=45,BottomMm=50,TopMm=55},
+            Bars=new List<WallManualBarV1>{new WallManualBarV1{GroupId="QA_A",Role="VERTICAL",BarType=new BeamManualElementReferenceV1{DocumentKey="QA_DOC",UniqueId="QA_TYPE",Name="QA_ONLY",DiameterMm=16,State=BeamManualReferenceState.Resolved},
+                Start=new WallManualPointV1{XMm=100,YMm=100,DepthMm=50},Finish=new WallManualPointV1{XMm=100,YMm=2000,DepthMm=50}}} };
+        bool Valid(WallManualPlanV1 p)=>WallManualPlanValidatorV1.Validate(p).Count==0;
+        var p=Plan();Check(Valid(p),"Explicit synthetic Wall vertical line/face covers are valid input");
+        p.Covers.ExteriorMm=null;Check(!Valid(p),"Missing exterior cover is not zero");
+        p=Plan();p.Covers.InteriorMm=-1;Check(!Valid(p),"Negative Wall cover rejected");
+        p=Plan();p.Bars[0].Start.XMm=null;Check(!Valid(p),"Missing Wall coordinate is not implicit zero");
+        p=Plan();p.Bars[0].Finish.YMm=double.NaN;Check(!Valid(p),"Nonfinite Wall coordinate rejected");
+        p=Plan();p.Bars[0].Finish.YMm=100;Check(!Valid(p),"Zero Wall path rejected");
+        p=Plan();p.Bars[0].Finish.XMm=200;Check(!Valid(p),"Vertical role cannot silently become diagonal");
+        p=Plan();p.Bars[0].Role="HORIZONTAL";Check(!Valid(p),"Horizontal role requires constant explicit height/depth");
+        p.Bars[0].Role="USER_DIRECTED";Check(Valid(p),"Explicit user-directed finite path supported without inferred layout");
+        p=Plan();p.Bars[0].BarType.DocumentKey="FOREIGN";Check(!Valid(p),"Foreign bar type cannot bind silently");
+        p=Plan();p.Bars[0].BarType.State=BeamManualReferenceState.Unresolved;Check(!Valid(p),"Unresolved Wall type cannot solve");
+        p=Plan();p.CodeVerified=true;Check(!Valid(p),"Wall plan cannot claim structural code approval");
+        p=Plan();p.Bars.Add(p.Bars[0]);Check(!Valid(p),"Duplicate stable bar ID rejected");
+        p=Plan();var other=Plan().Bars[0];other.GroupId="QA_B";other.Start.XMm=110;other.Finish.XMm=110;p.Bars.Add(other);Check(!Valid(p),"Physical diameter spacing collision rejected numerically");
+        other.Start.XMm=116;other.Finish.XMm=116;Check(Valid(p),"Explicit diameter boundary spacing accepted, no code minimum invented");
+        p=Plan();p.LeftColumn=new WallBoundaryColumnV1{UniqueId="QA_COL",DocumentKey="QA_DOC",GeometrySignature="QA_COLUMN",ExposedClearCoverMm=30,Intent="QA_ONLY continuation"};Check(Valid(p)&&p.HostUniqueId=="QA_WALL","Boundary Column never changes Wall host identity");
+        p.LeftColumn.ExposedClearCoverMm=null;Check(!Valid(p),"Column cover must be explicit");
+        p.LeftColumn.ExposedClearCoverMm=30;p.LeftColumn.DocumentKey="FOREIGN";Check(!Valid(p),"Foreign Column binding rejected");
+        p.LeftColumn.DocumentKey="QA_DOC";p.RightColumn=p.LeftColumn;Check(!Valid(p),"Same Column cannot masquerade as two boundaries");
+        p=Plan();var copy=Newtonsoft.Json.JsonConvert.DeserializeObject<WallManualPlanV1>(Newtonsoft.Json.JsonConvert.SerializeObject(p));
+        Check(Valid(copy)&&copy.Covers.InteriorMm==35&&copy.Bars[0].Finish.YMm==2000&&copy.HostUniqueId=="QA_WALL","Wall JSON roundtrip preserves explicit values and ownership");
     }
 
     private static void RunBeamSupportCases()

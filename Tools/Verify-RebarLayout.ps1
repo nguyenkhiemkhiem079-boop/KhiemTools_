@@ -2,7 +2,7 @@ param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
     [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024"),
     [double[]]$Scales = @(1, 1.5, 2),
-    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "BeamManualDetailing", "BeamSupportBinding", "ProjectCoverSetup", "SlabEdgePicker"),
+    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "BeamManualDetailing", "BeamSupportBinding", "Wall", "ProjectCoverSetup", "SlabEdgePicker"),
     [string[]]$WindowProfiles = @("minimum", "wide")
 )
 $ErrorActionPreference = "Stop"
@@ -16,6 +16,28 @@ $output = [IO.Directory]::CreateDirectory((Join-Path $PSScriptRoot "../artifacts
 $issues = [Collections.Generic.List[string]]::new()
 $checks = 0
 $renders = 0
+function Test-NonblankRender($bitmap) {
+    $colors = [Collections.Generic.HashSet[int]]::new()
+    for ($x=0; $x -lt $bitmap.Width; $x+=23) {
+        for ($y=0; $y -lt $bitmap.Height; $y+=23) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
+    }
+    # Sparse controls-only forms can alias with the coarse grid. Inspect actual
+    # pixels until the SAME ten-color assertion is proved; never invent content.
+    if ($colors.Count -lt 10) {
+        for ($x=0; $x -lt $bitmap.Width -and $colors.Count -lt 10; $x++) {
+            for ($y=0; $y -lt $bitmap.Height -and $colors.Count -lt 10; $y++) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
+        }
+    }
+    return ($colors.Count -ge 10)
+}
+$renderProbe = [Drawing.Bitmap]::new(16,16)
+try {
+    $probeGraphics=[Drawing.Graphics]::FromImage($renderProbe)
+    try { $probeGraphics.Clear([Drawing.Color]::White) } finally { $probeGraphics.Dispose() }
+    if (Test-NonblankRender $renderProbe) { throw 'Render detection falsely accepts a blank bitmap.' }; $checks++
+    for ($i=1;$i -le 12;$i++) { $renderProbe.SetPixel($i,1,[Drawing.Color]::FromArgb($i*10,$i*7,$i*3)) }
+    if (!(Test-NonblankRender $renderProbe)) { throw 'Dense render detection misses real sparse pixels.' }; $checks++
+} finally { $renderProbe.Dispose() }
 $languageType = $assembly.GetType("KhimTools.Core.LanguageManager")
 $languageFlags = [Reflection.BindingFlags]"NonPublic,Static"
 # Keep the fixture's language changes in memory; never write the user's config.
@@ -181,11 +203,7 @@ foreach ($name in $Forms) {
                     $bitmap = [Drawing.Bitmap]::new($root.Width,$root.Height)
                     try {
                         $root.DrawToBitmap($bitmap, [Drawing.Rectangle]::new(0,0,$root.Width,$root.Height))
-                        $colors = [Collections.Generic.HashSet[int]]::new()
-                        for ($x=0; $x -lt $bitmap.Width; $x+=23) {
-                            for ($y=0; $y -lt $bitmap.Height; $y+=23) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
-                        }
-                        if ($colors.Count -lt 10) { $issues.Add("$context | Blank render") }
+                        if (!(Test-NonblankRender $bitmap)) { $issues.Add("$context | Blank render") }
                         $bitmap.Save((Join-Path $output "$context.png"), [Drawing.Imaging.ImageFormat]::Png)
                         $renders++
                     } finally { $bitmap.Dispose() }

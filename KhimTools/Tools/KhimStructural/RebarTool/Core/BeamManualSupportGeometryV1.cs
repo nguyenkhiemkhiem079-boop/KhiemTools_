@@ -19,6 +19,14 @@ namespace KhimTools.RebarTool.Core
         public IReadOnlyList<FamilyInstance> Supports { get; }
         public string StateFingerprint { get; }
 
+        // Shared exact envelope engine; caller must independently verify its host geometry.
+        internal BeamManualSupportGeometryV1(Solid concrete, IEnumerable<Solid> coverShells)
+        {
+            _concrete=concrete ?? throw new ArgumentNullException(nameof(concrete));
+            _coverShells.AddRange(coverShells.Where(HasVolume));
+            Supports=Array.Empty<FamilyInstance>(); StateFingerprint=string.Empty;
+        }
+
         public static BeamManualSupportEndV1 Bind(Document document, FamilyInstance beam, BeamManualEnd end,
             FamilyInstance support, double coverMm, string intent, string documentKey)
         {
@@ -146,14 +154,14 @@ namespace KhimTools.RebarTool.Core
             loop.Append(Line.CreateBound(center-XYZ.BasisZ*radius,center+XYZ.BasisZ*radius));
             return GeometryCreationUtilities.CreateRevolvedGeometry(new Frame(center,XYZ.BasisX,XYZ.BasisY,XYZ.BasisZ),new List<CurveLoop>{loop},0,2*Math.PI);
         }
-        private static Solid Box(XYZ origin,XYZ x,XYZ y,XYZ z,double x0,double x1,double y0,double y1,double z0,double z1)
+        internal static Solid Box(XYZ origin,XYZ x,XYZ y,XYZ z,double x0,double x1,double y0,double y1,double z0,double z1)
         {
             if (!(x1>x0 && y1>y0 && z1>z0)) throw new InvalidOperationException("Explicit cover consumes the entire verified support/Beam prism.");
             var p=new[]{origin+x*x0+y*y0+z*z0,origin+x*x1+y*y0+z*z0,origin+x*x1+y*y1+z*z0,origin+x*x0+y*y1+z*z0};
             var loop=new CurveLoop(); for(int i=0;i<4;i++) loop.Append(Line.CreateBound(p[i],p[(i+1)%4]));
             return GeometryCreationUtilities.CreateExtrusionGeometry(new List<CurveLoop>{loop},z,z1-z0);
         }
-        private static Solid ReadSingleSolid(Element element)
+        internal static Solid ReadSingleSolid(Element element)
         {
             var result=new List<Solid>();
             void Read(GeometryElement geometry) { if(geometry==null)return; foreach(GeometryObject item in geometry) {
@@ -163,7 +171,7 @@ namespace KhimTools.RebarTool.Core
             if(result.Count!=1)throw new InvalidOperationException("Support geometry must contain one verified concrete solid.");
             return result[0];
         }
-        private static Solid Boolean(Solid a,Solid b,BooleanOperationsType operation)
+        internal static Solid Boolean(Solid a,Solid b,BooleanOperationsType operation)
         {
             try { return BooleanOperationsUtils.ExecuteBooleanOperation(a,b,operation) ?? throw new InvalidOperationException("Solid operation returned no result."); }
             catch(Exception ex) { throw new InvalidOperationException("Cannot prove support physical envelope/cover ("+operation+"); generation is blocked.",ex); }
