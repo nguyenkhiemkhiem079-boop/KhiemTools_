@@ -22,6 +22,10 @@ The authoritative approved software input/geometry contract is mirrored verbatim
 
 ## Final disposition
 
+### Superseding recovery verification — 2026-10-13
+
+Historical counts below are retained as dated context, not current proof. Current code checkpoint `7529d6cce2b359763ecd3c77e43a5213ba781863`: K-Rebar159, Golden134, config37, canonical48/48 suites (2984 configured weight), full offline layout17987/360, focused Manual734/18. Revit2022–2026 source builds zero errors; 2024/2025 warnings10/8. The previous 720-check Manual result did not detect minimum-height clamping at 1366x768; corrected minimum size and explicit requested-profile assertions supersede it. Four Manual geometry findings were corrected; see root REBAR_QA_REPORT.md. Full contract PARTIAL, supported slice code complete, HOST_ACCEPTANCE NOT_EXECUTED and PRODUCTION_READY NO.
+
 - Code-side supported Manual v1 scope is explicit geometry for one supported rectangular Structural Framing Beam at a time: all bar-role/layer stations, exact bar/hook/shape identities, explicit hook/return choices, explicit stirrup/hanger geometry, independent covers, save/load, rollback preview and parity-guarded atomic Create.
 - No quantity, cover, station, layer, anchorage or design value is inferred from role names or legacy settings.
 - Verified support extension, applying plans to multiple Beams, unsupported host geometry and structural-code checks are unavailable and fail closed. This is a narrowed software scope, not structural adequacy.

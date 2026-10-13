@@ -1,5 +1,7 @@
 # Slab Phase End-to-End Handoff — 03D.2B + 03E
 
+> Superseding full-stack recovery handoff, 2026-10-13: source checkpoint `7529d6cce2b359763ecd3c77e43a5213ba781863` on `fix/preview-hardening` is pushed and remote verified. Final documentation tip is the final delivery SHA/PR #3 head. Read FULL_STACK_AUDIT.md, TEST_RESULTS.md, COMMIT_PUSH_LOG.md and RELEASE_READINESS.md for current results and exact restart instructions. All 48 code-side suites and Revit2022–2026 source builds pass; live host/installer acceptance remains unexecuted. Historical Slab handoff below is preserved, not current runtime evidence.
+
 Branch: `fix/preview-hardening`
 
 Required start SHA: `662f776ddbb71aaa25dc6e2964f91b22c3e9b827`.
