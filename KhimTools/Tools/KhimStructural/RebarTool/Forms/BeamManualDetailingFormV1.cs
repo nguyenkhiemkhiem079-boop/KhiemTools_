@@ -74,9 +74,13 @@ namespace KhimTools.RebarTool.Forms
         private Tuple<BeamManualBarRole, double, double, double, double>[] _sketchBars = Array.Empty<Tuple<BeamManualBarRole, double, double, double, double>>();
         private Tuple<BeamManualStirrupRole, double[][], double[]>[] _sketchStirrupPaths = Array.Empty<Tuple<BeamManualStirrupRole, double[][], double[]>>();
         private string _planLoadWarning;
+        private readonly bool _assignmentOnly;
+        internal BeamManualDetailingPlanV1 AssignedPlan { get; private set; }
+        internal RebarPreviewSnapshot AssignedPreview { get; private set; }
 
-        public BeamManualDetailingFormV1(Document document, FamilyInstance beam)
+        public BeamManualDetailingFormV1(Document document, FamilyInstance beam, bool assignmentOnly = false)
         {
+            _assignmentOnly = assignmentOnly;
             _document = document ?? throw new ArgumentNullException(nameof(document));
             _beam = beam ?? throw new ArgumentNullException(nameof(beam));
             _generator = new BeamManualRebarGeneratorV1(document);
@@ -92,6 +96,7 @@ namespace KhimTools.RebarTool.Forms
             _store = BeamManualDetailingPlanStoreV1.ForCurrentUser(_plan.DocumentKey, beam.UniqueId);
             ConfigureWindow();
             BuildUi();
+            if (_assignmentOnly) _create.Text = "Accept host plan / Nhận plan";
             try { LoadSavedPlan(); }
             catch (Exception ex) { _planLoadWarning = "Saved Manual v1 plan is blocked and was not overwritten: " + ex.Message; }
             WireInvalidation();
@@ -749,6 +754,15 @@ namespace KhimTools.RebarTool.Forms
                     throw new InvalidOperationException("Manual input, host, or loaded type changed after preview. Solve again.");
                 if (RebarPreviewService.HasExistingDuplicateBar(_document, _beam, accepted, fingerprint))
                     throw new InvalidOperationException("The complete planned bar set already exists on this Beam; duplicate creation is blocked.");
+
+                if (_assignmentOnly)
+                {
+                    AssignedPlan = candidate;
+                    AssignedPreview = accepted;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                    return;
+                }
 
                 TransactionBoundary.ExecuteGroup(_document, "K-TOOLS — Create Beam Manual v1", () =>
                 {

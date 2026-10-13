@@ -17,6 +17,7 @@
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamStirrupLayout.cs" Link="BeamStirrupLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamLongitudinalLayout.cs" Link="BeamLongitudinalLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanV1.cs" Link="BeamManualDetailingPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualBatchIdentityV1.cs" Link="BeamManualBatchIdentityV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanStoreV1.cs" Link="BeamManualDetailingPlanStoreV1.cs" />
   </ItemGroup>
 </Project>

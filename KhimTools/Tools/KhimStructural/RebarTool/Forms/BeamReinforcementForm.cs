@@ -1263,12 +1263,33 @@ namespace KhimTools.RebarTool.Forms
             KhimUiStyle.ApplySecondaryButton(_btnManualV1);
             _btnManualV1.Click += (s, e) =>
             {
-                if (_selectedBeams == null || _selectedBeams.Count != 1)
+                if (_selectedBeams == null || _selectedBeams.Count == 0)
                 {
-                    KhimDialogHelper.ShowWarning("Manual v1", "Select exactly one Beam. Manual plans are host-bound; assigning the same coordinates to multiple Beams is not supported.");
+                    KhimDialogHelper.ShowWarning("Manual v1", "Select at least one Beam / Chọn ít nhất một dầm. Each host requires its own explicitly reviewed plan; no automatic scaling or copy.");
                     return;
                 }
-                using (var editor = new BeamManualDetailingFormV1(_doc, _selectedBeams[0])) editor.ShowDialog(this);
+                if (_selectedBeams.Count == 1)
+                {
+                    using (var editor = new BeamManualDetailingFormV1(_doc, _selectedBeams[0])) editor.ShowDialog(this);
+                    return;
+                }
+                try
+                {
+                    var assignments = new List<BeamManualBatchAssignmentV1>();
+                    foreach (FamilyInstance host in _selectedBeams)
+                    {
+                        using (var editor = new BeamManualDetailingFormV1(_doc, host, assignmentOnly: true))
+                        {
+                            editor.Text += " — host " + host.Id.ToLongValue();
+                            if (editor.ShowDialog(this) != DialogResult.OK) return; // Cancel never creates any host.
+                            assignments.Add(new BeamManualBatchAssignmentV1(editor.AssignedPlan, editor.AssignedPreview));
+                        }
+                    }
+                    if (MessageBox.Show(this, "Create all " + assignments.Count + " independently reviewed Beam plans atomically? No plan is scaled or copied. Geometry only; structural compliance not verified.\nTạo toàn bộ plan đã duyệt?", "Manual v1 batch", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+                    IList<Rebar> bars = BeamManualBatchV1.Create(_doc, assignments);
+                    KhimDialogHelper.ShowWarning("Manual v1", "Committed " + bars.Count + " Rebar elements across " + assignments.Count + " hosts. Geometry only; host acceptance pending.");
+                }
+                catch (Exception ex) { KhimDialogHelper.ShowWarning("Manual v1 batch blocked / rolled back", ex.Message); }
             };
 
             _btnClose = new Button { Text = "Đóng", Left = 1020, Top = 11, Width = 88, Height = 38 };

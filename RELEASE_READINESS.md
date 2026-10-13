@@ -8,10 +8,10 @@ PRODUCTION_READY = NO
 
 The source builds against installed Revit 2022–2026 API assemblies. Current-source MSI/bootstrapper candidates build without installation. Complete MSI extraction verifies 132 payload files against captured actual build inputs and the product-source fingerprint. This is package evidence, not live loading or deployment certification.
 
-Local QA candidate hashes:
+Rebuilt multi-Beam continuation QA candidate hashes (supersede recovery candidates):
 
-- `Installer/Output/K-TOOLS.msi`: `ee4b2a3373d9364df33886e7a7f4dc454204068b0dc24ade6eaa8f8530cee42b`
-- `Installer/Output/K-TOOLS-Setup.exe`: `b33ee785675721cdccfec7c6e1cc49abc7b830c2fd08e6626f8d7b0a412c5007`
+- `Installer/Output/K-TOOLS.msi`: `f839458fa1fd8e79ac1e89d84bec909a0edf53775a003d436e328d168c8e136e`
+- `Installer/Output/K-TOOLS-Setup.exe`: `d8e3c3fff26562619be0b6f9e283eaf93d3fe2e179de98154884daf215dc39cd`
 
 Candidates are unsigned (Authenticode NotSigned), ignored local build outputs, not published releases. No installer, repair, upgrade, uninstall, updater download/install or user addin deployment was executed. Shared legacy/modern bundle bindings need actual year-specific host loading tests. Revit 2022 Schedule Split is explicitly unavailable; legacy int-backed persistence rejects >Int32 identities rather than truncating them.
 

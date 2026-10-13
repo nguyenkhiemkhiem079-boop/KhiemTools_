@@ -39,6 +39,7 @@ static class Program
         RunSlabSectionGeometryCases();
         RunBeamStirrupLayoutCases();
         RunBeamManualPlanCases();
+        RunBeamManualBatchCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -50,6 +51,24 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunBeamManualBatchCases()
+    {
+        // Synthetic identities only: this does not exercise a Revit transaction.
+        var a = new BeamManualDetailingPlanV1 { DocumentKey = "QA_ONLY", HostUniqueId = "A" };
+        var b = new BeamManualDetailingPlanV1 { DocumentKey = "QA_ONLY", HostUniqueId = "B" };
+        bool Rejected(IEnumerable<BeamManualDetailingPlanV1> plans)
+        {
+            try { BeamManualBatchIdentityV1.Validate(plans); return false; }
+            catch (InvalidOperationException) { return true; }
+        }
+        Check(!Rejected(new[] { a, b }), "Distinct same-document Beam plans are valid batch assignments");
+        Check(Rejected(new[] { a, a }), "Duplicate host assignment is rejected before mutation");
+        Check(Rejected(Array.Empty<BeamManualDetailingPlanV1>()), "Empty assignment cannot report success");
+        Check(Rejected(new[] { a, null }), "Incomplete host assignment is rejected");
+        Check(Rejected(new[] { a, new BeamManualDetailingPlanV1 { DocumentKey = "OTHER_QA", HostUniqueId = "B" } }), "Foreign document batch is rejected");
+        Check(Rejected(new[] { new BeamManualDetailingPlanV1 { DocumentKey = "QA_ONLY" } }), "Missing host identity is rejected");
     }
 
     private static void RunRebarPreviewDuplicateCases()

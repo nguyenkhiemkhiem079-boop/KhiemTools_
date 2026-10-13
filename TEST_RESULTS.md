@@ -1,5 +1,7 @@
 # Test results — 2026-10-13
 
+Continuation checkpoint (independent multi-Beam Manual assignment): Test-All PASS48/48 suites, 2991 configured weight, 234.62s; K-Rebar160, Golden140; source builds2022–2026 zero errors. Installer rebuilt; complete payload gate PASS. Existing layout/UI/configuration gates pass. Log `artifacts/full-stack-20261013/batch-test-all.log`, build `batch-installer.log`. No host execution; identity goldens are not transaction or geometry acceptance. Prior source report below is preserved.
+
 Final production source checkpoint: `7529d6cce2b359763ecd3c77e43a5213ba781863`.
 The final run tested its uncommitted source tree atop `93d86e343763186a1f4026204a95df490e270cd1`; that exact source was then committed unchanged. Subsequent handoff changes are documentation only. Generated evidence stays under ignored local artifacts, not in the product payload.
 

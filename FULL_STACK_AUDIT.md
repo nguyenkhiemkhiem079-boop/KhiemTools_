@@ -61,6 +61,10 @@ No P0 confirmed in this code-side audit. Confirmed P1 defects were corrected wit
 
 ## Delivery state
 
+### PR #3 development continuation
+
+No recovery restart. Starting tip `171bdf8f2f31e9de16dcda6772fc01e7fe0ec1f1`. Added independent Manual multi-Beam assignment: per-host editing/solved acceptance, no copying/scaling, all-host stale/duplicate preflight and parity-protected transaction group. Cancel before final confirmation creates nothing. Six identity-policy goldens execute; actual transaction rollback is not certified by them. Host2025/2026 processes exist but no model is confirmed disposable; user confirmation requested, no mutation performed. Disposable host/installer acceptance plan is in Docs/QA/DISPOSABLE_HOST_ACCEPTANCE_PLAN.md. Support extension, Wall and MEP creation remain subsequent incomplete waves.
+
 Recovery inventory, cross-module code audit, coordinated corrections and code-side validation are complete. Final Test-All executes 48/48 passing suites (2984 configured weight), Golden134, K-Rebar159, UI contracts218, full offline Rebar17987 checks/360 renders and five zero-error API builds. Current-source installer build/extracted payload verification passes. See TEST_RESULTS.md for all executed scripts and evidence boundaries. Draft PR #3 is open/unmerged; required-check/review acceptance is pending and no server check results were returned. This is audited supported-scope delivery, not full feature/host/production readiness.
 
 External preservation additionally retains the 16 loose sibling C# fragments (two identical, fourteen historical variants) in place and in `../recovery/workspace-fragments-20261013.zip`, SHA256 `16d302e96752df294343b75111641ea7f042fd36583a17b9167140f35c5166a1`; all have corresponding evolved production files. The complete object archive `../recovery/git-objects-20261013.zip`, SHA256 `0ecf6240d0048e4b287c8aa5258625d283daee86ee3d4a9ca4ad668913b8b637`, also preserves unreachable blobs/trees. Divergent old remote dev/ribbon/updater/UI and gh-pages histories were retained, not blindly merged over evolved source. No preservation archive is a product deliverable.

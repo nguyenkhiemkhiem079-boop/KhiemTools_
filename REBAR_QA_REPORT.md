@@ -1,5 +1,7 @@
 # Rebar QA report — 2026-10-13
 
+PR #3 continuation: independent multi-Beam editing/accepted preview and atomic Create are wired; no plan copy/scale. K-Rebar160, Golden140, full canonical48 suites PASS; live multi-host parity/rollback/Undo pending. Support extensions/Wall remain unsupported. The historical single-host support statements below are superseded only for independently authored batch assignment.
+
 Start: `308bf4146663e00e04f5d7bcb500cbf188af438f`; branch `fix/preview-hardening`.
 
 ## Confirmed findings and coordinated fix
