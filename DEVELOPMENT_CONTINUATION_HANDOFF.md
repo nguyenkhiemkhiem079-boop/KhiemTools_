@@ -1,5 +1,7 @@
 # PR #3 development continuation checkpoint
 
+Verified Wave1 source SHA: `0ba927f03876cfad3d74c1d9c224b94895aa55f1` (pushed, fetched, local/remote equal). Canonical50/50/3030, K-Rebar163, Golden157, builds2022–2026 zero errors; all source/QA changes committed. Final ledger-only documentation commit follows this source checkpoint. Next production work is Wave2, but user must clarify whether Column-hosted Wall means Wall bars extended into boundary columns or literal Column-hosted Rebar; these are different ownership/geometry contracts. Preserve branch/source, do not guess/remap. Live support fixture still NOT_EXECUTED.
+
 Superseding Wave1: support extension implementation is now present for exact verified rectangular Column/Beam supports with explicit uniform exposed cover and physical CSG gate. Do not reimplement item1 below; it is historical remaining-work context. Read Docs/QA/Beam/SUPPORT_EXTENSION_WAVE.md and current TEST_RESULTS.md. Next code wave: Wall reinforcement; Column-hosted Wall meaning was queried and must not silently change host identity. Live support kernel/Undo remains NOT_EXECUTED; no release or merge.
 
 Branch `fix/preview-hardening`; resumed `171bdf8f2f31e9de16dcda6772fc01e7fe0ec1f1`. Do not restart recovery or overwrite retained history. This is PARTIAL delivery of the new development mission, not completion of all requested features.
