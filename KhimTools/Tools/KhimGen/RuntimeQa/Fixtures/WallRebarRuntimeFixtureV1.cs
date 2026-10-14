@@ -30,6 +30,7 @@ namespace KhimTools.RuntimeQa.Fixtures
             plan.Covers=new WallManualCoversV1{ExteriorMm=0,InteriorMm=0,LeftMm=0,RightMm=0,TopMm=0,BottomMm=0}; // QA_ONLY, never a production default.
             var reference=new BeamManualElementReferenceV1{DocumentKey=plan.DocumentKey,UniqueId=type.UniqueId,Name=type.Name,DiameterMm=diameter,State=BeamManualReferenceState.Resolved};
             plan.Bars.Add(new WallManualBarV1{GroupId="QA_ONLY_VERTICAL",Role="VERTICAL",BarType=reference,
+                StartAnchorageMm=0,FinishAnchorageMm=0,StartExtensionMm=0,FinishExtensionMm=0,
                 Start=new WallManualPointV1{XMm=length/2,YMm=diameter,DepthMm=depth},Finish=new WallManualPointV1{XMm=length/2,YMm=height-diameter,DepthMm=depth}});
             Exercise(context,result,generator,wall,plan,"BASELINE");
             WallBoundaryColumnV1 bound=null;double start=0;
@@ -43,6 +44,7 @@ namespace KhimTools.RuntimeQa.Fixtures
                 }catch(InvalidOperationException){ }
             if(bound==null){Block(result,Id+"_COLUMN","Boundary extension resources","Exact contacting structural Column","BLOCKED: no supported left boundary Column; baseline does not certify extension.",QaSeverity.CRITICAL);return;}
             plan.LeftColumn=bound;plan.Bars=new List<WallManualBarV1>{new WallManualBarV1{GroupId="QA_ONLY_EXTENSION",Role="HORIZONTAL",BarType=reference,
+                StartAnchorageMm=0,FinishAnchorageMm=0,StartExtensionMm=-start,FinishExtensionMm=0,
                 Start=new WallManualPointV1{XMm=start,YMm=height/2,DepthMm=depth},Finish=new WallManualPointV1{XMm=length/2,YMm=height/2,DepthMm=depth}}};
             Exercise(context,result,generator,wall,plan,"COLUMN_EXTENSION");
         }

@@ -1,5 +1,7 @@
 # Beam Manual Detailing Contract v1 status — 2026-10-13
 
+Revised Wall A/B wave does not change Beam or Slab generator behavior. It reuses the proven solver capture/physical envelope/checked transaction architecture, never Beam host identity/profile by renaming. Existing Beam support/multi-host and final-world preview corrections remain in regression. Native Beam and full contract/release acceptance still NOT_EXECUTED/uncertified.
+
 Preserved consolidated preview audit adds actual accepted inline solver views/final-world distributed/moved positions and native curved collision guard, not new engineering design. Support/multi-Beam source retained. Native geometry/cover/bends/Undo and full contract/release remain uncertified. New user Column-host Wall-related contract is independent work, not an automatic reuse of Beam ownership.
 
 Wave3 is separate MEP coordination code. No Beam Manual/Slab generator behavior or approved engineering inputs are altered by native opening creation. Beam opening cuts are explicitly unsupported; MEP selection cannot silently route to Beam family geometry. The full Beam/live host contract remains uncertified.

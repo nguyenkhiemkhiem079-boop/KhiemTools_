@@ -104,6 +104,7 @@ namespace KhimTools.RebarTool.Core
         }
         private WallNativeFrameV1 Validate(Wall wall,WallManualPlanV1 plan)
         {
+            ExplicitStraightDetailingV1.RequireKnownReinforcement(_doc);
             var errors=WallManualPlanValidatorV1.Validate(plan);if(errors.Count>0)throw new InvalidOperationException(string.Join("\n",errors));
             if(wall.Document!=_doc || plan.DocumentKey!=DocumentKey || plan.HostUniqueId!=wall.UniqueId)throw new InvalidOperationException("Exact Wall host/document identity mismatch.");
             var frame=WallNativeFrameV1.Read(wall);if(frame.Signature!=plan.FrameSignature)throw new InvalidOperationException("Wall geometry/orientation changed; reopen and explicitly review coordinates.");
@@ -127,11 +128,11 @@ namespace KhimTools.RebarTool.Core
             return new FilteredElementCollector(_doc).OfClass(typeof(Rebar)).Cast<Rebar>().Where(bar=>bar.IsValidObject &&
                 (bar.GetHostId()==wall.Id || ids.Contains(bar.GetHostId()) || filters.Any(f=>f.PassesFilter(_doc,bar.Id)))).ToArray();
         }
-        public string Fingerprint(Wall wall,WallManualPlanV1 plan)
+        public string Fingerprint(Wall wall,WallManualPlanV1 plan,ISet<string> excludeOwnedBars=null)
         {
             var frame=Validate(wall,plan);Envelope(wall,plan,frame,out FamilyInstance[] columns);
             return WorkflowFingerprint.Compute(new[]{JsonConvert.SerializeObject(plan),frame.Signature}.Concat(plan.Bars.Select(bar=>Type(bar.BarType).VersionGuid.ToString("D")))
-                .Concat(Neighbors(wall,columns).Select(RebarPreviewService.FingerprintBar).OrderBy(value=>value,StringComparer.Ordinal)));
+                .Concat(Neighbors(wall,columns).Where(bar=>excludeOwnedBars==null||!excludeOwnedBars.Contains(bar.UniqueId)).Select(RebarPreviewService.FingerprintBar).OrderBy(value=>value,StringComparer.Ordinal)));
         }
         public IList<Rebar> Generate(Wall wall,WallManualPlanV1 plan,IDictionary<string,string> roles=null)
         {
@@ -141,6 +142,9 @@ namespace KhimTools.RebarTool.Core
             foreach(var input in plan.Bars)
             {
                 var type=Type(input.BarType);XYZ a=frame.World(input.Start),b=frame.World(input.Finish);var line=Line.CreateBound(a,b);
+                Solid Region(XYZ terminal)=>terminal.DotProduct(frame.X)<frame.Origin.DotProduct(frame.X)?(plan.LeftColumn==null?null:BeamManualSupportGeometryV1.ReadSingleSolid(_doc.GetElement(plan.LeftColumn.UniqueId))):
+                    (plan.RightColumn==null?null:BeamManualSupportGeometryV1.ReadSingleSolid(_doc.GetElement(plan.RightColumn.UniqueId)));
+                ExplicitStraightDetailingV1.Verify(line,frame.Concrete,input,Region(a),Region(b));
                 using(var intersection=frame.Concrete.IntersectWithCurve(line,new SolidCurveIntersectionOptions()))
                     if(intersection.SegmentCount==0 || Enumerable.Range(0,intersection.SegmentCount).Sum(i=>intersection.GetCurveSegment(i).Length)<=WallNativeFrameV1.Feet(0.01))
                         throw new InvalidOperationException("Wall-owned reinforcement must pass through the actual Wall concrete; Column-only bars are not a Wall extension.");

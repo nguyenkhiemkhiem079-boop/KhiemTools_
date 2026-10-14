@@ -463,6 +463,9 @@ namespace KhimTools.Core
                 "KhimTools.RebarTool.Commands.CmdWallRebar") {
                 ToolTip = "Explicit Wall-hosted straight bars, exact types/endpoints/covers; optional verified boundary Columns. Geometry only, no structural design approval.",
                 LargeImage=LoadImage("rebar_slab_32.png"), Image=LoadImage("rebar_slab_16.png") });
+            panel.AddItem(new PushButtonData("CmdColumnWallRelatedRebarV1","Column Host"+Environment.NewLine+"Wall Related",assemblyPath,"KhimTools.RebarTool.Commands.CmdColumnWallRelatedRebarV1") {
+                ToolTip="ContractB: actual structural Column host, explicit scenario/types/coordinates/covers/terminal embed. NOT a Wall proxy. Independently reviewed atomic assignments; geometry only.",
+                LargeImage=LoadImage("rebar_col_32.png"),Image=LoadImage("rebar_col_rect_16.png") });
 
             // 5. Section Cut
             var sectionData = new PushButtonData(

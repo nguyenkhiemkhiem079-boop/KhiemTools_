@@ -42,6 +42,7 @@ static class Program
         RunBeamManualBatchCases();
         RunBeamSupportCases();
         RunWallManualCases();
+        RunColumnWallRelatedCases();
         RunMepCutCases();
         RunSolvedViewCases();
         RunComparatorContract();
@@ -55,6 +56,27 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunColumnWallRelatedCases()
+    {
+        ColumnWallRelatedPlanV1 Plan()=>new ColumnWallRelatedPlanV1{DocumentKey="QA_DOC",HostColumnUniqueId="QA_COLUMN",FrameSignature="QA_FRAME",UserConfirmedActualColumnHost=true,ScenarioIntent="QA_ONLY explicit Column-owned wall-related path; not a Wall proxy",Covers=new ColumnWallRelatedCoversV1{FrontMm=20,BackMm=25,LeftMm=30,RightMm=35,BottomMm=40,TopMm=45},Bars=new List<WallManualBarV1>{new WallManualBarV1{GroupId="QA_A",Role="VERTICAL",Start=new WallManualPointV1{XMm=100,YMm=100,DepthMm=50},Finish=new WallManualPointV1{XMm=100,YMm=2000,DepthMm=50},StartAnchorageMm=40,FinishAnchorageMm=50,StartExtensionMm=0,FinishExtensionMm=0,BarType=new BeamManualElementReferenceV1{DocumentKey="QA_DOC",UniqueId="QA_TYPE",Name="QA_ONLY",DiameterMm=16,State=BeamManualReferenceState.Resolved}}}};
+        bool Valid(ColumnWallRelatedPlanV1 p)=>ColumnWallRelatedPlanV1.Validate(p).Count==0;
+        var p=Plan();Check(Valid(p),"ContractB explicit Column-owned input valid, no Wall proxy");
+        p.UserConfirmedActualColumnHost=false;Check(!Valid(p),"Column ownership must be explicitly confirmed");
+        p=Plan();p.ScenarioIntent=null;Check(!Valid(p),"Column cannot automatically imply wall-related scenario");
+        p=Plan();p.Mode="WALL_MANUAL_V1";Check(!Valid(p),"ContractA mode cannot be reused as ContractB");
+        p=Plan();p.Covers.FrontMm=null;Check(!Valid(p),"Column face cover missing is not zero");
+        p=Plan();p.Bars[0].BarType.DocumentKey="FOREIGN";Check(!Valid(p),"Column exact type binding rejects foreign document");
+        p=Plan();p.Bars[0].Role="HORIZONTAL";Check(!Valid(p),"Column direction must agree with actual explicit coordinates");
+        p=Plan();p.Bars[0].StartAnchorageMm=null;Check(!Valid(p),"Column terminal embed must be entered, not inferred");
+        p=Plan();p.Bars[0].StartAnchorageMm=1900;Check(!Valid(p),"Column embeds cannot exceed full explicit path");
+        p=Plan();p.Bars[0].StartExtensionMm=10;Check(!Valid(p),"Unverified external Column extension rejected, not rehosted to Wall");
+        p=Plan();p.Bars[0].Finish.YMm=100;Check(!Valid(p),"Column zero geometry rejected");
+        p=Plan();p.CodeVerified=true;Check(!Valid(p),"Column contract cannot invent code compliance");
+        p=Plan();var other=Plan().Bars[0];other.GroupId="QA_B";other.Start.XMm=108;other.Finish.XMm=108;p.Bars.Add(other);Check(!Valid(p),"Column physical collision numerically rejected");
+        p=Plan();var json=Newtonsoft.Json.JsonConvert.SerializeObject(p);var copy=Newtonsoft.Json.JsonConvert.DeserializeObject<ColumnWallRelatedPlanV1>(json);Check(Valid(copy)&&copy.Bars[0].StartAnchorageMm==40&&copy.HostColumnUniqueId=="QA_COLUMN","Column plan roundtrip preserves explicit detail and actual ownership");
+        Check(json.Contains("HostColumnUniqueId")&&!json.Contains("\"HostUniqueId\""),"Primary Column host field is not a disguised Wall field");
     }
 
     private static void RunSolvedViewCases()
@@ -113,6 +135,7 @@ static class Program
         WallManualPlanV1 Plan()=>new WallManualPlanV1 { DocumentKey="QA_DOC",HostUniqueId="QA_WALL",FrameSignature="QA_FRAME",
             Covers=new WallManualCoversV1{ExteriorMm=30,InteriorMm=35,LeftMm=40,RightMm=45,BottomMm=50,TopMm=55},
             Bars=new List<WallManualBarV1>{new WallManualBarV1{GroupId="QA_A",Role="VERTICAL",BarType=new BeamManualElementReferenceV1{DocumentKey="QA_DOC",UniqueId="QA_TYPE",Name="QA_ONLY",DiameterMm=16,State=BeamManualReferenceState.Resolved},
+                StartAnchorageMm=0,FinishAnchorageMm=0,StartExtensionMm=0,FinishExtensionMm=0,
                 Start=new WallManualPointV1{XMm=100,YMm=100,DepthMm=50},Finish=new WallManualPointV1{XMm=100,YMm=2000,DepthMm=50}}} };
         bool Valid(WallManualPlanV1 p)=>WallManualPlanValidatorV1.Validate(p).Count==0;
         var p=Plan();Check(Valid(p),"Explicit synthetic Wall vertical line/face covers are valid input");
@@ -136,6 +159,10 @@ static class Program
         p.LeftColumn.DocumentKey="QA_DOC";p.RightColumn=p.LeftColumn;Check(!Valid(p),"Same Column cannot masquerade as two boundaries");
         p=Plan();var copy=Newtonsoft.Json.JsonConvert.DeserializeObject<WallManualPlanV1>(Newtonsoft.Json.JsonConvert.SerializeObject(p));
         Check(Valid(copy)&&copy.Covers.InteriorMm==35&&copy.Bars[0].Finish.YMm==2000&&copy.HostUniqueId=="QA_WALL","Wall JSON roundtrip preserves explicit values and ownership");
+        p=Plan();p.Bars[0].StartAnchorageMm=null;Check(!Valid(p),"Wall terminal embed is explicit, never an inferred code Ld");
+        p=Plan();p.Bars[0].FinishAnchorageMm=-1;Check(!Valid(p),"Wall negative terminal embed rejected");
+        p=Plan();p.Bars[0].StartAnchorageMm=2000;Check(!Valid(p),"Wall declared terminal embeds cannot exceed actual path");
+        p=Plan();p.Bars[0].StartExtensionMm=null;Check(!Valid(p),"Wall extension length cannot silently come from a template default");
     }
 
     private static void RunBeamSupportCases()

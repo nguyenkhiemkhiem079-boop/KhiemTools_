@@ -17,6 +17,10 @@ namespace KhimTools.RebarTool.Core
         public BeamManualElementReferenceV1 BarType { get; set; }
         public WallManualPointV1 Start { get; set; }
         public WallManualPointV1 Finish { get; set; }
+        public double? StartAnchorageMm { get; set; }
+        public double? FinishAnchorageMm { get; set; }
+        public double? StartExtensionMm { get; set; }
+        public double? FinishExtensionMm { get; set; }
     }
     public sealed class WallManualCoversV1
     {
@@ -84,6 +88,9 @@ namespace KhimTools.RebarTool.Core
                     string.IsNullOrWhiteSpace(type.Name) || !Finite(type.DiameterMm) || type.DiameterMm<=0)errors.Add("Exact loaded bar identity and actual diameter are required; no substitution.");
                 if(!Valid(bar.Start) || !Valid(bar.Finish)){errors.Add(bar.GroupId+": all six endpoint coordinates must be supplied in mm.");continue;}
                 double dx=bar.Finish.XMm.Value-bar.Start.XMm.Value, dy=bar.Finish.YMm.Value-bar.Start.YMm.Value, dz=bar.Finish.DepthMm.Value-bar.Start.DepthMm.Value;
+                var details=new[]{bar.StartAnchorageMm,bar.FinishAnchorageMm,bar.StartExtensionMm,bar.FinishExtensionMm};
+                if(details.Any(value=>!Finite(value)||value.Value<0))errors.Add(bar.GroupId+": explicitly supply both terminal embed/anchorage lengths and both outside-host extension lengths; no defaults/code calculations.");
+                else if(bar.StartAnchorageMm.Value+bar.FinishAnchorageMm.Value>Math.Sqrt(dx*dx+dy*dy+dz*dz)+0.01)errors.Add(bar.GroupId+": declared terminal embed lengths exceed the actual straight path.");
                 if(dx*dx+dy*dy+dz*dz<=0.0001)errors.Add(bar.GroupId+": zero-length path.");
                 if(bar.Role=="VERTICAL" && (Math.Abs(dx)>0.01 || Math.Abs(dz)>0.01))errors.Add(bar.GroupId+": VERTICAL role must retain explicit x/depth.");
                 if(bar.Role=="HORIZONTAL" && (Math.Abs(dy)>0.01 || Math.Abs(dz)>0.01))errors.Add(bar.GroupId+": HORIZONTAL role must retain explicit height/depth.");

@@ -199,6 +199,9 @@ namespace KhimTools.RebarTool.Forms
         {
             switch (role)
             {
+                case "column-hosted-wall-vertical": return "ContractB Column-host vertical";
+                case "column-hosted-wall-horizontal": return "ContractB Column-host horizontal";
+                case "column-hosted-wall-user_directed": return "ContractB Column-host user direction";
                 case "VERTICAL": return "Wall vertical / Thép đứng";
                 case "HORIZONTAL": return "Wall horizontal / Thép ngang";
                 case "USER_DIRECTED": return "Wall explicit direction / Hướng nhập rõ";
@@ -236,6 +239,9 @@ namespace KhimTools.RebarTool.Forms
         {
             switch (role)
             {
+                case "column-hosted-wall-vertical": return Color.DarkGreen;
+                case "column-hosted-wall-horizontal": return Color.DarkBlue;
+                case "column-hosted-wall-user_directed": return Color.Purple;
                 case "VERTICAL": return Color.DarkGreen;
                 case "HORIZONTAL": return Color.DarkBlue;
                 case "USER_DIRECTED": return Color.Purple;

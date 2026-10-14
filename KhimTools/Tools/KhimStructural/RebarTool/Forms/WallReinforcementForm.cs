@@ -35,6 +35,9 @@ namespace KhimTools.RebarTool.Forms
         private readonly Document _doc;
         private readonly Wall _wall;
         private readonly WallRebarGeneratorV1 _generator;
+        private readonly bool _assignmentOnly;
+        internal WallManualPlanV1 AssignedPlan {get;private set;}
+        internal RebarPreviewSnapshot AssignedPreview {get;private set;}
         private WallNativeFrameV1 _frame;
         private RebarPreviewSnapshot _preview;
         private DetachedSolvedViewV1 _solved2D;
@@ -45,11 +48,13 @@ namespace KhimTools.RebarTool.Forms
         private readonly Label _state=new Label{Text="NOT SOLVED / Chưa giải",AutoSize=true};
         private readonly Panel _canvas=new Panel{Dock=DockStyle.Fill,BackColor=Color.White};
         private double _widthMm,_heightMm;
-        internal WallReinforcementForm(Document doc,Wall wall)
+        internal WallReinforcementForm(Document doc,Wall wall,bool assignmentOnly=false)
         {
+            _assignmentOnly=assignmentOnly;
             _doc=doc;_wall=wall;_generator=new WallRebarGeneratorV1(doc);_frame=WallNativeFrameV1.Read(wall);
             _widthMm=WallNativeFrameV1.Mm(_frame.Length);_heightMm=WallNativeFrameV1.Mm(_frame.Height);
             Build();
+            if(assignmentOnly)_create.Text="Accept Wall assignment / Duyệt";
             foreach(var type in new FilteredElementCollector(doc).OfClass(typeof(RebarBarType)).Cast<RebarBarType>().OrderBy(t=>t.Name,StringComparer.Ordinal))_type.Items.Add(new TypeChoice(type));
             _type.SelectedIndex=-1;Write(_generator.Blank(wall));
         }
@@ -57,13 +62,14 @@ namespace KhimTools.RebarTool.Forms
         private static Form CreateLayoutPreview()=>new WallReinforcementForm();
         private void Build()
         {
-            Text="Wall Manual Reinforcement / Thép vách — geometry only; structural design NOT verified";
+            Text="CONTRACT A — actual WALL host / Thép vách — geometry only; design NOT verified";
             Size=new Size(1200,760);MinimumSize=new Size(1080,700);AutoScaleMode=AutoScaleMode.Dpi;AutoScroll=true;
             var root=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(8)};
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));
             root.RowStyles.Add(new RowStyle(SizeType.AutoSize));root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             var header=new Label{Dock=DockStyle.Fill,Text="Explicit JSON coordinates in mm: x along physical Wall; y from bottom; depth from exterior inward. No quantity/cover/spacing defaults. Straight VERTICAL/HORIZONTAL/USER_DIRECTED bars only; hooks/ties/design codes unsupported. Boundary Columns NEVER become the Rebar host.\nTọa độ và sáu lớp bảo vệ phải nhập rõ; hình học, không xác nhận thiết kế.",AutoSize=true,MaximumSize=new Size(1100,0)};
+            header.Text+="\nEnter both terminal straight embed/anchorage lengths and both actual outside-Wall extension lengths explicitly; terminal embed is NOT code-calculated Ld. Zero requires explicit entry. A remains Wall-hosted; use separate B for actual Column ownership.";
             root.Controls.Add(header);
             if(_frame!=null)header.Text+="\nMeasured Wall: length "+_widthMm.ToString("0.###",CultureInfo.InvariantCulture)+"; height "+_heightMm.ToString("0.###",CultureInfo.InvariantCulture)+"; thickness "+WallNativeFrameV1.Mm(_frame.Thickness).ToString("0.###",CultureInfo.InvariantCulture)+" mm. Green vertical / blue horizontal / purple user-directed.";
             var split=new SplitContainer{Size=new Size(1100,550),Dock=DockStyle.Fill,Orientation=Orientation.Vertical,SplitterDistance=560};
@@ -152,14 +158,19 @@ namespace KhimTools.RebarTool.Forms
                 if(dialog.ShowDialog(this)!=DialogResult.OK)return;
                 if(new System.IO.FileInfo(dialog.FileName).Length>2*1024*1024)throw new InvalidOperationException("Plan exceeds2MiB safety limit.");
                 var plan=JsonConvert.DeserializeObject<WallManualPlanV1>(System.IO.File.ReadAllText(dialog.FileName),new JsonSerializerSettings{TypeNameHandling=TypeNameHandling.None,MissingMemberHandling=MissingMemberHandling.Error,MaxDepth=32});
-                _generator.Fingerprint(_wall,plan); // Reject foreign/stale/unresolved input before replacing current editor.
+                bool needsExplicitDetail=plan?.Bars?.Any(b=>b!=null&&(!b.StartAnchorageMm.HasValue||!b.FinishAnchorageMm.HasValue||!b.StartExtensionMm.HasValue||!b.FinishExtensionMm.HasValue))==true;
+                if(needsExplicitDetail) {
+                    if(plan.DocumentKey!=_generator.DocumentKey||plan.HostUniqueId!=_wall.UniqueId||plan.FrameSignature!=_generator.Blank(_wall).FrameSignature||plan.Mode!="WALL_MANUAL_V1")throw new InvalidOperationException("Foreign/stale legacy plan; explicit host review required.");
+                }else _generator.Fingerprint(_wall,plan);
                 Write(plan);
+                if(needsExplicitDetail)_state.Text="LEGACY DRAFT / NOT SOLVED — explicitly enter both terminal embed and extension lengths. No values were inferred; preview/Create disabled.";
             }
         }
         private void Create()
         {
             var plan=Read();string fingerprint=_generator.Fingerprint(_wall,plan);var preview=_preview;
             if(!RebarPreviewService.MatchesInput(preview,fingerprint))throw new InvalidOperationException("Missing/stale accepted solver preview.");
+            if(_assignmentOnly){AssignedPlan=plan;AssignedPreview=preview;DialogResult=DialogResult.OK;Close();return;}
             if(RebarPreviewService.HasExistingDuplicateBar(_doc,_wall,preview,fingerprint))throw new InvalidOperationException("Complete plan already exists on this Wall.");
             if(MessageBox.Show(this,"Create Wall-hosted bars from accepted explicit plan? Geometry only; no design approval.\nTạo thép có host là Wall?","Wall Manual",MessageBoxButtons.OKCancel)!=DialogResult.OK)return;
             TransactionBoundary.ExecuteGroup(_doc,"K-TOOLS Wall Manual",()=>TransactionBoundary.Execute(_doc,"Create Wall-hosted explicit bars",()=>{

@@ -20,6 +20,12 @@ $required = @(
     'Core\WallRebarGeneratorV1.cs',
     'Forms\WallReinforcementForm.cs',
     'Commands\CmdWallRebar.cs',
+    'Core\ColumnWallRelatedPlanV1.cs',
+    'Core\ColumnWallRelatedGeneratorV1.cs',
+    'Core\DualWallHostBatchV1.cs',
+    'Core\ExplicitStraightDetailingV1.cs',
+    'Forms\ColumnWallRelatedFormV1.cs',
+    'Commands\CmdColumnWallRelatedRebarV1.cs',
     'Core\DetachedSolvedViewV1.cs',
     'Core\RebarSolvedCenterlineReaderV1.cs',
     'Core\RebarSolvedEnvelopeCollisionV1.cs',
@@ -261,7 +267,7 @@ Add-Check 'slab-golden-host-scenario-specifies-layer-checks' ($hostScenarios.Con
 Add-Check 'foundation-rotation-unsupported-host-fails-closed' ($foundationGeometry.Contains('HasAxisAlignedPlanBasis(foundation.GetTransform())') -and $foundationGeometry.Contains('Foundation reinforcement currently supports axis-aligned plan hosts only') -and $hostScenarios.Contains('FOUNDATION_ROTATION_REJECTION')) 'Foundation bounding-box generation rejects rotated plan hosts before solver capture and records a manual host scenario.'
 Add-Check 'foundation-nonrectangular-hosts-fail-closed' ($foundationGeometry.Contains('HasSingleAxisAlignedRectangularSolid(foundation, bb)') -and $foundationGeometry.Contains('CollectInstanceSolids(foundation.get_Geometry(options), solids)') -and $foundationGeometry.Contains('candidate.Faces') -and $hostScenarios.Contains('FOUNDATION_SHAPE_REJECTION')) 'Foundation profile analysis rejects non-planar, tapered, stepped, multi-solid, or non-box hosts before preview capture and records a manual host scenario.'
 
-$wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Filter '*Wall*Rebar*.cs'
+$wallCommand = Get-ChildItem -LiteralPath (Join-Path $base 'Commands') -File -Filter 'CmdWallRebar.cs'
 $wallGenerator = Get-ChildItem -LiteralPath (Join-Path $base 'Core') -File -Filter '*Wall*Rebar*.cs'
 $wallGen = Get-Content -Raw (Join-Path $base 'Core/WallRebarGeneratorV1.cs')
 $wallUi = Get-Content -Raw (Join-Path $base 'Forms/WallReinforcementForm.cs')
@@ -291,6 +297,16 @@ $finalPositionReader=Get-Content -Raw (Join-Path $base 'Core/RebarSolvedCenterli
 Add-Check 'canonical-centerlines-include-final-set-and-moved-transforms' ($finalPositionReader.Contains('bar.GetTransformedCenterlineCurves') -and $finalPositionReader.Contains('!bar.DoesBarExistAtPosition(position)') -and $finalPositionReader -notmatch '\.GetCenterlineCurves\(|GetBarPositionTransform|GetMovedBarTransform' -and $registryText.Contains('new RebarWorldPositionRuntimeFixtureV1()')) 'Native final-position API applies distribution/moved transforms exactly once; no raw/base fallback or double transform. Production-linked synthetic adapter tests and genuine host fixture are separate.'
 $curvedCollision=Get-Content -Raw (Join-Path $base 'Core/RebarSolvedEnvelopeCollisionV1.cs')
 Add-Check 'beam-wall-curved-clearance-is-native-envelope-not-chord-only' ($manualGeneratorText.Contains('RebarSolvedEnvelopeCollisionV1.Verify(candidate,existingBars)') -and $wallGen.Contains('RebarSolvedEnvelopeCollisionV1.Verify(bar,neighbors)') -and $curvedCollision.Contains('BeamManualSupportGeometryV1.Sweep') -and $curvedCollision.Contains('BooleanOperationsType.Intersect') -and $curvedCollision.Contains('RebarSolvedCenterlineReaderV1.Read')) 'Actual Beam/Wall Line/Arc sweeps at final positions reject native intersections; uncertain solid operations/unsupported curves block rather than certify chord approximation.'
+$columnWallPlan=Get-Content -Raw (Join-Path $base 'Core/ColumnWallRelatedPlanV1.cs')
+$columnWallGen=Get-Content -Raw (Join-Path $base 'Core/ColumnWallRelatedGeneratorV1.cs')
+$columnWallForm=Get-Content -Raw (Join-Path $base 'Forms/ColumnWallRelatedFormV1.cs')
+$dualBatch=Get-Content -Raw (Join-Path $base 'Core/DualWallHostBatchV1.cs')
+$straightDetail=Get-Content -Raw (Join-Path $base 'Core/ExplicitStraightDetailingV1.cs')
+Add-Check 'dual-host-contracts-have-independent-primary-ownership' ($columnWallPlan.Contains('COLUMN_HOST_WALL_RELATED_V1') -and $columnWallPlan.Contains('HostColumnUniqueId') -and $columnWallPlan.Contains('UserConfirmedActualColumnHost') -and $columnWallGen.Contains('bar.GetHostId()!=column.Id') -and $wallGen.Contains('bar.GetHostId()!=wall.Id') -and $columnWallGen.Contains('transform.BasisY.Normalize()')) 'Actual Wall/Column primary hosts are distinct typed contracts; Column physical/mirrored axes are independently measured, not a renamed Wall/Beam profile.'
+Add-Check 'explicit-terminal-details-are-consumed-not-inferred' ($wallPlan.Contains('StartAnchorageMm') -and $columnWallPlan.Contains('StartExtensionMm') -and $straightDetail.Contains('input.StartExtensionMm.Value') -and $straightDetail.Contains('input.StartAnchorageMm.Value') -and $wallGen.Contains('ExplicitStraightDetailingV1.Verify') -and $columnWallGen.Contains('ExplicitStraightDetailingV1.Verify')) 'Both terminal embeds/anchorage and extension lengths must be explicit; native interval geometry validates them, never computes design Ld or silently ignores a field.'
+Add-Check 'dual-host-multiple-assignments-are-atomic-and-rechecked' ($dualBatch.Contains('TransactionBoundary.ExecuteGroup') -and $dualBatch.Contains('Fingerprint(owned)') -and $dualBatch.Contains('HasExistingDuplicateBar') -and $dualBatch.Contains('Components.Count!=1') -and $dualBatch.Contains('Final all-host input/ownership/output recheck') -and $registryText.Contains('new DualWallHostRuntimeFixtureV1()')) 'Every independent host preview is preflighted, each checked transaction belongs to one outer group, final all-host fingerprints/output are rechecked; host fixture registration is not execution.'
+Add-Check 'column-related-ui-is-explicit-and-detached' ($columnWallForm.Contains('MissingMemberHandling.Error') -and $columnWallForm.Contains('RebarPreviewService.Capture') -and $columnWallForm.Contains('AssignedPlan=plan') -and $columnWallForm.Contains('c.HostId==_column.UniqueId') -and $columnWallForm.Contains('DetachedSolvedViewRendererV1.Paint') -and $columnWallPlan.Contains('Column-contained paths only')) 'ContractB exact scenario/host and engineering geometry inputs are explicit, detached actual solver data is host-filtered; unsupported external extensions are rejected, never rehosted.'
+Add-Check 'dual-contracts-do-not-ignore-system-or-fabric-reinforcement' ($straightDetail.Contains('RequireKnownReinforcement') -and $straightDetail.Contains('e is RebarInSystem') -and $straightDetail.Contains('e is FabricSheet') -and $wallGen.Contains('ExplicitStraightDetailingV1.RequireKnownReinforcement(_doc)') -and $columnWallGen.Contains('ExplicitStraightDetailingV1.RequireKnownReinforcement(_doc)')) 'Unsupported area/path/system/fabric clearance blocks A/B rather than silently omitting those reinforcing elements.'
 $passCount = @($checks | Where-Object Pass).Count
 $failures = @($checks | Where-Object { -not $_.Pass })
 foreach ($check in $checks) {

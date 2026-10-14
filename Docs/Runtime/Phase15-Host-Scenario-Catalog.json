@@ -5,6 +5,7 @@
   "targetRevitVersions": ["2024", "2025"],
   "requiredDomains": ["STAGE4", "ARCHITECTURAL", "MEP", "QS", "REBAR", "UI_PREVIEW", "DEPLOYMENT"],
   "fixtureScenarios": [
+    { "id": "DUAL-WALL-COLUMN-OWNERSHIP-ATOMICITY", "domain": "REBAR", "scenario": "Real ContractA Wall and ContractB Column production previews, explicit primary ownership, later-host QA-only failure and whole multi-host model-state rollback; missing resources BLOCKED", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "REBAR-WORLD-POSITION-PREVIEW", "domain": "REBAR", "scenario": "Actual dispersed multi-position Rebar canonical preview paths versus native final transformed/moved centerlines, identities/state unchanged; missing resources BLOCKED", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "MEP-NATIVE-OPENING-ROLLBACK", "domain": "MEP", "scenario": "Actual local Wall/Floor clash, explicit reviewed native cut postconditions and fixture-only post-cut failure with identity/state rollback", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },
     { "id": "WALL-MANUAL-OWNERSHIP-ROLLBACK", "domain": "REBAR", "scenario": "Explicit Wall-hosted baseline and verified boundary-Column extension, actual solver/Create parity and state rollback; Column never becomes host", "statusByVersion": { "2024": "NOT_EXECUTED", "2025": "NOT_EXECUTED" } },

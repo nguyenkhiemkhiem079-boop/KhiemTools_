@@ -2,7 +2,7 @@ param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
     [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024"),
     [double[]]$Scales = @(1, 1.5, 2),
-    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "BeamManualDetailing", "BeamSupportBinding", "Wall", "ProjectCoverSetup", "SlabEdgePicker"),
+    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "BeamManualDetailing", "BeamSupportBinding", "Wall", "ColumnWallRelated", "ProjectCoverSetup", "SlabEdgePicker"),
     [string[]]$WindowProfiles = @("minimum", "wide")
 )
 $ErrorActionPreference = "Stop"
@@ -94,7 +94,7 @@ function Check-Layout($root, $context) {
     }
 }
 foreach ($name in $Forms) {
-    $className = if ($name -eq "BeamManualDetailing") { "BeamManualDetailingFormV1" } elseif ($name -eq "BeamSupportBinding") { "BeamSupportBindingFormV1" } elseif ($name -in @("ProjectCoverSetup", "SlabEdgePicker")) { "$($name)Form" } else { "$($name)ReinforcementForm" }
+    $className = if ($name -eq "ColumnWallRelated") { "ColumnWallRelatedFormV1" } elseif ($name -eq "BeamManualDetailing") { "BeamManualDetailingFormV1" } elseif ($name -eq "BeamSupportBinding") { "BeamSupportBindingFormV1" } elseif ($name -in @("ProjectCoverSetup", "SlabEdgePicker")) { "$($name)Form" } else { "$($name)ReinforcementForm" }
     $type = $assembly.GetType("KhimTools.RebarTool.Forms.$className", $true)
     foreach ($scale in $Scales) {
         foreach ($sizeMode in $WindowProfiles) {
