@@ -60,8 +60,8 @@ namespace KhimTools.ViewportAlign.Commands
                 }
 
                 var preflight = ViewportAlignmentPreflightService.Run(doc, source, targets, operation);
-                var preflightById = preflight.ToDictionary(p => p.TargetId.IntegerValue, p => p);
-                var readyTargets = targets.Where(t => t != null && preflightById.TryGetValue(t.ViewportOrScheduleId.IntegerValue, out var p) && p.CanExecute).ToList();
+                var preflightById = preflight.ToDictionary(p => p.TargetId.ToLongValue(), p => p);
+                var readyTargets = targets.Where(t => t != null && preflightById.TryGetValue(t.ViewportOrScheduleId.ToLongValue(), out var p) && p.CanExecute).ToList();
                 if ((operation == AlignmentOperation.DISTRIBUTE_HORIZONTAL || operation == AlignmentOperation.DISTRIBUTE_VERTICAL) && readyTargets.Count < 3)
                 {
                     TaskDialog.Show("Khim Tools", LanguageManager.IsEnglish
@@ -85,7 +85,7 @@ namespace KhimTools.ViewportAlign.Commands
                     {
                         AlignmentPreflightResult preflightRow = item == null || item.ViewportOrScheduleId == null
                             ? null
-                            : preflightById.TryGetValue(item.ViewportOrScheduleId.IntegerValue, out var row) ? row : null;
+                            : preflightById.TryGetValue(item.ViewportOrScheduleId.ToLongValue(), out var row) ? row : null;
                         if (preflightRow == null || !preflightRow.CanExecute)
                         {
                             var blocked = new AlignmentExecutionResult
@@ -189,7 +189,7 @@ namespace KhimTools.ViewportAlign.Commands
                     group.Assimilate();
                 }
 
-                System.Diagnostics.Debug.WriteLine($"[ViewportAlign] source={source.ElementId.IntegerValue}; operation={operation}; requested={summary.Requested}; ready={summary.Ready}; changed={summary.Changed}; skipped={summary.Skipped}; failed={summary.Failed}");
+                System.Diagnostics.Debug.WriteLine($"[ViewportAlign] source={source.ElementId.ToLongValue()}; operation={operation}; requested={summary.Requested}; ready={summary.Ready}; changed={summary.Changed}; skipped={summary.Skipped}; failed={summary.Failed}");
                 uidoc.RefreshActiveView();
                 ShowSummary(summary, operation);
                 return Result.Succeeded;

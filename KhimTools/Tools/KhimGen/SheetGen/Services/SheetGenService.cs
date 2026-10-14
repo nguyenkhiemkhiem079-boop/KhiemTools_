@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
+using KhimTools.Core;
 using KhimTools.SheetGen.Models;
 
 namespace KhimTools.SheetGen.Services
@@ -270,7 +271,7 @@ namespace KhimTools.SheetGen.Services
             }
         }
 
-        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.IntegerValue.ToString(CultureInfo.InvariantCulture);
+        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.ToLongValue().ToString(CultureInfo.InvariantCulture);
         private static string CsvEscape(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
 
         public static SheetGenImportResult ImportFromCsvDetailed(string filePath, IList<TitleBlockOption> titleBlocks, IList<ViewOption> views)

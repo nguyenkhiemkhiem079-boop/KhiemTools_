@@ -1,16 +1,33 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="CG_Modern" Directory="MODERNFOLDER">
+      
+      <!-- Modern Manifest -->
       <Component Id="C_ModernAddin" Guid="{C4D5E6F7-A8B9-4012-D3E4-F5A6B7C8D9E0}">
         <File Id="File_ModernAddin"
               Source="..\..\KhimTools.Mini\Deploy\Modern\KhimTools.Mini.addin"
               KeyPath="yes" />
       </Component>
+
+      <!-- Modern Core Assembly & Dependencies -->
       <Component Id="C_ModernDlls" Guid="{B5C6D7E8-F9A0-4123-E4F5-A6B7C8D9E0F1}">
         <File Id="File_Modern_KhimToolsMini" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\KhimTools.Mini.dll" KeyPath="yes" />
-        <File Id="File_Modern_DepsJson" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\KhimTools.Mini.deps.json" />
         <File Id="File_Modern_Newtonsoft" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Newtonsoft.Json.dll" />
+        <File Id="File_Modern_ExtDIAbst" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />
+        <File Id="File_Modern_ExtDI" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.dll" />
+        <File Id="File_Modern_ExtLogAbst" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.Abstractions.dll" />
+        <File Id="File_Modern_ExtLog" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.Logging.dll" />
+        <File Id="File_Modern_ExtOptions" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.Options.dll" />
+        <File Id="File_Modern_ExtPrimitives" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Microsoft.Extensions.Primitives.dll" />
+        <File Id="File_Modern_PdfSharp" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.dll" />
+        <File Id="File_Modern_PdfSharpChart" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.Charting.dll" />
+        <File Id="File_Modern_PdfSharpQual" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.Quality.dll" />
+        <File Id="File_Modern_PdfSharpSnip" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.Snippets.dll" />
+        <File Id="File_Modern_PdfSharpSys" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.System.dll" />
+        <File Id="File_Modern_PdfSharpWP" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\PdfSharp.WPFonts.dll" />
+        <File Id="File_Modern_DepsJson" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\KhimTools.Mini.deps.json" />
       </Component>
+
     </ComponentGroup>
   </Fragment>
 </Wix>

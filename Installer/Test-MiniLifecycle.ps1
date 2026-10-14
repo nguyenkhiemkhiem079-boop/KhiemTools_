@@ -135,15 +135,14 @@ Assert-Check "Extracted Legacy addin exists" (Test-Path (Join-Path $extractedBun
 Assert-Check "Extracted Legacy DLL exists" (Test-Path (Join-Path $extractedBundle "Contents\Legacy\KhimTools.Mini.dll"))
 Assert-Check "Extracted Legacy Newtonsoft exists" (Test-Path (Join-Path $extractedBundle "Contents\Legacy\Newtonsoft.Json.dll"))
 
-# Verify excluded modules: Rebar, MEP, Arch, PDF, etc.
+# Verify excluded modules: Rebar, MEP, Arch, CommunityToolkit
 $allExtracted = Get-ChildItem -Path $extractedBundle -Recurse | Select-Object -ExpandProperty FullName
 $hasRebar = $allExtracted | Where-Object { $_ -match "RebarShapes" }
-$hasPdfSharp = $allExtracted | Where-Object { $_ -match "PdfSharp" }
 $hasCommunityToolkit = $allExtracted | Where-Object { $_ -match "CommunityToolkit" }
 
 Assert-Check "Excluded RebarShapes families (clean payload)" ($null -eq $hasRebar)
-Assert-Check "Excluded PdfSharp (clean payload)" ($null -eq $hasPdfSharp)
 Assert-Check "Excluded CommunityToolkit (clean payload)" ($null -eq $hasCommunityToolkit)
+Assert-Check "Included PdfSharp for SheetExport" (Test-Path (Join-Path $extractedBundle "Contents\Modern\PdfSharp.dll"))
 
 # Clean up
 Remove-Item $tempExtract -Recurse -Force

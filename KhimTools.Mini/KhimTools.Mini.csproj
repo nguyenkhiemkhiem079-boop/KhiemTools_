@@ -63,24 +63,45 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="PdfSharp" Version="6.1.1" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>
 
-  <!-- Include only ElementTags, CopyLink, and minimal Core -->
+  <!-- Include ElementTags, CopyLink, SheetExport, Layout (SheetGen, ViewportAlign, DetailNumberUpdater, TextAlign), and View Tools (SectionBox, CalloutPro, ViewFromCallout) -->
   <ItemGroup>
     <Compile Include="..\KhimTools\Tools\KhimGen\ElementTags\**\*.cs" Link="ElementTags\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\KhimTools\Tools\KhimGen\CopyLink\**\*.cs" Link="CopyLink\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\SheetExport\**\*.cs" Link="SheetExport\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\SheetGen\**\*.cs" Link="SheetGen\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\ViewportAlign\**\*.cs" Link="ViewportAlign\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\DetailNumberUpdater\**\*.cs" Link="DetailNumberUpdater\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\TextAlign\**\*.cs" Link="TextAlign\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\SectionBox\**\*.cs" Link="SectionBox\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\CalloutPro\**\*.cs" Link="CalloutPro\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\ViewFromCallout\**\*.cs" Link="ViewFromCallout\%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <Page Include="..\KhimTools\Tools\KhimGen\SectionBox\Forms\SectionBoxWindow.xaml" Link="SectionBox\SectionBoxWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="..\KhimTools\Tools\KhimGen\CalloutPro\Forms\CalloutProWindow.xaml" Link="CalloutPro\CalloutProWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="..\KhimTools\Tools\KhimGen\ViewFromCallout\Forms\ViewFromCalloutWindow.xaml" Link="ViewFromCallout\ViewFromCalloutWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+
     <Compile Include="..\KhimTools\Core\ElementIdCompat.cs" Link="Core\ElementIdCompat.cs" />
     <Compile Include="..\KhimTools\Core\LanguageManager.cs" Link="Core\LanguageManager.cs" />
     <Compile Include="..\KhimTools\Core\KhimUiStyle.cs" Link="Core\KhimUiStyle.cs" />
     <Compile Include="..\KhimTools\Core\UI\KTBaseForm.cs" Link="Core\KTBaseForm.cs" />
+    <Compile Include="..\KhimTools\Core\UI\KhimWpfTheme.cs" Link="Core\KhimWpfTheme.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\KhimTools\Resources\icon_mep_tags_16.png" Link="Resources\icon_mep_tags_16.png" />
-    <EmbeddedResource Include="..\KhimTools\Resources\icon_mep_tags_32.png" Link="Resources\icon_mep_tags_32.png" />
-    <EmbeddedResource Include="..\KhimTools\Resources\icon_copylink_16.png" Link="Resources\icon_copylink_16.png" />
-    <EmbeddedResource Include="..\KhimTools\Resources\icon_copylink_32.png" Link="Resources\icon_copylink_32.png" />
+    <EmbeddedResource Include="..\KhimTools\Resources\*.png" Link="Resources\%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

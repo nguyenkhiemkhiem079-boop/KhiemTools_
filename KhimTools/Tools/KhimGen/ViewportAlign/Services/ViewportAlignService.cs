@@ -124,7 +124,7 @@ namespace KhimTools.ViewportAlign.Services
                 Position = viewport.GetBoxCenter(),
                 BoundingBox = bounds,
                 ViewType = view?.ViewType ?? ViewType.Undefined,
-                Name = view?.Name ?? viewport.Id.IntegerValue.ToString()
+                Name = view?.Name ?? viewport.Id.ToLongValue().ToString()
             };
         }
 
@@ -141,7 +141,7 @@ namespace KhimTools.ViewportAlign.Services
                 Position = schedule.Point,
                 BoundingBox = bounds,
                 ViewType = ViewType.Schedule,
-                Name = view?.Name ?? schedule.ScheduleId.IntegerValue.ToString()
+                Name = view?.Name ?? schedule.ScheduleId.ToLongValue().ToString()
             };
         }
     }
@@ -512,8 +512,8 @@ namespace KhimTools.ViewportAlign.Services
             }
             bool horizontal = operation == AlignmentOperation.DISTRIBUTE_HORIZONTAL;
             var ordered = (horizontal
-                ? rows.OrderBy(r => r.Item2.CenterX).ThenBy(r => r.Item1.ViewportOrScheduleId.IntegerValue)
-                : rows.OrderBy(r => r.Item2.CenterY).ThenBy(r => r.Item1.ViewportOrScheduleId.IntegerValue)).ToList();
+                ? rows.OrderBy(r => r.Item2.CenterX).ThenBy(r => r.Item1.ViewportOrScheduleId.ToLongValue())
+                : rows.OrderBy(r => r.Item2.CenterY).ThenBy(r => r.Item1.ViewportOrScheduleId.ToLongValue())).ToList();
             var result = new Dictionary<ElementId, XYZ>();
             if (ordered.Count < 3) return result;
             double first = horizontal ? ordered.First().Item2.CenterX : ordered.First().Item2.CenterY;
@@ -716,7 +716,7 @@ namespace KhimTools.ViewportAlign.Services
                 SheetId = targetVp.SheetId,
                 SheetNumber = "",
                 ViewportOrScheduleId = targetVp.Id,
-                ViewName = targetVp.Id.IntegerValue.ToString(),
+                ViewName = targetVp.Id.ToLongValue().ToString(),
                 ViewType = sourceView?.ViewType ?? ViewType.Undefined,
                 TargetKind = sourceView?.ViewType == ViewType.Legend ? AlignmentTargetKind.LegendViewport : AlignmentTargetKind.Viewport
             };
@@ -731,7 +731,7 @@ namespace KhimTools.ViewportAlign.Services
             {
                 SheetId = targetSched.OwnerViewId,
                 ViewportOrScheduleId = targetSched.Id,
-                ViewName = targetSched.Id.IntegerValue.ToString(),
+                ViewName = targetSched.Id.ToLongValue().ToString(),
                 TargetKind = AlignmentTargetKind.Schedule,
                 IsSchedule = true
             };
