@@ -2,6 +2,8 @@
 
 ## Wave3 continuation — graphical proposal checkpoint
 
+FINAL clean source018b054d8739dd4ad37d8f51e2ea6c806cc76de5: canonical55/55 suites/3274 weight, Golden238, MEP34/domain12/native20, offline graphics54/18, five source API builds0 errors, payload134 PASS. Both source pushes/fetches verified; final documentation tip follows. Docs/QA/MEP/WAVE3_HANDOFF.md supplies full supported scope/P0-P1-P2/exact host resume. Native/Undo/loading NOT_EXECUTED, signing BLOCKED, production readiness NO. Next is confirmed disposable host acceptance, not recovery audit or silent linked/Beam/oblique expansion. No merge/release.
+
 Start218f5882e033e168b2ee5246f4176cbf46d4f46a; preserve prior Beam/Slab/Wall implementation. CmdMepOpeningCreateV1 now requires five explicit inputs and mandatory detached 2D/3D approval before default-Cancel native confirmation; fresh solve/fingerprint use all approved values. Golden238, native-opening source gates18, legacy MEP31/domain12. These are not live host acceptance. Continue Wave3 source diagnostics, runtime fixture and UI QA, then consolidated regression/package validation; do not restart recovery or silently expand unsupported linked/oblique/Beam geometry. Exact resume SHA is the fetched PR #3 feature head after this checkpoint. No merge/release.
 
 ## Exact current source and resume gate
