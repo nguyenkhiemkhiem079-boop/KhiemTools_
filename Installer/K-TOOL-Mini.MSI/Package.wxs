@@ -2,7 +2,7 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="K-TOOL Mini"
            Manufacturer="SJTL"
-           Version="1.0.0"
+           Version="1.1.0"
            UpgradeCode="{E2B1A0F9-7C6D-4E5F-8A9B-0C1D2E3F4A5B}"
            Scope="perMachine"
            Language="1033"
