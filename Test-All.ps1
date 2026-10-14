@@ -110,7 +110,7 @@ $suites = @(
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
         # Exact Manual/other golden total is asserted by Verify-Phase17GoldenPerformance.ps1.
-        ExpectedCount = 223
+        ExpectedCount = 238
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
@@ -270,7 +270,7 @@ $suites = @(
     @{
         Name = "Confirmed Native MEP Opening Creation"
         Script = Join-Path $scriptDir "Tools\Verify-MepOpeningCreation.ps1"
-        ExpectedCount = 13
+        ExpectedCount = 18
     },
     @{
         Name = "Detached Solved Section Renderer Pixel Assertions"

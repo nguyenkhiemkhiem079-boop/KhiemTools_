@@ -23,6 +23,7 @@
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\WallManualPlanV1.cs" Link="WallManualPlanV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\ColumnWallRelatedPlanV1.cs" Link="ColumnWallRelatedPlanV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimMEP\Penetrations\MepOpeningCutPlanV1.cs" Link="MepOpeningCutPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimMEP\Penetrations\MepOpeningPreviewGeometryV1.cs" Link="MepOpeningPreviewGeometryV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanStoreV1.cs" Link="BeamManualDetailingPlanStoreV1.cs" />
   </ItemGroup>
 </Project>

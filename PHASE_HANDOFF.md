@@ -1,5 +1,9 @@
 # Slab Phase End-to-End Handoff — 03D.2B + 03E
 
+## Wave3 continuation — graphical proposal checkpoint
+
+Start218f5882e033e168b2ee5246f4176cbf46d4f46a; preserve prior Beam/Slab/Wall implementation. CmdMepOpeningCreateV1 now requires five explicit inputs and mandatory detached 2D/3D approval before default-Cancel native confirmation; fresh solve/fingerprint use all approved values. Golden238, native-opening source gates18, legacy MEP31/domain12. These are not live host acceptance. Continue Wave3 source diagnostics, runtime fixture and UI QA, then consolidated regression/package validation; do not restart recovery or silently expand unsupported linked/oblique/Beam geometry. Exact resume SHA is the fetched PR #3 feature head after this checkpoint. No merge/release.
+
 ## Exact current source and resume gate
 
 Verified source checkpoint58342daa033bc82844b5b2b0ee83a2aa345e7e96 is pushed/fetched; local/remote equality and clean tree checked, master601d1feb unchanged. Final documentation-only ledger may advance the feature tip; use final delivered SHA/PR #3 head after fetch, preserve any divergence without reset. Current evidence54/54 suites, K-Rebar190, Golden223, five source API builds zero errors; exact supported contracts: Docs/QA/Wall/DUAL_HOST_CONTRACTS_WAVE.md. Wave3 native MEP creation already exists and current independent31/12/13 gates PASS; do not reimplement completed code.

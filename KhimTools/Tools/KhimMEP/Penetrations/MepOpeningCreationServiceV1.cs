@@ -16,6 +16,7 @@ namespace KhimTools.MEP.Penetrations
         internal MEPCurve Mep;
         internal XYZ Origin,X,Y,Depth;
         internal double Thickness;
+        internal double Width,Height;
         internal Solid Before,Cut;
         internal MepOpeningCutPlanV1 Plan;
         internal string Fingerprint;
@@ -26,6 +27,9 @@ namespace KhimTools.MEP.Penetrations
     {
         private const double VolumeTolerance=1e-9; // ft³ numerical tolerance, not design clearance.
         internal static MepOpeningProposalV1 Propose(Document doc,Element host,MEPCurve mep,double? clearanceMm)
+            =>Propose(doc,host,mep,clearanceMm,0,0,0,0);
+        internal static MepOpeningProposalV1 Propose(Document doc,Element host,MEPCurve mep,double? clearanceMm,
+            double? minimumWidthMm,double? minimumHeightMm,double? offsetXMm,double? offsetYMm)
         {
             if(doc==null || host?.Document!=doc || mep?.Document!=doc || !host.IsValidObject || !mep.IsValidObject)
                 throw new InvalidOperationException("Exact same-document host and MEP identity required; links unsupported.");
@@ -44,6 +48,8 @@ namespace KhimTools.MEP.Penetrations
             }
             else if(host is Floor)
             {
+                if(host.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL)?.AsInteger()!=1)
+                    throw new InvalidOperationException("Opening creation requires an explicitly structural Floor.");
                 p.Before=BeamManualSupportGeometryV1.ReadSingleSolid(host);
                 var faces=p.Before.Faces.Cast<Face>().OfType<PlanarFace>().ToArray();
                 if(p.Before.Faces.Size!=6 || faces.Length!=6)throw new InvalidOperationException("Floor requires one uncut rectangular horizontal prism; slopes/openings/non-prismatic floors unsupported.");
@@ -57,6 +63,7 @@ namespace KhimTools.MEP.Penetrations
                     throw new InvalidOperationException("Floor prism envelope does not match actual concrete.");
             }
             else throw new InvalidOperationException("Creation supports verified rectangular Wall/Floor only; Beam, linked and family cuts unsupported.");
+            p.Width=width;p.Height=height;
             if(Math.Abs(axis.Direction.DotProduct(p.Depth))<1-1e-6)throw new InvalidOperationException("Oblique or parallel penetration unsupported; axis must be perpendicular to the host.");
             double d0=(axis.GetEndPoint(0)-p.Origin).DotProduct(p.Depth),d1=(axis.GetEndPoint(1)-p.Origin).DotProduct(p.Depth);
             if(Math.Min(d0,d1)>=0 || Math.Max(d0,d1)<=p.Thickness)throw new InvalidOperationException("MEP must completely traverse both host faces; endpoint-only clash is not a through opening.");
@@ -68,12 +75,13 @@ namespace KhimTools.MEP.Penetrations
             var points=Bounds(overlap.GetBoundingBox()).ToArray();
             double Mm(double ft)=>WallNativeFrameV1.Mm(ft);
             p.Plan=MepOpeningCutPlanV1.Resolve(Mm(points.Min(v=>(v-p.Origin).DotProduct(p.X))),Mm(points.Max(v=>(v-p.Origin).DotProduct(p.X))),
-                Mm(points.Min(v=>(v-p.Origin).DotProduct(p.Y))),Mm(points.Max(v=>(v-p.Origin).DotProduct(p.Y))),Mm(width),Mm(height),clearanceMm);
+                Mm(points.Min(v=>(v-p.Origin).DotProduct(p.Y))),Mm(points.Max(v=>(v-p.Origin).DotProduct(p.Y))),Mm(width),Mm(height),clearanceMm,
+                minimumWidthMm,minimumHeightMm,offsetXMm,offsetYMm);
             p.Cut=BeamManualSupportGeometryV1.Box(p.Origin,p.X,p.Y,p.Depth,WallNativeFrameV1.Feet(p.Plan.X0),WallNativeFrameV1.Feet(p.Plan.X1),
                 WallNativeFrameV1.Feet(p.Plan.Y0),WallNativeFrameV1.Feet(p.Plan.Y1),0,p.Thickness);
             RejectReinforcement(doc,p);
-            p.Fingerprint=WorkflowFingerprint.Compute(doc.ProjectInformation.UniqueId,host.UniqueId,host.VersionGuid.ToString("D"),mep.UniqueId,mep.VersionGuid.ToString("D"),
-                string.Join(";",new[]{p.Plan.X0,p.Plan.X1,p.Plan.Y0,p.Plan.Y1,p.Plan.ClearanceMm,p.Thickness,p.Before.Volume}.Select(v=>v.ToString("R",CultureInfo.InvariantCulture))));
+            p.Fingerprint=WorkflowFingerprint.Compute(doc.ProjectInformation.UniqueId,doc.PathName,doc.Title,host.UniqueId,host.VersionGuid.ToString("D"),mep.UniqueId,mep.VersionGuid.ToString("D"),
+                string.Join(";",new[]{p.Plan.X0,p.Plan.X1,p.Plan.Y0,p.Plan.Y1,p.Plan.ClearanceMm,p.Plan.MinimumWidthMm,p.Plan.MinimumHeightMm,p.Plan.OffsetXMm,p.Plan.OffsetYMm,p.Thickness,p.Before.Volume}.Select(v=>v.ToString("R",CultureInfo.InvariantCulture))));
             return p;
         }
         private static IEnumerable<XYZ> Bounds(BoundingBoxXYZ box)
@@ -103,7 +111,7 @@ namespace KhimTools.MEP.Penetrations
         internal static Opening Create(Document doc,MepOpeningProposalV1 accepted)
         {
             if(!doc.IsModifiable)throw new InvalidOperationException("Caller-owned active transaction required.");
-            var fresh=Propose(doc,accepted.Host,accepted.Mep,accepted.Plan.ClearanceMm);
+            var fresh=Propose(doc,accepted.Host,accepted.Mep,accepted.Plan.ClearanceMm,accepted.Plan.MinimumWidthMm,accepted.Plan.MinimumHeightMm,accepted.Plan.OffsetXMm,accepted.Plan.OffsetYMm);
             if(fresh.Fingerprint!=accepted.Fingerprint)throw new InvalidOperationException("Opening proposal stale; review again.");
             Opening opening;
             if(fresh.Host is Wall wall)opening=doc.Create.NewOpening(wall,fresh.Point(fresh.Plan.X0,fresh.Plan.Y0),fresh.Point(fresh.Plan.X1,fresh.Plan.Y1));

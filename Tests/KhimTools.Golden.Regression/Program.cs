@@ -127,6 +127,26 @@ static class Program
         Check(Reject(100,300,400,600,0,2000,0),"MEP invalid host extent rejected");
         Check(Reject(100,300,400,600,2000,2000,100),"MEP host edge contact rejected, no fabricated edge cover");
         Check(Reject(100,300,400,600,325,2000,25),"MEP right-boundary breach rejected, never clamped");
+        var sized=KhimTools.MEP.Penetrations.MepOpeningCutPlanV1.Resolve(100,300,400,600,2000,2000,25,400,500,50,-100);
+        Check(sized.X0==50&&sized.X1==450&&sized.Y0==150&&sized.Y1==650,"MEP explicit minima and signed offsets resolve exact rectangle");
+        Check(sized.MinimumWidthMm==400&&sized.MinimumHeightMm==500&&sized.OffsetXMm==50&&sized.OffsetYMm==-100,"MEP user inputs retained for fresh solve/fingerprint");
+        bool SizedReject(double? w,double? h,double? x,double? y){try{KhimTools.MEP.Penetrations.MepOpeningCutPlanV1.Resolve(100,300,400,600,2000,2000,25,w,h,x,y);return false;}catch(ArgumentException){return true;}}
+        Check(SizedReject(null,0,0,0),"MEP missing minimum width is not zero");
+        Check(SizedReject(0,null,0,0),"MEP missing minimum height is not zero");
+        Check(SizedReject(0,0,null,0),"MEP missing X offset is not zero");
+        Check(SizedReject(0,0,0,null),"MEP missing Y offset is not zero");
+        Check(SizedReject(-1,0,0,0),"MEP negative minimum rejected");
+        Check(SizedReject(0,0,1,0),"MEP offset cannot steal accepted per-side clearance");
+        Check(SizedReject(0,0,0,double.PositiveInfinity),"MEP infinite offset rejected");
+        Check(SizedReject(double.MaxValue,0,double.MaxValue,0),"MEP rectangle overflow rejected");
+        var geometry=new KhimTools.MEP.Penetrations.MepOpeningPreviewGeometryV1(2000,2000,200,sized,
+            new KhimTools.MEP.Penetrations.MepPreviewPointV1(200,500,-100),new KhimTools.MEP.Penetrations.MepPreviewPointV1(200,500,300));
+        Check(geometry.Cut.Count==8&&geometry.Cut[0].X==50&&geometry.Cut[7].Z==200,"MEP detached full-depth cut uses same resolved rectangle");
+        Check(geometry.Host[7].X==2000&&geometry.Host[7].Y==2000,"MEP detached host retains actual extents");
+        Check(geometry.Penetrant[0].Project(false).X==200&&geometry.Penetrant[0].Project(false).Y==500,"MEP 2D is explicit host-plane projection");
+        var iso=new KhimTools.MEP.Penetrations.MepPreviewPointV1(100,0,0).Project(true);
+        Check(Near(100/Math.Sqrt(2),iso.X,1e-9)&&Near(100/Math.Sqrt(6),iso.Y,1e-9),"MEP isometric projection numerically tested, not fabricated profile");
+        Check(KhimTools.MEP.Penetrations.MepOpeningPreviewGeometryV1.EdgePairs.Count==24,"MEP separate twelve box edges never diagonal fake cuts");
     }
 
     private static void RunWallManualCases()

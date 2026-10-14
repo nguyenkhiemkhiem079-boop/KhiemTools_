@@ -1,5 +1,13 @@
 # Reviewed native MEP opening — Wave3 bounded implementation
 
+## Current Wave3 graphical proposal checkpoint
+
+The command now requires five empty-by-default fields: per-side clearance, minimum width, minimum height, signed local X and Y offsets, all in mm. Explicit zero means no added minimum/offset, never a hidden design value. Minimum dimensions enlarge the real-clash rectangle around its center; offsets are accepted only if the whole clash plus clearance stays contained and the cut remains strictly interior to the physical host. All five values are preserved in the accepted plan, fingerprint and fresh pre-Create solve.
+
+The required detached graphical review displays 2D host-plane and 3D isometric wireframe views of the measured prism and the identical resolved full-depth cut. Blue is the actual MEP centerline, explicitly **not** an outer profile or insulation/fire allowance. Host/penetrant native identities, sizes, coordinate ranges, clearance, minima and offsets are disclosed. Review approval is followed by a separate native confirmation defaulting to Cancel. Paint contains no Revit API calls or persistent temporary elements. Only explicitly structural Floors qualify.
+
+Checkpoint evidence: pure production-linked Golden238 (15 new numerical geometry assertions), opening source-integration18. These are offline tests, not native geometry/UI/Undo acceptance. Linked-model elements remain explicitly unsupported for creation; no transform is guessed and host ownership cannot switch.
+
 The existing CmdMepOpenings remains a read-only coordination review. Its legacy50mm estimate is never a creation default. CmdMepOpeningCreateV1 is separate: explicitly pick local Wall/Floor and straight supported duct/pipe/tray, enter finite non-negative per-side clearance (empty initial input), inspect the rectangle/coordinates/identities and explicitly confirm. Cancel is default. This is geometry coordination, not structural/fire/code approval.
 
 ## Supported and rejected geometry
