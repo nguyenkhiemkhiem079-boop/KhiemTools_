@@ -1,0 +1,11 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="CG_Core" Directory="BUNDLEFOLDER">
+      <Component Id="C_PackageContentsXml" Guid="{F1A2B3C4-D5E6-4789-A0B1-C2D3E4F5A6B7}">
+        <File Id="File_PackageContentsXml"
+              Source="..\..\KhimTools.Mini\Deploy\PackageContents.xml"
+              KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

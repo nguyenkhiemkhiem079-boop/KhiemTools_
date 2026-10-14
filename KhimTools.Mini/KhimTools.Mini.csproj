@@ -1,0 +1,86 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- net48  -> Revit 2022-2024 (.NET Framework)
+         net8.0-windows -> Revit 2025-2026 (.NET 8) -->
+    <TargetFrameworks>net48;net8.0-windows</TargetFrameworks>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Platforms>x64</Platforms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>KhimTools.Mini</RootNamespace>
+    <AssemblyName>KhimTools.Mini</AssemblyName>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!-- Duong dan RevitAPI theo tung TFM -->
+  <PropertyGroup Condition="'$(TargetFramework)'=='net48'">
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2024\RevitAPI.dll')">2024</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2023\RevitAPI.dll')">2023</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2022\RevitAPI.dll')">2022</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2024</RevitVersionForReference>
+    <VersionFolder>Legacy</VersionFolder>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows'">
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2025\RevitAPI.dll')">2025</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'=='' and Exists('C:\Program Files\Autodesk\Revit 2026\RevitAPI.dll')">2026</RevitVersionForReference>
+    <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2025</RevitVersionForReference>
+    <VersionFolder>Modern</VersionFolder>
+  </PropertyGroup>
+
+  <!-- Reference local DLL neu co tren may -->
+  <ItemGroup Condition="Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
+    <Reference Include="RevitAPI">
+      <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="RevitAPIUI">
+      <HintPath>C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPIUI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Fallback sang NuGet package Nice3point cho net8.0-windows neu chua cai Revit -->
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows' and !Exists('C:\Program Files\Autodesk\Revit $(RevitVersionForReference)\RevitAPI.dll')">
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.2" PrivateAssets="all" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- Include only ElementTags, CopyLink, and minimal Core -->
+  <ItemGroup>
+    <Compile Include="..\KhimTools\Tools\KhimGen\ElementTags\**\*.cs" Link="ElementTags\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Tools\KhimGen\CopyLink\**\*.cs" Link="CopyLink\%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="..\KhimTools\Core\ElementIdCompat.cs" Link="Core\ElementIdCompat.cs" />
+    <Compile Include="..\KhimTools\Core\LanguageManager.cs" Link="Core\LanguageManager.cs" />
+    <Compile Include="..\KhimTools\Core\KhimUiStyle.cs" Link="Core\KhimUiStyle.cs" />
+    <Compile Include="..\KhimTools\Core\UI\KTBaseForm.cs" Link="Core\KTBaseForm.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\KhimTools\Resources\icon_mep_tags_16.png" Link="Resources\icon_mep_tags_16.png" />
+    <EmbeddedResource Include="..\KhimTools\Resources\icon_mep_tags_32.png" Link="Resources\icon_mep_tags_32.png" />
+    <EmbeddedResource Include="..\KhimTools\Resources\icon_copylink_16.png" Link="Resources\icon_copylink_16.png" />
+    <EmbeddedResource Include="..\KhimTools\Resources\icon_copylink_32.png" Link="Resources\icon_copylink_32.png" />
+  </ItemGroup>
+
+</Project>

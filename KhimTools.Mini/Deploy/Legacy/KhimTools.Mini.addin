@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<RevitAddIns>
+  <AddIn Type="Application">
+    <Name>K-TOOL Mini</Name>
+    <Assembly>KhimTools.Mini.dll</Assembly>
+    <AddInId>A5B4C3D2-1E0F-4A9B-8C7D-6E5F4A3B2C1D</AddInId>
+    <FullClassName>KhimTools.Mini.App</FullClassName>
+    <VendorId>SJTL</VendorId>
+    <VendorDescription>K-TOOL Mini - Standalone Element Tags and Copy Link Elements, support@example.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>

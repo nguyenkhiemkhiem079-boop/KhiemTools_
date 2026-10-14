@@ -1,0 +1,15 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="CG_Legacy" Directory="LEGACYFOLDER">
+      <Component Id="C_LegacyAddin" Guid="{E2F3A4B5-C6D7-4890-B1C2-D3E4F5A6B7C8}">
+        <File Id="File_LegacyAddin"
+              Source="..\..\KhimTools.Mini\Deploy\Legacy\KhimTools.Mini.addin"
+              KeyPath="yes" />
+      </Component>
+      <Component Id="C_LegacyDlls" Guid="{D3E4F5A6-B7C8-4901-C2D3-E4F5A6B7C8D9}">
+        <File Id="File_Legacy_KhimToolsMini" Source="..\..\KhimTools.Mini\bin\Release\net48\KhimTools.Mini.dll" KeyPath="yes" />
+        <File Id="File_Legacy_Newtonsoft" Source="..\..\KhimTools.Mini\bin\Release\net48\Newtonsoft.Json.dll" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

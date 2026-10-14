@@ -1,0 +1,16 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="CG_Modern" Directory="MODERNFOLDER">
+      <Component Id="C_ModernAddin" Guid="{C4D5E6F7-A8B9-4012-D3E4-F5A6B7C8D9E0}">
+        <File Id="File_ModernAddin"
+              Source="..\..\KhimTools.Mini\Deploy\Modern\KhimTools.Mini.addin"
+              KeyPath="yes" />
+      </Component>
+      <Component Id="C_ModernDlls" Guid="{B5C6D7E8-F9A0-4123-E4F5-A6B7C8D9E0F1}">
+        <File Id="File_Modern_KhimToolsMini" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\KhimTools.Mini.dll" KeyPath="yes" />
+        <File Id="File_Modern_DepsJson" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\KhimTools.Mini.deps.json" />
+        <File Id="File_Modern_Newtonsoft" Source="..\..\KhimTools.Mini\bin\Release\net8.0-windows\Newtonsoft.Json.dll" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

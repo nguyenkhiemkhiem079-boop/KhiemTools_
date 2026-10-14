@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="1.0.0"
+                    Name="K-TOOL Mini"
+                    AppNameSpace="KhimTools.Mini"
+                    AutodeskProduct="Revit"
+                    ProductType="Application"
+                    ProductCode="{A5B4C3D2-1E0F-4A9B-8C7D-6E5F4A3B2C1D}"
+                    Description="K-TOOL Mini - Standalone Element Tags and Copy Link Elements">
+  <CompanyDetails Name="K-TOOLS" />
+  <RuntimeRequirements OS="Win64" Platform="Revit" />
+
+  <!-- Revit 2022 - 2024 (.NET Framework 4.8 / Legacy Architecture) -->
+  <Components Description="K-TOOL Mini for Revit 2022">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2022" SeriesMax="R2022" />
+    <ComponentEntry AppName="K-TOOL Mini" ModuleName="./Contents/Legacy/KhimTools.Mini.addin" AppDescription="K-TOOL Mini for Revit 2022" />
+  </Components>
+  <Components Description="K-TOOL Mini for Revit 2023">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2023" SeriesMax="R2023" />
+    <ComponentEntry AppName="K-TOOL Mini" ModuleName="./Contents/Legacy/KhimTools.Mini.addin" AppDescription="K-TOOL Mini for Revit 2023" />
+  </Components>
+  <Components Description="K-TOOL Mini for Revit 2024">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2024" SeriesMax="R2024" />
+    <ComponentEntry AppName="K-TOOL Mini" ModuleName="./Contents/Legacy/KhimTools.Mini.addin" AppDescription="K-TOOL Mini for Revit 2024" />
+  </Components>
+
+  <!-- Revit 2025 - 2026 (.NET 8.0 / Modern Architecture) -->
+  <Components Description="K-TOOL Mini for Revit 2025">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2025" SeriesMax="R2025" />
+    <ComponentEntry AppName="K-TOOL Mini" ModuleName="./Contents/Modern/KhimTools.Mini.addin" AppDescription="K-TOOL Mini for Revit 2025" />
+  </Components>
+  <Components Description="K-TOOL Mini for Revit 2026">
+    <RuntimeRequirements OS="Win64" Platform="Revit" SeriesMin="R2026" SeriesMax="R2026" />
+    <ComponentEntry AppName="K-TOOL Mini" ModuleName="./Contents/Modern/KhimTools.Mini.addin" AppDescription="K-TOOL Mini for Revit 2026" />
+  </Components>
+</ApplicationPackage>

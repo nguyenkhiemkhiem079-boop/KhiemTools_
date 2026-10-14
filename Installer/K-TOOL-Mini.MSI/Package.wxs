@@ -1,0 +1,36 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="K-TOOL Mini"
+           Manufacturer="SJTL"
+           Version="1.0.0"
+           UpgradeCode="{E2B1A0F9-7C6D-4E5F-8A9B-0C1D2E3F4A5B}"
+           Scope="perMachine"
+           Language="1033"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="K-TOOL Mini - Standalone Element Tags and Copy Link Elements"
+                        Keywords="Revit,Addin,K-TOOL,ElementTags,CopyLink,BIM,Automation"
+                        Manufacturer="SJTL" />
+
+    <MajorUpgrade Schedule="afterInstallInitialize"
+                  DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit." />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Property Id="ARPHELPLINK" Value="https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nguyenkhiemkhiem079-boop/KhiemTools_" />
+    <Property Id="ARPNOREPAIR" Value="0" />
+
+    <!-- Feature Hierarchy Root -->
+    <FeatureRef Id="Complete" />
+
+    <!-- Prerequisite & Multi-Year Revit Detection References -->
+    <PropertyRef Id="ALL_REVIT" />
+    <PropertyRef Id="NETFRAMEWORK48_RELEASE" />
+    <PropertyRef Id="DOTNET8_DESKTOP_INSTALLED" />
+
+    <!-- Default UI Entry Point -->
+    <UIRef Id="WixUI_Mini" />
+
+  </Package>
+</Wix>
