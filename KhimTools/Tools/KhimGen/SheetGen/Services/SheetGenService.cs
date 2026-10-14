@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -127,7 +128,7 @@ namespace KhimTools.SheetGen.Services
 
             using (var group = new TransactionGroup(doc, "K-TOOLS - SheetGen batch"))
             {
-                group.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(group, "SheetGen batch");
                 for (int i = 0; i < selected.Count; i++)
                 {
                     var item = selected[i];
@@ -145,7 +146,7 @@ namespace KhimTools.SheetGen.Services
                     {
                         try
                         {
-                            tx.Start();
+                            KhimTools.Core.Revit.TransactionBoundary.Start(tx, "SheetGen " + item.SheetNumber);
                             ViewSheet sheet = ViewSheet.Create(doc, item.TitleBlockId ?? ElementId.InvalidElementId);
                             if (sheet == null) throw new InvalidOperationException("Revit did not return a sheet.");
                             sheet.SheetNumber = item.SheetNumber.Trim();
@@ -179,7 +180,12 @@ namespace KhimTools.SheetGen.Services
                                 }
                             }
 
-                            tx.Commit();
+                            ViewSheet committedCandidate = doc.GetElement(sheet.Id) as ViewSheet;
+                            if (committedCandidate == null || !string.Equals(committedCandidate.SheetNumber, item.SheetNumber.Trim(), StringComparison.OrdinalIgnoreCase))
+                                throw new InvalidOperationException("Sheet creation postcondition failed.");
+                            if (result.ContentInstanceId != ElementId.InvalidElementId && doc.GetElement(result.ContentInstanceId) == null)
+                                throw new InvalidOperationException("Placed content postcondition failed.");
+                            KhimTools.Core.Revit.TransactionBoundary.Commit(tx, "SheetGen " + item.SheetNumber);
                             result.Status = SheetGenStatusCode.Created;
                             result.Severity = result.Messages.Count == 0 ? SheetValidationSeverity.None : SheetValidationSeverity.Warning;
                             if (result.Messages.Count == 0) result.Messages.Add("Created");
@@ -190,7 +196,7 @@ namespace KhimTools.SheetGen.Services
                         }
                         catch (Exception ex)
                         {
-                            if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
+                            KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "SheetGen " + item.SheetNumber);
                             result.Status = SheetGenStatusCode.Failed;
                             result.Severity = SheetValidationSeverity.Error;
                             result.Messages.Add("Rolled back: " + ex.Message);
@@ -202,7 +208,7 @@ namespace KhimTools.SheetGen.Services
                     result.Duration = timer.Elapsed;
                     batch.Results.Add(result);
                 }
-                group.Assimilate();
+                KhimTools.Core.Revit.TransactionBoundary.Assimilate(group, "SheetGen batch");
             }
             return batch;
         }
@@ -270,7 +276,7 @@ namespace KhimTools.SheetGen.Services
             }
         }
 
-        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.IntegerValue.ToString(CultureInfo.InvariantCulture);
+        private static string IdText(ElementId id) => id == null || id == ElementId.InvalidElementId ? "" : id.ToCheckedIntValue().ToString(CultureInfo.InvariantCulture);
         private static string CsvEscape(string value) => "\"" + (value ?? "").Replace("\"", "\"\"") + "\"";
 
         public static SheetGenImportResult ImportFromCsvDetailed(string filePath, IList<TitleBlockOption> titleBlocks, IList<ViewOption> views)

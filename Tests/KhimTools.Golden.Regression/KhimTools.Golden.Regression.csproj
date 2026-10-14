@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="..\..\src\KhimTools.Domain\Models\Qs\QsQuantityMath.cs" Link="QsQuantityMath.cs" />
+    <Compile Include="..\..\src\KhimTools.Domain\Models\Mep\MepMeasurementCalculator.cs" Link="MepMeasurementCalculator.cs" />
+    <Compile Include="..\..\src\KhimTools.Domain\Models\Architectural\LintelLayout.cs" Link="LintelLayout.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs" Link="RebarAnchorageCalculator.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\RebarFingerprintMultiset.cs" Link="RebarFingerprintMultiset.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\SlabSectionGeometry.cs" Link="SlabSectionGeometry.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\DetachedSolvedViewV1.cs" Link="DetachedSolvedViewV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamStirrupLayout.cs" Link="BeamStirrupLayout.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamLongitudinalLayout.cs" Link="BeamLongitudinalLayout.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanV1.cs" Link="BeamManualDetailingPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualBatchIdentityV1.cs" Link="BeamManualBatchIdentityV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualSupportPolicyV1.cs" Link="BeamManualSupportPolicyV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\WallManualPlanV1.cs" Link="WallManualPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\ColumnWallRelatedPlanV1.cs" Link="ColumnWallRelatedPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimMEP\Penetrations\MepOpeningCutPlanV1.cs" Link="MepOpeningCutPlanV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimMEP\Penetrations\MepOpeningPreviewGeometryV1.cs" Link="MepOpeningPreviewGeometryV1.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanStoreV1.cs" Link="BeamManualDetailingPlanStoreV1.cs" />
+  </ItemGroup>
+</Project>

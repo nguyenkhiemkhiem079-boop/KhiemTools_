@@ -13,7 +13,7 @@ namespace KhimTools.RebarTool.Forms
         internal static TabPage CreatePage(RebarReferenceKind kind)
         {
             bool isEn = LanguageManager.IsEnglish;
-            string pageTitle = isEn ? "2D Reference" : "Tham kháº£o 2D";
+            string pageTitle = isEn ? "2D Reference" : "Tham khảo 2D";
             var page = new TabPage(pageTitle) { BackColor = Color.White };
             page.Controls.Add(Create(kind));
             return page;
@@ -27,10 +27,10 @@ namespace KhimTools.RebarTool.Forms
             string[] names = kind == RebarReferenceKind.RectangularColumn
                 ? (isEn
                     ? new[] { "Cross Section", "Elevation", "Stirrup Layout", "Anchorage & Lap" }
-                    : new[] { "Tiáº¿t diá»‡n", "Máº·t Ä‘á»©ng", "Cáº¥u táº¡o Ä‘ai", "Neo / Ná»‘i" })
+                    : new[] { "Tiết diện", "Mặt đứng", "Cấu tạo đai", "Neo / Nối" })
                 : (isEn
                     ? new[] { "Plan", "Longitudinal", "Cross Section", "Anchorage" }
-                    : new[] { "Máº·t báº±ng", "Cáº¯t dá»c", "Cáº¯t ngang", "Neo / Ná»‘i" });
+                    : new[] { "Mặt bằng", "Cắt dọc", "Cắt ngang", "Neo / Nối" });
 
             for (int i = 0; i < names.Length; i++)
             {
@@ -116,22 +116,22 @@ namespace KhimTools.RebarTool.Forms
 
                 switch (view)
                 {
-                    case 0: // Tiáº¿t diá»‡n / Cross Section (4x4 arrangement)
+                    case 0: // Tiết diện / Cross Section (4x4 arrangement)
                         DrawSectionTab(g, isEn, cConc, cHatch, cOutline, cBar, cTie, cTieDia, cTieCr, cDim, cHdr, cBorder, cCard,
                             fHdr, fSub, fSec, fBdy, fSml, fDim, brOutline, brDim, brHdrText, brSubText, penOutline, penBorder, penDim);
                         break;
 
-                    case 1: // Máº·t Ä‘á»©ng / Elevation (A1/A2/A1 zones)
+                    case 1: // Mặt đứng / Elevation (A1/A2/A1 zones)
                         DrawElevationTab(g, isEn, cConc, cOutline, cBar, cTie, cDim, cHdr, cBorder, cCard,
                             fHdr, fSub, fSec, fBdy, fSml, fDim, brOutline, brDim, brHdrText, brSubText, penOutline, penBorder, penDim);
                         break;
 
-                    case 2: // Cáº¥u táº¡o Ä‘ai / Stirrup Layouts (3 configurations)
+                    case 2: // Cấu tạo đai / Stirrup Layouts (3 configurations)
                         DrawStirrupTypesTab(g, isEn, cConc, cOutline, cBar, cTie, cTieDia, cTieCr, cDim, cHdr, cBorder, cCard,
                             fHdr, fSub, fSec, fBdy, fSml, fDim, brOutline, brDim, brHdrText, brSubText, penOutline, penBorder, penDim);
                         break;
 
-                    case 3: // Neo / Ná»‘i / Anchorage & Lap Splice
+                    case 3: // Neo / Nối / Anchorage & Lap Splice
                         DrawAnchorageTab(g, isEn, cConc, cHatch, cOutline, cBar, cTie, cDim, cHdr, cBorder, cCard,
                             fHdr, fSub, fSec, fBdy, fSml, fDim, brOutline, brDim, brHdrText, brSubText, penOutline, penBorder, penDim);
                         break;
@@ -148,7 +148,7 @@ namespace KhimTools.RebarTool.Forms
             }
 
             // ----------------------------------------------------------------
-            // TAB 0: TIáº¾T DIá»†N (CROSS SECTION)
+            // TAB 0: TIẾT DIỆN (CROSS SECTION)
             // ----------------------------------------------------------------
             private static void DrawSectionTab(Graphics g, bool isEn,
                 Color cConc, Color cHatch, Color cOutline, Color cBar, Color cTie, Color cTieDia, Color cTieCr, Color cDim, Color cHdr, Color cBorder, Color cCard,
@@ -156,8 +156,8 @@ namespace KhimTools.RebarTool.Forms
                 Brush brOutline, Brush brDim, Brush brHdrText, Brush brSubText,
                 Pen penOutline, Pen penBorder, Pen penDim)
             {
-                string title = isEn ? "RECTANGULAR COLUMN SECTION - REBAR ARRANGEMENT" : "TIáº¾T DIá»†N Cá»˜T ÄIá»‚N HÃŒNH - Bá» TRÃ THÃ‰P B Ã— H";
-                string sub   = isEn ? "Outer stirrup, diamond tie & cross-ties (4x4 layout)" : "Äai ngoÃ i, Ä‘ai kim cÆ°Æ¡ng & Ä‘ai mÃ³c C (SÆ¡ Ä‘á»“ 4Ã—4 thanh)";
+                string title = isEn ? "RECTANGULAR COLUMN SECTION - REBAR ARRANGEMENT" : "TIẾT DIỆN CỘT ĐIỂN HÌNH - BỐ TRÍ THÉP B × H";
+                string sub   = isEn ? "Outer stirrup, diamond tie & cross-ties (4x4 layout)" : "Đai ngoài, đai kim cương và đai móc C (sơ đồ 4×4 thanh)";
                 DrawHeaderBanner(g, title, sub, cHdr, fHdr, fSub, brHdrText, brSubText);
 
                 // Concrete Section (left side)
@@ -183,7 +183,7 @@ namespace KhimTools.RebarTool.Forms
                 g.DrawLine(penDim, secX, secY - 14, secX, secY - 6);
                 g.DrawLine(penDim, secX + secW, secY - 14, secX + secW, secY - 6);
                 using var sfCen = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-                g.DrawString(isEn ? "b (width)" : "b (cáº¡nh ngang)", fDim, brDim, secX + secW / 2, secY - 18, sfCen);
+                g.DrawString(isEn ? "b (width)" : "b (cạnh ngang)", fDim, brDim, secX + secW / 2, secY - 18, sfCen);
 
                 // Dimension H on left
                 g.DrawLine(penDim, secX - 10, secY, secX - 10, secY + secH);
@@ -192,7 +192,7 @@ namespace KhimTools.RebarTool.Forms
                 var state = g.Save();
                 g.TranslateTransform(secX - 18, secY + secH / 2);
                 g.RotateTransform(-90);
-                g.DrawString(isEn ? "h (height)" : "h (cáº¡nh dá»c)", fDim, brDim, 0, 0, sfCen);
+                g.DrawString(isEn ? "h (height)" : "h (cạnh dọc)", fDim, brDim, 0, 0, sfCen);
                 g.Restore(state);
 
                 // Outer hoop
@@ -241,10 +241,10 @@ namespace KhimTools.RebarTool.Forms
                 // Bottom notes card under section
                 using (var cardBr = new SolidBrush(cCard)) g.FillRectangle(cardBr, 26, 276, 238, 72);
                 g.DrawRectangle(penBorder, 26, 276, 238, 72);
-                g.DrawString(isEn ? "SECTION FORMULAS & RULES" : "CÃ”NG THá»¨C & QUY CÃCH TIáº¾T DIá»†N", fSec, brOutline, 32, 280);
+                g.DrawString(isEn ? "SECTION FORMULAS & RULES" : "CÔNG THỨC & QUY CÁCH TIẾT DIỆN", fSec, brOutline, 32, 280);
                 string secTxt = isEn
-                    ? "â€¢ Total bars: n = 2(nb + nh - 2)\nâ€¢ Clear spacing: a >= max(d, 25mm)\nâ€¢ Seismic 135deg hooks: extension >= 10d"
-                    : "â€¢ Tá»•ng sá»‘ thanh: n = 2(nb + nh - 2)\nâ€¢ Khoáº£ng há»Ÿ tá»‹nh tiáº¿n: a >= max(d, 25mm)\nâ€¢ MÃ³c uá»‘n khÃ¡ng cháº¥n: 135 Ä‘á»™, neo >= 10d";
+                    ? "• Total bars: n = 2(nb + nh - 2)\n• Clear spacing: a >= max(d, 25mm)\n• Seismic 135deg hooks: extension >= 10d"
+                    : "• Tổng số thanh: n = 2(nb + nh - 2)\n• Khoảng hở tịnh tiến: a >= max(d, 25mm)\n• Móc uốn kháng chấn: 135°, neo >= 10d";
                 g.DrawString(secTxt, fBdy, brOutline, 32, 294);
 
                 // Right side: Specification Card
@@ -253,7 +253,7 @@ namespace KhimTools.RebarTool.Forms
 
                 using (var hdrBg = new SolidBrush(Color.FromArgb(236, 239, 241)))
                     g.FillRectangle(hdrBg, 276, 46, 254, 22);
-                g.DrawString(isEn ? "REBAR DETAILING SPECIFICATIONS" : "QUY CÃCH Cáº¤U Táº O Cá»T THÃ‰P", fSec, brOutline, 284, 51);
+                g.DrawString(isEn ? "REBAR DETAILING SPECIFICATIONS" : "QUY CÁCH CẤU TẠO CỐT THÉP", fSec, brOutline, 284, 51);
 
                 // Legend items
                 int legY = 74;
@@ -272,26 +272,26 @@ namespace KhimTools.RebarTool.Forms
                     legY += 19;
                 }
 
-                AddLegend(barBr, null, isEn ? "Main bars: dia 16 - 32 mm" : "ThÃ©p chá»§: d = 16 - 32 mm", true);
-                AddLegend(null, tiePen, isEn ? "Outer tie: 135deg hook, >= 10d" : "Äai ngoÃ i: mÃ³c 135 Ä‘á»™, neo >= 10d", false);
-                AddLegend(null, diaPen, isEn ? "Diamond tie: holds side bars" : "Äai kim cÆ°Æ¡ng: giá»¯ thanh biÃªn", false);
-                AddLegend(null, crossPen, isEn ? "Cross-ties: C-hook / U-tie" : "Äai mÃ³c C / Ä‘ai chá»¯ U (Cross-tie)", false);
+                AddLegend(barBr, null, isEn ? "Main bars: dia 16 - 32 mm" : "Thép chủ: d = 16 - 32 mm", true);
+                AddLegend(null, tiePen, isEn ? "Outer tie: 135deg hook, >= 10d" : "Đai ngoài: móc 135°, neo >= 10d", false);
+                AddLegend(null, diaPen, isEn ? "Diamond tie: holds side bars" : "Đai kim cương: giữ thanh biên", false);
+                AddLegend(null, crossPen, isEn ? "Cross-ties: C-hook / U-tie" : "Đai móc C / đai chữ U (cross-tie)", false);
                 using (var cPen = new Pen(cDim, 1f))
-                    AddLegend(null, cPen, isEn ? "Cover c: >= 25 mm (interior)" : "Lá»›p báº£o vá»‡ c: >= 25mm (cá»™t nhÃ )", false);
+                    AddLegend(null, cPen, isEn ? "Cover c: >= 25 mm (interior)" : "Lớp bảo vệ c: >= 25 mm (cột nhà)", false);
 
                 g.DrawLine(penBorder, 284, legY + 2, 522, legY + 2);
                 legY += 8;
 
-                g.DrawString(isEn ? "STANDARD REQUIREMENTS:" : "YÃŠU Cáº¦U TIÃŠU CHUáº¨N (TCVN / ACI):", fSec, brOutline, 284, legY);
+                g.DrawString(isEn ? "STANDARD REQUIREMENTS:" : "YÊU CẦU TIÊU CHUẨN (TCVN / ACI):", fSec, brOutline, 284, legY);
                 legY += 16;
                 string stdTxt = isEn
                     ? "1. Reinforcement ratio:\n   rho = 1.0% - 3.0% (max 4.0% at lap)\n2. Side bar restraint:\n   Every corner & bar spaced > 150mm\n   must be braced by tie bend.\n3. Hook staggering:\n   Hooks must alternate at successive\n   tie levels along the column height."
-                    : "1. HÃ m lÆ°á»£ng cá»‘t thÃ©p há»£p lÃ½:\n   mu = 1.0% - 3.0% (tá»‘i Ä‘a 4.0% táº¡i ná»‘i)\n2. Cá»‘ Ä‘á»‹nh thanh dá»c:\n   Thanh gÃ³c & thanh cÃ¡ch nhau > 150mm\n   pháº£i Ä‘Æ°á»£c giá»¯ bá»Ÿi gÃ³c uá»‘n cá»§a Ä‘ai.\n3. Bá»‘ trÃ­ so le mÃ³c Ä‘ai:\n   MÃ³c uá»‘n pháº£i Ä‘áº·t so le gÃ³c qua tá»«ng\n   lá»›p Ä‘ai dá»c theo chiá»u cao cá»™t.";
+                    : "1. Hàm lượng cốt thép hợp lý:\n   mu = 1.0% - 3.0% (tối đa 4.0% tại nối)\n2. Cố định thanh dọc:\n   Thanh góc và thanh cách nhau > 150 mm\n   phải được giữ bởi góc uốn của đai.\n3. Bố trí so le móc đai:\n   Móc uốn phải đặt so le góc qua từng\n   lớp đai dọc theo chiều cao cột.";
                 g.DrawString(stdTxt, fSml, brOutline, 284, legY);
             }
 
             // ----------------------------------------------------------------
-            // TAB 1: Máº¶T Äá»¨NG (ELEVATION A1/A2/A1 ZONES)
+            // TAB 1: MẶT ĐỨNG (ELEVATION A1/A2/A1 ZONES)
             // ----------------------------------------------------------------
             private static void DrawElevationTab(Graphics g, bool isEn,
                 Color cConc, Color cOutline, Color cBar, Color cTie, Color cDim, Color cHdr, Color cBorder, Color cCard,
@@ -299,8 +299,8 @@ namespace KhimTools.RebarTool.Forms
                 Brush brOutline, Brush brDim, Brush brHdrText, Brush brSubText,
                 Pen penOutline, Pen penBorder, Pen penDim)
             {
-                string title = isEn ? "COLUMN ELEVATION - STIRRUP ZONES A1 / A2 / A1" : "SÆ  Äá»’ Bá» TRÃ Cá»T THÃ‰P Máº¶T Äá»¨NG Cá»˜T - VÃ™NG ÄAI A1 / A2 / A1";
-                string sub   = isEn ? "Dense zone A1, intermediate A2 & cranked lap splice" : "PhÃ¢n vÃ¹ng Ä‘ai dÃ y A1, Ä‘ai thÆ°a A2 & vÃ¹ng uá»‘n cá»• chai ná»‘i chá»“ng";
+                string title = isEn ? "COLUMN ELEVATION - STIRRUP ZONES A1 / A2 / A1" : "SƠ ĐỒ BỐ TRÍ CỐT THÉP MẶT ĐỨNG CỘT - VÙNG ĐAI A1 / A2 / A1";
+                string sub   = isEn ? "Dense zone A1, intermediate A2 & cranked lap splice" : "Phân vùng đai dày A1, đai thưa A2 và vùng uốn cổ chai nối chồng";
                 DrawHeaderBanner(g, title, sub, cHdr, fHdr, fSub, brHdrText, brSubText);
 
                 // Column body
@@ -313,8 +313,8 @@ namespace KhimTools.RebarTool.Forms
                 using var lvp = new Pen(cDim, 1f) { DashStyle = DashStyle.DashDot };
                 g.DrawLine(lvp, 30, colY, 210, colY);
                 g.DrawLine(lvp, 30, colY + colH, 210, colY + colH);
-                g.DrawString(isEn ? "Upper Floor (Level n+1)" : "SÃ n táº§ng trÃªn (Level n+1)", fSml, brDim, 28, colY - 12);
-                g.DrawString(isEn ? "Lower Floor (Level n)" : "SÃ n táº§ng dÆ°á»›i (Level n)", fSml, brDim, 28, colY + colH + 2);
+                g.DrawString(isEn ? "Upper Floor (Level n+1)" : "Sàn tầng trên (Level n+1)", fSml, brDim, 28, colY - 12);
+                g.DrawString(isEn ? "Lower Floor (Level n)" : "Sàn tầng dưới (Level n)", fSml, brDim, 28, colY + colH + 2);
 
                 // Zone heights: top A1 = 60px, bottom A1 = 60px, middle A2 = 126px
                 int a1H = 60;
@@ -370,9 +370,9 @@ namespace KhimTools.RebarTool.Forms
                     g.DrawString(descTxt, fSml, brDim, bkX + 7, (y1 + y2) / 2 + 3);
                 }
 
-                DrawBracket(a1TopY, a1TopY + a1H, isEn ? "Zone A1 (dense)" : "VÃ¹ng A1 (Ä‘ai dÃ y)", "a1 <= min(h/4, 100)");
-                DrawBracket(a2TopY, a2TopY + a2H, isEn ? "Zone A2 (middle)" : "VÃ¹ng A2 (Ä‘ai thÆ°a)", "a2 <= min(h/2, 200)");
-                DrawBracket(a1BotY, a1BotY + a1H, isEn ? "Zone A1 (dense)" : "VÃ¹ng A1 (Ä‘ai dÃ y)", "H_cr >= max(H/6, 450)");
+                DrawBracket(a1TopY, a1TopY + a1H, isEn ? "Zone A1 (dense)" : "Vùng A1 (đai dày)", "a1 <= min(h/4, 100)");
+                DrawBracket(a2TopY, a2TopY + a2H, isEn ? "Zone A2 (middle)" : "Vùng A2 (đai thưa)", "a2 <= min(h/2, 200)");
+                DrawBracket(a1BotY, a1BotY + a1H, isEn ? "Zone A1 (dense)" : "Vùng A1 (đai dày)", "H_cr >= max(H/6, 450)");
 
                 // Right side: Design Guide Card
                 using (var cardBr = new SolidBrush(cCard)) g.FillRectangle(cardBr, 276, 46, 254, 302);
@@ -380,16 +380,16 @@ namespace KhimTools.RebarTool.Forms
 
                 using (var hdrBg = new SolidBrush(Color.FromArgb(236, 239, 241)))
                     g.FillRectangle(hdrBg, 276, 46, 254, 22);
-                g.DrawString(isEn ? "SEISMIC DETAILING CRITERIA" : "TIÃŠU CHUáº¨N ÄAI KHÃNG CHáº¤N", fSec, brOutline, 284, 51);
+                g.DrawString(isEn ? "SEISMIC DETAILING CRITERIA" : "TIÊU CHUẨN ĐAI KHÁNG CHẤN", fSec, brOutline, 284, 51);
 
                 string gTxt = isEn
-                    ? "1. Critical Zone Length (H_cr):\n   H_cr >= max(H_clear / 6, h_col, 450mm)\n   High bending & shear plastic hinge.\n\n2. Zone A1 Spacing (Dense):\n   a1 <= min(h/4, 6~8 d_bar, 100~150mm)\n   Prevents bar buckling under axial loads.\n\n3. Zone A2 Spacing (Middle):\n   a2 <= min(h/2, 12~15 d_bar, 200~300mm)\n   Common practice: a2 = 2 * a1.\n\n4. Splice Zone Recommendation:\n   â€¢ Splice within middle 1/2 of column (A2).\n   â€¢ NEVER splice inside plastic hinge A1.\n   â€¢ Lap length L_lap >= 40d with dense ties."
-                    : "1. Chiá»u dÃ i vÃ¹ng tá»›i háº¡n A1 (H_cr):\n   H_cr >= max(H_thÃ´ng thá»§y / 6, h_cá»™t, 450mm)\n   Vá»‹ trÃ­ khá»›p dáº»o chá»‹u mÃ´ men vÃ  lá»±c cáº¯t lá»›n.\n\n2. BÆ°á»›c Ä‘ai vÃ¹ng A1 (Ä‘ai dÃ y):\n   a1 <= min(h/4, 6~8 d_thÃ©p, 100~150mm)\n   Chá»‘ng phÃ¬nh cá»‘t thÃ©p chá»§ khi chá»‹u nÃ©n.\n\n3. BÆ°á»›c Ä‘ai vÃ¹ng A2 (thÃ¢n cá»™t):\n   a2 <= min(h/2, 12~15 d_thÃ©p, 200~300mm)\n   ThÃ´ng thÆ°á»ng quy Ä‘á»‹nh a2 = 2 * a1.\n\n4. Vá»‹ trÃ­ ná»‘i cá»‘t thÃ©p:\n   â€¢ Ná»‘i á»Ÿ 1/2 giá»¯a chiá»u cao cá»™t (vÃ¹ng A2).\n   â€¢ TrÃ¡nh ná»‘i trong vÃ¹ng khá»›p dáº»o A1.\n   â€¢ Chiá»u dÃ i L_ná»‘i >= 40d, bá»‘ trÃ­ Ä‘ai dÃ y.";
+                    ? "1. Critical Zone Length (H_cr):\n   H_cr >= max(H_clear / 6, h_col, 450mm)\n   High bending & shear plastic hinge.\n\n2. Zone A1 Spacing (Dense):\n   a1 <= min(h/4, 6~8 d_bar, 100~150mm)\n   Prevents bar buckling under axial loads.\n\n3. Zone A2 Spacing (Middle):\n   a2 <= min(h/2, 12~15 d_bar, 200~300mm)\n   Common practice: a2 = 2 * a1.\n\n4. Splice Zone Recommendation:\n   • Splice within middle 1/2 of column (A2).\n   • NEVER splice inside plastic hinge A1.\n   • Lap length L_lap >= 40d with dense ties."
+                    : "1. Chiều dài vùng tới hạn A1 (H_cr):\n   H_cr >= max(H thông thủy / 6, h_cột, 450 mm)\n   Vị trí khớp dẻo chịu mô men và lực cắt lớn.\n\n2. Bước đai vùng A1 (đai dày):\n   a1 <= min(h/4, 6~8 d_thép, 100~150 mm)\n   Chống phình cốt thép chủ khi chịu nén.\n\n3. Bước đai vùng A2 (thân cột):\n   a2 <= min(h/2, 12~15 d_thép, 200~300 mm)\n   Thông thường quy định a2 = 2 * a1.\n\n4. Vị trí nối cốt thép:\n   • Nối ở 1/2 giữa chiều cao cột (vùng A2).\n   • Tránh nối trong vùng khớp dẻo A1.\n   • Chiều dài L_nối >= 40d, bố trí đai dày.";
                 g.DrawString(gTxt, fSml, brOutline, 284, 76);
             }
 
             // ----------------------------------------------------------------
-            // TAB 2: Cáº¤U Táº O ÄAI (STIRRUP LAYOUT TYPES)
+            // TAB 2: CẤU TẠO ĐAI (STIRRUP LAYOUT TYPES)
             // ----------------------------------------------------------------
             private static void DrawStirrupTypesTab(Graphics g, bool isEn,
                 Color cConc, Color cOutline, Color cBar, Color cTie, Color cTieDia, Color cTieCr, Color cDim, Color cHdr, Color cBorder, Color cCard,
@@ -397,8 +397,8 @@ namespace KhimTools.RebarTool.Forms
                 Brush brOutline, Brush brDim, Brush brHdrText, Brush brSubText,
                 Pen penOutline, Pen penBorder, Pen penDim)
             {
-                string title = isEn ? "COLUMN TIE / STIRRUP CONFIGURATION TYPES" : "CÃC Dáº NG Cáº¤U Táº O THÃ‰P ÄAI Cá»˜T CHá»® NHáº¬T";
-                string sub   = isEn ? "Single outer hoop, diamond tie & cross-ties by section size" : "Lá»±a chá»n Ä‘ai Ä‘Æ¡n, Ä‘ai kim cÆ°Æ¡ng & Ä‘ai mÃ³c C theo kÃ­ch thÆ°á»›c vÃ  sá»‘ thanh";
+                string title = isEn ? "COLUMN TIE / STIRRUP CONFIGURATION TYPES" : "CÁC DẠNG CẤU TẠO THÉP ĐAI CỘT CHỮ NHẬT";
+                string sub   = isEn ? "Single outer hoop, diamond tie & cross-ties by section size" : "Lựa chọn đai đơn, đai kim cương và đai móc C theo kích thước và số thanh";
                 DrawHeaderBanner(g, title, sub, cHdr, fHdr, fSub, brHdrText, brSubText);
 
                 int cardW = 162, cardH = 208, cardY = 46;
@@ -406,11 +406,11 @@ namespace KhimTools.RebarTool.Forms
                 using var concBr = new SolidBrush(cConc);
                 using var tiePen = new Pen(cTie, 1.8f);
 
-                // --- CARD 1: Äai Ä‘Æ¡n ---
+                // --- CARD 1: Đai đơn ---
                 int c1X = 14;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, c1X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, c1X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "1. SINGLE OUTER HOOP" : "1. ÄAI ÄÆ N (CHU VI)", fSec, brOutline, c1X + 10, cardY + 8);
+                g.DrawString(isEn ? "1. SINGLE OUTER HOOP" : "1. ĐAI ĐƠN (CHU VI)", fSec, brOutline, c1X + 10, cardY + 8);
 
                 int b1X = c1X + 31, b1Y = cardY + 28, b1W = 100, b1H = 100;
                 g.FillRectangle(concBr, b1X, b1Y, b1W, b1H);
@@ -422,15 +422,15 @@ namespace KhimTools.RebarTool.Forms
                 foreach (var y in b1Ys) foreach (var x in b1Xs) { g.FillEllipse(barBr, x - 3.5f, y - 3.5f, 7f, 7f); g.DrawEllipse(penOutline, x - 3.5f, y - 3.5f, 7f, 7f); }
 
                 string desc1 = isEn
-                    ? "â€¢ Size: B, H <= 350mm\nâ€¢ Bars per side: <= 2-3\nâ€¢ Simple small columns\nâ€¢ No inner ties needed"
-                    : "â€¢ Tiáº¿t diá»‡n: B, H <= 350mm\nâ€¢ Sá»‘ thanh má»—i cáº¡nh <= 2-3\nâ€¢ Cá»™t nhÃ  dÃ¢n / nhá»‹p nhá»\nâ€¢ KhÃ´ng cáº§n Ä‘ai phá»¥ trong";
+                    ? "• Size: B, H <= 350mm\n• Bars per side: <= 2-3\n• Simple small columns\n• No inner ties needed"
+                    : "• Tiết diện: B, H <= 350 mm\n• Số thanh mỗi cạnh <= 2-3\n• Cột nhà dân / nhịp nhỏ\n• Không cần đai phụ trong";
                 g.DrawString(desc1, fSml, brOutline, c1X + 8, cardY + 138);
 
-                // --- CARD 2: Äai + Kim cÆ°Æ¡ng ---
+                // --- CARD 2: Đai + Kim cương ---
                 int c2X = 188;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, c2X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, c2X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "2. HOOP + DIAMOND TIE" : "2. ÄAI + KIM CÆ¯Æ NG", fSec, brOutline, c2X + 10, cardY + 8);
+                g.DrawString(isEn ? "2. HOOP + DIAMOND TIE" : "2. ĐAI + KIM CƯƠNG", fSec, brOutline, c2X + 10, cardY + 8);
 
                 int b2X = c2X + 31, b2Y = cardY + 28, b2W = 100, b2H = 100;
                 g.FillRectangle(concBr, b2X, b2Y, b2W, b2H);
@@ -460,15 +460,15 @@ namespace KhimTools.RebarTool.Forms
                 }
 
                 string desc2 = isEn
-                    ? "â€¢ Size: B, H >= 400mm\nâ€¢ Bars per side: >= 3\nâ€¢ Braces perimeter side bars\nâ€¢ High torsional stiffness"
-                    : "â€¢ Tiáº¿t diá»‡n: B, H >= 400mm\nâ€¢ Sá»‘ thanh má»—i cáº¡nh >= 3\nâ€¢ Giá»¯ á»•n Ä‘á»‹nh cÃ¡c thanh biÃªn\nâ€¢ TÄƒng kháº£ nÄƒng khÃ¡ng xoáº¯n";
+                    ? "• Size: B, H >= 400mm\n• Bars per side: >= 3\n• Braces perimeter side bars\n• High torsional stiffness"
+                    : "• Tiết diện: B, H >= 400 mm\n• Số thanh mỗi cạnh >= 3\n• Giữ ổn định các thanh biên\n• Tăng khả năng kháng xoắn";
                 g.DrawString(desc2, fSml, brOutline, c2X + 8, cardY + 138);
 
-                // --- CARD 3: Äai + Cross-links ---
+                // --- CARD 3: Đai + Cross-links ---
                 int c3X = 362;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, c3X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, c3X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "3. HOOP + CROSS-TIES" : "3. ÄAI + ÄAI MÃ“C C", fSec, brOutline, c3X + 10, cardY + 8);
+                g.DrawString(isEn ? "3. HOOP + CROSS-TIES" : "3. ĐAI + ĐAI MÓC C", fSec, brOutline, c3X + 10, cardY + 8);
 
                 int b3X = c3X + 31, b3Y = cardY + 28, b3W = 100, b3H = 100;
                 g.FillRectangle(concBr, b3X, b3Y, b3W, b3H);
@@ -492,22 +492,22 @@ namespace KhimTools.RebarTool.Forms
                 }
 
                 string desc3 = isEn
-                    ? "â€¢ Rectangular / wall columns\nâ€¢ Ties intermediate bars\nâ€¢ Easy site installation\nâ€¢ Standard 135deg / 90deg"
-                    : "â€¢ Cá»™t dáº¹t / tiáº¿t diá»‡n lá»›n\nâ€¢ Khá»‘ng cháº¿ thanh thÃ©p giá»¯a\nâ€¢ Ráº¥t thuáº­n tiá»‡n thi cÃ´ng\nâ€¢ MÃ³c chuáº©n 135 / 90 Ä‘á»™";
+                    ? "• Rectangular / wall columns\n• Ties intermediate bars\n• Easy site installation\n• Standard 135deg / 90deg"
+                    : "• Cột dẹt / tiết diện lớn\n• Khống chế thanh thép giữa\n• Thuận tiện thi công\n• Móc chuẩn 135 / 90 độ";
                 g.DrawString(desc3, fSml, brOutline, c3X + 8, cardY + 138);
 
                 // --- Bottom Guideline Banner ---
                 using (var bBr = new SolidBrush(Color.FromArgb(236, 239, 241))) g.FillRectangle(bBr, 14, 262, 510, 86);
                 g.DrawRectangle(penBorder, 14, 262, 510, 86);
-                g.DrawString(isEn ? "MANDATORY DETAILING PRINCIPLES (TCVN 5574:2018 / ACI 318):" : "NGUYÃŠN Táº®C Báº®T BUá»˜C KHI Cáº¤U Táº O ÄAI (TCVN 5574:2018 / ACI 318):", fSec, brOutline, 22, 268);
+                g.DrawString(isEn ? "MANDATORY DETAILING PRINCIPLES (TCVN 5574:2018 / ACI 318):" : "NGUYÊN TẮC BẮT BUỘC KHI CẤU TẠO ĐAI (TCVN 5574:2018 / ACI 318):", fSec, brOutline, 22, 268);
                 string bTxt = isEn
-                    ? "â€¢ When clear spacing between adjacent longitudinal bars s > 150mm: An inner tie (diamond or cross-tie) is REQUIRED.\nâ€¢ Seismic stirrup hooks must be bent at 135 degrees with an extension of at least 10d (>= 75mm).\nâ€¢ Stirrup hook locations must alternate diagonally and vertically from one tie level to the next."
-                    : "â€¢ Khi khoáº£ng cÃ¡ch giá»¯a cÃ¡c thanh thÃ©p dá»c ká» nhau s > 150mm: Báº®T BUá»˜C bá»‘ trÃ­ Ä‘ai phá»¥ (kim cÆ°Æ¡ng hoáº·c Ä‘ai mÃ³c C).\nâ€¢ MÃ³c Ä‘ai chá»‹u cháº¥n uá»‘n 135 Ä‘á»™ vá»›i Ä‘oáº¡n tháº³ng neo dÃ i >= 10d (hoáº·c >= 75mm); tuyá»‡t Ä‘á»‘i khÃ´ng dÃ¹ng mÃ³c 90 Ä‘á»™ cho Ä‘ai ngoÃ i.\nâ€¢ CÃ¡c gÃ³c mÃ³c Ä‘ai pháº£i Ä‘Æ°á»£c bá»‘ trÃ­ so le theo Ä‘Æ°á»ng chÃ©o vÃ  xoay gÃ³c qua cÃ¡c lá»›p Ä‘ai liÃªn tiáº¿p dá»c thÃ¢n cá»™t.";
+                    ? "• When clear spacing between adjacent longitudinal bars s > 150mm: An inner tie (diamond or cross-tie) is REQUIRED.\n• Seismic stirrup hooks must be bent at 135 degrees with an extension of at least 10d (>= 75mm).\n• Stirrup hook locations must alternate diagonally and vertically from one tie level to the next."
+                    : "• Khi khoảng cách giữa các thanh thép dọc kề nhau s > 150 mm: BẮT BUỘC bố trí đai phụ (kim cương hoặc đai móc C).\n• Móc đai chịu chấn uốn 135 độ với đoạn thẳng neo dài >= 10d (hoặc >= 75 mm); không dùng móc 90 độ cho đai ngoài.\n• Các góc móc đai phải được bố trí so le theo đường chéo và xoay góc qua các lớp đai liên tiếp dọc thân cột.";
                 g.DrawString(bTxt, fSml, brOutline, 22, 284);
             }
 
             // ----------------------------------------------------------------
-            // TAB 3: NEO / Ná»I (ANCHORAGE & LAP SPLICE)
+            // TAB 3: NEO / NỐI (ANCHORAGE & LAP SPLICE)
             // ----------------------------------------------------------------
             private static void DrawAnchorageTab(Graphics g, bool isEn,
                 Color cConc, Color cHatch, Color cOutline, Color cBar, Color cTie, Color cDim, Color cHdr, Color cBorder, Color cCard,
@@ -515,8 +515,8 @@ namespace KhimTools.RebarTool.Forms
                 Brush brOutline, Brush brDim, Brush brHdrText, Brush brSubText,
                 Pen penOutline, Pen penBorder, Pen penDim)
             {
-                string title = isEn ? "COLUMN REBAR ANCHORAGE & LAP SPLICE DETAILS" : "CHI TIáº¾T NEO CHÃ‚N Cá»˜T, Uá»N Cá»” CHAI & Ná»I CHá»’NG";
-                string sub   = isEn ? "Footing L-bend anchorage, 1:6 cranked splice & staggered lap rules" : "Neo mÃ³ng báº» L, uá»‘n cá»• chai thay Ä‘á»•i tiáº¿t diá»‡n & quy cÃ¡ch ná»‘i chá»“ng so le";
+                string title = isEn ? "COLUMN REBAR ANCHORAGE & LAP SPLICE DETAILS" : "CHI TIẾT NEO CHÂN CỘT, UỐN CỔ CHAI & NỐI CHỒNG";
+                string sub   = isEn ? "Footing L-bend anchorage, 1:6 cranked splice & staggered lap rules" : "Neo móng bẻ L, uốn cổ chai thay đổi tiết diện và quy cách nối chồng so le";
                 DrawHeaderBanner(g, title, sub, cHdr, fHdr, fSub, brHdrText, brSubText);
 
                 int cardW = 162, cardH = 208, cardY = 46;
@@ -525,11 +525,11 @@ namespace KhimTools.RebarTool.Forms
                 using var tiePen = new Pen(cTie, 1.2f);
                 using var concBr = new SolidBrush(cConc);
 
-                // --- PANEL A: Neo chÃ¢n mÃ³ng ---
+                // --- PANEL A: Neo chân móng ---
                 int p1X = 14;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, p1X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, p1X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "A. FOOTING ANCHORAGE" : "A. NEO CHÃ‚N MÃ“NG (L-BEND)", fSec, brOutline, p1X + 8, cardY + 8);
+                g.DrawString(isEn ? "A. FOOTING ANCHORAGE" : "A. NEO CHÂN MÓNG (L-BEND)", fSec, brOutline, p1X + 8, cardY + 8);
 
                 // Footing & column concrete
                 int ftY = cardY + 105;
@@ -541,7 +541,7 @@ namespace KhimTools.RebarTool.Forms
                 // Level line
                 using (var lvp = new Pen(cDim, 1f) { DashStyle = DashStyle.DashDot })
                     g.DrawLine(lvp, p1X + 10, ftY, p1X + cardW - 10, ftY);
-                g.DrawString(isEn ? "Top of Footing" : "Máº·t mÃ³ng", fSml, brDim, p1X + 18, ftY - 11);
+                g.DrawString(isEn ? "Top of Footing" : "Mặt móng", fSml, brDim, p1X + 18, ftY - 11);
 
                 // Column bars with L-bend
                 int b1L = p1X + 60, b1R = p1X + 102;
@@ -551,15 +551,15 @@ namespace KhimTools.RebarTool.Forms
                 g.DrawLine(barPen, b1R, ftY + 32, b1R - 28, ftY + 32); // L-bend inward
 
                 string aTxt = isEn
-                    ? "â€¢ L-bend hook >= 200mm\nâ€¢ L_anc >= 30d ~ 35d\nâ€¢ Rests on bottom mat\nâ€¢ Hooks face column core"
-                    : "â€¢ ChÃ¢n báº» L >= 200mm\nâ€¢ L_neo >= 30d ~ 35d\nâ€¢ Äáº·t trÃªn lÆ°á»›i thÃ©p mÃ³ng\nâ€¢ MÃ³c L hÆ°á»›ng vÃ o trong";
+                    ? "• L-bend hook >= 200mm\n• L_anc >= 30d ~ 35d\n• Rests on bottom mat\n• Hooks face column core"
+                    : "• Chân bẻ L >= 200 mm\n• L_neo >= 30d ~ 35d\n• Đặt trên lưới thép móng\n• Móc L hướng vào trong";
                 g.DrawString(aTxt, fSml, brOutline, p1X + 8, cardY + 155);
 
-                // --- PANEL B: Uá»‘n cá»• chai 1:6 ---
+                // --- PANEL B: Uốn cổ chai 1:6 ---
                 int p2X = 188;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, p2X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, p2X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "B. CRANKED SPLICE (1:6)" : "B. Uá»N Cá»” CHAI (1:6)", fSec, brOutline, p2X + 8, cardY + 8);
+                g.DrawString(isEn ? "B. CRANKED SPLICE (1:6)" : "B. UỐN CỔ CHAI (1:6)", fSec, brOutline, p2X + 8, cardY + 8);
 
                 // Upper narrower column & lower wider column
                 int colMidY = cardY + 85;
@@ -584,15 +584,15 @@ namespace KhimTools.RebarTool.Forms
                 g.DrawString("Slope <= 1:6", fDim, brDim, p2X + 66, colMidY - 6);
 
                 string bTxt = isEn
-                    ? "â€¢ Max slope: 1 in 6\nâ€¢ Extra ties at bends\nâ€¢ If offset > 1:6, use\n  separate dowel bars"
-                    : "â€¢ Äá»™ dá»‘c vÃ¡t <= 1:6\nâ€¢ Bá»‘ trÃ­ Ä‘ai dÃ y chá»— uá»‘n\nâ€¢ Náº¿u lá»‡ch > 1:6: pháº£i\n  dÃ¹ng thÃ©p chá» riÃªng";
+                    ? "• Max slope: 1 in 6\n• Extra ties at bends\n• If offset > 1:6, use\n  separate dowel bars"
+                    : "• Độ dốc vát <= 1:6\n• Bố trí đai dày chỗ uốn\n• Nếu lệch > 1:6: phải\n  dùng thép chờ riêng";
                 g.DrawString(bTxt, fSml, brOutline, p2X + 8, cardY + 155);
 
-                // --- PANEL C: Ná»‘i chá»“ng so le ---
+                // --- PANEL C: Nối chồng so le ---
                 int p3X = 362;
                 using (var cb = new SolidBrush(cCard)) g.FillRectangle(cb, p3X, cardY, cardW, cardH);
                 g.DrawRectangle(penBorder, p3X, cardY, cardW, cardH);
-                g.DrawString(isEn ? "C. STAGGERED SPLICE" : "C. Ná»I CHá»’NG SO LE", fSec, brOutline, p3X + 8, cardY + 8);
+                g.DrawString(isEn ? "C. STAGGERED SPLICE" : "C. NỐI CHỒNG SO LE", fSec, brOutline, p3X + 8, cardY + 8);
 
                 // Concrete strip
                 g.FillRectangle(concBr, p3X + 42, cardY + 35, 78, 110);
@@ -616,17 +616,17 @@ namespace KhimTools.RebarTool.Forms
                     g.DrawLine(tiePen, p3X + 44, ty, p3X + 118, ty);
 
                 string cTxt = isEn
-                    ? "â€¢ Lap length: L_lap >= 40d\nâ€¢ Stagger offset >= 1.3 L_lap\nâ€¢ Max 50% spliced at section\nâ€¢ Dense ties across lap zone"
-                    : "â€¢ Chiá»u dÃ i L_ná»‘i >= 40d\nâ€¢ Khoáº£ng cÃ¡ch so le >= 1.3 L_ná»‘i\nâ€¢ Tá»‘i Ä‘a 50% ná»‘i táº¡i 1 máº·t cáº¯t\nâ€¢ Bá»‘ trÃ­ Ä‘ai dÃ y suá»‘t Ä‘oáº¡n ná»‘i";
+                    ? "• Lap length: L_lap >= 40d\n• Stagger offset >= 1.3 L_lap\n• Max 50% spliced at section\n• Dense ties across lap zone"
+                    : "• Chiều dài L_nối >= 40d\n• Khoảng cách so le >= 1.3 L_nối\n• Tối đa 50% nối tại 1 mặt cắt\n• Bố trí đai dày suốt đoạn nối";
                 g.DrawString(cTxt, fSml, brOutline, p3X + 8, cardY + 155);
 
                 // --- Bottom Summary Banner ---
                 using (var bBr = new SolidBrush(Color.FromArgb(236, 239, 241))) g.FillRectangle(bBr, 14, 262, 510, 86);
                 g.DrawRectangle(penBorder, 14, 262, 510, 86);
-                g.DrawString(isEn ? "ENGINEERING GUIDELINES FOR SPLICES & ANCHORAGES:" : "CHá»ˆ DáºªN Ká»¸ THUáº¬T QUAN TRá»ŒNG Vá»€ NEO VÃ€ Ná»I Cá»T THÃ‰P:", fSec, brOutline, 22, 268);
+                g.DrawString(isEn ? "ENGINEERING GUIDELINES FOR SPLICES & ANCHORAGES:" : "CHỈ DẪN KỸ THUẬT QUAN TRỌNG VỀ NEO VÀ NỐI CỐT THÉP:", fSec, brOutline, 22, 268);
                 string bBanner = isEn
-                    ? "â€¢ Lap lengths depend on concrete grade (B25, B30) and rebar grade (CB300, CB400, Grade 60).\nâ€¢ Increase lap length by 1.3x if 100% of bars are spliced at the same cross section.\nâ€¢ Lap splices are strictly prohibited in seismic plastic hinge zones (Zone A1 at column ends)."
-                    : "â€¢ Chiá»u dÃ i neo vÃ  ná»‘i phá»¥ thuá»™c cáº¥p Ä‘á»™ bá»n bÃª tÃ´ng (B20, B25, B30) vÃ  nhÃ³m thÃ©p (CB300-V, CB400-V, CB500-V).\nâ€¢ TÄƒng chiá»u dÃ i ná»‘i chá»“ng lÃªn 1.3 láº§n náº¿u ná»‘i 100% cá»‘t thÃ©p táº¡i cÃ¹ng má»™t vá»‹ trÃ­ máº·t cáº¯t ngang.\nâ€¢ Tuyá»‡t Ä‘á»‘i khÃ´ng ná»‘i cá»‘t thÃ©p trong vÃ¹ng dáº»o (vÃ¹ng A1 Ä‘ai dÃ y Ä‘áº§u cá»™t vÃ  chÃ¢n cá»™t sÃ¡t dáº§m/sÃ n).";
+                    ? "• Lap lengths depend on concrete grade (B25, B30) and rebar grade (CB300, CB400, Grade 60).\n• Increase lap length by 1.3x if 100% of bars are spliced at the same cross section.\n• Lap splices are strictly prohibited in seismic plastic hinge zones (Zone A1 at column ends)."
+                    : "• Chiều dài neo và nối phụ thuộc cấp độ bền bê tông (B20, B25, B30) và nhóm thép (CB300-V, CB400-V, CB500-V).\n• Tăng chiều dài nối chồng lên 1.3 lần nếu nối 100% cốt thép tại cùng một vị trí mặt cắt ngang.\n• Tuyệt đối không nối cốt thép trong vùng dẻo (vùng A1 đai dày đầu cột và chân cột sát dầm/sàn).";
                 g.DrawString(bBanner, fSml, brOutline, 22, 284);
             }
 
@@ -641,7 +641,7 @@ namespace KhimTools.RebarTool.Forms
                 using var dimension = new Pen(Color.FromArgb(104, 115, 125), 1);
                 using var font = new Font("Segoe UI", 10);
 
-                Text(g, font, "SÆ¡ Ä‘á»“ cáº¥u táº¡o - khÃ´ng theo tá»· lá»‡", 24, 14);
+                Text(g, font, "Sơ đồ cấu tạo - không theo tỷ lệ", 24, 14);
                 if (view == 3) { Anchorage(g, bar, secondary, dimension, font); return; }
                 bool column = kind == RebarReferenceKind.RectangularColumn || kind == RebarReferenceKind.CircularColumn;
                 bool mesh = kind == RebarReferenceKind.Slab || kind == RebarReferenceKind.Foundation;
@@ -674,14 +674,14 @@ namespace KhimTools.RebarTool.Forms
                     if (mesh)
                         for (int x = box.Left + 70; x < box.Right - 40; x += 45)
                         { Dot(g, x, box.Top + 28); Dot(g, x, box.Bottom - 28); }
-                    Text(g, font, mesh ? "Lá»›p trÃªn / lá»›p dÆ°á»›i" : "ThÃ©p chá»§ / thÃ©p Ä‘ai", 90, 325);
+                    Text(g, font, mesh ? "Lớp trên / lớp dưới" : "Thép chủ / thép đai", 90, 325);
                 }
                 else if (column)
                 {
                     g.DrawLine(bar, 215, 65, 215, 265);
                     g.DrawLine(bar, 325, 65, 325, 265);
                     for (int y = 80; y < 260; y += 22) g.DrawLine(secondary, 205, y, 335, y);
-                    Text(g, font, "Äai: dÄ‘ / aÄ‘", 90, 310);
+                    Text(g, font, "Đai: d_đ / a_đ", 90, 310);
                 }
                 else
                 {
@@ -689,7 +689,7 @@ namespace KhimTools.RebarTool.Forms
                     g.DrawLines(bar, new[] { new Point(110, 210), new Point(110, 230), new Point(430, 230), new Point(430, 210) });
                     if (kind == RebarReferenceKind.Beam)
                         for (int x = 125; x <= 415; x += 25) g.DrawLine(secondary, x, 95, x, 235);
-                    Text(g, font, "ThÃ©p trÃªn / thÃ©p dÆ°á»›i", 90, 325);
+                    Text(g, font, "Thép trên / thép dưới", 90, 325);
                 }
                 Dimension(g, dimension, font, box.Left, box.Right, box.Bottom + 22,
                     circle ? "D" : column ? "b" : view == 0 ? "Lx" : "b");
@@ -700,15 +700,15 @@ namespace KhimTools.RebarTool.Forms
 
             private static void Anchorage(Graphics g, Pen bar, Pen secondary, Pen dimension, Font font)
             {
-                Text(g, font, "Neo Ä‘áº§u thanh", 70, 52);
+                Text(g, font, "Neo đầu thanh", 70, 52);
                 g.DrawLines(bar, new[] { new Point(70, 110), new Point(380, 110), new Point(380, 155) });
-                Dimension(g, dimension, font, 260, 380, 70, "lneo = kneo Ã— d");
-                Text(g, font, "r uá»‘n", 392, 118);
-                Text(g, font, "Ná»‘i chá»“ng", 70, 182);
+                Dimension(g, dimension, font, 260, 380, 70, "l_neo = k_neo × d");
+                Text(g, font, "r uốn", 392, 118);
+                Text(g, font, "Nối chồng", 70, 182);
                 g.DrawLine(bar, 70, 235, 340, 235);
                 g.DrawLine(secondary, 220, 248, 470, 248);
-                Dimension(g, dimension, font, 220, 340, 281, "lná»‘i = kná»‘i Ã— d");
-                Text(g, font, "d: Ä‘Æ°á»ng kÃ­nh thanh; k: há»‡ sá»‘ do ngÆ°á»i dÃ¹ng quy Ä‘á»‹nh", 24, 324);
+                Dimension(g, dimension, font, 220, 340, 281, "l_nối = k_nối × d");
+                Text(g, font, "d: đường kính thanh; k: hệ số do người dùng quy định", 24, 324);
             }
 
             private static void Dot(Graphics g, float x, float y)

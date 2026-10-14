@@ -10,6 +10,9 @@ using KhimTools.Structural.QuickStructure.Services;
 using KhimTools.Structural.QuickStructure.Models;
 using KhimTools.Architectural.QuickArchi.Models;
 using KhimTools.RebarTool.Core;
+using KhimTools.Core.Preview;
+using KhimTools.Core.Settings;
+using KhimTools.Core.Automation;
 
 namespace KhimTools.Tests
 {
@@ -92,6 +95,19 @@ namespace KhimTools.Tests
                 RunTest("Test 42: Mandrel Diameter & Bend Radius Standards Verification", Test_42_MandrelAndBendRadius);
                 RunTest("Test 43: Column Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_43_ColumnSteelRatio_Validation);
                 RunTest("Test 44: Beam Reinforcement Steel Ratio Validation (mu_min <= mu <= mu_max)", Test_44_BeamSteelRatio_Validation);
+                RunTest("Test 45: Preview lifecycle starts ungenerated and enters generation", Test_45_PreviewLifecycle_Start);
+                RunTest("Test 46: Preview lifecycle accepts only completed fingerprinted payloads", Test_46_PreviewLifecycle_Complete);
+                RunTest("Test 47: Preview lifecycle rejects and clears stale payloads", Test_47_PreviewLifecycle_Stale);
+                RunTest("Test 48: Preview lifecycle invalidation clears payload and fingerprint", Test_48_PreviewLifecycle_Invalidate);
+                RunTest("Test 49: Host-verification state cannot be consumed as a valid preview", Test_49_PreviewLifecycle_HostRequired);
+                RunTest("Test 50: Settings defaults, backup recovery, migration and corrupt-file recovery", Test_50_SettingsRecovery);
+                RunTest("Test 51: Internal API typed request and dry-run dispatch", Test_51_AutomationValidDryRun);
+                RunTest("Test 52: Internal API rejects null, missing and unknown requests", Test_52_AutomationInvalidRequests);
+                RunTest("Test 53: Internal API rejects unspecified units", Test_53_AutomationBadUnit);
+                RunTest("Test 54: Internal API enforces host requirement", Test_54_AutomationHostRequired);
+                RunTest("Test 55: Internal API enforces successful postconditions", Test_55_AutomationPostcondition);
+                RunTest("Test 56: Internal API converts handler exceptions to failed results", Test_56_AutomationException);
+                RunTest("Test 57: Internal API requires explicit execute for mutation", Test_57_AutomationMutationConsent);
             }
             finally
             {
@@ -135,6 +151,56 @@ namespace KhimTools.Tests
             {
                 InstallationClassifier.MsiDetectionOverride = previousMsiDetection;
             }
+        }
+
+        private static void Test_50_SettingsRecovery()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "KToolsSettingsTest-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "settings.json");
+            Func<TestSettings> defaults = () => new TestSettings { SchemaVersion = 2, Value = "default" };
+            Func<TestSettings, bool> valid = value => value != null && value.SchemaVersion == 2 && !string.IsNullOrEmpty(value.Value);
+            Func<TestSettings, bool> migrate = value =>
+            {
+                if (value.SchemaVersion != 1) return false;
+                value.SchemaVersion = 2;
+                return true;
+            };
+            try
+            {
+                TestSettings fresh = JsonSettingsPersistence.Load(path, defaults, valid);
+                if (fresh.Value != "default") throw new Exception("Missing settings did not use defaults.");
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "good" }, valid);
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "new" }, valid);
+                File.WriteAllText(path, "{broken json");
+                TestSettings recovered = JsonSettingsPersistence.Load(path, defaults, valid);
+                if (recovered.Value != "good") throw new Exception("Corrupt settings did not recover the last-known-good backup.");
+                File.WriteAllText(path, "{\"SchemaVersion\":1,\"Value\":\"legacy\"}");
+                TestSettings migrated = JsonSettingsPersistence.Load(path, defaults, valid, migrate);
+                if (migrated.Value != "legacy" || migrated.SchemaVersion != 2 || !File.Exists(path + ".bak"))
+                    throw new Exception("Legacy settings migration or preservation failed.");
+                JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 2, Value = "migrated" }, valid);
+                File.WriteAllText(path, "{\"SchemaVersion\":99,\"Value\":\"future\"}");
+                TestSettings future = JsonSettingsPersistence.Load(path, defaults, valid, migrate);
+                if (future.Value != "legacy") throw new Exception("Future/corrupt settings failed backup recovery.");
+                bool rejected = false;
+                try { JsonSettingsPersistence.Save(path, new TestSettings { SchemaVersion = 99, Value = "invalid" }, valid); }
+                catch (InvalidDataException) { rejected = true; }
+                if (!rejected) throw new Exception("Invalid settings were written.");
+                string failedMigrationPath = Path.Combine(directory, "migration-failure.json");
+                File.WriteAllText(failedMigrationPath, "{\"SchemaVersion\":1,\"Value\":\"legacy\"}");
+                TestSettings failedMigration = JsonSettingsPersistence.Load(failedMigrationPath, defaults, valid,
+                    value => { throw new InvalidDataException("Injected migration failure."); });
+                if (failedMigration.Value != "default" || !File.Exists(failedMigrationPath))
+                    throw new Exception("Migration failure did not safely recover defaults while preserving input.");
+            }
+            finally { try { Directory.Delete(directory, true); } catch { } }
+        }
+
+        private sealed class TestSettings
+        {
+            public int SchemaVersion { get; set; }
+            public string Value { get; set; }
         }
 
         private static string CreateSandbox(string name)
@@ -1346,6 +1412,27 @@ namespace KhimTools.Tests
                 throw new Exception("QuickStructureSettings with CreateColumns=true failed validation: " + qsErr);
             }
 
+            qs.CreateFloor = true;
+            if (qs.Validate(out qsErr) || string.IsNullOrWhiteSpace(qsErr) || !qsErr.Contains("not implemented"))
+            {
+                throw new Exception("QuickStructureSettings must reject the legacy, unimplemented floor option.");
+            }
+
+            qs.CreateFloor = false;
+            qs.CreateColumns = false;
+            qs.CreateBeams = false;
+            qs.CreateFootings = true;
+            if (qs.Validate(out qsErr) || string.IsNullOrWhiteSpace(qsErr))
+            {
+                throw new Exception("QuickStructureSettings must reject footings without their prerequisite columns.");
+            }
+
+            qs.CreateColumns = true;
+            if (!qs.Validate(out qsErr))
+            {
+                throw new Exception("QuickStructureSettings with columns and footings failed validation: " + qsErr);
+            }
+
             // QuickArchiSettings validation
             var qa = new QuickArchiSettings();
             qa.WallHeightMm = -50.0;
@@ -1720,5 +1807,143 @@ namespace KhimTools.Tests
                 throw new Exception("Super-maximum beam steel ratio (4.36%) should fail validation in both standards!");
             }
         }
+
+        private static void Test_45_PreviewLifecycle_Start()
+        {
+            var session = new PreviewLifecycleSession<object>();
+            if (session.State != PreviewLifecycleState.NotGenerated) throw new Exception("New preview session must start NOT_GENERATED.");
+            session.BeginGeneration();
+            if (session.State != PreviewLifecycleState.Generating || session.Payload != null) throw new Exception("Beginning generation must clear prior output and enter GENERATING.");
+        }
+
+        private static void Test_46_PreviewLifecycle_Complete()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration();
+            var expected = new object(); session.Complete(expected, "plan-1"); object actual;
+            if (session.State != PreviewLifecycleState.Valid || !session.TryGetValid("plan-1", out actual) || !object.ReferenceEquals(expected, actual)) throw new Exception("A completed matching fingerprint should produce a valid preview payload.");
+        }
+
+        private static void Test_47_PreviewLifecycle_Stale()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); object actual;
+            if (session.TryGetValid("plan-2", out actual) || actual != null || session.State != PreviewLifecycleState.Stale || session.Payload != null) throw new Exception("A changed fingerprint must reject and clear the payload as STALE.");
+        }
+
+        private static void Test_48_PreviewLifecycle_Invalidate()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); session.Invalidate(); object actual;
+            if (session.TryGetValid("plan-1", out actual) || session.State != PreviewLifecycleState.Invalid || session.InputFingerprint.Length != 0) throw new Exception("Invalidation must clear payload and fingerprint.");
+        }
+
+        private static void Test_49_PreviewLifecycle_HostRequired()
+        {
+            var session = new PreviewLifecycleSession<object>(); session.BeginGeneration(); session.Complete(new object(), "plan-1"); session.RequireHostVerification(); object actual;
+            if (session.TryGetValid("plan-1", out actual) || session.State != PreviewLifecycleState.HostVerificationRequired) throw new Exception("Host-required previews must not be reported as executable code-side previews.");
+        }
+
+        private sealed class AutomationTestRequest : AutomationRequest { public string Value { get; set; } }
+
+        private sealed class AutomationTestHandler : IAutomationCapabilityHandler
+        {
+            private readonly bool _requiresHost;
+            private readonly bool _throws;
+            private readonly bool _postcondition;
+            public AutomationCapabilityMetadata Metadata { get; private set; }
+
+            public AutomationTestHandler(string id, bool requiresHost, bool throws, bool postcondition)
+            {
+                _requiresHost = requiresHost; _throws = throws; _postcondition = postcondition;
+                Metadata = new AutomationCapabilityMetadata(id, "Test", "Test", "Test handler", true, false,
+                    requiresHost, false, false, true, true, AutomationOperationClass.PreviewOnly, "AutomationTestRequest", "AutomationResult");
+            }
+
+            public AutomationResult Execute(AutomationRequest request)
+            {
+                var typed = request as AutomationTestRequest;
+                if (typed == null || string.IsNullOrEmpty(typed.Value))
+                    return new AutomationResult { Status = AutomationStatus.Rejected, Summary = "Typed request is required.", Failed = 1, Postcondition = false };
+                if (_throws) throw new InvalidOperationException("fixture exception");
+                return new AutomationResult { Status = AutomationStatus.Succeeded, Summary = "ok", Requested = 1, Postcondition = _postcondition };
+            }
+        }
+
+        private static InternalAutomationApi CreateAutomationTestApi(bool requiresHost, bool throws, bool postcondition, bool hostAvailable = false)
+        {
+            return new InternalAutomationApi(new IAutomationCapabilityHandler[]
+            {
+                new AutomationTestHandler("test.capability", requiresHost, throws, postcondition)
+            }, hostAvailable);
+        }
+
+        private static AutomationTestRequest ValidAutomationRequest(string capabilityId = "test.capability")
+        {
+            return new AutomationTestRequest { CapabilityId = capabilityId, UnitSystem = AutomationUnitSystem.NotApplicable, DryRun = true, Value = "typed" };
+        }
+
+        private static void Test_51_AutomationValidDryRun()
+        {
+            var result = CreateAutomationTestApi(false, false, true).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Succeeded || result.Requested != 1 || !result.Postcondition) throw new Exception("Valid typed dry-run request must return a successful postcondition.");
+        }
+
+        private static void Test_52_AutomationInvalidRequests()
+        {
+            var api = CreateAutomationTestApi(false, false, true);
+            if (api.Invoke(null).Status != AutomationStatus.Rejected) throw new Exception("Null request must be rejected.");
+            if (api.Invoke(new AutomationTestRequest { UnitSystem = AutomationUnitSystem.NotApplicable }).Status != AutomationStatus.Rejected) throw new Exception("Missing capability id must be rejected.");
+            if (api.Invoke(ValidAutomationRequest("unknown")).Status != AutomationStatus.Rejected) throw new Exception("Unknown capability must be rejected.");
+            var wrongType = new OtherAutomationRequest { CapabilityId = "test.capability", UnitSystem = AutomationUnitSystem.NotApplicable };
+            if (api.Invoke(wrongType).Status != AutomationStatus.Rejected) throw new Exception("A request that violates the typed input contract must be rejected.");
+        }
+
+        private sealed class OtherAutomationRequest : AutomationRequest { }
+
+        private static void Test_53_AutomationBadUnit()
+        {
+            var request = ValidAutomationRequest(); request.UnitSystem = AutomationUnitSystem.Unspecified;
+            if (CreateAutomationTestApi(false, false, true).Invoke(request).Status != AutomationStatus.Rejected) throw new Exception("Unspecified units must be rejected.");
+        }
+
+        private static void Test_54_AutomationHostRequired()
+        {
+            if (CreateAutomationTestApi(true, false, true).Invoke(ValidAutomationRequest()).Status != AutomationStatus.Rejected) throw new Exception("Host-required capability must not run without the host.");
+            if (CreateAutomationTestApi(true, false, true, true).Invoke(ValidAutomationRequest()).Status != AutomationStatus.Succeeded) throw new Exception("Host-required capability should run when host availability is declared.");
+        }
+
+        private static void Test_55_AutomationPostcondition()
+        {
+            var result = CreateAutomationTestApi(false, false, false).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Failed || result.Failed != 1 || result.Postcondition) throw new Exception("A false postcondition must downgrade success to failure.");
+        }
+
+        private static void Test_56_AutomationException()
+        {
+            var result = CreateAutomationTestApi(false, true, true).Invoke(ValidAutomationRequest());
+            if (result.Status != AutomationStatus.Failed || result.Postcondition || result.Diagnostics.Count == 0) throw new Exception("Handler exceptions must return a failed result with diagnostics.");
+        }
+
+        private sealed class MutatingAutomationHandler : IAutomationCapabilityHandler
+        {
+            public AutomationCapabilityMetadata Metadata { get; private set; }
+            public MutatingAutomationHandler()
+            {
+                Metadata = new AutomationCapabilityMetadata("test.mutating", "Test", "Mutation", "Test mutation", false, true,
+                    false, false, false, true, true, AutomationOperationClass.Mutating, "AutomationTestRequest", "AutomationResult");
+            }
+            public AutomationResult Execute(AutomationRequest request)
+            {
+                return new AutomationResult { Status = AutomationStatus.Succeeded, Summary = "explicitly invoked", Requested = 1, Affected = 1, Postcondition = true };
+            }
+        }
+
+        private static void Test_57_AutomationMutationConsent()
+        {
+            var api = new InternalAutomationApi(new IAutomationCapabilityHandler[] { new MutatingAutomationHandler() }, false);
+            var request = new AutomationTestRequest { CapabilityId = "test.mutating", UnitSystem = AutomationUnitSystem.NotApplicable, DryRun = false };
+            if (api.Invoke(request).Status != AutomationStatus.Rejected) throw new Exception("Mutation must not execute from a plain request.");
+            request.ExplicitExecute = true;
+            if (api.Invoke(request).Status != AutomationStatus.Succeeded) throw new Exception("Mutation requires and accepts only an explicit execute confirmation.");
+        }
+
     }
 }

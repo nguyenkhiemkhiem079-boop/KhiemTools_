@@ -15,6 +15,7 @@ namespace KhimTools.SectionCutTool.Models
     /// </summary>
     public class SectionCutSettings
     {
+        public int SchemaVersion { get; set; }
         public string Name { get; set; } = "Default";
 
         // 1. Loại mặt cắt & Hướng lọc cấu kiện

@@ -49,7 +49,7 @@ Assert-True ($service -match 'INCOMPATIBLE_REFERENCE_TYPE') 'Cross-type prefligh
 Assert-True ($service -match 'GetBoxOutline|GetBoundingBox') 'Sheet-space viewport geometry is missing.'
 Assert-True ($service -match 'target\.Width\s*/\s*2') 'Left/right alignment does not use target width.'
 Assert-True ($service -match 'target\.Height\s*/\s*2') 'Top/bottom alignment does not use target height.'
-Assert-True ($service -match 'ThenBy\(r\s*=>\s*r\.Item1\.ViewportOrScheduleId\.IntegerValue\)') 'Distribution tie ordering is not deterministic.'
+Assert-True ($service -match 'ThenBy\(r\s*=>\s*r\.Item1\.ViewportOrScheduleId\.ToCheckedIntValue\(\)\)') 'Distribution tie ordering is not deterministic.'
 Assert-True ($service -match 'ordered\.Count\s*<\s*3') 'Two-item distribution guard is missing.'
 
 # Title writes must produce structured outcomes and no actionable silent catch.
@@ -63,6 +63,9 @@ Assert-True ($form -match 'ReloadDocumentState') 'Refresh does not reload docume
 Assert-True ($command -match 'doc\.GetElement\(item\.ViewportOrScheduleId\)') 'Targets are not re-resolved before execution.'
 Assert-True ($service -match 'SOURCE_REFERENCE') 'Source reference exclusion is missing.'
 Assert-True ($form -match 'ScheduleSelectionFilter') 'Schedule selection filter is missing.'
+Assert-True ($command -match 'TransactionBoundary\.ExecuteGroup' -and $command -match 'TransactionBoundary\.Execute\(doc' -and $command -notmatch 'new Transaction(Group)?\(') 'Viewport alignment transaction lifecycle is not checked and centrally owned.'
+Assert-True ($command -match 'shouldCommit:\s*result\s*=>' -and $command -match 'AlignmentExecutionStatus\.BLOCKED' -and $command -match 'AlignmentExecutionStatus\.FAILED') 'Blocked/failed alignment targets must return results and roll back their target transaction.'
+Assert-True ($command -match 'return summary\.Failed > 0 \? Result\.Failed : Result\.Succeeded') 'Revit command result must not report success when alignment targets failed.'
 
 # Deterministic geometry tests from the Wave 1.2 specification.
 $reference = @{ Left = 8.0; Right = 12.0; Bottom = 3.0; Top = 7.0 }

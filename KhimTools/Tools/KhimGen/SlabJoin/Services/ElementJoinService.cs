@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit.Failures;
 using KhimTools.SlabJoin.Models;
 using KhimTools.SlabJoin.Utilities;
 
@@ -37,20 +39,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Join Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TryJoin(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Join Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TryJoin, results, log);
                 }
                 int ok = results.Count(r => r.Success);
                 log?.Invoke($"  → Joined: {ok}, Skipped/Failed: {results.Count - ok}");
@@ -78,20 +68,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Unjoin Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TryUnjoin(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Unjoin Elements ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TryUnjoin, results, log);
                 }
             }
             return results;
@@ -116,20 +94,8 @@ namespace KhimTools.SlabJoin.Services
                 for (int i = 0; i < pairs.Count; i += batchSize)
                 {
                     var chunk = pairs.Skip(i).Take(batchSize).ToList();
-                    using (var tx = new Transaction(doc, $"Switch Join Order ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})"))
-                    {
-                        tx.Start();
-                        var failOpts = tx.GetFailureHandlingOptions();
-                        failOpts.SetFailuresPreprocessor(new SwallowWarningsPreprocessor());
-                        tx.SetFailureHandlingOptions(failOpts);
-
-                        foreach (var pair in chunk)
-                        {
-                            var r = TrySwitchOrder(doc, pair.Item1, pair.Item2);
-                            results.Add(r);
-                        }
-                        tx.Commit();
-                    }
+                    ExecuteChunk(doc, $"Switch Join Order ({i + 1}-{Math.Min(i + batchSize, pairs.Count)})",
+                        chunk, TrySwitchOrder, results, log);
                 }
             }
             return results;
@@ -204,6 +170,91 @@ namespace KhimTools.SlabJoin.Services
             }
         }
 
+        private void ExecuteChunk(
+            Document doc,
+            string transactionName,
+            IList<Tuple<ElementId, ElementId>> chunk,
+            Func<Document, ElementId, ElementId, JoinPairResult> operation,
+            List<JoinPairResult> results,
+            LogCallback log)
+        {
+            var attempted = new List<JoinPairResult>();
+            var failurePolicy = new KnownWarningFailurePreprocessor();
+
+            using (var tx = new Transaction(doc, transactionName))
+            {
+                try
+                {
+                    KhimTools.Core.Revit.TransactionBoundary.Start(tx, "ElementJoin.Chunk");
+                    var failOpts = tx.GetFailureHandlingOptions();
+                    failOpts.SetFailuresPreprocessor(failurePolicy);
+                    tx.SetFailureHandlingOptions(failOpts);
+
+                    foreach (var pair in chunk)
+                    {
+                        attempted.Add(operation(doc, pair.Item1, pair.Item2));
+                    }
+
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus == TransactionStatus.Committed)
+                    {
+                        results.AddRange(attempted);
+                        return;
+                    }
+
+                    string reason = DescribeTransactionFailure(commitStatus, failurePolicy.Records);
+                    log?.Invoke($"  → {transactionName} did not commit: {reason}");
+                    AddRolledBackResults(attempted, results, reason);
+                }
+                catch (Exception ex)
+                {
+                    if (tx.GetStatus() == TransactionStatus.Started)
+                    {
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(tx, "ElementJoin.Chunk");
+                    }
+
+                    string reason = "Transaction exception: " + ex.Message;
+                    KToolsLog.Current.Exception("ElementJoin.ExecuteChunk", ex, "TRANSACTION");
+                    log?.Invoke($"  → {transactionName} failed: {reason}");
+                    AddRolledBackResults(attempted, results, reason);
+
+                    for (int index = attempted.Count; index < chunk.Count; index++)
+                    {
+                        var pair = chunk[index];
+                        results.Add(new JoinPairResult(pair.Item1, pair.Item2, false, true,
+                            "Not attempted because the batch transaction failed."));
+                    }
+                }
+            }
+        }
+
+        private static void AddRolledBackResults(
+            IEnumerable<JoinPairResult> attempted,
+            ICollection<JoinPairResult> results,
+            string reason)
+        {
+            foreach (JoinPairResult result in attempted)
+            {
+                results.Add(result.Success
+                    ? new JoinPairResult(result.FloorIdA, result.FloorIdB, false, true,
+                        $"{result.Message} Transaction rolled back: {reason}")
+                    : result);
+            }
+        }
+
+        private static string DescribeTransactionFailure(
+            TransactionStatus status,
+            IReadOnlyList<FailureRecord> records)
+        {
+            if (records == null || records.Count == 0)
+            {
+                return "Transaction status: " + status;
+            }
+
+            return string.Join("; ", records.Select(record =>
+                $"{record.Severity} {record.DefinitionId}: {record.Description}"));
+        }
+
         // ─── JOIN/UNJOIN/SWITCH LOGIC ───────────────────────────────────
 
         private JoinPairResult TryJoin(Document doc, ElementId idA, ElementId idB)
@@ -214,20 +265,25 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementJoin.Pair");
                 try
                 {
                     if (JoinGeometryUtils.AreElementsJoined(doc, a, b))
                         JoinGeometryUtils.UnjoinGeometry(doc, a, b);
 
                     bool ok = TryJoinOrder(doc, a, b) || TryJoinOrder(doc, b, a);
-                    if (ok) { sub.Commit(); return new JoinPairResult(idA, idB, true, false, "Joined."); }
-                    sub.RollBack();
+                    if (ok && JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                    {
+                        KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementJoin.Pair");
+                        return new JoinPairResult(idA, idB, true, false, "Joined.");
+                    }
+                    KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementJoin.Pair");
                     return new JoinPairResult(idA, idB, false, true, "Join rejected.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementJoin.Pair"); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementJoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -241,21 +297,24 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementUnjoin.Pair");
                 try
                 {
                     if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
                     {
-                        sub.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementUnjoin.Pair");
                         return new JoinPairResult(idA, idB, false, false, "Not joined.");
                     }
                     JoinGeometryUtils.UnjoinGeometry(doc, a, b);
-                    sub.Commit();
+                    if (JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                        throw new InvalidOperationException("Unjoin postcondition failed.");
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementUnjoin.Pair");
                     return new JoinPairResult(idA, idB, true, false, "Unjoined.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementUnjoin.Pair"); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementUnjoin.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -269,21 +328,24 @@ namespace KhimTools.SlabJoin.Services
 
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                KhimTools.Core.Revit.TransactionBoundary.Start(sub, "ElementSwitch.Pair");
                 try
                 {
                     if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
                     {
-                        sub.RollBack();
+                        KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementSwitch.Pair");
                         return new JoinPairResult(idA, idB, false, false, "Not joined — cannot switch.");
                     }
                     JoinGeometryUtils.SwitchJoinOrder(doc, a, b);
-                    sub.Commit();
+                    if (!JoinGeometryUtils.AreElementsJoined(doc, a, b))
+                        throw new InvalidOperationException("Switch-order postcondition failed.");
+                    KhimTools.Core.Revit.TransactionBoundary.Commit(sub, "ElementSwitch.Pair");
                     return new JoinPairResult(idA, idB, true, false, "Switched.");
                 }
                 catch (Exception ex)
                 {
-                    try { sub.RollBack(); } catch { }
+                    try { KhimTools.Core.Revit.TransactionBoundary.RollBack(sub, "ElementSwitch.Pair"); }
+                    catch (Exception rollbackEx) { KToolsLog.Current.Exception("ElementSwitch.Rollback", rollbackEx, "SUBTX_ROLLBACK"); }
                     return new JoinPairResult(idA, idB, false, true, $"Error: {ex.Message}");
                 }
             }
@@ -292,7 +354,11 @@ namespace KhimTools.SlabJoin.Services
         private static bool TryJoinOrder(Document doc, Element a, Element b)
         {
             try { JoinGeometryUtils.JoinGeometry(doc, a, b); return true; }
-            catch { return false; }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("ElementJoin.JoinOrder", ex, "JOIN_ORDER");
+                return false;
+            }
         }
 
         // ─── HELPERS ────────────────────────────────────────────────────

@@ -1174,10 +1174,10 @@ namespace KhimTools.SectionCutTool.Forms
                 Cursor = Cursors.Default;
                 _btnGenerate.Enabled = true;
                 _btnGenerate.Text = LanguageManager.IsEnglish ? "CREATE SECTIONS" : "TẠO MẶT CẮT";
+                System.Diagnostics.Debug.WriteLine("Section cut creation failed: " + ex);
                 KhimDialogHelper.ShowError(
                     LanguageManager.IsEnglish ? "Error Creating Sections" : "Lỗi Tạo Mặt Cắt",
-                    ex.Message,
-                    ex.StackTrace);
+                    ex.Message);
             }
         }
 

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <CompatApi Condition="'$(CompatApi)'==''">New</CompatApi>
+    <DefineConstants Condition="'$(CompatApi)'=='New'">$(DefineConstants);NEW_API</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../KhimTools/Core/ElementIdCompat.cs" Link="ElementIdCompat.cs" />
+    <Compile Include="../../KhimTools/Tools/KhimGen/ScheduleSplit/Services/ScheduleSplitApiAdapter.cs" Link="ScheduleSplitApiAdapter.cs" />
+  </ItemGroup>
+</Project>

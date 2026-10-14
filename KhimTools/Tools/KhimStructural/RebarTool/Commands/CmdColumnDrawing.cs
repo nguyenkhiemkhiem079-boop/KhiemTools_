@@ -6,6 +6,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using Autodesk.Revit.UI;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Commands
@@ -32,74 +33,88 @@ namespace KhimTools.RebarTool.Commands
                 var sectionGen = new ColumnRebarSectionViewGenerator(doc);
                 var view3DGen = new ColumnRebar3DViewGenerator(doc);
 
-                using (var tx = new Transaction(doc, "Create Column Drawings"))
+                var generatedViewIds = new List<ElementId>();
+                created = TransactionBoundary.ExecuteGroup(doc, "Create Column Drawings", () =>
                 {
-                    tx.Start();
-
-                    foreach (var col in columns)
+                    int createdInTransaction = TransactionBoundary.Execute(doc, "Create Column Drawings", () =>
                     {
-                        var summary = ExistingRebarReader.ReadFromColumn(doc, col);
-                        if (!summary.HasData)
+                        int generated = 0;
+                        foreach (var col in columns)
                         {
-                            skipped++;
-                            continue;
-                        }
-
-                        string mark = col.LookupParameter("Mark")?.AsString() ?? col.Id.ToLongValue().ToString();
-                        double coverFeet = RebarCoverHelper.GetColumnCover(col, RebarFace.Exterior);
-                        double coverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters);
-
-                        ColumnRebarDrawingInput input;
-
-                        if (IsCircular(col))
-                        {
-                            var profile = CircularColumnGeometryHelper.GetCircularProfile(col);
-                            input = new ColumnRebarDrawingInput
+                            var summary = ExistingRebarReader.ReadFromColumn(doc, col);
+                            if (!summary.HasData)
                             {
-                                Shape = ColumnShapeType.Circular,
-                                ColumnMark = mark,
-                                ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
-                                MainBarQty = summary.MainBarQty,
-                                MainBarLabel = summary.MainBarLabel,
-                                StirrupLabel = summary.StirrupLabel,
-                                StirrupSpacingMm = summary.StirrupSpacingMm > 0 ? summary.StirrupSpacingMm : 150,
-                                CoverMm = coverMm
-                            };
-                        }
-                        else
-                        {
-                            var profile = RectangularColumnGeometryHelper.GetRectangularProfile(col);
-                            double bMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters);
-                            double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
+                                skipped++;
+                                continue;
+                            }
 
-                            var (barsB, barsH) = EstimateBarsPerSide(summary.MainBarQty, bMm, hMm);
+                            string mark = col.LookupParameter("Mark")?.AsString() ?? col.Id.ToLongValue().ToString();
+                            double coverFeet = RebarCoverHelper.GetColumnCover(col, RebarFace.Exterior);
+                            double coverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters);
 
-                            input = new ColumnRebarDrawingInput
+                            ColumnRebarDrawingInput input;
+
+                            if (IsCircular(col))
                             {
-                                Shape = ColumnShapeType.Rectangular,
-                                ColumnMark = mark,
-                                ColumnWidthMm = bMm,
-                                ColumnHeightMm = hMm,
-                                BarsAlongB = barsB,
-                                BarsAlongH = barsH,
-                                MainBarLabel = summary.MainBarLabel,
-                                StirrupLabel = summary.StirrupLabel,
-                                StirrupSpacingMm = summary.StirrupSpacingMm > 0 ? summary.StirrupSpacingMm : 150,
-                                CoverMm = coverMm
-                            };
+                                var profile = CircularColumnGeometryHelper.GetCircularProfile(col);
+                                input = new ColumnRebarDrawingInput
+                                {
+                                    Shape = ColumnShapeType.Circular,
+                                    ColumnMark = mark,
+                                    ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
+                                    MainBarQty = summary.MainBarQty,
+                                    MainBarLabel = summary.MainBarLabel,
+                                    StirrupLabel = summary.StirrupLabel,
+                                    StirrupSpacingMm = summary.StirrupSpacingMm > 0 ? summary.StirrupSpacingMm : 150,
+                                    CoverMm = coverMm
+                                };
+                            }
+                            else
+                            {
+                                var profile = RectangularColumnGeometryHelper.GetRectangularProfile(col);
+                                double bMm = UnitUtils.ConvertFromInternalUnits(profile.B, UnitTypeId.Millimeters);
+                                double hMm = UnitUtils.ConvertFromInternalUnits(profile.H, UnitTypeId.Millimeters);
+
+                                var (barsB, barsH) = EstimateBarsPerSide(summary.MainBarQty, bMm, hMm);
+
+                                input = new ColumnRebarDrawingInput
+                                {
+                                    Shape = ColumnShapeType.Rectangular,
+                                    ColumnMark = mark,
+                                    ColumnWidthMm = bMm,
+                                    ColumnHeightMm = hMm,
+                                    BarsAlongB = barsB,
+                                    BarsAlongH = barsH,
+                                    MainBarLabel = summary.MainBarLabel,
+                                    StirrupLabel = summary.StirrupLabel,
+                                    StirrupSpacingMm = summary.StirrupSpacingMm > 0 ? summary.StirrupSpacingMm : 150,
+                                    CoverMm = coverMm
+                                };
+                            }
+
+                            ViewDrafting drawingView = drawingGen.CreateOrUpdate(input);
+                            List<Rebar> hostedRebars = HostedRebarQuery.GetHostedRebar(doc, col);
+                            ViewPlan sectionView = sectionGen.CreateOrUpdate(col, hostedRebars);
+                            View3D inspectionView = view3DGen.CreateOrUpdate(col, hostedRebars);
+                            Element[] views = { drawingView, sectionView, inspectionView };
+                            if (views.Any(view => view == null || !view.IsValidObject || view.Document != doc))
+                                throw new InvalidOperationException("Column drawing, section, and 3D view postconditions must all be satisfied.");
+                            generatedViewIds.AddRange(views.Select(view => view.Id));
+                            generated++;
                         }
+                        return generated;
+                    });
 
-                        drawingGen.CreateOrUpdate(input);
-
-                        var hostedRebars = HostedRebarQuery.GetHostedRebar(doc, col);
-                        sectionGen.CreateOrUpdate(col, hostedRebars);
-                        view3DGen.CreateOrUpdate(col, hostedRebars);
-
-                        created++;
-                    }
-
-                    tx.Commit();
-                }
+                    if (generatedViewIds.Count != createdInTransaction * 3)
+                        throw new InvalidOperationException("Column drawing view count did not match processed columns.");
+                    if (generatedViewIds.Any(id =>
+                    {
+                        Element view = doc.GetElement(id);
+                        return view == null || !view.IsValidObject;
+                    }))
+                        throw new InvalidOperationException("A generated column drawing view was not present after transaction commit.");
+                    return createdInTransaction;
+                });
 
                 TaskDialog.Show("Column Drawing",
                     $"Đã tạo/cập nhật {created} bản vẽ." + (skipped > 0 ? $" Bỏ qua {skipped} cột chưa có thép." : ""));
@@ -109,7 +124,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Column Drawing Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][ColumnDrawing] " + ex);
+                TaskDialog.Show("Column Drawing Error", "Column drawing creation failed. " + ex.Message);
                 return Result.Failed;
             }
         }
@@ -160,7 +176,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Update Column Drawing Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][UpdateColumnDrawing] " + ex);
+                TaskDialog.Show("Update Column Drawing Error", "Column drawing update failed. " + ex.Message);
                 return Result.Failed;
             }
         }

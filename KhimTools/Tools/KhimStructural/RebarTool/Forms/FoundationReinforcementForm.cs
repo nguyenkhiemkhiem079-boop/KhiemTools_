@@ -9,6 +9,8 @@ using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
+using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
 using Form = System.Windows.Forms.Form;
@@ -35,9 +37,18 @@ namespace KhimTools.RebarTool.Forms
         // Form Controls
         private ComboBox _cmbLanguage;
         private Button _btnCreateRebar;
+        private Button _btnPreviewRebar;
+        private Button _btnSolve3D;
         private Button _btnClose;
         private ListBox _foundationListBox;
         private Panel _previewPanel;
+        private Label _lblPreviewState;
+        private TabControl _workflowTabs;
+        private readonly List<Button> _roleNavigationButtons = new List<Button>();
+        private readonly Dictionary<int, FoundationPreviewOutline> _previewOutlines = new Dictionary<int, FoundationPreviewOutline>();
+        private readonly Dictionary<string, string> _previewFingerprints = new Dictionary<string, string>(StringComparer.Ordinal);
+        private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         // Tab 1 (Bottom Mesh)
         private ComboBox _cmbBotXDia;
@@ -56,7 +67,12 @@ namespace KhimTools.RebarTool.Forms
         private NumericUpDown _numTopYSpacing;
         private CheckBox _chkTopYHook;
 
-        // Tab 3 (Column Dowels & Stirrups)
+        // Tab 3 (Perimeter U-bars)
+        private CheckBox _chkEnablePerimeterUStirrups;
+        private ComboBox _cmbPerimeterStirrupDia;
+        private NumericUpDown _numPerimeterStirrupSpacing;
+
+        // Tab 4 (Column Dowels & Stirrups)
         private CheckBox _chkEnableDowels;
         private ComboBox _cmbDowelDia;
         private NumericUpDown _numDowelQtyX;
@@ -68,7 +84,7 @@ namespace KhimTools.RebarTool.Forms
         private CheckBox _chkEnableDowelStirrups;
         private NumericUpDown _numDowelStirrupQty;
 
-        // Tab 4 (Design Code & Templates)
+        // Tab 5 (Design Code & Templates)
         private ComboBox _cmbDesignCode;
         private ComboBox _cmbConcreteGrade;
         private ComboBox _cmbSteelGrade;
@@ -77,6 +93,18 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnSaveTemplate;
         private Button _btnLoadTemplate;
         private RebarFormGuard _formGuard;
+
+        private sealed class FoundationPreviewOutline
+        {
+            public string HostUniqueId { get; set; }
+            public string Label { get; set; }
+            public double MinX { get; set; }
+            public double MinY { get; set; }
+            public double MaxX { get; set; }
+            public double MaxY { get; set; }
+            public double MinZ { get; set; }
+            public double MaxZ { get; set; }
+        }
 
         public FoundationReinforcementForm(Document doc, List<FamilyInstance> availableFoundations)
             : this(doc, availableFoundations, true)
@@ -96,6 +124,7 @@ namespace KhimTools.RebarTool.Forms
 
             KhimUiStyle.ApplyFormTheme(this);
             BuildUi();
+            ApplyLanguage();
             RebarLayout.EnableFullTypeNames(this);
             if (loadDocument) PopulateBarCombos();
             PopulateFoundationList();
@@ -109,7 +138,15 @@ namespace KhimTools.RebarTool.Forms
                     "Chọn đủ loại thép lớp trên X/Y."),
                 new RebarValidationRule(_cmbDowelDia,
                     () => !_chkEnableDowels.Checked || _cmbDowelDia.SelectedIndex >= 0,
-                    "Chọn loại thép chờ cột."));
+                    "Chọn loại thép chờ cột."),
+                new RebarValidationRule(_cmbPerimeterStirrupDia,
+                    () => !_chkEnablePerimeterUStirrups.Checked || _cmbPerimeterStirrupDia.SelectedIndex >= 0,
+                    "Chọn đường kính thép chữ U mép móng."),
+                new RebarValidationRule(_btnCreateRebar,
+                    () => _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null,
+                    "Giải và kiểm tra Preview cho cấu hình hiện tại trước khi tạo thép."));
+            AttachPreviewInvalidationHandlers(this);
+            UpdatePreviewStateUi();
         }
 
         private void BuildUi()
@@ -131,9 +168,26 @@ namespace KhimTools.RebarTool.Forms
             _cmbLanguage.Items.Add("Tiếng Việt");
             _cmbLanguage.Items.Add("English");
             _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
+            _cmbLanguage.SelectedIndexChanged += (s, e) =>
+            {
+                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1
+                    ? AppLanguage.English : AppLanguage.Vietnamese;
+                ApplyLanguage();
+            };
 
             _btnCreateRebar = new Button { Text = "Tạo thép móng", Width = 148, Height = 38, Top = 13 };
             KhimUiStyle.ApplyPrimaryButton(_btnCreateRebar, KhimUiStyle.CreateButtonBg);
+
+            _btnPreviewRebar = new Button { Text = LanguageManager.IsEnglish ? "Solve / Refresh" : "Giải / Cập nhật", Width = 130, Height = 38, Top = 13, AccessibleName = "Solve foundation reinforcement preview" };
+            KhimUiStyle.ApplySecondaryButton(_btnPreviewRebar);
+            _btnPreviewRebar.Click += BtnPreviewRebar_Click;
+            _btnSolve3D = new Button { Text = LanguageManager.IsEnglish ? "View 3D" : "Xem 3D", Width = 90, Height = 38, Top = 13, Enabled = false, AccessibleName = "Open foundation solver preview" };
+            KhimUiStyle.ApplySecondaryButton(_btnSolve3D);
+            _btnSolve3D.Click += (s, e) =>
+            {
+                if (_lastPreview == null || _previewLifecycle.State != PreviewLifecycleState.Valid) return;
+                using (var preview = new RebarSolverPreviewForm(_lastPreview)) preview.ShowDialog(this);
+            };
 
             _btnClose = new Button { Text = "Đóng", Width = 88, Height = 38, Top = 13 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
@@ -152,7 +206,7 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            var footer = RebarLayout.Footer(_cmbLanguage, _btnCreateRebar, _btnClose);
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnPreviewRebar, _btnSolve3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -162,19 +216,29 @@ namespace KhimTools.RebarTool.Forms
 
             _foundationListBox = new ListBox { Dock = DockStyle.Top, Height = 200, SelectionMode = SelectionMode.MultiExtended };
 
-            var lblPreviewTitle = new Label { Text = "XEM TRƯỚC CẤU TẠO", Dock = DockStyle.Top, Height = 32, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            _lblPreviewState = new Label { Text = LanguageManager.IsEnglish ? "PREVIEW · Not solved" : "XEM TRƯỚC · Chưa giải", Dock = DockStyle.Top, Height = 32, Font = new Font("Segoe UI Semibold", 8.5F), ForeColor = KhimUiStyle.TextSecondary, TextAlign = ContentAlignment.MiddleLeft, AccessibleName = "Foundation preview state" };
 
             _previewPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
             _previewPanel.Paint += PreviewPanel_Paint;
 
             rightPanel.Controls.Add(_previewPanel);
-            rightPanel.Controls.Add(lblPreviewTitle);
+            rightPanel.Controls.Add(_lblPreviewState);
             rightPanel.Controls.Add(_foundationListBox);
             rightPanel.Controls.Add(lblFdnTitle);
             Controls.Add(rightPanel);
 
             // Center Tab Control
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9F), Padding = new Point(12, 6) };
+            var tabControl = _workflowTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                Font = new Font("Segoe UI", 9F),
+                Padding = new Point(12, 6),
+                Appearance = TabAppearance.FlatButtons,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(0, 1),
+                AccessibleName = "Foundation role-oriented settings"
+            };
 
             // TAB 1: Lớp Thép Dưới (Bottom Mesh)
             var tabBot = new TabPage("Thép Lưới Dưới") { BackColor = KhimUiStyle.FormBg };
@@ -253,7 +317,32 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Stack(tabTop, _chkEnableTopMesh, grpTopX, grpTopY);
             tabControl.TabPages.Add(tabTop);
 
-            // TAB 3: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
+            // TAB 3: Perimeter edge U-bars (existing generator output, now explicit in the UI)
+            var tabPerimeter = new TabPage("Thép chữ U mép móng") { BackColor = KhimUiStyle.FormBg };
+            _chkEnablePerimeterUStirrups = new CheckBox
+            {
+                Text = "Tạo thép chữ U gia cường mép móng (4 cạnh)",
+                AutoSize = true,
+                Checked = _settings.EnablePerimeterUStirrups
+            };
+            _cmbPerimeterStirrupDia = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _numPerimeterStirrupSpacing = new NumericUpDown { Minimum = 50, Maximum = 500, Value = 200, Increment = 10 };
+            var grpPerimeter = new GroupBox { Text = "Cấu hình thép U theo chu vi", Dock = DockStyle.Top, Padding = new Padding(10) };
+            KhimUiStyle.ApplyCardStyle(grpPerimeter);
+            RebarLayout.Fields(grpPerimeter,
+                RebarLayout.Field("Đường kính", _cmbPerimeterStirrupDia),
+                RebarLayout.Field("Khoảng cách (mm)", _numPerimeterStirrupSpacing),
+                new Control[] { new Label { Text = "Chiều dài chân U do solver chọn: min(40% chiều dày móng, 366 mm).", AutoSize = true } });
+            RebarLayout.Stack(tabPerimeter, _chkEnablePerimeterUStirrups, grpPerimeter);
+            _chkEnablePerimeterUStirrups.CheckedChanged += (s, e) =>
+            {
+                grpPerimeter.Enabled = _chkEnablePerimeterUStirrups.Checked;
+                _cmbPerimeterStirrupDia.Enabled = _chkEnablePerimeterUStirrups.Checked;
+                _numPerimeterStirrupSpacing.Enabled = _chkEnablePerimeterUStirrups.Checked;
+            };
+            tabControl.TabPages.Add(tabPerimeter);
+
+            // TAB 4: Thép Chờ Cột & Thép Đai (Column Dowels & Stirrups)
             var tabDowel = new TabPage("Thép Chờ & Thép Đai") { BackColor = KhimUiStyle.FormBg };
             _chkEnableDowels = new CheckBox { Text = "Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)", Left = 15, Top = 12, AutoSize = true, Checked = true };
 
@@ -271,7 +360,7 @@ namespace KhimTools.RebarTool.Forms
             _chkStaggeredDowels = new CheckBox { Text = "Bố trí nối so le 50% thép chờ (50% Staggered)", Left = 250, Top = 145, AutoSize = true, Checked = true };
 
             _chkEnableDowelStirrups = new CheckBox { Text = "Đặt Thép Đai lồng móng cố định chân cột", Left = 15, Top = 180, AutoSize = true, Checked = true };
-            _numDowelStirrupQty = new NumericUpDown { Left = 380, Top = 175, Width = 100, Minimum = 1, Maximum = 10, Value = 3 };
+            _numDowelStirrupQty = new NumericUpDown { Left = 380, Top = 175, Width = 100, Minimum = 2, Maximum = 10, Value = 3 };
 
             grpDowel.Controls.Add(new Label { Text = "Đường kính thép chờ:", Left = 15, Top = 28, AutoSize = true });
             grpDowel.Controls.Add(_cmbDowelDia);
@@ -306,7 +395,7 @@ namespace KhimTools.RebarTool.Forms
             RebarLayout.Stack(tabDowel, _chkEnableDowels, grpDowel);
             tabControl.TabPages.Add(tabDowel);
 
-            // TAB 4: Tiêu Chuẩn & Template
+            // TAB 5: Tiêu Chuẩn & Template
             var tabDesign = new TabPage("Tiêu Chuẩn & Template") { BackColor = KhimUiStyle.FormBg };
             var grpCode = new GroupBox { Text = "Tiêu Chuẩn Thiết Kế & Cấp Độ Bền", Left = 15, Top = 15, Width = 520, Height = 140 };
             KhimUiStyle.ApplyCardStyle(grpCode);
@@ -381,18 +470,193 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Foundation,
                 RebarConfigurationField.Number("Foundation.DowelFootMm", "Chân neo thép chờ (mm)", _numDowelFootLeg),
                 RebarConfigurationField.Number("Foundation.DowelExtensionMm", "Chiều dài thép chờ (mm)", _numDowelExtension),
-                RebarConfigurationField.Number("Foundation.CoverMm", "Lớp bảo vệ (mm)", _numCoverMm),
-                RebarConfigurationField.Number("Foundation.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
-                RebarConfigurationField.Number("Foundation.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
-                RebarConfigurationField.Flag("Foundation.Dowels", "Tạo thép chờ", _chkEnableDowels),
+            RebarConfigurationField.Number("Foundation.CoverMm", "Lớp bảo vệ (mm)", _numCoverMm),
+            RebarConfigurationField.Number("Foundation.BottomSpacingX", "Lưới đáy X (mm)", _numBotXSpacing),
+            RebarConfigurationField.Number("Foundation.BottomSpacingY", "Lưới đáy Y (mm)", _numBotYSpacing),
+            RebarConfigurationField.Number("Foundation.PerimeterUBarSpacingMm", "Thép U mép - khoảng cách (mm)", _numPerimeterStirrupSpacing),
+            RebarConfigurationField.Flag("Foundation.Dowels", "Tạo thép chờ", _chkEnableDowels),
+            RebarConfigurationField.Flag("Foundation.PerimeterUStirrups", "Tạo thép chữ U mép móng", _chkEnablePerimeterUStirrups),
                 RebarConfigurationField.Flag("Foundation.Staggered", "Thép chờ so le", _chkStaggeredDowels),
                 RebarConfigurationField.Flag("Foundation.Inward", "Chân neo hướng vào", _chkDowelInward),
                 RebarConfigurationField.Flag("Foundation.BottomXHook", "Móc lưới dưới X", _chkBotXHook),
                 RebarConfigurationField.Flag("Foundation.BottomYHook", "Móc lưới dưới Y", _chkBotYHook),
                 RebarConfigurationField.Flag("Foundation.TopMesh", "Tạo lưới trên", _chkEnableTopMesh)));
-            Controls.Add(tabControl);
-            tabControl.BringToFront();
+            var workspace = new Panel { Dock = DockStyle.Fill, BackColor = KhimUiStyle.FormBg };
+            var roleNavigation = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(6, 5, 6, 3),
+                BackColor = Color.White
+            };
+            AddRoleNavigation(roleNavigation, "Lưới dưới", 0);
+            AddRoleNavigation(roleNavigation, "Lưới trên", 1);
+            AddRoleNavigation(roleNavigation, "Thép U mép", 2);
+            AddRoleNavigation(roleNavigation, "Thép chờ", 3);
+            AddRoleNavigation(roleNavigation, "Thiết lập", 4);
+            AddRoleNavigation(roleNavigation, "Tham khảo", 5);
+            AddRoleNavigation(roleNavigation, "Cấu hình", 6);
+            tabControl.SelectedIndexChanged += (s, e) => UpdateRoleNavigation();
+            workspace.Controls.Add(tabControl);
+            workspace.Controls.Add(roleNavigation);
+            Controls.Add(workspace);
+            workspace.BringToFront();
+            UpdateRoleNavigation();
             footer.SendToBack();
+        }
+
+        private void ApplyLanguage()
+        {
+            bool isEnglish = LanguageManager.IsEnglish;
+            Text = isEnglish ? "Foundation Reinforcement" : "Rebar - Móng";
+            AccessibleName = isEnglish ? "Foundation Reinforcement" : "Rebar - Móng - Lưới thép, thép chờ cột và cấu tạo biên";
+
+            var vietnameseToEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["1  Chọn móng     2  Cấu hình lưới     3  Kiểm tra thép chờ     4  Tạo thép"] = "1  Select footing     2  Configure reinforcement     3  Review dowels     4  Create",
+                ["Ngôn ngữ"] = "Language",
+                ["Tạo thép móng"] = "Create Foundation Rebar",
+                ["Giải / Cập nhật"] = "Solve / Refresh",
+                ["Xem 3D"] = "View 3D",
+                ["Đóng"] = "Close",
+                ["CẤU KIỆN ÁP DỤNG"] = "SELECTED FOUNDATIONS",
+                ["Thép Lưới Dưới"] = "Bottom Mat",
+                ["Thép Lưới Trên"] = "Top Mat",
+                ["Thép chữ U mép móng"] = "Perimeter U-bars",
+                ["Thép Chờ & Thép Đai"] = "Column Dowels & Ties",
+                ["Tiêu Chuẩn & Template"] = "Design & Templates",
+                ["Cấu hình dự án"] = "Project Settings",
+                ["Phương X (Dưới)"] = "X Direction (Bottom)",
+                ["Phương Y (Dưới)"] = "Y Direction (Bottom)",
+                ["Phương X (Trên)"] = "X Direction (Top)",
+                ["Phương Y (Trên)"] = "Y Direction (Top)",
+                ["Đường kính:"] = "Bar diameter:",
+                ["Đường kính"] = "Bar diameter",
+                ["Khoảng cách a (mm):"] = "Spacing (mm):",
+                ["Khoảng cách a (mm)"] = "Spacing (mm)",
+                ["Khoảng cách (mm)"] = "Spacing (mm)",
+                ["Uốn bẻ móc đứng 90° lên đỉnh móng"] = "Bend 90° hooks up to the footing top",
+                ["Bật bố trí Thép Lớp Trên (Cho Đài Móng / Móng Sâu)"] = "Enable top mat (pile cap / deep footing)",
+                ["Móc bẻ 90° xuống đáy móng"] = "Bend 90° hooks down to footing bottom",
+                ["Tạo thép chữ U gia cường mép móng (4 cạnh)"] = "Create perimeter U-bars (all four edges)",
+                ["Cấu hình thép U theo chu vi"] = "Perimeter U-bar settings",
+                ["Chiều dài chân U do solver chọn: min(40% chiều dày móng, 366 mm)."] = "U-leg length is solver-controlled: min(40% footing depth, 366 mm).",
+                ["Bật tạo Thép Chờ Cột & Thép Đai Lồng (Column Dowels & Stirrups)"] = "Enable column dowels and confining ties",
+                ["Thông Số Thép Chờ Cột & Đai Lồng Chân Cột"] = "Column Dowels & Confining Ties",
+                ["Đường kính thép chờ:"] = "Dowel bar diameter:",
+                ["Số thanh phương X:"] = "Bars along X:",
+                ["Số thanh phương Y:"] = "Bars along Y:",
+                ["Chân quỳ 90° (mm):"] = "90° footing leg (mm):",
+                ["Đoạn chờ L0 (mm):"] = "Dowel extension L0 (mm):",
+                ["Bẻ chân quỳ úp vào trong lòng cột"] = "Bend dowel legs inward toward the column",
+                ["Bố trí nối so le 50% thép chờ (50% Staggered)"] = "Stagger 50% of dowel extensions",
+                ["Đặt Thép Đai lồng móng cố định chân cột"] = "Add confining ties around column dowels",
+                ["Số đai lồng:"] = "Number of confining ties:",
+                ["Tiêu Chuẩn Thiết Kế & Cấp Độ Bền"] = "Design Code & Material Grades",
+                ["Tiêu chuẩn:"] = "Design code:",
+                ["Mác bê tông:"] = "Concrete grade:",
+                ["Mác thép:"] = "Reinforcement grade:",
+                ["Cover (mm):"] = "Concrete cover (mm):",
+                ["Quản Lý Template JSON"] = "JSON Template Management",
+                ["Mẫu thiết lập"] = "Template",
+                ["Lưu mẫu"] = "Save Template",
+                ["Nạp mẫu"] = "Load Template",
+                ["Chân neo thép chờ (mm)"] = "Dowel anchorage leg (mm)",
+                ["Chiều dài thép chờ (mm)"] = "Dowel extension (mm)",
+                ["Lớp bảo vệ (mm)"] = "Concrete cover (mm)",
+                ["Lưới đáy X (mm)"] = "Bottom mat X spacing (mm)",
+                ["Lưới đáy Y (mm)"] = "Bottom mat Y spacing (mm)",
+                ["Thép U mép - khoảng cách (mm)"] = "Perimeter U-bar spacing (mm)",
+                ["Tạo thép chờ"] = "Create column dowels",
+                ["Tạo thép chữ U mép móng"] = "Create perimeter U-bars",
+                ["Thép chờ so le"] = "Stagger dowels",
+                ["Chân neo hướng vào"] = "Dowel legs point inward",
+                ["Móc lưới dưới X"] = "Bottom mat X hooks",
+                ["Móc lưới dưới Y"] = "Bottom mat Y hooks",
+                ["Tạo lưới trên"] = "Create top mat",
+                ["Lưới dưới"] = "Bottom mat",
+                ["Lưới trên"] = "Top mat",
+                ["Thép U mép"] = "Edge U-bars",
+                ["Thép chờ"] = "Dowels",
+                ["Thiết lập"] = "Design",
+                ["Tham khảo"] = "Reference",
+                ["Cấu hình"] = "Settings"
+            };
+
+            var englishToVietnamese = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, string> entry in vietnameseToEnglish)
+                if (!englishToVietnamese.ContainsKey(entry.Value)) englishToVietnamese.Add(entry.Value, entry.Key);
+
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                string translated;
+                if (isEnglish && vietnameseToEnglish.TryGetValue(control.Text, out translated))
+                    control.Text = translated;
+                else if (!isEnglish && englishToVietnamese.TryGetValue(control.Text, out translated))
+                    control.Text = translated;
+            }
+
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 5)
+            {
+                int selectedIndex = _workflowTabs.SelectedIndex;
+                TabPage oldReferencePage = _workflowTabs.TabPages[5];
+                _workflowTabs.TabPages.RemoveAt(5);
+                oldReferencePage.Dispose();
+                _workflowTabs.TabPages.Insert(5, RebarReferenceViews.CreatePage(RebarReferenceKind.Foundation));
+                _workflowTabs.SelectedIndex = Math.Max(0, Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1));
+            }
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 0)
+                RebarConfigurationPage.ApplyLanguage(_workflowTabs.TabPages[_workflowTabs.TabPages.Count - 1]);
+
+            UpdateRoleNavigation();
+            UpdatePreviewStateUi();
+            _formGuard?.ApplyLanguage();
+            _previewPanel?.Invalidate();
+        }
+
+        private static IEnumerable<Control> EnumerateDescendantControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateDescendantControls(child))
+                    yield return descendant;
+            }
+        }
+
+        private void AddRoleNavigation(FlowLayoutPanel host, string label, int pageIndex)
+        {
+            var button = new Button
+            {
+                Text = label,
+                Tag = pageIndex,
+                AutoSize = true,
+                Height = 30,
+                AccessibleName = "Show foundation " + label + " settings",
+                Margin = new Padding(2, 0, 2, 0)
+            };
+            button.Click += (s, e) =>
+            {
+                if (_workflowTabs != null && pageIndex >= 0 && pageIndex < _workflowTabs.TabPages.Count)
+                    _workflowTabs.SelectedIndex = pageIndex;
+            };
+            _roleNavigationButtons.Add(button);
+            KhimUiStyle.ApplySecondaryButton(button);
+            host.Controls.Add(button);
+        }
+
+        private void UpdateRoleNavigation()
+        {
+            for (int index = 0; index < _roleNavigationButtons.Count; index++)
+            {
+                Button button = _roleNavigationButtons[index];
+                if (_workflowTabs != null && _workflowTabs.SelectedIndex == (int)button.Tag)
+                    KhimUiStyle.ApplyPrimaryButton(button);
+                else
+                    KhimUiStyle.ApplySecondaryButton(button);
+            }
         }
 
         private void PopulateBarCombos()
@@ -411,6 +675,7 @@ namespace KhimTools.RebarTool.Forms
             PopulateCombo(_cmbTopXDia, barTypes, "12");
             PopulateCombo(_cmbTopYDia, barTypes, "12");
             PopulateCombo(_cmbDowelDia, barTypes, "18");
+            PopulateCombo(_cmbPerimeterStirrupDia, barTypes, "10");
         }
 
         private void PopulateCombo(ComboBox combo, List<string> items, string defaultDia)
@@ -424,9 +689,14 @@ namespace KhimTools.RebarTool.Forms
         private void PopulateFoundationList()
         {
             _foundationListBox.Items.Clear();
-            foreach (var fdn in _availableFoundations)
+            _previewOutlines.Clear();
+            for (int i = 0; i < _availableFoundations.Count; i++)
             {
+                FamilyInstance fdn = _availableFoundations[i];
                 _foundationListBox.Items.Add($"{fdn.Name} (ID: {fdn.Id.ToLongValue()})");
+                BoundingBoxXYZ bounds = fdn.get_BoundingBox(null);
+                if (bounds != null)
+                    _previewOutlines[i] = MakePreviewOutline(fdn, bounds);
             }
             if (_foundationListBox.Items.Count > 0)
                 _foundationListBox.SelectedIndex = 0;
@@ -488,6 +758,9 @@ namespace KhimTools.RebarTool.Forms
             _settings.TopYDiaLabel = _cmbTopYDia.Text;
             _settings.TopYSpacingMm = (double)_numTopYSpacing.Value;
             _settings.TopYHookDown = _chkTopYHook.Checked;
+            _settings.EnablePerimeterUStirrups = _chkEnablePerimeterUStirrups.Checked;
+            _settings.PerimeterStirrupDiaLabel = _cmbPerimeterStirrupDia.Text;
+            _settings.PerimeterStirrupSpacingMm = (double)_numPerimeterStirrupSpacing.Value;
             _settings.EnableColumnDowels = _chkEnableDowels.Checked;
             _settings.DowelDiaLabel = _cmbDowelDia.Text;
             _settings.DowelQtyX = (int)_numDowelQtyX.Value;
@@ -519,6 +792,9 @@ namespace KhimTools.RebarTool.Forms
             _cmbTopYDia.Text = value.TopYDiaLabel;
             _numTopYSpacing.Value = Clamp(_numTopYSpacing, value.TopYSpacingMm);
             _chkTopYHook.Checked = value.TopYHookDown;
+            _chkEnablePerimeterUStirrups.Checked = value.EnablePerimeterUStirrups;
+            _cmbPerimeterStirrupDia.Text = value.PerimeterStirrupDiaLabel;
+            _numPerimeterStirrupSpacing.Value = Clamp(_numPerimeterStirrupSpacing, value.PerimeterStirrupSpacingMm);
             _chkEnableDowels.Checked = value.EnableColumnDowels;
             _cmbDowelDia.Text = value.DowelDiaLabel;
             _numDowelQtyX.Value = Clamp(_numDowelQtyX, value.DowelQtyX);
@@ -553,75 +829,256 @@ namespace KhimTools.RebarTool.Forms
             g.SmoothingMode = SmoothingMode.AntiAlias;
             int w = _previewPanel.Width;
             int h = _previewPanel.Height;
-
             g.Clear(Color.White);
-
-            Rectangle rectFdn = new Rectangle(20, h / 2 - 40, w - 40, 70);
-            using (Pen pFdn = new Pen(Color.DimGray, 2))
-                g.DrawRectangle(pFdn, rectFdn);
-
-            // Draw Bottom Mesh
-            using (Pen pRed = new Pen(Color.Red, 3))
+            int index = _foundationListBox.SelectedIndices.Count == 0 ? -1 : _foundationListBox.SelectedIndices[0];
+            FoundationPreviewOutline outline;
+            if (index < 0 || !_previewOutlines.TryGetValue(index, out outline))
             {
-                g.DrawLine(pRed, rectFdn.Left + 8, rectFdn.Bottom - 8, rectFdn.Right - 8, rectFdn.Bottom - 8);
-                g.DrawLine(pRed, rectFdn.Left + 8, rectFdn.Bottom - 8, rectFdn.Left + 8, rectFdn.Top + 8);
-                g.DrawLine(pRed, rectFdn.Right - 8, rectFdn.Bottom - 8, rectFdn.Right - 8, rectFdn.Top + 8);
+                TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "Select a foundation to inspect its bounding-box extents." : "Chọn móng để xem phạm vi hộp bao.", Font, _previewPanel.ClientRectangle,
+                    Color.DimGray, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+                return;
             }
 
-            // Draw Column Dowels
-            using (Pen pBlue = new Pen(Color.Blue, 3))
-            {
-                g.DrawLine(pBlue, w / 2 - 25, rectFdn.Bottom - 12, w / 2 - 10, rectFdn.Bottom - 12);
-                g.DrawLine(pBlue, w / 2 - 10, rectFdn.Bottom - 12, w / 2 - 10, rectFdn.Top - 30);
+            float minX = (float)outline.MinX, minY = (float)outline.MinY;
+            float width = Math.Max(1e-5f, (float)(outline.MaxX - outline.MinX));
+            float height = Math.Max(1e-5f, (float)(outline.MaxY - outline.MinY));
+            float scale = Math.Min((w - 56f) / width, (h - 82f) / height);
+            if (float.IsNaN(scale) || float.IsInfinity(scale) || scale <= 0) return;
+            float ox = (w - width * scale) / 2f;
+            float oy = (h - height * scale) / 2f;
+            PointF Map(double x, double y) => new PointF(ox + (float)(x - minX) * scale, oy + (float)(outline.MaxY - y) * scale);
+            PointF topLeft = Map(outline.MinX, outline.MaxY);
+            var hostRect = new RectangleF(topLeft.X, topLeft.Y, width * scale, height * scale);
 
-                g.DrawLine(pBlue, w / 2 + 25, rectFdn.Bottom - 12, w / 2 + 10, rectFdn.Bottom - 12);
-                g.DrawLine(pBlue, w / 2 + 10, rectFdn.Bottom - 12, w / 2 + 10, rectFdn.Top - 30);
+            string fingerprint;
+            RebarPreviewComponent component = _previewFingerprints.TryGetValue(outline.HostUniqueId, out fingerprint)
+                ? _lastPreview?.Find(fingerprint) : null;
+            using (var hostPen = new Pen(Color.FromArgb(51, 65, 85), 2f))
+            using (var barPen = new Pen(_previewLifecycle.State == PreviewLifecycleState.Valid ? Color.FromArgb(37, 99, 235) : Color.FromArgb(148, 163, 184), 1.4f))
+            using (var textBrush = new SolidBrush(Color.FromArgb(51, 65, 85)))
+            using (var noteBrush = new SolidBrush(Color.FromArgb(100, 116, 139)))
+            using (var font = new Font("Segoe UI", 8.5f))
+            {
+                g.DrawRectangle(hostPen, hostRect.X, hostRect.Y, hostRect.Width, hostRect.Height);
+                if (component != null)
+                {
+                    foreach (RebarPreviewPath path in component.Paths)
+                    {
+                        PointF[] points = path.Points.Select(point => Map(point.X, point.Y)).ToArray();
+                        if (points.Length < 2) continue;
+                        float dx = points.Max(point => point.X) - points.Min(point => point.X);
+                        float dy = points.Max(point => point.Y) - points.Min(point => point.Y);
+                        if (dx < 0.5f && dy < 0.5f) g.FillEllipse(barPen.Brush, points[0].X - 2.5f, points[0].Y - 2.5f, 5f, 5f);
+                        else g.DrawLines(barPen, points);
+                    }
+                    TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "SOLVED CENTERLINES · " + component.BarCount + " bars" : "TIM THÉP ĐÃ GIẢI · " + component.BarCount + " thanh",
+                        Font, new Rectangle(8, 6, w - 16, 24), textBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+                }
+                else TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "Bounding-box outline only — solve to show production-generated reinforcement." : "Chỉ có hộp bao — hãy giải để xem thép từ bộ tạo sản xuất.",
+                    Font, new Rectangle(8, 6, w - 16, 36), noteBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+                g.DrawString(outline.Label + "  ·  " + (width * 304.8f).ToString("N0") + " × " + (height * 304.8f).ToString("N0") + " mm",
+                    font, textBrush, 8, h - 24);
+                g.DrawString(LanguageManager.IsEnglish ? "PLAN · host bounding-box axes X/Y" : "MẶT BẰNG · hộp bao trục mô hình X/Y", font, noteBrush, 8, h - 42);
+                if (_previewLifecycle.State == PreviewLifecycleState.Stale)
+                    TextRenderer.DrawText(g, LanguageManager.IsEnglish ? "STALE · showing the last accepted solve" : "CŨ · đang hiển thị kết quả đã giải trước đó",
+                        Font, new Rectangle(8, 26, w - 16, 24), noteBrush.Color, TextFormatFlags.WordBreak | TextFormatFlags.EndEllipsis);
+            }
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control == _cmbLanguage) continue;
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+            _foundationListBox.SelectedIndexChanged += (s, e) =>
+            {
+                MarkPreviewStale();
+                _previewPanel?.Invalidate();
+            };
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid) _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+            _previewPanel?.Invalidate();
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Valid" : "XEM TRƯỚC · Hợp lệ";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Inputs changed — solve again" : "XEM TRƯỚC · Thông số đổi — giải lại";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Solve failed" : "XEM TRƯỚC · Giải không thành công";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = LanguageManager.IsEnglish ? "PREVIEW · Not solved" : "XEM TRƯỚC · Chưa giải";
+                    _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
+                    break;
+            }
+            bool valid = _previewLifecycle.State == PreviewLifecycleState.Valid && _lastPreview != null;
+            _btnCreateRebar.Enabled = valid;
+            _btnSolve3D.Enabled = valid;
+        }
+
+        private FoundationProfile AnalyzeSelectedFoundation(int index)
+        {
+            if (index < 0 || index >= _availableFoundations.Count)
+                throw new InvalidOperationException("Select a foundation before solving or creating reinforcement.");
+            FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, _availableFoundations[index]);
+            if (profile == null) throw new InvalidOperationException("Foundation geometry is unavailable for the selected host.");
+            _previewOutlines[index] = MakePreviewOutline(profile.FoundationElement, profile.BoundingBox);
+            return profile;
+        }
+
+        private FoundationPreviewOutline MakePreviewOutline(FamilyInstance foundation, BoundingBoxXYZ bounds) => new FoundationPreviewOutline
+        {
+            HostUniqueId = foundation.UniqueId,
+            Label = foundation.Name,
+            MinX = bounds.Min.X, MinY = bounds.Min.Y, MinZ = bounds.Min.Z,
+            MaxX = bounds.Max.X, MaxY = bounds.Max.Y, MaxZ = bounds.Max.Z
+        };
+
+        private static IList<Rebar> GenerateFoundation(FoundationRebarGenerator generator, FoundationProfile profile,
+            FoundationRebarSettings settings, IDictionary<string, string> roleByBarId)
+        {
+            var report = new RebarGenerationReport();
+            List<Rebar> bars = generator.Generate(profile, settings, report, roleByBarId);
+            if (report.HasErrors)
+                throw new InvalidOperationException(report.Errors[0].ErrorReason);
+            return bars;
+        }
+
+        private void BtnPreviewRebar_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                int[] selectedIndices = _foundationListBox.SelectedIndices.Cast<int>().ToArray();
+                if (selectedIndices.Length == 0) throw new InvalidOperationException("Select at least one foundation before solving its reinforcement.");
+                CaptureSettingsFromControls();
+                var generator = new FoundationRebarGenerator(_doc);
+                FoundationProfile[] profiles = selectedIndices.Select(AnalyzeSelectedFoundation).ToArray();
+                _previewFingerprints.Clear();
+                RebarPreviewRequest[] requests = profiles.Select(profile =>
+                {
+                    string key = profile.FoundationElement.UniqueId;
+                    string fingerprint = RebarPreviewService.Fingerprint(profile, _settings);
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                    _previewFingerprints[key] = fingerprint;
+                    return new RebarPreviewRequest(fingerprint,
+                        () => GenerateFoundation(generator, profile, _settings, roleByBarId),
+                        () =>
+                        {
+                            CaptureSettingsFromControls();
+                            FoundationProfile current = FoundationGeometryHelper.AnalyzeFoundation(_doc, profile.FoundationElement);
+                            return RebarPreviewService.Fingerprint(current, _settings);
+                        }, RebarPreviewService.Describe(profile, _settings),
+                        bar =>
+                        {
+                            string role;
+                            return bar != null && roleByBarId.TryGetValue(bar.Id.ToLongValue().ToString(System.Globalization.CultureInfo.InvariantCulture), out role)
+                                ? role : string.Empty;
+                        });
+                }).ToArray();
+                _previewLifecycle.BeginGeneration();
+                UpdatePreviewStateUi();
+                _lastPreview = RebarPreviewService.Capture(_doc, requests);
+                _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
+                UpdatePreviewStateUi();
+                _previewPanel?.Invalidate();
+            }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                _previewFingerprints.Clear();
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                _previewPanel?.Invalidate();
+                KhimDialogHelper.ShowError("Unable to solve foundation reinforcement preview: " + ex.Message);
             }
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
         {
-            var selectedIndices = _foundationListBox.SelectedIndices;
-            if (selectedIndices.Count == 0)
+            int[] selectedIndices = _foundationListBox.SelectedIndices.Cast<int>().ToArray();
+            if (selectedIndices.Length == 0)
             {
                 KhimDialogHelper.ShowError("Vui lòng chọn ít nhất 1 Móng để tạo thép.");
                 return;
             }
 
             CaptureSettingsFromControls();
-
             var generator = new FoundationRebarGenerator(_doc);
             var report = new RebarGenerationReport();
-
-            using (var tx = new Transaction(_doc, "Bố trí Thép Móng — KhimTools"))
+            FoundationProfile[] profiles;
+            RebarPreviewSnapshot acceptedPreview;
+            string currentFingerprint;
+            try
             {
-                tx.Start();
-                try
+                profiles = selectedIndices.Select(AnalyzeSelectedFoundation).ToArray();
+                currentFingerprint = RebarPreviewService.FingerprintInputs(profiles.Select(profile => RebarPreviewService.Fingerprint(profile, _settings)));
+                if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) ||
+                    profiles.Any(profile => acceptedPreview.Find(RebarPreviewService.Fingerprint(profile, _settings)) == null))
                 {
-                    foreach (int idx in selectedIndices)
-                    {
-                        FamilyInstance fdn = _availableFoundations[idx];
-                        FoundationProfile profile = FoundationGeometryHelper.AnalyzeFoundation(_doc, fdn);
-                        if (profile == null)
-                        {
-                            report.AddError(fdn, "Phân tích hình học móng",
-                                new InvalidOperationException("Không lấy được bounding box của móng."));
-                            continue;
-                        }
-
-                        generator.Generate(profile, _settings, report);
-                    }
-                    tx.Commit();
-                }
-                catch (Exception ex)
-                {
-                    if (tx.GetStatus() == TransactionStatus.Started) tx.RollBack();
-                    KhimDialogHelper.ShowError("Không thể tạo thép móng: " + ex.Message);
+                    UpdatePreviewStateUi();
+                    _previewPanel?.Invalidate();
+                    KhimDialogHelper.ShowWarning("Solve or refresh the foundation Preview for the current hosts and settings before creating reinforcement.");
                     return;
                 }
+                foreach (FoundationProfile profile in profiles)
+                    if (RebarPreviewService.HasExistingDuplicateBar(_doc, profile.FoundationElement, acceptedPreview,
+                        RebarPreviewService.Fingerprint(profile, _settings)))
+                    {
+                        KhimDialogHelper.ShowWarning("Equivalent reinforcement already exists on foundation " + profile.FoundationElement.Id + ". Remove or edit existing bars before creating to avoid duplicates.");
+                        return;
+                    }
+            }
+            catch (Exception ex)
+            {
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                KhimDialogHelper.ShowError("Could not validate the accepted foundation preview: " + ex.Message);
+                return;
             }
 
-            KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Count);
+            try
+            {
+                TransactionBoundary.Execute(_doc, "Bố trí Thép Móng — KhimTools", () =>
+                {
+                    foreach (FoundationProfile profile in profiles)
+                    {
+                        var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                        List<Rebar> generated = generator.Generate(profile, _settings, report, roleByBarId);
+                        _doc.Regenerate();
+                        if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview,
+                            RebarPreviewService.Fingerprint(profile, _settings), generated))
+                            throw new InvalidOperationException("Generated foundation centerlines differ from the accepted solver preview, or a generator error occurred; the entire foundation transaction was rolled back.");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                KhimDialogHelper.ShowError("Không thể tạo thép móng: " + ex.Message);
+                return;
+            }
+
+            KhimDialogHelper.ShowRebarGenerationReport(report, "Móng (Foundation)", selectedIndices.Length);
             Close();
         }
     }

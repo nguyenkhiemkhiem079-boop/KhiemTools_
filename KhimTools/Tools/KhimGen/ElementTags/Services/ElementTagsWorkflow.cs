@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Revit;
 using KhimTools.Core;
 using KhimTools.ElementTags.Models;
 
@@ -534,26 +535,47 @@ namespace KhimTools.ElementTags.Services
             {
                 using (var group = new TransactionGroup(doc, "K-TOOLS: Elements Tags 2.0"))
                 {
-                    group.Start();
-                    using (var transaction = new Transaction(doc, "K-TOOLS: Elements Tags actions"))
+                    TransactionBoundary.Start(group, "ElementTags.Batch");
+                    try
                     {
-                        transaction.Start();
-                        List<double[]> occupied = TagPlacement.Obstacles(doc, view, existing);
-                        foreach (TagActionPlanItem plan in preflight.ActionPlan.Where(item => item.CanExecute)
-                            .OrderBy(item => TagRelationshipIndex.IdValue(item.HostId)).ThenBy(item => TagRelationshipIndex.IdValue(item.TagId)))
+                        using (var transaction = new Transaction(doc, "K-TOOLS: Elements Tags actions"))
                         {
-                            XYZ aligned;
-                            if (alignedAnchors.TryGetValue(plan.HostId, out aligned)) plan.TargetAnchor = aligned;
-                            ExecuteOne(doc, view, preflight.Index, plan, occupied, result);
+                            TransactionBoundary.Start(transaction, "ElementTags.Actions");
+                            List<double[]> occupied = TagPlacement.Obstacles(doc, view, existing);
+                            foreach (TagActionPlanItem plan in preflight.ActionPlan.Where(item => item.CanExecute)
+                                .OrderBy(item => TagRelationshipIndex.IdValue(item.HostId)).ThenBy(item => TagRelationshipIndex.IdValue(item.TagId)))
+                            {
+                                XYZ aligned;
+                                if (alignedAnchors.TryGetValue(plan.HostId, out aligned)) plan.TargetAnchor = aligned;
+                                ExecuteOne(doc, view, preflight.Index, plan, occupied, result);
+                            }
+                            TransactionBoundary.Commit(transaction, "ElementTags.Actions");
                         }
-                        transaction.Commit();
+                        TransactionBoundary.Assimilate(group, "ElementTags.Batch");
                     }
-                    group.Assimilate();
+                    catch
+                    {
+                        if (group.GetStatus() == TransactionStatus.Started)
+                            TransactionBoundary.RollBack(group, "ElementTags.Batch");
+                        throw;
+                    }
                 }
             }
             catch (Exception ex)
             {
                 Debug.WriteLine("[K-TOOLS][ElementTags] action group failed: " + ex);
+                List<TagExecutionResult> rolledBack = result.Results.Where(item => item.Changed).ToList();
+                foreach (TagExecutionResult item in rolledBack)
+                {
+                    item.Changed = false;
+                    item.Status = TagAuditStatus.FAILED;
+                    item.Message = "Action group rolled back: " + ex.Message;
+                }
+                result.Created = 0;
+                result.ChangedType = 0;
+                result.Moved = 0;
+                result.LeadersUpdated = 0;
+                result.Failed += rolledBack.Count;
                 result.Failed++;
             }
             result.Verification = TagAuditService.Audit(doc, view, TagRelationshipIndex.Build(doc, view), preflight.Configurations);
@@ -565,10 +587,12 @@ namespace KhimTools.ElementTags.Services
         {
             using (var sub = new SubTransaction(doc))
             {
-                sub.Start();
+                TransactionBoundary.Start(sub, "ElementTags." + plan.Action);
                 try
                 {
                     bool changed = false;
+                    ElementId resultTagId = plan.TagId;
+                    string successMessage = "Action applied.";
                     if (plan.Action == TagActionType.CREATE)
                     {
                         FamilySymbol symbol = doc.GetElement(plan.TargetTypeId) as FamilySymbol;
@@ -580,9 +604,9 @@ namespace KhimTools.ElementTags.Services
                             plan.AddLeader, TagOrientation.Horizontal, plan.TargetAnchor);
                         if (tag == null || !TagPlacement.Place(doc, view, tag, plan.TargetAnchor, occupied, host, true))
                             throw new InvalidOperationException("Không tìm được vị trí tag trong giới hạn 12 mm trên giấy.");
-                        result.Created++; changed = true;
-                        result.Results.Add(new TagExecutionResult { Action = plan.Action, HostId = plan.HostId, TagId = tag.Id,
-                            Status = TagAuditStatus.READY, Changed = changed, Message = "Tag created." });
+                        resultTagId = tag.Id;
+                        successMessage = "Tag created.";
+                        changed = true;
                     }
                     else
                     {
@@ -590,26 +614,33 @@ namespace KhimTools.ElementTags.Services
                         if (tag == null) throw new InvalidOperationException("Không tìm thấy tag.");
                         if (plan.Action == TagActionType.CHANGE_TYPE)
                         {
-                            tag.ChangeTypeId(plan.TargetTypeId); result.ChangedType++; changed = true;
+                            tag.ChangeTypeId(plan.TargetTypeId); changed = true;
                         }
                         else if (plan.Action == TagActionType.MOVE_ALIGN)
                         {
                             if (!TagPlacement.Place(doc, view, tag, plan.TargetAnchor, occupied, doc.GetElement(plan.HostId), false))
                                 throw new InvalidOperationException("Không tìm được vị trí tránh clash trong giới hạn 12 mm trên giấy.");
-                            result.Moved++; changed = true;
+                            changed = true;
                         }
                         else if (plan.Action == TagActionType.LEADER_UPDATE)
                         {
-                            tag.HasLeader = plan.AddLeader; result.LeadersUpdated++; changed = true;
+                            tag.HasLeader = plan.AddLeader; changed = true;
                         }
-                        result.Results.Add(new TagExecutionResult { Action = plan.Action, HostId = plan.HostId, TagId = plan.TagId,
-                            Status = TagAuditStatus.READY, Changed = changed, Message = "Action applied." });
                     }
-                    sub.Commit();
+                    TransactionBoundary.Commit(sub, "ElementTags." + plan.Action);
+                    if (changed)
+                    {
+                        if (plan.Action == TagActionType.CREATE) result.Created++;
+                        else if (plan.Action == TagActionType.CHANGE_TYPE) result.ChangedType++;
+                        else if (plan.Action == TagActionType.MOVE_ALIGN) result.Moved++;
+                        else if (plan.Action == TagActionType.LEADER_UPDATE) result.LeadersUpdated++;
+                    }
+                    result.Results.Add(new TagExecutionResult { Action = plan.Action, HostId = plan.HostId, TagId = resultTagId,
+                        Status = TagAuditStatus.READY, Changed = changed, Message = successMessage });
                 }
                 catch (Exception ex)
                 {
-                    sub.RollBack();
+                    TransactionBoundary.RollBack(sub, "ElementTags." + plan.Action);
                     result.Failed++;
                     result.Results.Add(new TagExecutionResult { Action = plan.Action, HostId = plan.HostId, TagId = plan.TagId,
                         Status = TagAuditStatus.FAILED, Changed = false, Message = ex.Message });

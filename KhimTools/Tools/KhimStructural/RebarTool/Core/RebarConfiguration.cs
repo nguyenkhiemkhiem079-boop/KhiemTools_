@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
@@ -57,7 +58,25 @@ namespace KhimTools.RebarTool.Core
         public RebarConfiguration Load()
         {
             if (!File.Exists(_path)) return new RebarConfiguration { ProjectKey = _projectKey };
-            var config = Parse(File.ReadAllText(_path));
+            try { return ValidateProject(Parse(File.ReadAllText(_path))); }
+            catch (Exception primaryError)
+            {
+                string directory = Path.GetDirectoryName(_path);
+                string pattern = Path.GetFileName(_path) + ".r*.bak";
+                if (Directory.Exists(directory))
+                {
+                    foreach (string backup in Directory.GetFiles(directory, pattern).OrderByDescending(File.GetLastWriteTimeUtc))
+                    {
+                        try { return ValidateProject(Parse(File.ReadAllText(backup))); }
+                        catch { }
+                    }
+                }
+                throw new InvalidDataException("Rebar configuration is corrupt and no valid project backup is available.", primaryError);
+            }
+        }
+
+        private RebarConfiguration ValidateProject(RebarConfiguration config)
+        {
             if (config.ProjectKey != _projectKey) throw new InvalidDataException("Cấu hình thuộc dự án khác.");
             return config;
         }

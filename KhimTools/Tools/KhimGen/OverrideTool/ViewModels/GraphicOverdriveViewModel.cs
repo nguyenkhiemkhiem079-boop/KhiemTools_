@@ -96,16 +96,8 @@ namespace KhimTools.OverrideTool.ViewModels
 
                     if (!selIds.Any()) { SetStatus("Chưa chọn đối tượng nào trong View.", false); return; }
 
-                    using (Transaction t = new Transaction(doc, "KhimTools: Reset Graphic Override"))
-                    {
-                        t.Start();
-                        var emptyOGS = new OverrideGraphicSettings();
-                        foreach (var id in selIds)
-                            view.SetElementOverrides(id, emptyOGS);
-                        t.Commit();
-                    }
-
-                    SetStatus($"Đã reset override cho {selIds.Count} đối tượng thành công.", true);
+                    int updated = GraphicOverrideExecutionService.Reset(doc, view, selIds);
+                    SetStatus($"Đã reset override cho {updated}/{selIds.Count} đối tượng.", true);
                 }
                 catch (Exception ex)
                 {
@@ -130,70 +122,9 @@ namespace KhimTools.OverrideTool.ViewModels
 
                     if (!selIds.Any()) { SetStatus("Chưa chọn đối tượng nào trong Revit.", false); return; }
 
-                    // Tìm FillPatternElement Solid
-                    var solidPattern = new FilteredElementCollector(doc)
-                        .OfClass(typeof(FillPatternElement))
-                        .Cast<FillPatternElement>()
-                        .FirstOrDefault(p => p.GetFillPattern().IsSolidFill);
-
-                    using (Transaction t = new Transaction(doc, "KhimTools: Graphic Overdrive"))
-                    {
-                        t.Start();
-
-                        foreach (var id in selIds)
-                        {
-                            var ogs = view.GetElementOverrides(id);
-
-                            // --- Surface ---
-                            if (OverrideSurface)
-                            {
-                                if (solidPattern != null)
-                                    ogs = ogs.SetSurfaceForegroundPatternId(solidPattern.Id);
-                                ogs = ogs.SetSurfaceForegroundPatternColor(color);
-                                ogs = ogs.SetSurfaceForegroundPatternVisible(true);
-                                if (OverrideBackground)
-                                    ogs = ogs.SetSurfaceBackgroundPatternColor(color);
-                            }
-
-                            // --- Cut ---
-                            if (OverrideCut)
-                            {
-                                if (solidPattern != null)
-                                    ogs = ogs.SetCutForegroundPatternId(solidPattern.Id);
-                                ogs = ogs.SetCutForegroundPatternColor(color);
-                                ogs = ogs.SetCutForegroundPatternVisible(true);
-                                if (OverrideBackground)
-                                    ogs = ogs.SetCutBackgroundPatternColor(color);
-                            }
-
-                            // --- Lines ---
-                            if (OverrideLines)
-                            {
-                                ogs = ogs.SetProjectionLineColor(color);
-                                ogs = ogs.SetCutLineColor(color);
-                            }
-
-                            // --- Line Weight ---
-                            if (LineWeight > 0)
-                            {
-                                ogs = ogs.SetProjectionLineWeight(LineWeight);
-                                ogs = ogs.SetCutLineWeight(LineWeight);
-                            }
-
-                            // --- Transparency ---
-                            int clampedTransp = Math.Max(0, Math.Min(100, Transparency));
-                            ogs = ogs.SetSurfaceTransparency(clampedTransp);
-
-                            // --- Halftone ---
-                            ogs = ogs.SetHalftone(Halftone);
-
-                            view.SetElementOverrides(id, ogs);
-                        }
-
-                        t.Commit();
-                    }
-
-                    SetStatus($"Đã override thành công cho {selIds.Count} đối tượng.", true);
+                    int updated = GraphicOverrideExecutionService.Apply(doc, view, selIds, color,
+                        OverrideSurface, OverrideCut, OverrideLines, OverrideBackground, LineWeight, Transparency, Halftone);
+                    SetStatus($"Đã áp dụng override cho {updated}/{selIds.Count} đối tượng.", true);
                 }
                 catch (Exception ex)
                 {

@@ -12,6 +12,7 @@
       <!-- Modern Core Assembly & Dependencies -->
       <Component Id="C_ModernDlls" Guid="{D4E5F6A7-B8C9-4D5E-0F1A-2B3C4D5E6F7A}">
         <File Id="File_Modern_KhimTools" Source="..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.dll" KeyPath="yes" />
+        <File Id="File_Modern_Domain" Source="..\..\KhimTools\bin\Release\net8.0-windows\KhimTools.Domain.dll" />
         <File Id="File_Modern_CommunityToolkit" Source="..\..\KhimTools\bin\Release\net8.0-windows\CommunityToolkit.Mvvm.dll" />
         <File Id="File_Modern_Newtonsoft" Source="..\..\KhimTools\bin\Release\net8.0-windows\Newtonsoft.Json.dll" />
         <File Id="File_Modern_ExtDIAbst" Source="..\..\KhimTools\bin\Release\net8.0-windows\Microsoft.Extensions.DependencyInjection.Abstractions.dll" />

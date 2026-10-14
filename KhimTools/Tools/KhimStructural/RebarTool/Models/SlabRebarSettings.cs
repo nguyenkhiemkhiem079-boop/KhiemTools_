@@ -1,21 +1,33 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using System.Linq;
+using System.Reflection;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.RebarTool.Models
 {
     public class SlabRebarSettings
     {
+        public int SchemaVersion { get; set; }
         public string TemplateName { get; set; } = "Mặc định Sàn 2 Lớp (150mm)";
 
         // ── 1. Bottom Mat (Lớp Dưới) ─────────────────────────────────────────
         public string BotXDiaLabel { get; set; } = "d10";
+        public bool BottomMeshEnabled { get; set; } = true;
+        public bool BottomInvertLayer { get; set; }
         public double BotXSpacingMm { get; set; } = 150;
         public string BotYDiaLabel { get; set; } = "d10";
         public double BotYSpacingMm { get; set; } = 150;
-        public bool BotAnchorHooks { get; set; } = true;
-        public double BotHookTailD { get; set; } = 12;
+        public bool TopMeshEnabled { get; set; }
+        public bool TopInvertLayer { get; set; }
+        public string TopMeshXDiaLabel { get; set; } = "d10";
+        public double TopMeshXSpacingMm { get; set; } = 150;
+        public string TopMeshYDiaLabel { get; set; } = "d10";
+        public double TopMeshYSpacingMm { get; set; } = 150;
+        // Legacy fields are retained for JSON compatibility; hooks are unsupported and normalized off.
+        public bool BotAnchorHooks { get; set; }
+        public double BotHookTailD { get; set; }
 
         // ── 2. Top Support Hats (Lớp Trên / Mũ Gối) ──────────────────────────
         public string TopXDiaLabel { get; set; } = "d10";
@@ -23,26 +35,31 @@ namespace KhimTools.RebarTool.Models
         public string TopYDiaLabel { get; set; } = "d10";
         public double TopYSpacingMm { get; set; } = 150;
         public string TopExtensionRatio { get; set; } = "L/4"; // L/4 hoặc L/3
-        public bool TopHookDown { get; set; } = true;
-        public double TopHookTailMm { get; set; } = 100;
+        public bool SupportEnabled { get; set; } = true;
+        public bool SupportFullSpan { get; set; }
+        public bool TopHookDown { get; set; }
+        public double TopHookTailMm { get; set; }
 
         // ── 3. Chair Rebar (Thép Chân Chó) ──────────────────────────────────
         public bool EnableChairRebar { get; set; } = true;
         public string ChairDiaLabel { get; set; } = "d10";
         public double ChairSpacingXmm { get; set; } = 800;
         public double ChairSpacingYmm { get; set; } = 800;
+        public double ChairHookLenMm { get; set; } = 100;
 
         // ── 4. Opening Trim Bars (Gia Cường Lỗ Mở) ─────────────────────────
+        // Generator always creates opening trims when openings exist; type is inferred from active roles.
+        // The remaining legacy controls are not generator inputs and are normalized to neutral values.
         public bool EnableOpeningTrimBars { get; set; } = true;
-        public string OpeningTrimDiaLabel { get; set; } = "d12";
-        public int OpeningTrimBarQty { get; set; } = 2;
-        public bool IncludeDiagonalCornerBars { get; set; } = true;
+        public string OpeningTrimDiaLabel { get; set; } = "";
+        public int OpeningTrimBarQty { get; set; }
+        public bool IncludeDiagonalCornerBars { get; set; }
 
         // ── 5. Design Standard & Materials ──────────────────────────────────
         public string DesignCode { get; set; } = "TCVN 5574:2018"; // TCVN 5574:2018 hoặc Eurocode 2
         public string ConcreteGrade { get; set; } = "B25";
         public string SteelGrade { get; set; } = "CB300-V";
-        public double CustomLdMultiplier { get; set; } = 35;
+        public double CustomLdMultiplier { get; set; }
 
         public KhimTools.RebarTool.Core.IRebarDesignStandard GetDesignStandard()
         {
@@ -67,10 +84,12 @@ namespace KhimTools.RebarTool.Models
             if (settings == null || string.IsNullOrWhiteSpace(templateName)) return false;
             try
             {
+                NormalizeLegacySettings(settings);
                 settings.TemplateName = templateName.Trim();
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{settings.TemplateName}.json");
-                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                File.WriteAllText(filePath, json);
+                settings.SchemaVersion = 1;
+                if (!IsValid(settings)) return false;
+                string filePath = GetTemplatePath(templateName);
+                JsonSettingsPersistence.Save(filePath, settings, IsValid);
                 return true;
             }
             catch { return false; }
@@ -78,15 +97,53 @@ namespace KhimTools.RebarTool.Models
 
         public static SlabRebarSettings LoadTemplate(string templateName)
         {
+            return LoadTemplate(templateName, out _);
+        }
+
+        public static SlabRebarSettings LoadTemplate(string templateName, out bool legacySettingsNormalized)
+        {
+            legacySettingsNormalized = false;
             if (string.IsNullOrWhiteSpace(templateName)) return null;
             try
             {
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{templateName.Trim()}.json");
+                string filePath = GetTemplatePath(templateName);
                 if (!File.Exists(filePath)) return null;
-                string json = File.ReadAllText(filePath);
-                return JsonConvert.DeserializeObject<SlabRebarSettings>(json);
+                var settings = JsonSettingsPersistence.Load<SlabRebarSettings>(filePath, () => null, IsValid,
+                    value => { if (value.SchemaVersion != 0) return false; value.SchemaVersion = 1; return true; });
+                if (settings == null) return null;
+                legacySettingsNormalized = NormalizeLegacySettings(settings);
+                return settings;
             }
             catch { return null; }
+        }
+
+        /// <summary>
+        /// Normalizes persisted options that the slab production generator does not consume.
+        /// Returns true when a legacy value was changed so the UI can disclose the migration.
+        /// </summary>
+        public static bool NormalizeLegacySettings(SlabRebarSettings settings)
+        {
+            if (settings == null) return false;
+            bool changed = settings.BotAnchorHooks || settings.BotHookTailD != 0 ||
+                settings.TopHookDown || settings.TopHookTailMm != 0 || !settings.EnableOpeningTrimBars ||
+                !string.IsNullOrEmpty(settings.OpeningTrimDiaLabel) || settings.OpeningTrimBarQty != 0 ||
+                settings.IncludeDiagonalCornerBars || settings.CustomLdMultiplier != 0 ||
+                settings.DesignCode != "TCVN 5574:2018" || settings.ConcreteGrade != "B25" ||
+                settings.SteelGrade != "CB300-V";
+
+            settings.BotAnchorHooks = false;
+            settings.BotHookTailD = 0;
+            settings.TopHookDown = false;
+            settings.TopHookTailMm = 0;
+            settings.EnableOpeningTrimBars = true;
+            settings.OpeningTrimDiaLabel = "";
+            settings.OpeningTrimBarQty = 0;
+            settings.IncludeDiagonalCornerBars = false;
+            settings.CustomLdMultiplier = 0;
+            settings.DesignCode = "TCVN 5574:2018";
+            settings.ConcreteGrade = "B25";
+            settings.SteelGrade = "CB300-V";
+            return changed;
         }
 
         public static List<string> GetSavedTemplateNames()
@@ -109,6 +166,43 @@ namespace KhimTools.RebarTool.Models
                 list.Add(defaultSetting.TemplateName);
             }
             return list;
+        }
+
+        private static string GetTemplatePath(string name)
+        {
+            string safe = string.Concat(name.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            if (string.IsNullOrWhiteSpace(safe) || safe == "." || safe == "..") throw new InvalidDataException("Invalid template name.");
+            return Path.Combine(GetTemplateDirectory(), safe + ".json");
+        }
+
+        private static bool IsValid(SlabRebarSettings settings)
+        {
+            if (settings == null || settings.SchemaVersion != 1 || string.IsNullOrWhiteSpace(settings.TemplateName) ||
+                settings.TemplateName.Length > 100 || (settings.DesignCode != "TCVN 5574:2018" && settings.DesignCode != "Eurocode 2")) return false;
+            if (settings.BotXSpacingMm < 50 || settings.BotXSpacingMm > 500 || settings.BotYSpacingMm < 50 || settings.BotYSpacingMm > 500 ||
+                settings.TopMeshXSpacingMm < 50 || settings.TopMeshXSpacingMm > 500 || settings.TopMeshYSpacingMm < 50 || settings.TopMeshYSpacingMm > 500 ||
+                settings.TopXSpacingMm < 50 || settings.TopXSpacingMm > 500 || settings.TopYSpacingMm < 50 || settings.TopYSpacingMm > 500 ||
+                settings.ChairSpacingXmm < 300 || settings.ChairSpacingXmm > 2000 || settings.ChairSpacingYmm < 300 || settings.ChairSpacingYmm > 2000 ||
+                settings.ChairHookLenMm < 50 || settings.ChairHookLenMm > 300 ||
+                (settings.TopExtensionRatio != "L/3" && settings.TopExtensionRatio != "L/4" && settings.TopExtensionRatio != "L/5")) return false;
+            if ((settings.BottomMeshEnabled && (string.IsNullOrWhiteSpace(settings.BotXDiaLabel) || string.IsNullOrWhiteSpace(settings.BotYDiaLabel))) ||
+                (settings.TopMeshEnabled && (string.IsNullOrWhiteSpace(settings.TopMeshXDiaLabel) || string.IsNullOrWhiteSpace(settings.TopMeshYDiaLabel))) ||
+                (settings.SupportEnabled && (string.IsNullOrWhiteSpace(settings.TopXDiaLabel) || string.IsNullOrWhiteSpace(settings.TopYDiaLabel))) ||
+                (settings.EnableChairRebar && string.IsNullOrWhiteSpace(settings.ChairDiaLabel))) return false;
+            foreach (PropertyInfo property in settings.GetType().GetProperties())
+            {
+                if (property.PropertyType == typeof(double))
+                {
+                    double value = (double)property.GetValue(settings, null);
+                    if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1000000) return false;
+                }
+                if (property.PropertyType == typeof(int))
+                {
+                    int value = (int)property.GetValue(settings, null);
+                    if (value < 0 || value > 1000000) return false;
+                }
+            }
+            return true;
         }
     }
 }

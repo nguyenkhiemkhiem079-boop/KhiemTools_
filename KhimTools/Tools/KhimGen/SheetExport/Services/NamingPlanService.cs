@@ -43,7 +43,9 @@ namespace KhimTools.SheetExport.Services
             {
                 try
                 {
-                    if (!Regex.IsMatch(safe, template.RegexPattern))
+                    // User-supplied naming patterns can be adversarial; bound evaluation time so
+                    // an internal/API caller cannot hang the Revit UI or a local MCP host.
+                    if (!Regex.IsMatch(safe, template.RegexPattern, RegexOptions.None, TimeSpan.FromMilliseconds(100)))
                         throw new NamingPlanException(ExportPreflightCode.INVALID_NAMING_REGEX, "Tên file không khớp Regex.");
                 }
                 catch (NamingPlanException) { throw; }

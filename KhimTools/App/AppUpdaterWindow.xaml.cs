@@ -368,9 +368,9 @@ namespace KhiemToolsApp
             }
             catch (Exception ex)
             {
-                LogInfo($"General Error: {ex.GetType().Name} - {ex.Message}{Environment.NewLine}{ex.StackTrace}");
+                LogInfo($"General Error: {ex}");
                 TxtGithubVersion.Text = "Lỗi cập nhật";
-                MessageBox.Show($"Lỗi cập nhật: {ex.Message}\n\nChi tiết: {ex.StackTrace}", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show($"Không thể kiểm tra/cập nhật phiên bản. {ex.Message}", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {

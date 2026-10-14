@@ -2,7 +2,7 @@
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="K-TOOLS (KhimTools)"
            Manufacturer="SJTL"
-           Version="2.7.2"
+           Version="$(var.ProductVersion)"
            UpgradeCode="{B73A7490-6831-4F58-9D26-C18244B27DF1}"
            Scope="perMachine"
            Language="1033"

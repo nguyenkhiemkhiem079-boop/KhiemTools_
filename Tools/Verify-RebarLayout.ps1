@@ -1,22 +1,43 @@
 param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
-    [string]$RevitApiDirectory = "C:/Program Files/Autodesk/Revit 2023",
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024"),
     [double[]]$Scales = @(1, 1.5, 2),
-    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "ProjectCoverSetup", "SlabEdgePicker")
+    [string[]]$Forms = @("RectangularColumn", "CircularColumn", "Foundation", "Slab", "Beam", "BeamManualDetailing", "BeamSupportBinding", "Wall", "ColumnWallRelated", "ProjectCoverSetup", "SlabEdgePicker"),
+    [string[]]$WindowProfiles = @("minimum", "wide")
 )
 $ErrorActionPreference = "Stop"
 if ([Threading.Thread]::CurrentThread.ApartmentState -ne "STA") { throw "Run with Windows PowerShell -STA." }
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
 [Windows.Forms.Application]::EnableVisualStyles()
-foreach ($name in @("RevitAPI.dll", "RevitAPIUI.dll")) {
-    [Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory $name)) | Out-Null
-}
+[Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory "RevitAPI.dll")) | Out-Null
 $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $AssemblyPath))
 $flags = [Reflection.BindingFlags]"NonPublic,Instance"
 $output = [IO.Directory]::CreateDirectory((Join-Path $PSScriptRoot "../artifacts/ui-qa/rebar")).FullName
 $issues = [Collections.Generic.List[string]]::new()
 $checks = 0
 $renders = 0
+function Test-NonblankRender($bitmap) {
+    $colors = [Collections.Generic.HashSet[int]]::new()
+    for ($x=0; $x -lt $bitmap.Width; $x+=23) {
+        for ($y=0; $y -lt $bitmap.Height; $y+=23) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
+    }
+    # Sparse controls-only forms can alias with the coarse grid. Inspect actual
+    # pixels until the SAME ten-color assertion is proved; never invent content.
+    if ($colors.Count -lt 10) {
+        for ($x=0; $x -lt $bitmap.Width -and $colors.Count -lt 10; $x++) {
+            for ($y=0; $y -lt $bitmap.Height -and $colors.Count -lt 10; $y++) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
+        }
+    }
+    return ($colors.Count -ge 10)
+}
+$renderProbe = [Drawing.Bitmap]::new(16,16)
+try {
+    $probeGraphics=[Drawing.Graphics]::FromImage($renderProbe)
+    try { $probeGraphics.Clear([Drawing.Color]::White) } finally { $probeGraphics.Dispose() }
+    if (Test-NonblankRender $renderProbe) { throw 'Render detection falsely accepts a blank bitmap.' }; $checks++
+    for ($i=1;$i -le 12;$i++) { $renderProbe.SetPixel($i,1,[Drawing.Color]::FromArgb($i*10,$i*7,$i*3)) }
+    if (!(Test-NonblankRender $renderProbe)) { throw 'Dense render detection misses real sparse pixels.' }; $checks++
+} finally { $renderProbe.Dispose() }
 $languageType = $assembly.GetType("KhimTools.Core.LanguageManager")
 $languageFlags = [Reflection.BindingFlags]"NonPublic,Static"
 # Keep the fixture's language changes in memory; never write the user's config.
@@ -73,15 +94,32 @@ function Check-Layout($root, $context) {
     }
 }
 foreach ($name in $Forms) {
-    $className = if ($name -in @("ProjectCoverSetup", "SlabEdgePicker")) { "$($name)Form" } else { "$($name)ReinforcementForm" }
+    $className = if ($name -eq "ColumnWallRelated") { "ColumnWallRelatedFormV1" } elseif ($name -eq "BeamManualDetailing") { "BeamManualDetailingFormV1" } elseif ($name -eq "BeamSupportBinding") { "BeamSupportBindingFormV1" } elseif ($name -in @("ProjectCoverSetup", "SlabEdgePicker")) { "$($name)Form" } else { "$($name)ReinforcementForm" }
     $type = $assembly.GetType("KhimTools.RebarTool.Forms.$className", $true)
     foreach ($scale in $Scales) {
-        foreach ($sizeMode in @("minimum", "wide")) {
+        foreach ($sizeMode in $WindowProfiles) {
             Write-Host "Checking $name $sizeMode scale=$scale"
             $form = $type.GetMethod("CreateLayoutPreview", [Reflection.BindingFlags]"NonPublic,Static").Invoke($null, @())
             $root = $null
             try {
-                $form.Size = if ($sizeMode -eq "minimum") { $form.MinimumSize } else { [Drawing.Size]::new(1440,900) }
+                switch ($sizeMode) {
+                    "minimum" { $form.Size = $form.MinimumSize; break }
+                    "wide" { $form.Size = [Drawing.Size]::new(1440,900); break }
+                    "1366x768" { $form.Size = [Drawing.Size]::new(1366,768); break }
+                    "1920x1080" { $form.Size = [Drawing.Size]::new(1920,1080); break }
+                    default { throw "Unsupported UI QA window profile '$sizeMode'." }
+                }
+                $requestedSize = switch ($sizeMode) {
+                    '1366x768' { [Drawing.Size]::new(1366,768) }
+                    '1920x1080' { [Drawing.Size]::new(1920,1080) }
+                    'wide' { [Drawing.Size]::new(1440,900) }
+                }
+                if ($requestedSize) {
+                    $checks++
+                    if ($form.Width -gt $requestedSize.Width -or $form.Height -gt $requestedSize.Height) {
+                        $issues.Add("$name $sizeMode | Requested window profile was enlarged by MinimumSize: actual $($form.Size), requested $requestedSize")
+                    }
+                }
                 $null = $form.Handle
                 $assembly.GetType("KhimTools.Core.KhimUiStyle").GetMethod("StyleControlTree").Invoke($null, @($form)) | Out-Null
                 [Windows.Forms.Form].GetMethod("OnShown", $flags).Invoke($form, @([EventArgs]::Empty)) | Out-Null
@@ -113,16 +151,49 @@ foreach ($name in $Forms) {
                     }
                     Prepare-Controls $root
                 }
+                if ($name -eq "Slab") {
+                    $workspace = $type.GetField("_workspaceSplit", $flags).GetValue($form)
+                    $settingsPanels = $type.GetField("_settingsPanelSplit", $flags).GetValue($form)
+                    $canvas = $type.GetField("_previewCanvas", $flags).GetValue($form)
+                    $legend = $type.GetField("_previewLegend", $flags).GetValue($form)
+                    if (!$workspace.IsSplitterFixed -and !$settingsPanels.IsSplitterFixed) { $checks++ }
+                    else { $issues.Add("$name $sizeMode scale=$scale | Splitters are not user-resizable") }
+                    if ($canvas.ClientSize.Width -lt 420 -or $canvas.ClientSize.Height -lt 180) {
+                        $issues.Add("$name $sizeMode scale=$scale | Preview canvas too small: $($canvas.ClientSize)")
+                    } else { $checks++ }
+                    if ($legend -and !$legend.IsDisposed -and $legend.Controls.Count -gt 0) { $checks++ }
+                    else { $issues.Add("$name $sizeMode scale=$scale | Solved-role legend is not visible") }
+                    $panelSelector = $type.GetField("_cmbPreviewPanel", $flags).GetValue($form)
+                    $toolbar = $panelSelector.Parent.Parent
+                    $toolbarFlows = @($toolbar.Controls | Where-Object { $_ -is [Windows.Forms.FlowLayoutPanel] })
+                    if ($toolbar.RowCount -ne 2 -or $toolbarFlows.Count -ne 2 -or @($toolbarFlows | Where-Object { $_.AutoScroll }).Count -gt 0) {
+                        $issues.Add("$name $sizeMode scale=$scale | Essential preview toolbar is missing or scrolls horizontally")
+                    } else { $checks++ }
+                }
                 $tabs = @(Get-Controls $root | Where-Object { $_ -is [Windows.Forms.TabControl] })
-                $states = if ($name -eq "Beam") { 6 } elseif ($name -eq "RectangularColumn") { $tabs[0].TabCount * 2 } elseif ($tabs.Count) { $tabs[0].TabCount } else { 1 }
+                $states = if ($name -eq "Beam") { 6 } elseif ($name -in @("RectangularColumn", "CircularColumn", "Foundation", "Slab")) { $tabs[0].TabCount * 2 } elseif ($tabs.Count) { $tabs[0].TabCount } else { 1 }
                 for ($state = 0; $state -lt $states; $state++) {
                     if ($name -eq "Beam") {
                         $type.GetMethod("SwitchSettingTab", $flags).Invoke($form, @($state)) | Out-Null
                     } elseif ($tabs.Count) {
-                        if ($name -eq "RectangularColumn") {
+                        if ($name -in @("RectangularColumn", "CircularColumn", "Foundation", "Slab")) {
                             $language = if ($state -lt $tabs[0].TabCount) { "Vietnamese" } else { "English" }
+                            $layoutRoots = @($root.Controls)
+                            foreach ($layoutRoot in $layoutRoots) { $form.Controls.Add($layoutRoot) }
                             $languageType.GetField("_currentLanguage", $languageFlags).SetValue($null, [Enum]::Parse($languageValue,$language))
+                            $languageType.GetField("_isLoaded", $languageFlags).SetValue($null, $true)
                             $type.GetMethod("ApplyLanguage", $flags).Invoke($form, @()) | Out-Null
+                            foreach ($layoutRoot in @($form.Controls)) { $root.Controls.Add($layoutRoot) }
+                            if ($language -eq "English") {
+                                $guard = $type.GetField("_formGuard", $flags).GetValue($form)
+                                $guardType = $guard.GetType()
+                                $status = $guardType.GetField("_status", $flags).GetValue($guard).Text
+                                $button = $guardType.GetField("_validateButton", $flags).GetValue($guard).Text
+                                if ($status -notmatch '^Check: ' -or [regex]::IsMatch($status, '[\u00C0-\u024F]') -or $button -ne "Validate Inputs") {
+                                    $issues.Add("$name | Validation language | '$status' / '$button'")
+                                }
+                                $checks++
+                            }
                         }
                         $tabs[0].SelectedIndex = $state % $tabs[0].TabCount
                     }
@@ -132,11 +203,7 @@ foreach ($name in $Forms) {
                     $bitmap = [Drawing.Bitmap]::new($root.Width,$root.Height)
                     try {
                         $root.DrawToBitmap($bitmap, [Drawing.Rectangle]::new(0,0,$root.Width,$root.Height))
-                        $colors = [Collections.Generic.HashSet[int]]::new()
-                        for ($x=0; $x -lt $bitmap.Width; $x+=23) {
-                            for ($y=0; $y -lt $bitmap.Height; $y+=23) { $colors.Add($bitmap.GetPixel($x,$y).ToArgb()) | Out-Null }
-                        }
-                        if ($colors.Count -lt 10) { $issues.Add("$context | Blank render") }
+                        if (!(Test-NonblankRender $bitmap)) { $issues.Add("$context | Blank render") }
                         $bitmap.Save((Join-Path $output "$context.png"), [Drawing.Imaging.ImageFormat]::Png)
                         $renders++
                     } finally { $bitmap.Dispose() }

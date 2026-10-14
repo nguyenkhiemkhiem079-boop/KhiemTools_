@@ -27,9 +27,12 @@ namespace KhimTools.Tools.Updater.Views
         private void LoadInfo()
         {
             TxtCurrentVersion.Text = _updateInfo.CurrentVersion;
-            TxtLatestVersion.Text = _updateInfo.LatestVersion;
-            TxtReleaseDate.Text = " " + _updateInfo.ReleaseDate;
-            ListChangelog.ItemsSource = _updateInfo.Changelog;
+            TxtLatestVersion.Text = _updateInfo.DiscoverySucceeded ? _updateInfo.LatestVersion : "Unavailable";
+            TxtReleaseDate.Text = _updateInfo.DiscoverySucceeded ? " " + _updateInfo.ReleaseDate : "—";
+            ListChangelog.ItemsSource = _updateInfo.DiscoverySucceeded ? _updateInfo.Changelog :
+                new System.Collections.Generic.List<string> { "Chưa xác minh bản phát hành / Release not verified. " + _updateInfo.DiscoveryError };
+            string download = string.IsNullOrWhiteSpace(_updateInfo.DownloadUrlMsi) ? _updateInfo.DownloadUrl : _updateInfo.DownloadUrlMsi;
+            BtnAction.IsEnabled = _updateInfo.DiscoverySucceeded && UpdateService.IsOfficialReleaseUrl(download);
         }
 
         private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -47,6 +50,7 @@ namespace KhimTools.Tools.Updater.Views
 
         private void BtnAction_Click(object sender, RoutedEventArgs e)
         {
+            if (!_updateInfo.DiscoverySucceeded) return;
             var msgResult = MessageBox.Show(
                 "Để cập nhật an toàn và tránh xung đột khóa tập tin DLL, Autodesk Revit cần được đóng.\n\n" +
                 "Trang tải MSI chính thức sẽ được mở trong trình duyệt. Hãy đóng Revit trước khi chạy MSI.\n\n" +

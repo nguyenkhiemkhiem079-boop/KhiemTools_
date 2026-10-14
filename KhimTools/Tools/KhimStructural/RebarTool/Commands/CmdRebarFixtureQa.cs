@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,12 +28,15 @@ namespace KhimTools.RebarTool.Commands
 
             var checks = new List<FixtureCheck>();
             string reportPath = null;
+            bool rollbackConfirmed = false;
 
             using (var group = new TransactionGroup(doc, "K-TOOLS Rebar QA Fixture (rollback)"))
             {
-                group.Start();
                 try
                 {
+                    if (group.Start() != TransactionStatus.Started)
+                        throw new InvalidOperationException("Could not start the Rebar QA fixture transaction group.");
+
                     Level level = new FilteredElementCollector(doc).OfClass(typeof(Level)).Cast<Level>().FirstOrDefault();
                     FloorType floorType = new FilteredElementCollector(doc).OfClass(typeof(FloorType)).Cast<FloorType>()
                         .FirstOrDefault(x => !x.IsFoundationSlab);
@@ -65,7 +69,12 @@ namespace KhimTools.RebarTool.Commands
                         floor = Floor.Create(doc, new List<CurveLoop> { loop }, floorType.Id, level.Id);
                         Parameter structural = floor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
                         if (structural != null && !structural.IsReadOnly) structural.Set(1);
-                        tx.Commit();
+                        TransactionStatus commitStatus = tx.Commit();
+                        if (commitStatus != TransactionStatus.Committed)
+                        {
+                            throw new InvalidOperationException(
+                                $"Không thể commit temporary QA host. Trạng thái transaction: {commitStatus}.");
+                        }
                     }
 
                     BoundingBoxXYZ hostBox = floor.get_BoundingBox(null);
@@ -79,7 +88,12 @@ namespace KhimTools.RebarTool.Commands
                         var start = new XYZ(hostBox.Min.X + Mm(100), hostBox.Min.Y + Mm(500), z);
                         var end = new XYZ(hostBox.Max.X - Mm(100), hostBox.Min.Y + Mm(500), z);
                         rebar = RebarShapeCreationHelper.TryCreateStraightBar(doc, floor, barType, start, end);
-                        tx.Commit();
+                        TransactionStatus commitStatus = tx.Commit();
+                        if (commitStatus != TransactionStatus.Committed)
+                        {
+                            throw new InvalidOperationException(
+                                $"Không thể commit temporary QA rebar. Trạng thái transaction: {commitStatus}.");
+                        }
                     }
 
                     Require(rebar != null && rebar.IsValidObject, "REBAR_CREATED",
@@ -107,15 +121,42 @@ namespace KhimTools.RebarTool.Commands
                 }
                 finally
                 {
-                    group.RollBack();
+                    try
+                    {
+                        TransactionStatus status = group.GetStatus();
+                        if (status == TransactionStatus.Started) status = group.RollBack();
+                        rollbackConfirmed = status == TransactionStatus.RolledBack;
+                    }
+                    catch (Exception rollbackException)
+                    {
+                        checks.Add(new FixtureCheck
+                        {
+                            Id = "FIXTURE_ROLLBACK",
+                            Passed = false,
+                            Detail = "TransactionGroup rollback failed: " + rollbackException.Message
+                        });
+                    }
+                    if (!rollbackConfirmed && !checks.Any(x => x.Id == "FIXTURE_ROLLBACK"))
+                    {
+                        checks.Add(new FixtureCheck
+                        {
+                            Id = "FIXTURE_ROLLBACK",
+                            Passed = false,
+                            Detail = "TransactionGroup rollback was not confirmed; inspect the QA model for fixture changes."
+                        });
+                    }
                 }
             }
 
+            reportPath = WriteReport(doc, checks);
             bool passed = checks.Count > 0 && checks.All(x => x.Passed);
             TaskDialog.Show("K-TOOLS - Rebar QA Fixture",
                 $"Kết quả: {(passed ? "PASS" : "FAIL")} ({checks.Count(x => x.Passed)}/{checks.Count})\n\n" +
                 string.Join("\n", checks.Select(x => $"[{(x.Passed ? "PASS" : "FAIL")}] {x.Id}: {x.Detail}")) +
-                $"\n\nBáo cáo: {reportPath}\nFixture đã rollback, model không bị thay đổi.");
+                $"\n\nBáo cáo: {reportPath}\n" +
+                (rollbackConfirmed
+                    ? "Fixture rollback đã được xác nhận."
+                    : "CẢNH BÁO: Không xác nhận được rollback. Hãy kiểm tra model QA trước khi tiếp tục."));
             return passed ? Result.Succeeded : Result.Failed;
         }
 
@@ -136,7 +177,7 @@ namespace KhimTools.RebarTool.Commands
             FamilyInstance column = uidoc?.Selection?.GetElementIds()
                 .Select(id => doc.GetElement(id) as FamilyInstance)
                 .FirstOrDefault(x => x != null && x.Category != null &&
-                    x.Category.Id.IntegerValue == (int)BuiltInCategory.OST_StructuralColumns);
+                    x.Category.Id.ToLongValue() == (long)BuiltInCategory.OST_StructuralColumns);
             if (column == null)
             {
                 Require(false, "COLUMN_FIXTURE_SELECTION", "Chọn một cột chữ nhật C1 trước khi chạy fixture để kiểm tra 3 đai đa ô.", checks);
@@ -190,6 +231,7 @@ namespace KhimTools.RebarTool.Commands
             double stationZ = profile.BaseCenter.Z + Mm(500);
             var report = new RebarGenerationReport();
             var failurePreprocessor = new RebarGenerationFailurePreprocessor();
+            var transactionChecks = new List<FixtureCheck>();
             using (var tx = new Transaction(doc, "K-TOOLS rectangular column tie QA"))
             {
                 tx.Start();
@@ -205,7 +247,7 @@ namespace KhimTools.RebarTool.Commands
                     bool countOk = ties != null && ties.Count == 3;
                     Require(countOk, "COLUMN_FIXTURE_TIE_COUNT",
                         countOk ? "Đã tạo đúng 3 đai: outer + inner trái + inner phải tại base + 500 mm."
-                            : "Fixture tạo " + (ties == null ? 0 : ties.Count) + " đai thay vì 3.", checks);
+                            : "Fixture tạo " + (ties == null ? 0 : ties.Count) + " đai thay vì 3.", transactionChecks);
 
                     bool valid = countOk;
                     if (valid)
@@ -225,13 +267,20 @@ namespace KhimTools.RebarTool.Commands
                     }
                     Require(valid, "COLUMN_FIXTURE_TIE_VALIDATION",
                         valid ? "Tất cả 3 đai có host, RebarShape StirrupTie, accessor và containment hợp lệ."
-                            : "Một hoặc nhiều đai không vượt qua kiểm tra shape/host/containment.", checks);
+                            : "Một hoặc nhiều đai không vượt qua kiểm tra shape/host/containment.", transactionChecks);
 
                     TransactionStatus status = tx.Commit();
                     bool committed = status == TransactionStatus.Committed && !failurePreprocessor.HasUnrecoverableFailure;
                     Require(committed, "COLUMN_FIXTURE_TRANSACTION",
                         committed ? "Transaction QA đã commit trước khi TransactionGroup rollback."
                             : "Transaction QA bị rollback: " + failurePreprocessor.Summary, checks);
+                    if (committed)
+                    {
+                        foreach (FixtureCheck transactionCheck in transactionChecks)
+                        {
+                            checks.Add(transactionCheck);
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {

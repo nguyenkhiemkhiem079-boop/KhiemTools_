@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Revit;
 
 namespace KhimTools.ViewFromCallout.Forms
 {
@@ -148,10 +149,8 @@ namespace KhimTools.ViewFromCallout.Forms
                 string suffix = TxtNameSuffix.Text.Trim();
                 string baseName = selectedCallout.Name;
 
-                using (var tx = new Transaction(_doc, "K-TOOLS - View from Callout"))
+                TransactionBoundary.Execute(_doc, "K-TOOLS - View from Callout", () =>
                 {
-                    tx.Start();
-
                     // 1. Sinh Mặt bằng (Plan)
                     if (ChkPlan.IsChecked == true)
                     {
@@ -265,8 +264,7 @@ namespace KhimTools.ViewFromCallout.Forms
                         }
                     }
 
-                    tx.Commit();
-                }
+                });
 
                 Close();
             }

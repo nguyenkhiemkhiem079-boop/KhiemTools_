@@ -26,7 +26,8 @@ namespace KhimTools.SheetExport.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                KhimDialogHelper.ShowError("Sheet Export Error", ex.Message, ex.StackTrace);
+                System.Diagnostics.Debug.WriteLine("Sheet export command failed: " + ex);
+                KhimDialogHelper.ShowError("Sheet Export Error", ex.Message);
                 return Result.Failed;
             }
         }

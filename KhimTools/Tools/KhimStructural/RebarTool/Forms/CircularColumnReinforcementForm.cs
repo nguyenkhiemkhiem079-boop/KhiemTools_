@@ -3,13 +3,17 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 using KhimTools.RebarTool.Models;
+using KhimTools.Core.Workflow;
+using KhimTools.Core.Preview;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
 using Control = System.Windows.Forms.Control;
@@ -88,6 +92,7 @@ namespace KhimTools.RebarTool.Forms
 
         private Button _btnCreateRebar;
         private Button _btnClose;
+        private ComboBox _cmbLanguage;
 
         // Configuration Templates
         private Label _lblTemplate;
@@ -96,6 +101,12 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnApplyTemplate;
         private Button _btnDeleteTemplate;
         private RebarFormGuard _formGuard;
+        private Button _btnPreview3D;
+        private TabControl _workflowTabs;
+        private readonly List<Button> _workflowNavigationButtons = new List<Button>();
+        private RebarPreviewSnapshot _lastPreview;
+        private DetachedSolvedViewV1 _solved2D;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         public CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
             : this(doc, availableColumns, preSelectedColumns, true)
@@ -125,7 +136,10 @@ namespace KhimTools.RebarTool.Forms
             _formGuard = RebarFormGuard.Attach(this, _btnCreateRebar,
                 RebarFormGuard.RequireSelection(_columnListBox, "Chọn ít nhất một cột tròn."),
                 RebarFormGuard.RequireCombo(_cmbMainDia, "Chọn loại thép chủ."),
-                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."));
+                RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
+                new RebarValidationRule(_btnCreateRebar, () => HasCurrentAcceptedPreview(),
+                    "Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."));
+            ApplyLanguage();
         }
 
         private void BuildUi()
@@ -175,7 +189,18 @@ namespace KhimTools.RebarTool.Forms
                 _btnClose.Left = bottomPanel.Width - _btnClose.Width - 15;
                 _btnCreateRebar.Left = _btnClose.Left - _btnCreateRebar.Width - 10;
             };
-            var footer = RebarLayout.Footer(null, _btnCreateRebar, _btnClose);
+            _btnPreview3D = new Button { Text = "Solve Rebar preview (rollback only)", Enabled = _doc != null };
+            _btnPreview3D.Click += BtnPreview3D_Click;
+            _cmbLanguage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 110 };
+            _cmbLanguage.Items.AddRange(new object[] { "Tiếng Việt", "English" });
+            _cmbLanguage.SelectedIndex = LanguageManager.IsEnglish ? 1 : 0;
+            _cmbLanguage.SelectedIndexChanged += (s, e) =>
+            {
+                LanguageManager.CurrentLanguage = _cmbLanguage.SelectedIndex == 1
+                    ? AppLanguage.English : AppLanguage.Vietnamese;
+                ApplyLanguage();
+            };
+            var footer = RebarLayout.Footer(_cmbLanguage, _btnPreview3D, _btnCreateRebar, _btnClose);
             bottomPanel.Dispose();
             Controls.Add(footer);
 
@@ -212,6 +237,7 @@ namespace KhimTools.RebarTool.Forms
             _columnListBox.SelectedIndexChanged += (s, e) =>
             {
                 UpdateSelectedCount();
+                MarkPreviewStale();
                 _previewPanel?.Invalidate();
             };
 
@@ -242,7 +268,15 @@ namespace KhimTools.RebarTool.Forms
             templatePanel.Controls.Add(_btnDeleteTemplate);
             Controls.Add(templatePanel);
 
-            var tabControl = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
+            var tabControl = _workflowTabs = new TabControl
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Point(12, 6),
+                Appearance = TabAppearance.FlatButtons,
+                SizeMode = TabSizeMode.Fixed,
+                ItemSize = new Size(0, 1),
+                AccessibleName = "Circular column workflow settings"
+            };
 
             var tabMain = new TabPage { Text = "Thép Chủ & Cover", Padding = new Padding(12), BackColor = Color.White };
             var pnlMainLeft = new Panel { Dock = DockStyle.Left, Width = 400, AutoScroll = true };
@@ -317,7 +351,7 @@ namespace KhimTools.RebarTool.Forms
             tabControl.TabPages.Add(tabMain);
 
             var tabStirrup = new TabPage { Text = "Thép Đai Tròn (Stirrups)", Padding = new Padding(12), BackColor = Color.White };
-            var grpStirrup = new GroupBox { Text = "Thông số Đai Vòng / Đai Xoắn Cột Tròn", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
+            var grpStirrup = new GroupBox { Text = "Đai tròn: khoảng cách đều A1/A2; A1 tối thiểu 600 mm, tự tăng theo chiều cao/đường kính", Dock = DockStyle.Top, Height = 130, Padding = new Padding(10) };
             var layoutStirrup = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             layoutStirrup.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
@@ -365,7 +399,7 @@ namespace KhimTools.RebarTool.Forms
             pnlSplicePos.Controls.Add(new Label { Text = "Splice distance from column base L = (mm):", AutoSize = true });
             _numSpliceDistBase = new NumericUpDown { Minimum = 0, Maximum = 1000, Value = 50, Width = 70 };
             pnlSplicePos.Controls.Add(_numSpliceDistBase);
-            _rdSpliceTwoPos = new RadioButton { Text = "Splice rebar at two positions (Nối so le 50%)", Checked = true, AutoSize = true };
+            _rdSpliceTwoPos = new RadioButton { Text = "Nối thép tại hai vị trí (so le 50%)", Checked = true, AutoSize = true };
             pnlSplicePos.Controls.Add(_rdSpliceTwoPos);
             grpSplicePos.Controls.Add(pnlSplicePos);
 
@@ -382,6 +416,20 @@ namespace KhimTools.RebarTool.Forms
             _numDefaultBeamHd = new NumericUpDown { Minimum = 100, Maximum = 2000, Value = 500, Increment = 50, Width = 80 };
             pnlSlabBeam.Controls.Add(_numDefaultBeamHd);
             grpSlabBeam.Controls.Add(pnlSlabBeam);
+
+            // Legacy controls are not mapped into CircularColumnRebarInput.
+            grpHook.Text += " (not applied)";
+            grpBendCut.Text += " (not applied)";
+            grpTopRoof.Text += " (not applied)";
+            grpSplicePos.Text += " (not applied)";
+            grpAssignInfo.Text += " (not applied)";
+            grpSlabBeam.Text += " (not applied)";
+            grpHook.Enabled = false;
+            grpBendCut.Enabled = false;
+            grpTopRoof.Enabled = false;
+            grpSplicePos.Enabled = false;
+            grpAssignInfo.Enabled = false;
+            grpSlabBeam.Enabled = false;
 
             layoutGenSettings.Controls.Add(grpHook, 0, 0); layoutGenSettings.Controls.Add(grpBendCut, 1, 0);
             layoutGenSettings.Controls.Add(grpTopRoof, 0, 1); layoutGenSettings.Controls.Add(grpSplicePos, 1, 1);
@@ -413,13 +461,167 @@ namespace KhimTools.RebarTool.Forms
                 RebarConfigurationField.Flag("Column.UseCustomCover", "Dùng cover tùy chỉnh", _chkCustomCover),
                 RebarConfigurationField.Number("Column.CoverMm", "Cover tùy chỉnh (mm)", _numCustomCover)));
             tabControl.Multiline = true;
-            Controls.Add(tabControl);
-            tabControl.BringToFront();
+            var workflowWorkspace = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            var workflowNavigation = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 42,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(8, 5, 8, 3),
+                BackColor = Color.White
+            };
+            for (int pageIndex = 0; pageIndex < tabControl.TabPages.Count; pageIndex++)
+                AddWorkflowNavigation(workflowNavigation, pageIndex);
+            tabControl.SelectedIndexChanged += (s, e) => UpdateWorkflowNavigation();
+            workflowWorkspace.Controls.Add(tabControl);
+            workflowWorkspace.Controls.Add(workflowNavigation);
+            Controls.Add(workflowWorkspace);
+            workflowWorkspace.BringToFront();
+            AttachPreviewInvalidationHandlers(tabControl);
+            UpdateWorkflowNavigation();
             RebarLayout.FitColumnGroups(tabControl);
             RebarLayout.Stack(pnlMainLeft, grpMainSection, grpCover, grpMainAnchor);
             RebarLayout.ColumnEditor(tabMain, pnlMainLeft, previewViewport);
             footer.SendToBack();
             RebarLayout.PresetBar(templatePanel, _lblTemplate, _cmbTemplate, _btnApplyTemplate, _btnSaveTemplate, _btnDeleteTemplate);
+        }
+
+        private void AddWorkflowNavigation(FlowLayoutPanel host, int pageIndex)
+        {
+            var button = new Button
+            {
+                Tag = pageIndex,
+                AutoSize = true,
+                Height = 30,
+                AccessibleName = "Show circular column workflow page " + (pageIndex + 1),
+                Margin = new Padding(3, 0, 3, 0)
+            };
+            button.Click += (s, e) =>
+            {
+                if (_workflowTabs != null && pageIndex >= 0 && pageIndex < _workflowTabs.TabPages.Count)
+                    _workflowTabs.SelectedIndex = pageIndex;
+            };
+            _workflowNavigationButtons.Add(button);
+            KhimUiStyle.ApplySecondaryButton(button);
+            host.Controls.Add(button);
+        }
+
+        private void UpdateWorkflowNavigation()
+        {
+            bool isEn = LanguageManager.IsEnglish;
+            string[] vietnamese = { "Thép chủ", "Đai tròn", "Neo & nối", "Bản vẽ", "Tham khảo", "Cấu hình" };
+            string[] english = { "Main bars", "Round ties", "Anchorage & splice", "Drawings", "Reference", "Configuration" };
+            for (int index = 0; index < _workflowNavigationButtons.Count; index++)
+            {
+                Button button = _workflowNavigationButtons[index];
+                button.Text = (isEn ? english : vietnamese)[index];
+                if (_workflowTabs != null && _workflowTabs.SelectedIndex == (int)button.Tag)
+                    KhimUiStyle.ApplyPrimaryButton(button);
+                else
+                    KhimUiStyle.ApplySecondaryButton(button);
+            }
+        }
+
+        private void ApplyLanguage()
+        {
+            SetFormTitle(
+                LanguageManager.IsEnglish ? "Rebar - Circular Column" : "Rebar - Cột tròn",
+                LanguageManager.IsEnglish ? "Main bars, round ties, anchorage and floor splices" : "Thép chủ, đai tròn, neo và nối tầng");
+            var vietnameseToEnglish = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["Rebar - Cột tròn"] = "Rebar - Circular Column",
+                ["Thép chủ, đai tròn, neo và nối tầng"] = "Main bars, round ties, anchorage and floor splices",
+                ["Tạo thép"] = "Create Rebar", ["Đóng"] = "Close",
+                ["Solve Rebar preview (rollback only)"] = "Solve Rebar Preview (rollback only)",
+                ["Danh Sách Cột"] = "Column List", ["Chọn tất cả"] = "Select All", ["Bỏ chọn"] = "Clear",
+                ["Mẫu Thiết Lập:"] = "Template:", ["Lưu thành..."] = "Save As...", ["Áp dụng"] = "Apply", ["Xóa"] = "Delete",
+                ["Thép Chủ & Cover"] = "Main Bars & Cover", ["Bố trí Thép Chủ Tiết Diện Cột Tròn"] = "Circular Column Main Bar Layout",
+                ["Số lượng thanh chủ:"] = "Number of main bars:", ["Đường kính thép chủ:"] = "Main bar type:",
+                ["Lớp Bê Tông Bảo Vệ (Concrete Cover)"] = "Concrete Cover", ["Nhập cover tùy chỉnh"] = "Use custom cover",
+                ["Cover Dự Án"] = "Project Cover", ["Cover tùy chỉnh (mm):"] = "Custom cover (mm):",
+                ["Cấu tạo Neo & Nối Thép"] = "Anchorage & Splice Details",
+                ["Cột tầng móng (Nối chân quỳ 90° vào móng)"] = "Foundation-level column (90° bent starter into footing)",
+                ["Cột tầng sàn / điển hình (Thép chờ nối tầng)"] = "Typical floor column (starter bars for floor splice)",
+                ["Nhấn vắt nghiêng 1:6 vị trí nối (Ảnh 1)"] = "Crank bars 1:6 at splice (Image 1)",
+                ["Neo uốn móc 90° đỉnh mái (Ảnh 2)"] = "90° hook anchorage at roof (Image 2)",
+                ["Nối so le 50% (Staggered 1.3 Ls)"] = "50% staggered splice (1.3 Ls)",
+                ["Ls = n × d:"] = "Ls = n × d:", ["d (30d/40d)"] = "d (30d/40d)",
+                ["Thép Đai Tròn (Stirrups)"] = "Round Ties (Stirrups)",
+                ["Đai tròn: khoảng cách đều A1/A2; A1 tối thiểu 600 mm, tự tăng theo chiều cao/đường kính"] = "Round ties: uniform A1/A2 spacing; A1 minimum 600 mm, increased as required by height/diameter",
+                ["Đường kính thép đai:"] = "Tie bar type:", ["Khoảng cách đai (mm):"] = "Tie spacing (mm):",
+                ["Cài đặt chung"] = "General Settings", ["MỤC UỐN MÓC THÉP"] = "REBAR HOOK BENDING SECTION",
+                ["Theo chiều dài cố định L (mm):"] = "By fixed length L (mm):", ["Theo đường kính (xD):"] = "By diameter (xD):",
+                ["ĐIỀU KIỆN UỐN HOẶC CẮT THÉP"] = "REBAR BENDING OR CUTTING CONDITIONS",
+                ["Uốn thép nếu e ≤ (mm):"] = "Bend rebar if e ≤ (mm):", ["Uốn theo tỷ lệ Hd/e ≥:"] = "Bend by ratio Hd/e ≥:",
+                ["BỐ TRÍ THÉP ĐỈNH MÁI"] = "SET TOP ROOF REBAR", ["Uốn móc thép tầng trên cùng"] = "Bend hook for top floor rebar",
+                ["Chờ thép tầng trên cùng"] = "Continue waiting for top floor rebar",
+                ["VỊ TRÍ NỐI THÉP"] = "REBAR SPLICE POSITION", ["Khoảng cách nối từ chân cột L = (mm):"] = "Splice distance from column base L = (mm):",
+                ["Nối thép tại hai vị trí (so le 50%)"] = "Splice rebar at two positions (50% staggered)",
+                ["GÁN THÔNG TIN BỔ SUNG CHO THÉP"] = "ASSIGN ADDITIONAL INFORMATION TO REBAR",
+                ["Gán cao độ cột cho thép"] = "Assign column elevation to rebar", ["Tự động gán Phân khu cho thép"] = "Automatically assign Partition to rebar",
+                ["TÙY CHỌN TẠI VỊ TRÍ DẦM SÀN"] = "OPTION AT SLAB BEAM POSITION", ["Chiều cao mặc định Hd (mm):"] = "Default height Hd (mm):",
+                ["Bản Vẽ & View 3D"] = "Drawings & 3D Views", ["Tự động Tạo View & Triển khai Bản vẽ"] = "Automatic Views & Drawings",
+                ["Tự động tạo bản vẽ 2D (Mặt cắt tiết diện & Thống kê thép)"] = "Automatically create 2D drawings (sections & rebar schedule)",
+                ["Tự động tạo View xem thép 3D (Plan View + 3D View)"] = "Automatically create 3D rebar views (plan + 3D view)",
+                ["Tạo bản xem trước 3D mới cho cột và thông số hiện tại trước khi tạo thép."] = "Solve a new 3D preview for the current column inputs before creating rebar.",
+                ["Chọn ít nhất một cột tròn."] = "Select at least one circular column.", ["Chọn loại thép chủ."] = "Select a main bar type.",
+                ["Chọn loại thép đai."] = "Select a tie bar type."
+            };
+            var englishToVietnamese = vietnameseToEnglish.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                if (control == _cmbLanguage) continue;
+                string translated;
+                if (LanguageManager.IsEnglish && vietnameseToEnglish.TryGetValue(control.Text, out translated)) control.Text = translated;
+                else if (!LanguageManager.IsEnglish && englishToVietnamese.TryGetValue(control.Text, out translated)) control.Text = translated;
+                else if (control is GroupBox && (control.Text.EndsWith(" (not applied)", StringComparison.Ordinal) || control.Text.EndsWith(" (chưa áp dụng)", StringComparison.Ordinal)))
+                {
+                    string oldSuffix = control.Text.EndsWith(" (not applied)", StringComparison.Ordinal) ? " (not applied)" : " (chưa áp dụng)";
+                    string suffix = LanguageManager.IsEnglish ? " (not applied)" : " (chưa áp dụng)";
+                    string baseText = control.Text.Substring(0, control.Text.Length - oldSuffix.Length);
+                    if (LanguageManager.IsEnglish && vietnameseToEnglish.TryGetValue(baseText, out translated)) control.Text = translated + suffix;
+                    else if (!LanguageManager.IsEnglish && englishToVietnamese.TryGetValue(baseText, out translated)) control.Text = translated + suffix;
+                }
+            }
+            _btnCreateRebar.Text = LanguageManager.IsEnglish ? "Create Rebar" : "Tạo thép";
+            _btnClose.Text = LanguageManager.IsEnglish ? "Close" : "Đóng";
+            _btnPreview3D.Text = LanguageManager.IsEnglish ? "Solve Rebar Preview (rollback only)" : "Giải Preview thép (chỉ rollback)";
+            foreach (Control control in EnumerateDescendantControls(this))
+            {
+                if (control.Text == "Select All") control.Text = LanguageManager.IsEnglish ? "Select All" : "Chọn tất cả";
+                else if (control.Text == "Clear") control.Text = LanguageManager.IsEnglish ? "Clear" : "Bỏ chọn";
+                else if (control.Text == "Apply") control.Text = LanguageManager.IsEnglish ? "Apply" : "Áp dụng";
+                else if (control.Text == "Save As...") control.Text = LanguageManager.IsEnglish ? "Save As..." : "Lưu thành...";
+                else if (control.Text == "Delete") control.Text = LanguageManager.IsEnglish ? "Delete" : "Xóa";
+            }
+            _rdScopeSelected.Text = LanguageManager.IsEnglish ? $"Selected columns only ({_preSelectedColumns.Count})" : $"Chỉ các cột đã chọn ({_preSelectedColumns.Count})";
+            _rdScopeAll.Text = LanguageManager.IsEnglish ? $"All columns ({_availableColumns.Count})" : $"Tất cả cột ({_availableColumns.Count})";
+            UpdateSelectedCount();
+            UpdateWorkflowNavigation();
+            if (_workflowTabs != null && _workflowTabs.TabPages.Count > 4)
+            {
+                int selectedIndex = _workflowTabs.SelectedIndex;
+                TabPage oldReference = _workflowTabs.TabPages[4];
+                _workflowTabs.TabPages.RemoveAt(4);
+                oldReference.Dispose();
+                _workflowTabs.TabPages.Insert(4, RebarReferenceViews.CreatePage(RebarReferenceKind.CircularColumn));
+                _workflowTabs.SelectedIndex = Math.Min(selectedIndex, _workflowTabs.TabPages.Count - 1);
+            }
+            TabPage configurationPage = _workflowTabs?.TabPages.Cast<TabPage>()
+                .FirstOrDefault(page => page.Name == "RebarConfigurationPage");
+            if (configurationPage != null) RebarConfigurationPage.ApplyLanguage(configurationPage);
+            _formGuard?.ApplyLanguage();
+            _previewPanel?.Invalidate();
+        }
+
+        private static IEnumerable<Control> EnumerateDescendantControls(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                yield return child;
+                foreach (Control descendant in EnumerateDescendantControls(child)) yield return descendant;
+            }
         }
 
         private void AddRowToLayout(TableLayoutPanel table, string labelText, Control inputControl)
@@ -443,12 +645,16 @@ namespace KhimTools.RebarTool.Forms
             int count = _columnListBox.SelectedItems.Count;
             if (_preSelectedColumns.Any())
             {
-                _lblSelectedCount.Text = $"Đã chọn sẵn: {count} cột từ Revit";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Preselected: {count} columns from Revit"
+                    : $"Đã chọn sẵn: {count} cột từ Revit";
                 _lblSelectedCount.ForeColor = Color.DarkGreen;
             }
             else
             {
-                _lblSelectedCount.Text = $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
+                _lblSelectedCount.Text = LanguageManager.IsEnglish
+                    ? $"Selected: {count} / {_columnListBox.Items.Count} columns"
+                    : $"Đã chọn: {count} / {_columnListBox.Items.Count} cột";
                 _lblSelectedCount.ForeColor = Color.DarkBlue;
             }
         }
@@ -508,30 +714,154 @@ namespace KhimTools.RebarTool.Forms
 
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
+            if(_lastPreview!=null && _previewLifecycle.State==PreviewLifecycleState.Valid && _solved2D!=null){DetachedSolvedViewRendererV1.Paint(e.Graphics,_previewPanel.ClientRectangle,_solved2D);return;}
             var g = e.Graphics;
-            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            string text = _previewLifecycle.State == PreviewLifecycleState.Valid
+                ? (LanguageManager.IsEnglish ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry." : "Kết quả solver đã tách khỏi Revit. Mở lại Solve Rebar Preview để xem hình học đã chấp nhận.")
+                : _previewLifecycle.State == PreviewLifecycleState.Stale
+                    ? (LanguageManager.IsEnglish ? "Inputs changed — solve again before Create. The previous preview is stale." : "Thông số đã đổi — hãy giải lại trước khi tạo. Preview trước đã cũ.")
+                    : (LanguageManager.IsEnglish ? "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry." : "Chưa có hình học đã giải. Dùng Solve Rebar Preview để tạo hình học 2D / 3D chỉ trong rollback.");
+            TextRenderer.DrawText(g, text, Font, _previewPanel.ClientRectangle,
+                Color.FromArgb(71, 85, 105), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+        }
 
-            int cx = _previewPanel.Width / 2;
-            int cy = _previewPanel.Height / 2;
-            int r = Math.Min(_previewPanel.Width, _previewPanel.Height) / 2 - 20;
-            if (r <= 0) return;
+        private void CacheSolved2D(FamilyInstance column)
+        {
+            var frame=CircularColumnGeometryHelper.GetCircularProfile(column);
+            var paths=_lastPreview.Components.Where(c=>c.HostId==column.UniqueId).SelectMany(c=>c.Paths).Select(path=>new SolvedLocalPathV1(path.Role,path.Points.Select(point=>{
+                var local=new XYZ(point.X,point.Y,point.Z)-frame.BaseCenter;
+                return new SlabSectionPoint(local.X,local.Z,local.Y);
+            }))).ToArray();
+            if(paths.Length==0)throw new InvalidOperationException("Accepted snapshot has no paths for this exact circular Column.");
+            _solved2D=new DetachedSolvedViewV1(paths,frame.Height/2,elevationXY:true){SectionX0=-frame.Diameter/2,SectionZ0=-frame.Diameter/2,SectionWidth=frame.Diameter,SectionHeight=frame.Diameter,CircularSection=true,
+                ElevationX0=-frame.Diameter/2,ElevationY0=0,ElevationWidth=frame.Diameter,ElevationHeight=frame.Height,HostLabel="First selected circular Column "+column.Id.ToLongValue()};
+        }
 
-            using var penColumn = new Pen(Color.Gray, 2);
-            g.DrawEllipse(penColumn, cx - r, cy - r, 2 * r, 2 * r);
-
-            int count = (int)_numMainQty.Value;
-            if (count > 0)
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
             {
-                using var brushBar = new SolidBrush(Color.DarkBlue);
-                int barR = r - 15;
-                for (int i = 0; i < count; i++)
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is RadioButton radio) radio.CheckedChanged += (s, e) => { if (radio.Checked) MarkPreviewStale(); };
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid)
+                _previewLifecycle.MarkStale();
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
+        }
+
+        private List<List<CircularColumnRebarInput>> BuildGenerationInputGroups(
+            IList<ColumnListItem> selectedItems, RebarBarType mainType, RebarBarType stirrupType, double? customCoverFeet)
+        {
+            var groups = RebarLapSpliceHelper.GroupColumnsByAxis(selectedItems.Select(item => item.Column).ToList(), _doc);
+            return groups.Select(group => group.Select((column, index) => new CircularColumnRebarInput
+            {
+                Column = column,
+                MainBarType = mainType,
+                StirrupBarType = stirrupType,
+                MainBarQty = (int)_numMainQty.Value,
+                HasDowel = !_rdBaseFoundation.Checked,
+                IsFoundationColumn = _rdBaseFoundation.Checked,
+                EnableCrankedSplice = _chkCrankedSplice.Checked,
+                HasTopAnchor = _chkTopAnchor.Checked,
+                StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                StirrupSpacingA1 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
+                CustomCoverFeet = customCoverFeet,
+                LapLengthMultiplier = (double)_numLapMultiplier.Value,
+                StaggeredSplice = _chkStaggeredSplice.Checked,
+                DesignStandard = GetSelectedDesignStandard(),
+                ConcreteGrade = GetSelectedConcreteGrade(),
+                SteelGrade = GetSelectedSteelGrade(),
+                AdjacentColumnBelow = index > 0 && RebarLapSpliceHelper.AreConsecutiveColumns(group[index - 1], column) ? group[index - 1] : null,
+                AdjacentColumnAbove = index < group.Count - 1 && RebarLapSpliceHelper.AreConsecutiveColumns(column, group[index + 1]) ? group[index + 1] : null
+            }).ToList()).ToList();
+        }
+
+        private string CurrentInputFingerprint()
+        {
+            var selected = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
+            RebarBarType main = FindBarType(_cmbMainDia.Text);
+            RebarBarType tie = FindBarType(_cmbStirrupDia.Text);
+            if (selected.Count == 0 || main == null || tie == null) return string.Empty;
+            double? cover = _chkCustomCover.Checked
+                ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
+                : (double?)null;
+            return RebarPreviewService.FingerprintInputs(BuildGenerationInputGroups(selected, main, tie, cover)
+                .SelectMany(group => group).Select(RebarPreviewService.Fingerprint));
+        }
+
+        private bool HasCurrentAcceptedPreview()
+        {
+            RebarPreviewSnapshot accepted;
+            return _doc != null && _lastPreview != null && _previewLifecycle.State == PreviewLifecycleState.Valid &&
+                _previewLifecycle.TryGetValid(CurrentInputFingerprint(), out accepted);
+        }
+
+        private void BtnPreview3D_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var selected = _columnListBox.SelectedItems.Cast<ColumnListItem>().ToList();
+                if (selected.Count == 0) throw new InvalidOperationException("Select at least one circular column first.");
+                RebarBarType main = FindBarType(_cmbMainDia.Text);
+                RebarBarType tie = FindBarType(_cmbStirrupDia.Text);
+                if (main == null || tie == null) throw new InvalidOperationException("Select both main and tie bar types.");
+                double? cover = _chkCustomCover.Checked
+                    ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
+                    : (double?)null;
+                var inputs = BuildGenerationInputGroups(selected, main, tie, cover).SelectMany(group => group).ToArray();
+                var generator = new CircularColumnRebarGenerator(_doc);
+                bool shapesLoaded = false;
+                var requests = inputs.Select(input =>
                 {
-                    double angle = 2 * Math.PI * i / count;
-                    int bx = cx + (int)(barR * Math.Cos(angle));
-                    int by = cy + (int)(barR * Math.Sin(angle));
-                    g.FillEllipse(brushBar, bx - 4, by - 4, 8, 8);
+                    string fingerprint = RebarPreviewService.Fingerprint(input);
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                    return new RebarPreviewRequest(fingerprint, () =>
+                    {
+                        if (!shapesLoaded)
+                        {
+                            RebarShapeLibrary.PreloadCommonShapes(_doc);
+                            shapesLoaded = true;
+                        }
+                        var report = new RebarGenerationReport();
+                        List<Rebar> bars = generator.Generate(input, report, roleByBarId);
+                        if (report.HasErrors) throw new InvalidOperationException(report.Errors[0].ErrorReason);
+                        return bars;
+                    }, () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input),
+                    bar =>
+                    {
+                        string role;
+                        return roleByBarId.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                    });
+                }).ToArray();
+                _previewLifecycle.BeginGeneration();
+                _lastPreview = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(_lastPreview))
+                {
+                    if (preview.ShowDialog(this) == DialogResult.OK) {
+                        CacheSolved2D(selected[0].Column);
+                        _previewLifecycle.Complete(_lastPreview, RebarPreviewService.FingerprintInputs(inputs.Select(RebarPreviewService.Fingerprint)));
+                    }
+                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
             }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                KhimDialogHelper.ShowError("Unable to create circular-column solver preview: " + ex.Message);
+            }
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
         }
 
         private void BtnCreateRebar_Click(object sender, EventArgs e)
@@ -557,107 +887,122 @@ namespace KhimTools.RebarTool.Forms
                 ? UnitUtils.ConvertToInternalUnits((double)_numCustomCover.Value, UnitTypeId.Millimeters)
                 : null;
 
-            using var tx = new Transaction(_doc, "Create Circular Column Rebar");
-            tx.Start();
-            FailureHandlingOptions failOptions = tx.GetFailureHandlingOptions();
-            failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
-            tx.SetFailureHandlingOptions(failOptions);
+            List<List<CircularColumnRebarInput>> inputGroups = BuildGenerationInputGroups(
+                selectedItems, mainType, stirrupType, customCoverFeet);
+            RebarPreviewSnapshot acceptedPreview;
+            string currentFingerprint = CurrentInputFingerprint();
+            if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) ||
+                inputGroups.SelectMany(group => group).Any(input => acceptedPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+            {
+                MessageBox.Show(this, "Create or refresh the solver-backed 3D preview for the current circular columns and settings before generating rebar.",
+                    "Preview required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _previewPanel?.Invalidate();
+                _formGuard?.ValidateNow();
+                return;
+            }
+            foreach (CircularColumnRebarInput input in inputGroups.SelectMany(group => group))
+            {
+                if (RebarPreviewService.HasExistingDuplicateBar(_doc, input.Column, acceptedPreview, RebarPreviewService.Fingerprint(input)))
+                {
+                    MessageBox.Show(this, "Equivalent reinforcement already exists on column " + input.Column.Id + ". Remove or edit existing bars before generating to avoid duplicates.",
+                        "Duplicate reinforcement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+            var report = new RebarGenerationReport();
+            int axisGroupCount = 0;
             try
             {
-                // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
-                RebarShapeLibrary.PreloadCommonShapes(_doc);
-
-                var generator = new CircularColumnRebarGenerator(_doc);
-                var drawingGen = new ColumnRebarDrawingGenerator(_doc);
-                var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
-                var view3DGen = new ColumnRebar3DViewGenerator(_doc);
-
-                List<FamilyInstance> rawColumns = selectedItems.Select(i => i.Column).ToList();
-                List<List<FamilyInstance>> axisGroups = RebarLapSpliceHelper.GroupColumnsByAxis(rawColumns, _doc);
-
-                var report = new RebarGenerationReport();
-
-                foreach (var group in axisGroups)
+                TransactionBoundary.Execute(_doc, "Create Circular Column Rebar", () =>
                 {
-                    var inputs = group.Select(col => new CircularColumnRebarInput
-                    {
-                        Column = col,
-                        MainBarType = mainType,
-                        StirrupBarType = stirrupType,
-                        MainBarQty = (int)_numMainQty.Value,
-                        HasDowel = !_rdBaseFoundation.Checked,
-                        IsFoundationColumn = _rdBaseFoundation.Checked,
-                        EnableCrankedSplice = _chkCrankedSplice.Checked,
-                        HasTopAnchor = _chkTopAnchor.Checked,
-                        StirrupSpacing = UnitUtils.ConvertToInternalUnits((double)_numStirrupSpacing.Value, UnitTypeId.Millimeters),
-                        CustomCoverFeet = customCoverFeet,
-                        LapLengthMultiplier = (double)_numLapMultiplier.Value,
-                        StaggeredSplice = _chkStaggeredSplice.Checked,
-                        DesignStandard = GetSelectedDesignStandard(),
-                        ConcreteGrade = GetSelectedConcreteGrade(),
-                        SteelGrade = GetSelectedSteelGrade()
-                    }).ToList();
+                    // Nạp sẵn toàn bộ RebarShape chuẩn (JP_T00, JP_T11, JP_T75...) vào Document
+                    RebarShapeLibrary.PreloadCommonShapes(_doc);
 
-                    var createdRebars = generator.GenerateMultiStory(inputs, report);
+                    var generator = new CircularColumnRebarGenerator(_doc);
+                    var drawingGen = new ColumnRebarDrawingGenerator(_doc);
+                    var sectionGen = new ColumnRebarSectionViewGenerator(_doc);
+                    var view3DGen = new ColumnRebar3DViewGenerator(_doc);
 
-                    foreach (var item in group)
+                    axisGroupCount = inputGroups.Count;
+
+                    foreach (var inputs in inputGroups)
                     {
-                        if (_chkAutoDrawing.Checked)
+                        foreach (CircularColumnRebarInput input in inputs)
                         {
-                            try
+                            List<Rebar> createdRebars = generator.Generate(input, report);
+                            _doc.Regenerate();
+                            if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), createdRebars))
+                                throw new InvalidOperationException("Circular-column generated geometry differs from the accepted solver preview, or a generator error occurred, for host " + input.Column.Id + ".");
+                            FamilyInstance item = input.Column;
+                            if (_chkAutoDrawing.Checked)
                             {
-                                var profile = CircularColumnGeometryHelper.GetCircularProfile(item);
-                                double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(item, RebarFace.Exterior);
-
-                                drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                                try
                                 {
-                                    Shape = ColumnShapeType.Circular,
-                                    ColumnMark = item.LookupParameter("Mark")?.AsString() ?? item.Id.ToLongValue().ToString(),
-                                    ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
-                                    MainBarQty = (int)_numMainQty.Value,
-                                    MainBarLabel = _cmbMainDia.Text,
-                                    StirrupLabel = _cmbStirrupDia.Text,
-                                    StirrupSpacingMm = (double)_numStirrupSpacing.Value,
-                                    CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
-                                });
-                            }
-                            catch (Exception exDraw)
-                            {
-                                System.Diagnostics.Debug.WriteLine($"[CircularColumnDrawingGenerator] Error: {exDraw.Message}");
-                            }
-                        }
+                                    var profile = CircularColumnGeometryHelper.GetCircularProfile(item);
+                                    double coverFeet = customCoverFeet ?? RebarCoverHelper.GetColumnCover(item, RebarFace.Exterior);
 
-                        if (_chkAutoSection3D.Checked)
-                        {
-                            try
-                            {
-                                var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, item);
-                                sectionGen.CreateOrUpdate(item, itemRebars);
-                                view3DGen.CreateOrUpdate(item, itemRebars);
+                                    drawingGen.CreateOrUpdate(new ColumnRebarDrawingInput
+                                    {
+                                        Shape = ColumnShapeType.Circular,
+                                        ColumnMark = item.LookupParameter("Mark")?.AsString() ?? item.Id.ToLongValue().ToString(),
+                                        ColumnDiameterMm = UnitUtils.ConvertFromInternalUnits(profile.Diameter, UnitTypeId.Millimeters),
+                                        MainBarQty = (int)_numMainQty.Value,
+                                        MainBarLabel = _cmbMainDia.Text,
+                                        StirrupLabel = _cmbStirrupDia.Text,
+                                        StirrupSpacingMm = (double)_numStirrupSpacing.Value,
+                                        CoverMm = UnitUtils.ConvertFromInternalUnits(coverFeet, UnitTypeId.Millimeters)
+                                    });
+                                }
+                                catch (Exception exDraw)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"[CircularColumnDrawingGenerator] Error: {exDraw.Message}");
+                                }
                             }
-                            catch (Exception exView)
+
+                            if (_chkAutoSection3D.Checked)
                             {
-                                System.Diagnostics.Debug.WriteLine($"[CircularColumnViewGenerator] Error: {exView.Message}");
+                                try
+                                {
+                                    var itemRebars = HostedRebarQuery.GetHostedRebar(_doc, item);
+                                    sectionGen.CreateOrUpdate(item, itemRebars);
+                                    view3DGen.CreateOrUpdate(item, itemRebars);
+                                }
+                                catch (Exception exView)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"[CircularColumnViewGenerator] Error: {exView.Message}");
+                                }
                             }
                         }
                     }
-                }
-                tx.Commit();
+                }, configure: transaction =>
+                {
+                    FailureHandlingOptions failOptions = transaction.GetFailureHandlingOptions();
+                    failOptions.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                    transaction.SetFailureHandlingOptions(failOptions);
+                });
+
                 if (report.HasErrors)
                 {
                     KhimDialogHelper.ShowRebarGenerationReport(report, "Cột Tròn (Circular Column)", selectedItems.Count);
                 }
                 else
                 {
-                    KhimDialogHelper.ShowColumnRebarSuccess(selectedItems.Count, axisGroups.Count, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
+                    KhimDialogHelper.ShowColumnRebarSuccess(selectedItems.Count, axisGroupCount, _chkAutoDrawing.Checked, _chkAutoSection3D.Checked);
                 }
             }
             catch (Exception ex)
             {
-                tx.RollBack();
+                System.Diagnostics.Debug.WriteLine("Circular column Rebar creation failed: " + ex);
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
                 string errTitle = LanguageManager.IsEnglish ? "Error Creating Rebar" : "Lỗi Tạo Thép Cột Tròn";
-                KhimDialogHelper.ShowError(errTitle, ex.Message, ex.StackTrace);
+                KhimDialogHelper.ShowError(errTitle, ex.Message);
             }
+            _lastPreview = null;
+            _previewLifecycle.Invalidate();
+            _previewPanel?.Invalidate();
+            _formGuard?.ValidateNow();
         }
 
         private RebarBarType FindBarType(string label) =>

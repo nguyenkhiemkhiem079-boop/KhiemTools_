@@ -1,5 +1,7 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -60,7 +62,8 @@ namespace KhimTools.RebarTool.Core
             _doc = doc;
         }
 
-        public List<Rebar> Generate(CircularColumnRebarInput input, RebarGenerationReport report = null)
+        public List<Rebar> Generate(CircularColumnRebarInput input, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             var created = new List<Rebar>();
 
@@ -81,11 +84,22 @@ namespace KhimTools.RebarTool.Core
                     "Đường kính cột quá nhỏ so với cover + đường kính thép đã chọn. Kiểm tra lại D cột hoặc cỡ thép.");
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu
-            created.AddRange(CreateMainBars(input, profile, mainBarRadius, report));
-            created.AddRange(CreateStirrups(input, profile, stirrupRadius, report));
+            List<Rebar> mainBars = CreateMainBars(input, profile, mainBarRadius, report);
+            created.AddRange(mainBars);
+            RecordRoles(mainBars, "longitudinal", roleByBarId);
+            List<Rebar> ties = CreateStirrups(input, profile, stirrupRadius, report);
+            created.AddRange(ties);
+            RecordRoles(ties, "tie", roleByBarId);
 
             report?.AddSuccess(created.Count);
             return created;
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
+                if (bar != null) roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private List<Rebar> CreateMainBars(CircularColumnRebarInput input,
@@ -324,36 +338,28 @@ namespace KhimTools.RebarTool.Core
 
         private double FindMaxIntersectingBeamDepth(FamilyInstance column, double topZ)
         {
-            try
+            BoundingBoxXYZ colBb = column.get_BoundingBox(null);
+            if (colBb == null) throw new InvalidOperationException("Circular-column bounds are unavailable while resolving the beam-column joint zone.");
+
+            double margin = ToFeet(300);
+            var beamSearch = new Outline(
+                new XYZ(colBb.Min.X - margin, colBb.Min.Y - margin, topZ - ToFeet(1500)),
+                new XYZ(colBb.Max.X + margin, colBb.Max.Y + margin, topZ + margin));
+            var beams = new FilteredElementCollector(_doc)
+                .OfCategory(BuiltInCategory.OST_StructuralFraming)
+                .OfClass(typeof(FamilyInstance))
+                .WherePasses(new BoundingBoxIntersectsFilter(beamSearch))
+                .Cast<FamilyInstance>();
+
+            double maxDepth = 0;
+            foreach (FamilyInstance beam in beams)
             {
-                BoundingBoxXYZ colBb = column.get_BoundingBox(null);
-                if (colBb == null) return 0;
-
-                var beams = new FilteredElementCollector(_doc)
-                    .OfCategory(BuiltInCategory.OST_StructuralFraming)
-                    .OfClass(typeof(FamilyInstance))
-                    .Cast<FamilyInstance>()
-                    .ToList();
-
-                double maxDepth = 0;
-                foreach (var bm in beams)
-                {
-                    BoundingBoxXYZ bmBb = bm.get_BoundingBox(null);
-                    if (bmBb == null) continue;
-
-                    if (bmBb.Max.Z >= topZ - ToFeet(1500) && bmBb.Min.Z <= topZ + ToFeet(300))
-                    {
-                        if (bmBb.Min.X <= colBb.Max.X + ToFeet(300) && bmBb.Max.X >= colBb.Min.X - ToFeet(300) &&
-                            bmBb.Min.Y <= colBb.Max.Y + ToFeet(300) && bmBb.Max.Y >= colBb.Min.Y - ToFeet(300))
-                        {
-                            double depth = bmBb.Max.Z - bmBb.Min.Z;
-                            if (depth > maxDepth) maxDepth = depth;
-                        }
-                    }
-                }
-                return maxDepth;
+                BoundingBoxXYZ beamBounds = beam.get_BoundingBox(null);
+                if (beamBounds == null) continue;
+                double depth = beamBounds.Max.Z - beamBounds.Min.Z;
+                if (depth > maxDepth) maxDepth = depth;
             }
-            catch { return 0; }
+            return maxDepth;
         }
 
         private static double ToFeet(double mm) => UnitUtils.ConvertToInternalUnits(mm, UnitTypeId.Millimeters);

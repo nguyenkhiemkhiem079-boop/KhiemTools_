@@ -1,6 +1,6 @@
 ﻿using System;
 using System.IO;
-using Newtonsoft.Json;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.Core
 {
@@ -34,6 +34,8 @@ namespace KhimTools.Core
             }
             set
             {
+                if (value != AppLanguage.Vietnamese && value != AppLanguage.English)
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 if (_currentLanguage != value || !_isLoaded)
                 {
                     _currentLanguage = value;
@@ -68,39 +70,36 @@ namespace KhimTools.Core
             if (_isLoaded) return;
             _isLoaded = true;
 
-            try
-            {
-                if (File.Exists(ConfigPath))
+            var data = JsonSettingsPersistence.Load(ConfigPath,
+                () => new LanguageConfigData(),
+                IsValidLanguageConfig,
+                value =>
                 {
-                    string json = File.ReadAllText(ConfigPath);
-                    var data = JsonConvert.DeserializeObject<LanguageConfigData>(json);
-                    if (data != null)
-                    {
-                        _currentLanguage = data.Language;
-                    }
-                }
-            }
-            catch { }
+                    if (value.SchemaVersion != 0) return false;
+                    value.SchemaVersion = 1;
+                    return true;
+                });
+            _currentLanguage = data.Language;
         }
 
         private static void SaveConfig()
         {
             try
             {
-                string dir = Path.GetDirectoryName(ConfigPath);
-                if (!Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-
-                string json = JsonConvert.SerializeObject(new LanguageConfigData { Language = _currentLanguage }, Formatting.Indented);
-                File.WriteAllText(ConfigPath, json);
+                JsonSettingsPersistence.Save(ConfigPath,
+                    new LanguageConfigData { Language = _currentLanguage, SchemaVersion = 1 },
+                    IsValidLanguageConfig);
             }
             catch { }
         }
 
+        private static bool IsValidLanguageConfig(LanguageConfigData data) =>
+            data != null && data.SchemaVersion == 1 &&
+            (data.Language == AppLanguage.Vietnamese || data.Language == AppLanguage.English);
+
         private class LanguageConfigData
         {
+            public int SchemaVersion { get; set; }
             public AppLanguage Language { get; set; } = AppLanguage.Vietnamese;
         }
     }

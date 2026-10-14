@@ -42,6 +42,25 @@ namespace KhimTools.RebarTool.Forms
             group.Controls.Add(table);
         }
 
+        internal static void KeepAutoSizeGroupContentVisible(GroupBox group)
+        {
+            if (group == null) throw new ArgumentNullException(nameof(group));
+            var content = group.Controls.OfType<TableLayoutPanel>()
+                .FirstOrDefault(control => control.AutoSize && control.Dock == DockStyle.Top);
+            if (content == null) throw new InvalidOperationException("The group must contain an autosized top-docked fields table.");
+
+            Action fitGroupToContent = () =>
+            {
+                if (group.IsDisposed || content.IsDisposed) return;
+                int requiredHeight = content.Bottom + 2;
+                if (group.MinimumSize.Height != requiredHeight)
+                    group.MinimumSize = new Size(group.MinimumSize.Width, requiredHeight);
+            };
+            content.SizeChanged += (sender, args) => fitGroupToContent();
+            group.Layout += (sender, args) => fitGroupToContent();
+            fitGroupToContent();
+        }
+
         internal static void Stack(Control host, params Control[] items)
         {
             foreach (var item in items) item.Parent?.Controls.Remove(item);

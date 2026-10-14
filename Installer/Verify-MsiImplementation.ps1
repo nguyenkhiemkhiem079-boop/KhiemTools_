@@ -210,13 +210,13 @@ $scheduleSafe = ($majorUpgrade.Count -gt 0 -and $majorUpgrade[0].GetAttribute("S
 Report-Result "Audit 09: MajorUpgrade Safety (Schedule='afterInstallInitialize')" $scheduleSafe
 
 # -----------------------------------------------------------------------------
-# AUDIT 10: Revit Version Detection Multi-Year Matrix (2022-2028)
+# AUDIT 10: Revit Version Detection Multi-Year Matrix (supported years 2022-2026)
 # -----------------------------------------------------------------------------
 $revitDetDoc = New-Object System.Xml.XmlDocument
 $revitDetDoc.Load("$msiDir\Conditions\RevitDetection.wxs")
 $searches = $revitDetDoc.GetElementsByTagName("RegistrySearch")
 $missingYears = @()
-foreach ($year in 2022..2028) {
+foreach ($year in 2022..2026) {
     $prop = "REVIT_${year}_DETECTED"
     $found = $false
     foreach ($s in $searches) {
@@ -227,7 +227,8 @@ foreach ($year in 2022..2028) {
     }
     if (!$found) { $missingYears += $year }
 }
-Report-Result "Audit 10: Revit Version Detection Matrix (2022-2028: $($searches.Count) rules)" ($missingYears.Count -eq 0) ($missingYears -join ", ")
+$unsupportedSearches = @($searches | Where-Object { $_.GetAttribute("Id") -match "SearchRevit202(7|8)" })
+Report-Result "Audit 10: Revit Version Detection Matrix (supported years 2022-2026; 2027/2028 excluded)" ($missingYears.Count -eq 0 -and $unsupportedSearches.Count -eq 0) ($missingYears -join ", ")
 
 # -----------------------------------------------------------------------------
 # AUDIT 11: .NET Framework 4.8 and .NET 8.0 Prerequisite Rules
@@ -288,17 +289,22 @@ $bundleDoc = New-Object System.Xml.XmlDocument
 $bundleDoc.Load((Join-Path $repoRoot "KhimTools\Deploy\PackageContents.xml"))
 
 $packageVersion = $pkgDoc.GetElementsByTagName("Package")[0].GetAttribute("Version")
-$projectVersion = $projectDoc.Project.PropertyGroup.Version | Select-Object -First 1
 $bundleVersion = $bundleDoc.ApplicationPackage.GetAttribute("AppVersion")
+$wixBundleDoc = New-Object System.Xml.XmlDocument
+$wixBundleDoc.Load((Join-Path $bootDir "Bundle.wxs"))
+$buildScript = Get-Content (Join-Path $scriptDir "Build-Installer.ps1") -Raw
+$projectVersion = $projectDoc.Project.PropertyGroup.Version | Select-Object -First 1
 $manifestVersion = ([string]$manifest.latest_version).TrimStart("v")
 $officialUpdateUrl = [string]$manifest.download_url_msi -match "^https://github\.com/nguyenkhiemkhiem079-boop/KhiemTools_/releases/"
-$versionsAligned = $packageVersion -eq $projectVersion -and
-                   $packageVersion -eq $bundleVersion -and
-                   $packageVersion -eq $manifestVersion
+$versionsAligned = $packageVersion -eq '$(var.ProductVersion)' -and
+                   $wixBundleDoc.GetElementsByTagName("Bundle")[0].GetAttribute("Version") -eq '$(var.ProductVersion)' -and
+                   $buildScript.Contains('[string]$Version = "' + $projectVersion + '"') -and
+                   $bundleVersion -eq $projectVersion -and
+                   $projectVersion -eq $manifestVersion
 
 Report-Result "Audit 14: Release metadata alignment" `
     ($versionsAligned -and $officialUpdateUrl) `
-    "MSI=$packageVersion, Project=$projectVersion, Bundle=$bundleVersion, Manifest=$manifestVersion, OfficialUrl=$officialUpdateUrl"
+    "MSI/Bundle use build-time ProductVersion=$($packageVersion -eq '$(var.ProductVersion)'), Build default=$projectVersion, BundleManifest=$bundleVersion, Manifest=$manifestVersion, OfficialUrl=$officialUpdateUrl"
 
 # -----------------------------------------------------------------------------
 # SUMMARY

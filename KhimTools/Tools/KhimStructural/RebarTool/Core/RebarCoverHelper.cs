@@ -24,18 +24,7 @@ namespace KhimTools.RebarTool.Core
 
         public static double GetFloorCover(Element floor, RebarFace face)
         {
-            if (floor == null) return ToFeet(FallbackCoverMm);
-            RebarHostData hostData = RebarHostData.GetRebarHostData(floor);
-            if (hostData == null) return ToFeet(FallbackCoverMm);
-
-            try
-            {
-                RebarCoverType coverType = hostData.GetCommonCoverType();
-                if (coverType != null) return coverType.CoverDistance;
-            }
-            catch { }
-
-            return ToFeet(FallbackCoverMm);
+            return GetFaceCover(floor, face);
         }
 
         /// <summary>
@@ -43,24 +32,79 @@ namespace KhimTools.RebarTool.Core
         /// </summary>
         public static double GetColumnCover(Element column, RebarFace face = RebarFace.Exterior)
         {
-            RebarHostData hostData = RebarHostData.GetRebarHostData(column);
-            if (hostData == null)
-                return ToFeet(FallbackCoverMm);
+            return GetFaceCover(column, face);
+        }
 
-            RebarCoverType coverType = null;
+        private static double GetFaceCover(Element host, RebarFace face)
+        {
+            if (TryGetFaceCover(host, face, out double cover)) return cover;
+            return ToFeet(FallbackCoverMm);
+        }
+
+        /// <summary>
+        /// Resolves only an explicitly assigned Revit cover value. Unlike the legacy
+        /// Get*Cover helpers, this method does not apply the global 25 mm fallback.
+        /// Production workflows that must not invent cover assumptions should use it.
+        /// </summary>
+        public static bool TryGetFaceCover(Element host, RebarFace face, out double coverFeet)
+        {
+            coverFeet = 0;
+            if (host == null || !host.IsValidObject) return false;
+            BuiltInParameter parameterId = CoverParameter(face);
+            Parameter parameter = host.get_Parameter(parameterId);
+            if (parameter != null && parameter.StorageType == StorageType.ElementId)
+            {
+                RebarCoverType faceCover = host.Document.GetElement(parameter.AsElementId()) as RebarCoverType;
+                if (faceCover != null && faceCover.CoverDistance >= 0)
+                {
+                    coverFeet = faceCover.CoverDistance;
+                    return true;
+                }
+            }
+
+            // In-place families and stairs expose CLEAR_COVER rather than CLEAR_COVER_OTHER.
+            if (face == RebarFace.Other)
+            {
+                Parameter genericCover = host.get_Parameter(BuiltInParameter.CLEAR_COVER);
+                if (genericCover != null && genericCover.StorageType == StorageType.ElementId)
+                {
+                    RebarCoverType genericType = host.Document.GetElement(genericCover.AsElementId()) as RebarCoverType;
+                    if (genericType != null && genericType.CoverDistance >= 0)
+                    {
+                        coverFeet = genericType.CoverDistance;
+                        return true;
+                    }
+                }
+            }
+
+            RebarHostData hostData = RebarHostData.GetRebarHostData(host);
             try
             {
-                coverType = hostData.GetCommonCoverType();
+                RebarCoverType commonCover = hostData?.GetCommonCoverType();
+                if (commonCover != null && commonCover.CoverDistance >= 0)
+                {
+                    coverFeet = commonCover.CoverDistance;
+                    return true;
+                }
             }
-            catch
+            catch (Autodesk.Revit.Exceptions.InvalidOperationException)
             {
-                coverType = null;
+                // Unsupported host categories may not expose RebarHostData cover access.
             }
 
-            if (coverType == null)
-                return ToFeet(FallbackCoverMm);
+            return false;
+        }
 
-            return coverType.CoverDistance;
+        private static BuiltInParameter CoverParameter(RebarFace face)
+        {
+            switch (face)
+            {
+                case RebarFace.Top: return BuiltInParameter.CLEAR_COVER_TOP;
+                case RebarFace.Bottom: return BuiltInParameter.CLEAR_COVER_BOTTOM;
+                case RebarFace.Interior: return BuiltInParameter.CLEAR_COVER_INTERIOR;
+                case RebarFace.Exterior: return BuiltInParameter.CLEAR_COVER_EXTERIOR;
+                default: return BuiltInParameter.CLEAR_COVER_OTHER;
+            }
         }
 
         /// <summary>
@@ -68,27 +112,38 @@ namespace KhimTools.RebarTool.Core
         /// </summary>
         public static RebarCoverType GetOrCreateCoverType(Document doc, double coverMm)
         {
+            if (doc == null) throw new ArgumentNullException(nameof(doc));
+            if (double.IsNaN(coverMm) || double.IsInfinity(coverMm) || coverMm <= 0)
+                throw new ArgumentOutOfRangeException(nameof(coverMm), "Concrete cover must be a finite positive distance in millimeters.");
+
             double coverFeet = ToFeet(coverMm);
+            double matchTolerance = ToFeet(0.1);
             string coverName = $"{coverMm:0} mm";
 
             var existing = new FilteredElementCollector(doc)
                 .OfClass(typeof(RebarCoverType))
                 .Cast<RebarCoverType>()
-                .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) < 0.001);
+                .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) <= matchTolerance);
 
             if (existing != null) return existing;
 
             try
             {
-                return RebarCoverType.Create(doc, coverName, coverFeet);
+                RebarCoverType created = RebarCoverType.Create(doc, coverName, coverFeet);
+                if (created != null && Math.Abs(created.CoverDistance - coverFeet) <= matchTolerance)
+                    return created;
             }
-            catch
+            catch (Exception creationException)
             {
-                return new FilteredElementCollector(doc)
+                RebarCoverType createdByRevit = new FilteredElementCollector(doc)
                     .OfClass(typeof(RebarCoverType))
                     .Cast<RebarCoverType>()
-                    .FirstOrDefault();
+                    .FirstOrDefault(ct => Math.Abs(ct.CoverDistance - coverFeet) <= matchTolerance);
+                if (createdByRevit != null) return createdByRevit;
+                throw new InvalidOperationException("Revit could not create or resolve a concrete cover type at the requested distance of " + coverMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " mm.", creationException);
             }
+
+            throw new InvalidOperationException("Revit did not create a concrete cover type at the requested distance of " + coverMm.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + " mm.");
         }
 
         /// <summary>
@@ -112,12 +167,12 @@ namespace KhimTools.RebarTool.Core
                     try
                     {
                         hostData.SetCommonCoverType(coverType);
-                        count++;
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"[RebarCoverHelper] SetCommonCoverType failed on element {elem.Id}: {ex.Message}");
+                        throw new InvalidOperationException("Could not apply the requested Rebar cover type to host element " + elem.Id + ".", ex);
                     }
+                    count++;
                 }
             }
             return count;

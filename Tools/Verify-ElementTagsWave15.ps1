@@ -38,6 +38,12 @@ Assert-Text $form 'BtnCheck3d' 'locked 3D view check preserved'
 Assert-Text $form 'BtnHighlightRed' 'problem highlighting preserved'
 Assert-Text $form 'BtnResetColor' 'highlight reset preserved'
 Assert-Text $form 'BtnPass' 'ignored audit items preserved'
+foreach ($operation in @('Tag Color Overrides','Override Clashing Tags','Clash Tag Adjuster','Highlight Proximity Errors','Reset Graphic Overrides')) {
+    $needle = 'TransactionBoundary.Execute(doc, "K-TOOLS: ' + $operation + '"'
+    Assert-Text $service $needle "checked transaction ownership for $operation"
+}
+Assert-Text $service 'TransactionBoundary.Commit(sub, "ElementTags.ClashAdjustment")' 'clash adjustment checks subtransaction commit'
+Assert-Text $service 'TransactionBoundary.RollBack(sub, "ElementTags.ClashAdjustment")' 'clash adjustment checks subtransaction rollback'
 
 foreach ($name in @('TagRelationshipIndex','TagHostRecord','TagRelationshipRecord','TagAuditStatus','TagAuditItem','TagAuditResult','TagPreflightReport','TagActionPlanItem','TagExecutionResult','TagBatchResult')) {
     Assert-Text $workflow $name "workflow model $name"

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Diagnostics;
 using System.Windows.Forms;
 using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
@@ -11,6 +12,7 @@ using ComboBox = System.Windows.Forms.ComboBox;
 using Control = System.Windows.Forms.Control;
 using Form = System.Windows.Forms.Form;
 using TaskDialog = Autodesk.Revit.UI.TaskDialog;
+using KhimTools.Architectural;
 
 namespace KhimTools.Architectural.Lintels
 {
@@ -20,6 +22,7 @@ namespace KhimTools.Architectural.Lintels
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
+            var timer = Stopwatch.StartNew();
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc?.Document;
             if (doc == null) return Result.Cancelled;
@@ -47,6 +50,9 @@ namespace KhimTools.Architectural.Lintels
 
                 var result = LintelService.Create(doc, openings, form.SelectedSymbol,
                     form.EndExtensionMm, form.VerticalOffsetMm, form.SkipExisting);
+                timer.Stop();
+                ArchitecturalDiagnostics.Log(nameof(CmdCreateLintels), doc, "create-lintels", openings.Count,
+                    result.Created, result.Failed, timer.Elapsed);
 
                 TaskDialog.Show("K-TOOLS — Lanh tô",
                     $"Đã tạo {result.Created} lanh tô cho {openings.Count} cửa/cửa sổ.\n" +
@@ -59,7 +65,10 @@ namespace KhimTools.Architectural.Lintels
             }
             catch (Exception ex)
             {
+                timer.Stop();
                 message = ex.Message;
+                ArchitecturalDiagnostics.Log(nameof(CmdCreateLintels), doc, "create-lintels", 0, 0, 1,
+                    timer.Elapsed, ex.GetType().FullName);
                 TaskDialog.Show("K-TOOLS — Lanh tô", ex.Message);
                 return Result.Failed;
             }
@@ -77,7 +86,8 @@ namespace KhimTools.Architectural.Lintels
 
             IList<Reference> picked = uidoc.Selection.PickObjects(ObjectType.Element,
                 new DoorWindowFilter(), "Chọn cửa đi/cửa sổ cần tạo lanh tô, sau đó bấm Finish");
-            return picked.Select(x => doc.GetElement(x)).OfType<FamilyInstance>().Distinct().ToList();
+            return picked.Select(x => doc.GetElement(x)).OfType<FamilyInstance>()
+                .GroupBy(x => x.Id).Select(x => x.First()).ToList();
         }
 
         private static bool IsDoorOrWindow(FamilyInstance item)

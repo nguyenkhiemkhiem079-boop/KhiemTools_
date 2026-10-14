@@ -31,8 +31,9 @@ namespace KhimTools.SlabJoin.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][JoinElements] " + ex);
                 TaskDialog.Show("Join Elements Error",
-                    $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                    "Element join failed. " + ex.Message);
                 return Result.Failed;
             }
         }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
@@ -186,9 +187,9 @@ namespace KhimTools.QuantityTakeoff.Forms
             IEnumerable<QtoLine> rows = _revit.Lines.Where(x => x.IsIncluded);
             if (!code.StartsWith("(")) rows = rows.Where(x => x.Code == code);
             if (query.Length > 0) rows = rows.Where(x => Contains(x.Code, query) || Contains(x.Description, query) || Contains(x.Material, query) || Contains(x.TypeName, query) || Contains(x.Level, query));
-            _visibleRevit = rows.ToList(); _revitGrid.Rows.Clear();
+                _visibleRevit = rows.ToList(); _revitGrid.Rows.Clear();
             foreach (QtoLine line in _visibleRevit)
-                _revitGrid.Rows.Add(line.Code, line.Description, line.Category, line.Material, line.TypeName, line.Level, line.Unit,
+                _revitGrid.Rows.Add(line.Code, line.Description, line.Category, line.Material, line.FamilyName, line.TypeName, line.Level, line.Unit,
                     line.RawQuantity.ToString("N3"), line.WastePercent.ToString("N1"), line.PayQuantity.ToString("N" + line.RoundingDigits), line.ElementCount, line.Confidence);
             ShowTrace();
         }
@@ -237,30 +238,42 @@ namespace KhimTools.QuantityTakeoff.Forms
         private void UpdateSummary()
         {
             int revitLines = _revit?.Lines.Count(x => x.IsIncluded) ?? 0, cubicostLines = _cubicost?.Lines.Count ?? 0;
-            _summary.Text = $"QS Revit: {revitLines:N0} dòng • QS Cubicost: {cubicostLines:N0} dòng • Compare: {_comparison.Count:N0} nhóm • Rules v{_profile?.Version ?? 0}";
+            _summary.Text = $"Phạm vi: toàn bộ tài liệu chủ (không gồm links) • QS Revit: {revitLines:N0} dòng • QS Cubicost: {cubicostLines:N0} dòng • Compare: {_comparison.Count:N0} nhóm • Rules v{_profile?.Version ?? 0}";
         }
 
         private void Export()
         {
             if (_revit == null) return; RefreshComparison();
-            using var dialog = new SaveFileDialog { Filter = "Excel Workbook (*.xlsx)|*.xlsx", FileName = $"K-QS_Compare_{Safe(_doc.Title)}_{DateTime.Now:yyyyMMdd-HHmm}.xlsx" };
+            using var dialog = new SaveFileDialog { Filter = "Excel Workbook (*.xlsx)|*.xlsx", DefaultExt = "xlsx", AddExtension = true, FileName = $"K-QS_Compare_{Safe(_doc.Title)}_{DateTime.Now:yyyyMMdd-HHmm}.xlsx" };
             if (dialog.ShowDialog(this) != DialogResult.OK) return;
             try
             {
+                string fullPath = Path.GetFullPath(dialog.FileName);
+                string directory = Path.GetDirectoryName(fullPath);
+                if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+                    throw new IOException("The selected export folder does not exist.");
+                string temporaryPath = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
                 using var writer = new SimpleExcelWriter("K-QS Compare");
                 writer.AddRow("K-QS SOURCE COMPARISON", _doc.Title, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                 writer.AddRow("COMPARE", "Revit Code", "Unit", "QS Revit", "QS Cubicost", "Difference (Revit-Cubicost)", "Difference %");
-                foreach (QtoSourceComparison x in _comparison) writer.AddRow(x.Status, x.RevitCode, x.Unit, x.RevitQuantity.ToString("0.########"), x.CubicostQuantity.ToString("0.########"), x.Difference.ToString("0.########"), x.DifferencePercent?.ToString("0.###") ?? "");
-                writer.AddEmptyRow(); writer.AddRow("QS REVIT", "Description", "Material", "Type", "Level", "Unit", "Raw", "Waste %", "Pay", "Source", "Formula", "UniqueIds");
-                foreach (QtoLine x in _revit.Lines.Where(x => x.IsIncluded)) writer.AddRow(x.Code, x.Description, x.Material, x.TypeName, x.Level, x.Unit, x.RawQuantity.ToString("0.########"), x.WastePercent.ToString("0.###"), x.PayQuantity.ToString("0.########"), x.Source, x.FormulaTrace, string.Join(";", x.ElementUniqueIds));
+                foreach (QtoSourceComparison x in _comparison) writer.AddRow(x.Status, x.RevitCode, x.Unit, N(x.RevitQuantity), N(x.CubicostQuantity), N(x.Difference), x.DifferencePercent.HasValue ? N(x.DifferencePercent.Value, "0.###") : "");
+                writer.AddEmptyRow(); writer.AddRow("QS REVIT", "Description", "Material", "Family", "Type", "Level", "Unit", "Raw", "Waste %", "Pay", "Source", "Formula", "UniqueIds");
+                foreach (QtoLine x in _revit.Lines.Where(x => x.IsIncluded)) writer.AddRow(x.Code, x.Description, x.Material, x.FamilyName, x.TypeName, x.Level, x.Unit, N(x.RawQuantity), N(x.WastePercent, "0.###"), N(x.PayQuantity), x.Source, x.FormulaTrace, string.Join(";", x.ElementUniqueIds));
                 writer.AddEmptyRow(); writer.AddRow("QS CUBICOST", "Cubicost Code", "Map Revit Code", "Description", "Location", "Unit", "Quantity", "Source Row");
-                if (_cubicost != null) foreach (CubicostQtoLine x in _cubicost.Lines) writer.AddRow("Cubicost", x.CubicostCode, x.RevitCode, x.Description, x.Location, x.Unit, x.Quantity.ToString("0.########"), x.SourceRow.ToString());
-                writer.Save(dialog.FileName); _status.Text = "Đã xuất: " + dialog.FileName;
+                if (_cubicost != null) foreach (CubicostQtoLine x in _cubicost.Lines) writer.AddRow("Cubicost", x.CubicostCode, x.RevitCode, x.Description, x.Location, x.Unit, N(x.Quantity), x.SourceRow.ToString(CultureInfo.InvariantCulture));
+                writer.Save(temporaryPath);
+                if (File.Exists(fullPath)) File.Replace(temporaryPath, fullPath, null);
+                else File.Move(temporaryPath, fullPath);
+                _status.Text = "Đã xuất: " + fullPath;
+                }
+                finally { if (File.Exists(temporaryPath)) File.Delete(temporaryPath); }
             }
             catch (Exception ex) { TaskDialog.Show("K-QS — Export", ex.Message); }
         }
 
-        private void BuildRevitColumns() { Add(_revitGrid, "Code", "Mô tả", "Category", "Material", "Type", "Level", "Đơn vị", "Raw", "Hao hụt %", "Pay", "Elements", "Confidence"); }
+        private void BuildRevitColumns() { Add(_revitGrid, "Code", "Mô tả", "Category", "Material", "Family", "Type", "Level", "Đơn vị", "Raw", "Hao hụt %", "Pay", "Elements", "Confidence"); }
         private void BuildCubicostColumns()
         {
             Add(_cubicostGrid, "Source Row", "Cubicost Code", "Map Revit Code", "Description", "Location", "Unit", "Quantity");
@@ -282,6 +295,7 @@ namespace KhimTools.QuantityTakeoff.Forms
         private static bool Contains(string value, string query) => value?.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
         private static double Number(object value, double fallback) => double.TryParse(Convert.ToString(value), out double x) ? x : fallback;
         private static int Integer(object value, int fallback) => int.TryParse(Convert.ToString(value), out int x) ? x : fallback;
+        private static string N(double value, string format = "0.########") => value.ToString(format, CultureInfo.InvariantCulture);
         private static string Safe(string value) { foreach (char c in Path.GetInvalidFileNameChars()) value = value.Replace(c, '_'); return value; }
     }
 }

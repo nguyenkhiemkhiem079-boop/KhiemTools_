@@ -1,12 +1,10 @@
 param(
     [string]$AssemblyPath = (Join-Path $PSScriptRoot "../KhimTools/bin/Release/net48/KhimTools.dll"),
-    [string]$RevitApiDirectory = "C:/Program Files/Autodesk/Revit 2023"
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} "Autodesk/Revit 2024")
 )
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-foreach ($name in @("RevitAPI.dll", "RevitAPIUI.dll")) {
-    [Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory $name)) | Out-Null
-}
+[Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory "RevitAPI.dll")) | Out-Null
 $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $AssemblyPath))
 $flags = [Reflection.BindingFlags]"NonPublic,Instance"
 $checks = 0

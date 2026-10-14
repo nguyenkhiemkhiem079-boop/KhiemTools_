@@ -15,23 +15,18 @@ namespace KhimTools.Core
 
         private static Func<ElementId, long> InitGetIdValueFunc()
         {
-            try
+            var propValue = typeof(ElementId).GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
+            if (propValue != null)
             {
-                var propValue = typeof(ElementId).GetProperty("Value", BindingFlags.Public | BindingFlags.Instance);
-                if (propValue != null)
-                {
-                    return id => (long)propValue.GetValue(id, null);
-                }
-
-                var propIntValue = typeof(ElementId).GetProperty("IntegerValue", BindingFlags.Public | BindingFlags.Instance);
-                if (propIntValue != null)
-                {
-                    return id => (int)propIntValue.GetValue(id, null);
-                }
+                return id => (long)propValue.GetValue(id, null);
             }
-            catch { }
 
-            return id => -1;
+            var propIntValue = typeof(ElementId).GetProperty("IntegerValue", BindingFlags.Public | BindingFlags.Instance);
+            if (propIntValue != null)
+            {
+                return id => (int)propIntValue.GetValue(id, null);
+            }
+            throw new NotSupportedException("The loaded Revit ElementId API exposes neither Value nor IntegerValue.");
         }
 
         /// <summary>
@@ -42,6 +37,15 @@ namespace KhimTools.Core
         {
             if (id == null) return -1;
             return GetIdValueFunc(id);
+        }
+
+        /// <summary>Preserves legacy 32-bit storage with checked overflow, never truncated 64-bit IDs.</summary>
+        public static int ToCheckedIntValue(this ElementId id) => checked((int)id.ToLongValue());
+
+        public static BuiltInCategory GetBuiltInCategoryCompat(this Category category)
+        {
+            if (category == null) throw new ArgumentNullException(nameof(category));
+            return (BuiltInCategory)checked((int)category.Id.ToLongValue());
         }
 
         /// <summary>

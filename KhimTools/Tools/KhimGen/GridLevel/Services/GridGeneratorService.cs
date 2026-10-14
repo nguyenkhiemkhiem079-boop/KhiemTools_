@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
 using KhimTools.GridLevel.Models;
 
 namespace KhimTools.GridLevel.Services
@@ -28,18 +30,18 @@ namespace KhimTools.GridLevel.Services
                 var matchMultiplier = Regex.Match(t, @"^(\d+)\s*[xX\*]\s*([\d\.]+)$");
                 if (matchMultiplier.Success)
                 {
-                    if (int.TryParse(matchMultiplier.Groups[1].Value, out int count) &&
-                        double.TryParse(matchMultiplier.Groups[2].Value, out double dist))
-                    {
-                        for (int i = 0; i < count; i++) result.Add(dist);
-                        continue;
-                    }
+                    if (!int.TryParse(matchMultiplier.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int count) || count <= 0 ||
+                        !double.TryParse(matchMultiplier.Groups[2].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out double dist) ||
+                        double.IsNaN(dist) || double.IsInfinity(dist) || dist <= 0)
+                        throw new FormatException("Invalid grid spacing token: " + token);
+                    for (int i = 0; i < count; i++) result.Add(dist);
+                    continue;
                 }
 
-                if (double.TryParse(t, out double val) && val > 0)
-                {
-                    result.Add(val);
-                }
+                if (!double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out double val) ||
+                    double.IsNaN(val) || double.IsInfinity(val) || val <= 0)
+                    throw new FormatException("Invalid grid spacing token: " + token);
+                result.Add(val);
             }
 
             return result;
@@ -97,13 +99,11 @@ namespace KhimTools.GridLevel.Services
 
                 Line gridLine = Line.CreateBound(p1, p2);
                 Grid grid = Grid.Create(doc, gridLine);
-                if (grid != null)
-                {
-                    SetGridNameSafely(doc, grid, currentXName);
-                    ApplyBubbleVisibility(grid, settings.XShowBubbleEnd0, settings.XShowBubbleEnd1, activeView);
-                    createdGrids.Add(grid);
-                    xGridElements.Add(grid);
-                }
+                if (grid == null) throw new InvalidOperationException("Revit did not create the requested X grid.");
+                SetGridNameSafely(doc, grid, currentXName);
+                ApplyBubbleVisibility(grid, settings.XShowBubbleEnd0, settings.XShowBubbleEnd1, activeView);
+                createdGrids.Add(grid);
+                xGridElements.Add(grid);
 
                 currentXName = GetNextName(currentXName);
             }
@@ -137,13 +137,11 @@ namespace KhimTools.GridLevel.Services
 
                 Line gridLine = Line.CreateBound(p1, p2);
                 Grid grid = Grid.Create(doc, gridLine);
-                if (grid != null)
-                {
-                    SetGridNameSafely(doc, grid, currentYName);
-                    ApplyBubbleVisibility(grid, settings.YShowBubbleEnd0, settings.YShowBubbleEnd1, activeView);
-                    createdGrids.Add(grid);
-                    yGridElements.Add(grid);
-                }
+                if (grid == null) throw new InvalidOperationException("Revit did not create the requested Y grid.");
+                SetGridNameSafely(doc, grid, currentYName);
+                ApplyBubbleVisibility(grid, settings.YShowBubbleEnd0, settings.YShowBubbleEnd1, activeView);
+                createdGrids.Add(grid);
+                yGridElements.Add(grid);
 
                 currentYName = GetNextName(currentYName);
             }
@@ -151,7 +149,11 @@ namespace KhimTools.GridLevel.Services
             // ══════════════════════════════════════════════════════════════════
             // 3. TẠO DIMENSIONS LIÊN HOÀN (NẾU ĐƯỢC CHỌN VÀ CÓ ACTIVE VIEW)
             // ══════════════════════════════════════════════════════════════════
-            if (settings.CreateDimensions && activeView != null && activeView.ViewType == ViewType.FloorPlan)
+            if (settings.CreateDimensions && activeView == null)
+                throw new InvalidOperationException("Grid dimensions require an active floor plan view.");
+            if (settings.CreateDimensions && activeView.ViewType != ViewType.FloorPlan)
+                throw new InvalidOperationException("Grid dimensions require an active floor plan view.");
+            if (settings.CreateDimensions && activeView != null)
             {
                 CreateGridDimensions(doc, activeView, xGridElements, yGridElements, settings, totalWidthFt, totalHeightFt, xExtFt, yExtFt);
             }
@@ -173,7 +175,11 @@ namespace KhimTools.GridLevel.Services
                     else grid.HideBubbleInView(DatumEnds.End1, view);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("GridLevel.BubbleVisibility", ex, "BUBBLE_VISIBILITY");
+                throw new InvalidOperationException("Could not apply the requested grid bubble visibility.", ex);
+            }
         }
 
         private static void CreateGridDimensions(Document doc, View view, List<Grid> xGrids, List<Grid> yGrids, GridSettings settings, double totalW, double totalH, double xExt, double yExt)
@@ -229,7 +235,11 @@ namespace KhimTools.GridLevel.Services
                     doc.Create.NewDimension(view, dimLine, refArray);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                KToolsLog.Current.Exception("GridLevel.CreateDimensions", ex, "DIMENSION_CREATE");
+                throw new InvalidOperationException("Could not create the requested grid dimensions.", ex);
+            }
         }
 
         public static string GetNextName(string currentName)
@@ -275,11 +285,12 @@ namespace KhimTools.GridLevel.Services
                 finalName = $"{desiredName}_{counter++}";
             }
 
-            try
+            try { grid.Name = finalName; }
+            catch (Exception ex)
             {
-                grid.Name = finalName;
+                KToolsLog.Current.Exception("GridLevel.GridName", ex, "GRID_NAME");
+                throw new InvalidOperationException("Could not assign the requested grid name.", ex);
             }
-            catch { }
         }
 
         private static bool IsGridNameExists(Document doc, string name, ElementId excludeId)

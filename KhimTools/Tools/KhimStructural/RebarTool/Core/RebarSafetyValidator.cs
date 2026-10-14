@@ -1,4 +1,5 @@
-﻿using System;
+using KhimTools.Core;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -48,8 +49,8 @@ namespace KhimTools.RebarTool.Core
             XYZ maxBound = new XYZ(hostBox.Max.X + tolFeet, hostBox.Max.Y + tolFeet, hostBox.Max.Z + tolFeet);
 
             bool isColumn = host.Category != null &&
-                (host.Category.BuiltInCategory == BuiltInCategory.OST_Columns ||
-                 host.Category.BuiltInCategory == BuiltInCategory.OST_StructuralColumns);
+                (host.Category.GetBuiltInCategoryCompat() == BuiltInCategory.OST_Columns ||
+                 host.Category.GetBuiltInCategoryCompat() == BuiltInCategory.OST_StructuralColumns);
 
             int outCount = 0;
             foreach (var r in rebars)

@@ -50,7 +50,8 @@ namespace KhimTools.RebarTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Beam Rebar Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][BeamRebar] " + ex);
+                TaskDialog.Show("Beam Rebar Error", "Beam reinforcement failed. " + ex.Message);
                 return Result.Failed;
             }
         }

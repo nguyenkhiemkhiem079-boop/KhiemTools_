@@ -2,6 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.Revit.DB;
+using KhimTools.Core.Logging;
+using KhimTools.Core.Revit;
+using KhimTools.Core.Revit.Failures;
+using KhimTools.Core.Workflow;
 using KhimTools.SectionCutTool.Models;
 
 namespace KhimTools.SectionCutTool.Core
@@ -69,9 +73,10 @@ namespace KhimTools.SectionCutTool.Core
 
             using (var tx = new Transaction(_doc, "K-TOOLS — Auto Create Section Views"))
             {
-                tx.Start();
+                TransactionBoundary.Start(tx, "SectionCut.GenerateSections");
                 var failOptions = tx.GetFailureHandlingOptions();
-                failOptions.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
+                var failurePolicy = new KnownWarningFailurePreprocessor();
+                failOptions.SetFailuresPreprocessor(failurePolicy);
                 tx.SetFailureHandlingOptions(failOptions);
 
                 try
@@ -122,8 +127,9 @@ namespace KhimTools.SectionCutTool.Core
                                     {
                                         view = ViewSection.CreateSection(_doc, vft.Id, placement.SectionBox);
                                     }
-                                    catch
+                                    catch (Exception exSection)
                                     {
+                                        System.Diagnostics.Debug.WriteLine("[SectionCut] primary section type failed: " + exSection.Message);
                                         // Thử các ViewFamilyType Section khác trong dự án
                                         var otherSectionVft = new FilteredElementCollector(_doc)
                                             .OfClass(typeof(ViewFamilyType))
@@ -156,17 +162,20 @@ namespace KhimTools.SectionCutTool.Core
                                     // Detail Level
                                     if (settings.SetFineDetailLevel)
                                     {
-                                        try { view.DetailLevel = ViewDetailLevel.Fine; } catch { }
+                                        try { view.DetailLevel = ViewDetailLevel.Fine; }
+                                        catch (Exception exDetail) { System.Diagnostics.Debug.WriteLine("[SectionCut] detail level: " + exDetail.Message); }
                                     }
 
                                     // Discipline
-                                    try { view.Discipline = ViewDiscipline.Structural; } catch { }
+                                    try { view.Discipline = ViewDiscipline.Structural; }
+                                    catch (Exception exDiscipline) { System.Diagnostics.Debug.WriteLine("[SectionCut] discipline: " + exDiscipline.Message); }
 
                                     // View Template
                                     View targetTemplate = placement.IsLongitudinal ? longTemplate : crossTemplate;
                                     if (targetTemplate != null)
                                     {
-                                        try { view.ViewTemplateId = targetTemplate.Id; } catch { }
+                                        try { view.ViewTemplateId = targetTemplate.Id; }
+                                        catch (Exception exTemplate) { System.Diagnostics.Debug.WriteLine("[SectionCut] template: " + exTemplate.Message); }
                                     }
 
                                     // Crop Box settings
@@ -175,7 +184,7 @@ namespace KhimTools.SectionCutTool.Core
                                         view.CropBoxActive = true;
                                         view.CropBoxVisible = !settings.HideCropRegionAfterCreation;
                                     }
-                                    catch { }
+                                    catch (Exception exCrop) { System.Diagnostics.Debug.WriteLine("[SectionCut] crop settings: " + exCrop.Message); }
 
                                     report.AddSuccess(item.Element, view, placement.IsLongitudinal);
 
@@ -190,16 +199,41 @@ namespace KhimTools.SectionCutTool.Core
                         }
                     }
 
-                    tx.Commit();
+                    TransactionStatus commitStatus = tx.Commit();
+                    if (commitStatus != TransactionStatus.Committed)
+                    {
+                        string failureReason = DescribeTransactionFailure(commitStatus, failurePolicy.Records);
+                        report.MarkRolledBack(failureReason);
+                        KToolsLog.Current.Log(WorkflowSeverity.Error, "SectionCut.GenerateSections",
+                            failureReason, "TRANSACTION_ROLLED_BACK");
+                    }
                 }
                 catch (Exception exTx)
                 {
-                    tx.RollBack();
+                    if (tx.GetStatus() == TransactionStatus.Started)
+                    {
+                        TransactionBoundary.RollBack(tx, "SectionCut.GenerateSections");
+                    }
+                    report.MarkRolledBack("Transaction exception: " + exTx.Message);
+                    KToolsLog.Current.Exception("SectionCut.GenerateSections", exTx, "TRANSACTION");
                     throw new InvalidOperationException($"Lỗi Transaction khi tạo mặt cắt: {exTx.Message}", exTx);
                 }
             }
 
             return report;
+        }
+
+        private static string DescribeTransactionFailure(
+            TransactionStatus status,
+            IReadOnlyList<FailureRecord> records)
+        {
+            if (records == null || records.Count == 0)
+            {
+                return "Section creation transaction did not commit: " + status;
+            }
+
+            return "Section creation transaction rolled back: " + string.Join("; ", records.Select(record =>
+                $"{record.Severity} {record.DefinitionId}: {record.Description}"));
         }
 
         public List<string> GetAvailableSectionViewTypes()

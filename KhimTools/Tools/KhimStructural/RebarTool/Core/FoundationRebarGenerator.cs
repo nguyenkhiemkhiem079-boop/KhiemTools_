@@ -1,5 +1,7 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -23,10 +25,17 @@ namespace KhimTools.RebarTool.Core
             _doc = doc ?? throw new ArgumentNullException(nameof(doc));
         }
 
-        public List<Rebar> Generate(FoundationProfile profile, FoundationRebarSettings settings, RebarGenerationReport report = null)
+        public List<Rebar> Generate(FoundationProfile profile, FoundationRebarSettings settings, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             if (profile == null || profile.FoundationElement == null || settings == null)
                 return new List<Rebar>();
+
+            if (settings.EnableSideTies)
+                throw new InvalidOperationException(
+                    "Foundation side ties are not implemented because their engineering detail is unresolved. Disable EnableSideTies or provide an approved detailing definition before generating reinforcement.");
+            if (settings.EnableColumnDowels && settings.EnableDowelStirrups && settings.DowelStirrupQty < 2)
+                throw new InvalidOperationException("At least two dowel-confainment stirrups are required when enabled.");
 
             var createdRebars = new List<Rebar>();
 
@@ -41,7 +50,6 @@ namespace KhimTools.RebarTool.Core
             RebarBarType botYType = FindBarType(barTypes, settings.BotYDiaLabel);
             RebarBarType topXType = FindBarType(barTypes, settings.TopXDiaLabel);
             RebarBarType topYType = FindBarType(barTypes, settings.TopYDiaLabel);
-            RebarBarType sideType = FindBarType(barTypes, settings.SideTieDiaLabel);
             RebarBarType dowelType = FindBarType(barTypes, settings.DowelDiaLabel);
 
             BoundingBoxXYZ bb = profile.BoundingBox;
@@ -64,11 +72,13 @@ namespace KhimTools.RebarTool.Core
             var botXRebars = CreateMatRebarSet(profile.FoundationElement, botXType, RebarHookOrientation.Left,
                 bb.Min.X + coverFeet, bb.Max.X - coverFeet, bb.Min.Y + coverFeet, bb.Max.Y - coverFeet,
                 zBotX, XYZ.BasisX, XYZ.BasisY, settings.BotXSpacingMm, vertHookH, settings.BotXHookUp, report, "Thép đáy móng X");
+            RecordRoles(botXRebars, "bottom-x", roleByBarId);
             createdRebars.AddRange(botXRebars);
 
             var botYRebars = CreateMatRebarSet(profile.FoundationElement, botYType, RebarHookOrientation.Right,
                 bb.Min.Y + coverFeet, bb.Max.Y - coverFeet, bb.Min.X + coverFeet, bb.Max.X - coverFeet,
                 zBotY, XYZ.BasisY, XYZ.BasisX, settings.BotYSpacingMm, vertHookH, settings.BotYHookUp, report, "Thép đáy móng Y");
+            RecordRoles(botYRebars, "bottom-y", roleByBarId);
             createdRebars.AddRange(botYRebars);
 
             // ── 2. TOP MAT (X & Y - Optional) ────────────────────────────────
@@ -77,11 +87,13 @@ namespace KhimTools.RebarTool.Core
                 var topXRebars = CreateMatRebarSet(profile.FoundationElement, topXType, RebarHookOrientation.Left,
                     bb.Min.X + coverFeet, bb.Max.X - coverFeet, bb.Min.Y + coverFeet, bb.Max.Y - coverFeet,
                     zTopX, XYZ.BasisX, XYZ.BasisY, settings.TopXSpacingMm, vertHookH, !settings.TopXHookDown, report, "Thép mặt móng X");
+                RecordRoles(topXRebars, "top-x", roleByBarId);
                 createdRebars.AddRange(topXRebars);
 
                 var topYRebars = CreateMatRebarSet(profile.FoundationElement, topYType, RebarHookOrientation.Right,
                     bb.Min.Y + coverFeet, bb.Max.Y - coverFeet, bb.Min.X + coverFeet, bb.Max.X - coverFeet,
                     zTopY, XYZ.BasisY, XYZ.BasisX, settings.TopYSpacingMm, vertHookH, !settings.TopYHookDown, report, "Thép mặt móng Y");
+                RecordRoles(topYRebars, "top-y", roleByBarId);
                 createdRebars.AddRange(topYRebars);
             }
 
@@ -89,12 +101,14 @@ namespace KhimTools.RebarTool.Core
             if (settings.EnableColumnDowels && dowelType != null)
             {
                 var dowels = CreateColumnDowels(profile, dowelType, settings, coverFeet, zBotX, report);
+                RecordRoles(dowels, "dowel", roleByBarId);
                 createdRebars.AddRange(dowels);
 
                 if (settings.EnableDowelStirrups)
                 {
                     RebarBarType dowelStirrupType = FindBarType(barTypes, settings.DowelStirrupDiaLabel);
                     var dowelStirrups = CreateDowelStirrups(profile, dowelStirrupType, settings, zBotX, bb.Max.Z, report);
+                    RecordRoles(dowelStirrups, "dowel-stirrup", roleByBarId);
                     createdRebars.AddRange(dowelStirrups);
                 }
             }
@@ -104,10 +118,18 @@ namespace KhimTools.RebarTool.Core
             {
                 RebarBarType uBarType = FindBarType(barTypes, settings.PerimeterStirrupDiaLabel);
                 var uBars = CreatePerimeterUBars(profile, uBarType, settings, coverFeet, zBotX, zTopX, report);
+                RecordRoles(uBars, "perimeter-u", roleByBarId);
                 createdRebars.AddRange(uBars);
             }
 
             return createdRebars;
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>())
+                if (bar != null) roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private List<Rebar> CreateMatRebarSet(FamilyInstance foundation, RebarBarType barType, RebarHookOrientation hookOrient,
@@ -250,7 +272,7 @@ namespace KhimTools.RebarTool.Core
                 double halfBx = colSizeX / 2.0;
                 double halfBy = colSizeY / 2.0;
 
-                int qty = Math.Max(2, settings.DowelStirrupQty);
+                int qty = settings.DowelStirrupQty;
                 double stepZ = (zTopFdn - zBot) / (qty + 1);
 
                 XYZ center = profile.Center;
@@ -373,7 +395,7 @@ namespace KhimTools.RebarTool.Core
             return list;
         }
 
-        private RebarBarType FindBarType(List<RebarBarType> list, string diaLabel)
+        internal static RebarBarType FindBarType(List<RebarBarType> list, string diaLabel)
         {
             if (string.IsNullOrWhiteSpace(diaLabel)) return list.FirstOrDefault();
             string search = diaLabel.Replace("d", "").Replace("Φ", "").Replace("ϕ", "").Trim();

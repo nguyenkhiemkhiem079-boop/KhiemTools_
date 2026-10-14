@@ -187,6 +187,13 @@ namespace KhimTools.Core
             if (layoutPulldown != null)
             {
                 AddPulldownItem(layoutPulldown, "CmdSheetGen", "Create Sheets (CSV)", "KhimTools.SheetGen.Commands.CmdSheetGen", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdSheetCopy", "Sheet Copy", "KhimTools.SheetCopy.Commands.CmdSheetCopy", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdSplitSchedule", "Split Schedule", "KhimTools.ScheduleSplit.Commands.CmdSplitSchedule", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdTitleBlockSync", "Title Block Sync", "KhimTools.TitleBlockSync.Commands.CmdTitleBlockSync", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdFilterManager", "Filter Manager", "KhimTools.FilterManager.Commands.CmdFilterManager", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdParameterManager", "Parameter Manager", "KhimTools.ParameterManager.Commands.CmdParameterManager", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdModifyObjects", "Modify Objects", "KhimTools.ModifyObjects.Commands.CmdModifyObjects", assemblyPath, "export_sheet_16.png");
+                AddPulldownItem(layoutPulldown, "CmdDimensionTools", "Dimension Tools", "KhimTools.DimensionTools.Commands.CmdDimensionTools", assemblyPath, "export_sheet_16.png");
                 AddPulldownItem(layoutPulldown, "CmdAlignViewport", "Align Viewports", "KhimTools.ViewportAlign.Commands.CmdAlignViewport", assemblyPath, "icon_align_16.png");
                 AddPulldownItem(layoutPulldown, "CmdUpdateDetailNumbers", "Update Detail No", "KhimTools.DetailNumberUpdater.Commands.CmdUpdateDetailNumbers", assemblyPath, "icon_detail_16.png");
                 
@@ -420,9 +427,8 @@ namespace KhimTools.Core
                 assemblyPath,
                 "KhimTools.RebarTool.Commands.CmdBeamRebar")
             {
-                ToolTip = "Bố trí thép dầm (Beam Rebar v2.0) chuẩn kết cấu TCVN & Eurocode.",
-                LongDescription = "Hỗ trợ thép chủ chạy suốt (top/bottom), thép gia cường gối L/3, " +
-                    "thép gia cường bụng L/6, thép sườn (skin bars), đai phân vùng A1/A2/A1 và đai treo dầm phụ.",
+                ToolTip = "Beam reinforcement: Legacy Supported or explicit Manual v1; geometry only, structural design/code compliance not verified.",
+                LongDescription = "Manual v1 requires explicit types, positions, stations, face covers and detailing. Support extensions require selected verified supports. No inferred design quantities or cut-off fractions.",
                 LargeImage = LoadImage("rebar_beam_32.png"),
                 Image = LoadImage("rebar_beam_16.png")
             };
@@ -453,6 +459,13 @@ namespace KhimTools.Core
                 Image = LoadImage("rebar_fdn_16.png")
             };
             panel.AddStackedItems(beamData, slabData, fdnData);
+            panel.AddItem(new PushButtonData("CmdWallRebar", "Wall Manual" + Environment.NewLine + "Rebar", assemblyPath,
+                "KhimTools.RebarTool.Commands.CmdWallRebar") {
+                ToolTip = "Explicit Wall-hosted straight bars, exact types/endpoints/covers; optional verified boundary Columns. Geometry only, no structural design approval.",
+                LargeImage=LoadImage("rebar_slab_32.png"), Image=LoadImage("rebar_slab_16.png") });
+            panel.AddItem(new PushButtonData("CmdColumnWallRelatedRebarV1","Column Host"+Environment.NewLine+"Wall Related",assemblyPath,"KhimTools.RebarTool.Commands.CmdColumnWallRelatedRebarV1") {
+                ToolTip="ContractB: actual structural Column host, explicit scenario/types/coordinates/covers/terminal embed. NOT a Wall proxy. Independently reviewed atomic assignments; geometry only.",
+                LargeImage=LoadImage("rebar_col_32.png"),Image=LoadImage("rebar_col_rect_16.png") });
 
             // 5. Section Cut
             var sectionData = new PushButtonData(
@@ -519,6 +532,10 @@ namespace KhimTools.Core
                 rebarTools.AddPushButton(shapesData);
                 rebarTools.AddSeparator();
                 rebarTools.AddPushButton(qaData);
+                rebarTools.AddSeparator();
+                AddPulldownItem(rebarTools, "CmdRuntimeQa", "Runtime QA",
+                    "KhimTools.RuntimeQa.Commands.CmdRuntimeQa", assemblyPath,
+                    "rebar_qa_16.png");
             }
         }
 
@@ -605,11 +622,11 @@ namespace KhimTools.Core
             // 1. MEP Openings
             var openingData = new PushButtonData(
                 "CmdMepOpenings",
-                "MEP Openings",
+                "MEP Clash" + Environment.NewLine + "Review",
                 assemblyPath,
                 "KhimTools.MEP.Penetrations.CmdMepOpenings")
             {
-                ToolTip = "Tự động kiểm tra xung đột ống MEP với Dầm/Sàn/Vách và đục lỗ mở (Openings).",
+                ToolTip = "Read-only exact-solid clash review (50 mm clearance each side) for visible ducts/pipes/cable trays versus structure. Recommends opening sizes; does not create openings.",
                 LargeImage = LoadImage("icon_mep_openings_32.png"),
                 Image = LoadImage("icon_mep_openings_16.png")
             };
@@ -618,15 +635,18 @@ namespace KhimTools.Core
             // 2. MEP Elevation Tags
             var tagData = new PushButtonData(
                 "CmdMepElevationTags",
-                "Elevation Tags",
+                "Elevation Notes",
                 assemblyPath,
                 "KhimTools.MEP.Tags.CmdMepElevationTags")
             {
-                ToolTip = "Tự động gán nhãn cao độ đáy (BOP/Invert Elevation) cho ống gió và ống nước.",
+                ToolTip = "Create BOP/invert and top elevation notes for supported ducts, pipes, and cable trays in the active view.",
                 LargeImage = LoadImage("icon_mep_tags_32.png"),
                 Image = LoadImage("icon_mep_tags_16.png")
             };
             panel.AddStackedItems(openingData, tagData);
+            panel.AddItem(new PushButtonData("CmdMepOpeningCreateV1","MEP Opening"+Environment.NewLine+"Confirm",assemblyPath,"KhimTools.MEP.Penetrations.CmdMepOpeningCreateV1") {
+                ToolTip="Explicit per-side clearance, reviewed conservative actual-clash rectangle, supported local Wall/Floor only; native cut verified or rolled back. No structural/fire approval or automatic reinforcement changes.",
+                LargeImage=LoadImage("icon_mep_openings_32.png"),Image=LoadImage("icon_mep_openings_16.png") });
         }
 
         private static void BuildQuantitySurveyingPanel(UIControlledApplication application, string assemblyPath)

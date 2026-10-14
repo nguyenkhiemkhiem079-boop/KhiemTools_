@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Include="../../KhimTools/Tools/KhimGen/Updater/Models/UpdateInfo.cs" Link="UpdateInfo.cs" />
+    <Compile Include="../../KhimTools/Tools/KhimGen/Updater/Services/UpdateService.cs" Link="UpdateService.cs" />
+  </ItemGroup>
+</Project>

@@ -84,7 +84,7 @@ namespace KhimTools.RebarTool.Forms
             var pnlRight = new System.Windows.Forms.Panel { Left = 445, Top = 65, Width = 350, Height = 430 };
             _lblInfo = new Label
             {
-                Text = "Danh sách 4 cạnh của Panel:",
+                Text = "Chọn cạnh để bỏ mũ gối.\r\nLoại tựa và bỏ lưới đáy chưa được áp dụng.",
                 Top = 5,
                 Left = 5,
                 AutoSize = true,
@@ -93,7 +93,7 @@ namespace KhimTools.RebarTool.Forms
 
             _gridEdges = new DataGridView
             {
-                Top = 30,
+                Top = 50,
                 Left = 0,
                 Width = 350,
                 Height = 390,
@@ -106,11 +106,11 @@ namespace KhimTools.RebarTool.Forms
             };
 
             var colIdx = new DataGridViewTextBoxColumn { HeaderText = "Cạnh", Width = 55, ReadOnly = true };
-            var colType = new DataGridViewComboBoxColumn { HeaderText = "Loại Tựa", Width = 120 };
+            var colType = new DataGridViewComboBoxColumn { HeaderText = "Loại tựa (chưa áp dụng)", Width = 145, ReadOnly = true };
             colType.Items.AddRange("Beam Support", "Slab Adjacent", "Free Edge");
 
             var colSkipTop = new DataGridViewCheckBoxColumn { HeaderText = "Skip Mũ", Width = 80 };
-            var colSkipBot = new DataGridViewCheckBoxColumn { HeaderText = "Skip Đáy", Width = 80 };
+            var colSkipBot = new DataGridViewCheckBoxColumn { HeaderText = "Bỏ đáy (chưa áp dụng)", Width = 125, ReadOnly = true };
 
             _gridEdges.Columns.AddRange(colIdx, colType, colSkipTop, colSkipBot);
             _gridEdges.CellValueChanged += (s, e) => { ReadGridData(); _canvas.Invalidate(); };
@@ -127,7 +127,7 @@ namespace KhimTools.RebarTool.Forms
             pnlRight.Controls.Add(_gridEdges);
             _lblInfo.Dock = DockStyle.Top;
             _lblInfo.AutoSize = false;
-            _lblInfo.Height = 32;
+            _lblInfo.Height = 42;
             _gridEdges.Dock = DockStyle.Fill;
             _gridEdges.BringToFront();
             _gridEdges.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells;

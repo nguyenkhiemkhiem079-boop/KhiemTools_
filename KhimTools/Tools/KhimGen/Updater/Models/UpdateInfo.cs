@@ -7,13 +7,19 @@ namespace KhimTools.Tools.Updater.Models
     public class UpdateInfo
     {
         [JsonProperty("latest_version")]
-        public string LatestVersion { get; set; } = "v2.7.1";
+        public string LatestVersion { get; set; } = "";
 
         [JsonProperty("current_version")]
-        public string CurrentVersion { get; set; } = "v2.0.0";
+        public string CurrentVersion { get; set; } = "";
 
         [JsonProperty("release_date")]
-        public string ReleaseDate { get; set; } = DateTime.Now.ToString("yyyy-MM-dd");
+        public string ReleaseDate { get; set; } = "";
+
+        [JsonIgnore]
+        public bool DiscoverySucceeded { get; set; }
+
+        [JsonIgnore]
+        public string DiscoveryError { get; set; } = "";
 
         [JsonProperty("download_url")]
         public string DownloadUrl { get; set; } = "";

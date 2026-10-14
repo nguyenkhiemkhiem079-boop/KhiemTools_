@@ -6,9 +6,11 @@ $service = Get-Content (Join-Path $Root "KhimTools/Tools/KhimGen/SheetGen/Servic
 $preflight = Get-Content (Join-Path $Root "KhimTools/Tools/KhimGen/SheetGen/Services/SheetGenPreflightService.cs") -Raw
 $form = Get-Content (Join-Path $Root "KhimTools/Tools/KhimGen/SheetGen/Forms/SheetGenForm.cs") -Raw
 $placement = Get-Content (Join-Path $Root "KhimTools/Tools/KhimGen/SheetGen/Services/SheetPlacementService.cs") -Raw
+$checks = 0
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (!$Condition) { throw "FAIL: $Message" }
+    $script:checks++
 }
 
 Assert-True ($service -notmatch 'Split\s*\(\s*[,]') "CSV import must not use naive comma splitting."
@@ -58,5 +60,9 @@ $csv = [char]0xFEFF + '"Sheet Number","Sheet Name","Title Block","Assigned View"
 $parsed = Parse-TestCsv $csv
 Assert-True ($parsed.Count -eq 3 -and $parsed[1][1] -eq "Plan, Level 1" -and $parsed[1][2] -eq 'TB "A"' -and $parsed[2][1] -eq "") "Quoted comma/quote/empty/BOM CSV test failed."
 Assert-True ($service -match 'UTF8Encoding\(false, true\)' -and $service -match 'StreamReader') "UTF-8/BOM-safe CSV reading is missing."
+Assert-True ($service -match 'TransactionBoundary\.Start\(group' -and $service -match 'TransactionBoundary\.Start\(tx') "Checked transaction start ownership is missing."
+Assert-True ($service -match 'TransactionBoundary\.Commit\(tx' -and $service -match 'TransactionBoundary\.Assimilate\(group') "Checked transaction commit/group lifecycle is missing."
+Assert-True ($service -match 'Sheet creation postcondition failed' -and $service -match 'Placed content postcondition failed') "Committed sheet/content postconditions are missing."
+Assert-True ($service -match 'TransactionBoundary\.RollBack\(tx') "Failed sheet creation must roll back through the checked boundary."
 
-Write-Host "PASS: SheetGen Wave 1.1 source contracts, series tokens, placement, transaction, and CSV parser checks."
+Write-Host "PASS: SheetGen Wave 1.1 source contracts and fixtures ($checks assertions)."

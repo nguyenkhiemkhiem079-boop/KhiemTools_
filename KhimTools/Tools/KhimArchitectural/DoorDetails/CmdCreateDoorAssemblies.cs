@@ -5,6 +5,9 @@ using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Autodesk.Revit.UI.Selection;
+using KhimTools.Core.Revit;
+using KhimTools.Architectural;
+using System.Diagnostics;
 
 namespace KhimTools.Architectural.DoorDetails
 {
@@ -14,6 +17,7 @@ namespace KhimTools.Architectural.DoorDetails
     {
         public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
         {
+            var timer = Stopwatch.StartNew();
             UIDocument uidoc = commandData.Application.ActiveUIDocument;
             Document doc = uidoc?.Document;
             if (doc == null) return Result.Cancelled;
@@ -24,51 +28,72 @@ namespace KhimTools.Architectural.DoorDetails
                 if (doors.Count == 0) return Result.Cancelled;
 
                 int created = 0, skipped = 0, failed = 0;
+                var existingNames = new HashSet<string>(new FilteredElementCollector(doc)
+                    .OfClass(typeof(AssemblyInstance)).Cast<AssemblyInstance>()
+                    .Select(x => x.AssemblyTypeName), StringComparer.OrdinalIgnoreCase);
+                var createdIds = new List<ElementId>();
                 using var transaction = new Transaction(doc, "K-TOOLS: Create door assemblies");
-                transaction.Start();
+                TransactionBoundary.Start(transaction, "Architectural.DoorAssemblies");
 
-                foreach (FamilyInstance door in doors)
+                try
                 {
-                    if (door.AssemblyInstanceId != ElementId.InvalidElementId)
+                    foreach (FamilyInstance door in doors)
                     {
-                        skipped++;
-                        continue;
-                    }
-
-                    using var sub = new SubTransaction(doc);
-                    sub.Start();
-                    try
-                    {
-                        var members = new List<ElementId> { door.Id };
-                        if (!AssemblyInstance.AreElementsValidForAssembly(doc, members, door.Category.Id))
+                        if (door.AssemblyInstanceId != ElementId.InvalidElementId)
                         {
-                            failed++;
-                            sub.RollBack();
+                            skipped++;
                             continue;
                         }
 
-                        AssemblyInstance assembly = AssemblyInstance.Create(doc, members, door.Category.Id);
-                        assembly.AssemblyTypeName = GetUniqueName(doc, door);
-
-                        if (assembly.AllowsAssemblyViewCreation())
+                        using var sub = new SubTransaction(doc);
+                        TransactionBoundary.Start(sub, "Architectural.DoorAssemblies");
+                        try
                         {
-                            CreateView(doc, assembly.Id, AssemblyDetailViewOrientation.ElevationFront, "Mặt đứng");
-                            CreateView(doc, assembly.Id, AssemblyDetailViewOrientation.DetailSectionA, "Mặt cắt A");
-                            CreateView(doc, assembly.Id, AssemblyDetailViewOrientation.HorizontalDetail, "Mặt bằng");
-                            AssemblyViewUtils.Create3DOrthographic(doc, assembly.Id);
+                            var members = new List<ElementId> { door.Id };
+                            if (!AssemblyInstance.AreElementsValidForAssembly(doc, members, door.Category.Id))
+                                throw new InvalidOperationException("Door is not valid as an assembly member.");
+
+                            AssemblyInstance assembly = AssemblyInstance.Create(doc, members, door.Category.Id);
+                            assembly.AssemblyTypeName = AllocateUniqueName(existingNames, door);
+
+                            if (assembly.AllowsAssemblyViewCreation())
+                            {
+                                RequireView(AssemblyViewUtils.CreateDetailSection(doc, assembly.Id, AssemblyDetailViewOrientation.ElevationFront));
+                                RequireView(AssemblyViewUtils.CreateDetailSection(doc, assembly.Id, AssemblyDetailViewOrientation.DetailSectionA));
+                                RequireView(AssemblyViewUtils.CreateDetailSection(doc, assembly.Id, AssemblyDetailViewOrientation.HorizontalDetail));
+                                RequireView(AssemblyViewUtils.Create3DOrthographic(doc, assembly.Id));
+                            }
+
+                            doc.Regenerate();
+                            var persisted = doc.GetElement(assembly.Id) as AssemblyInstance;
+                            if (persisted == null || persisted.AssemblyTypeName != assembly.AssemblyTypeName ||
+                                !persisted.GetMemberIds().Contains(door.Id) || door.AssemblyInstanceId != assembly.Id)
+                                throw new InvalidOperationException("Door assembly membership failed its postcondition.");
+
+                            TransactionBoundary.Commit(sub, "Architectural.DoorAssemblies");
+                            createdIds.Add(assembly.Id);
+                            created++;
                         }
+                        catch
+                        {
+                            TransactionBoundary.RollBack(sub, "Architectural.DoorAssemblies");
+                            failed++;
+                        }
+                    }
 
-                        sub.Commit();
-                        created++;
-                    }
-                    catch
-                    {
-                        if (sub.GetStatus() == TransactionStatus.Started) sub.RollBack();
-                        failed++;
-                    }
+                    if (createdIds.Any(id => !(doc.GetElement(id) is AssemblyInstance)))
+                        throw new InvalidOperationException("One or more created assemblies could not be resolved before commit.");
+                    if (created == 0) TransactionBoundary.RollBack(transaction, "Architectural.DoorAssemblies");
+                    else TransactionBoundary.Commit(transaction, "Architectural.DoorAssemblies");
                 }
-
-                transaction.Commit();
+                catch
+                {
+                    TransactionBoundary.RollBack(transaction, "Architectural.DoorAssemblies");
+                    throw;
+                }
+                timer.Stop();
+                ArchitecturalDiagnostics.Log(nameof(CmdCreateDoorAssemblies), doc, "create-door-assemblies",
+                    doors.Count, created, failed, timer.Elapsed);
                 TaskDialog.Show("K-TOOLS — Triển khai cửa Assembly",
                     $"Đã tạo {created} Assembly cửa và các view triển khai.\n" +
                     $"Bỏ qua cửa đã thuộc Assembly: {skipped}\nKhông tạo được: {failed}");
@@ -80,41 +105,29 @@ namespace KhimTools.Architectural.DoorDetails
             }
             catch (Exception ex)
             {
+                timer.Stop();
                 message = ex.Message;
+                ArchitecturalDiagnostics.Log(nameof(CmdCreateDoorAssemblies), doc, "create-door-assemblies", 0, 0, 1, timer.Elapsed, ex.GetType().FullName);
                 TaskDialog.Show("K-TOOLS — Triển khai cửa", ex.Message);
                 return Result.Failed;
             }
         }
 
-        private static void CreateView(Document doc, ElementId assemblyId,
-            AssemblyDetailViewOrientation orientation, string suffix)
+        private static void RequireView(View view)
         {
-            ViewSection view = AssemblyViewUtils.CreateDetailSection(doc, assemblyId, orientation);
-            if (view != null)
-            {
-                view.DetailLevel = ViewDetailLevel.Fine;
-                string baseName = (doc.GetElement(assemblyId) as AssemblyInstance)?.AssemblyTypeName ?? "Door";
-                TrySetViewName(view, $"{baseName} - {suffix}");
-            }
+            if (view == null) throw new InvalidOperationException("Revit did not create a requested assembly detail view.");
+            view.DetailLevel = ViewDetailLevel.Fine;
         }
 
-        private static void TrySetViewName(View view, string name)
-        {
-            try { view.Name = name; } catch { }
-        }
-
-        private static string GetUniqueName(Document doc, FamilyInstance door)
+        private static string AllocateUniqueName(HashSet<string> existing, FamilyInstance door)
         {
             string mark = door.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
             string baseName = string.IsNullOrWhiteSpace(mark)
                 ? $"DOOR-{door.Symbol?.Name ?? door.Id.ToString()}"
                 : $"DOOR-{mark}";
-            var existing = new HashSet<string>(new FilteredElementCollector(doc)
-                .OfClass(typeof(AssemblyInstance)).Cast<AssemblyInstance>()
-                .Select(x => x.AssemblyTypeName), StringComparer.OrdinalIgnoreCase);
-            if (!existing.Contains(baseName)) return baseName;
+            if (existing.Add(baseName)) return baseName;
             int number = 2;
-            while (existing.Contains($"{baseName}-{number}")) number++;
+            while (!existing.Add($"{baseName}-{number}")) number++;
             return $"{baseName}-{number}";
         }
 
@@ -126,7 +139,8 @@ namespace KhimTools.Architectural.DoorDetails
             if (doors.Count > 0) return doors;
             IList<Reference> picked = uidoc.Selection.PickObjects(ObjectType.Element,
                 new DoorFilter(), "Chọn cửa cần tạo Assembly, sau đó bấm Finish");
-            return picked.Select(x => doc.GetElement(x)).OfType<FamilyInstance>().Distinct().ToList();
+            return picked.Select(x => doc.GetElement(x)).OfType<FamilyInstance>()
+                .GroupBy(x => x.Id).Select(x => x.First()).ToList();
         }
 
         private static bool IsDoor(FamilyInstance item) =>

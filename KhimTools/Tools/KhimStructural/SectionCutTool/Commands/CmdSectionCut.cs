@@ -122,7 +122,8 @@ namespace KhimTools.SectionCutTool.Commands
             catch (Exception ex)
             {
                 message = ex.Message;
-                TaskDialog.Show("Section Cut Error", $"[{ex.GetType().Name}] {ex.Message}\n\nStackTrace:\n{ex.StackTrace}");
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][SectionCut] " + ex);
+                TaskDialog.Show("Section Cut Error", "Section cut creation failed. " + ex.Message);
                 return Result.Failed;
             }
         }

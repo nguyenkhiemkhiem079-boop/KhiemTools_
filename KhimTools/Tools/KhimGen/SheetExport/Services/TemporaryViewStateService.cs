@@ -1,3 +1,4 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -101,7 +102,7 @@ namespace KhimTools.SheetExport.Services
         {
             // IntegerValue is available on the legacy Revit API as well as the
             // modern target; the warning on newer targets is compatibility-only.
-            if (view == null || view.Id == null || !seen.Add(view.Id.IntegerValue)) return;
+            if (view == null || view.Id == null || !seen.Add(view.Id.ToCheckedIntValue())) return;
             bool enabled = false;
             ElementId propertiesId = ElementId.InvalidElementId;
             try { enabled = view.IsTemporaryViewPropertiesModeEnabled(); }

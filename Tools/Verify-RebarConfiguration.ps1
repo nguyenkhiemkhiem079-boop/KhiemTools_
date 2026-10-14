@@ -1,9 +1,10 @@
-param([string]$AssemblyPath = (Join-Path $PSScriptRoot '../KhimTools/bin/Release/net48/KhimTools.dll'))
+param(
+    [string]$AssemblyPath = (Join-Path $PSScriptRoot '../KhimTools/bin/Release/net48/KhimTools.dll'),
+    [string]$RevitApiDirectory = (Join-Path ${env:ProgramFiles} 'Autodesk/Revit 2024')
+)
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-foreach ($name in @('RevitAPI.dll','RevitAPIUI.dll')) {
-    [Reflection.Assembly]::LoadFrom("C:/Program Files/Autodesk/Revit 2023/$name") | Out-Null
-}
+[Reflection.Assembly]::LoadFrom((Join-Path $RevitApiDirectory 'RevitAPI.dll')) | Out-Null
 $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path $AssemblyPath))
 $configType = $assembly.GetType('KhimTools.RebarTool.Core.RebarConfiguration')
 $storeType = $assembly.GetType('KhimTools.RebarTool.Core.RebarConfigurationStore')
@@ -40,6 +41,17 @@ $rejected = $false
 try { $store.Save($stale) } catch { $rejected = $true }
 Assert $rejected 'Reject stale save'
 Assert ($store.Load().Members['Beam']['Ld'] -eq 55) 'Stale save did not overwrite'
+$recoveryStore = [Activator]::CreateInstance($storeType,@($directory,'project-recovery'))
+$recoveryConfig = [Activator]::CreateInstance($configType)
+$recoveryConfig.ProjectKey = 'project-recovery'
+$recoveryConfig.Project['Ld'] = 41
+$recoveryStore.Save($recoveryConfig)
+$recoveryConfig.Project['Ld'] = 42
+$recoveryStore.Save($recoveryConfig)
+$storePath = $storeType.GetField('_path',[Reflection.BindingFlags]'NonPublic,Instance').GetValue($recoveryStore)
+[IO.File]::WriteAllText($storePath,'{corrupt')
+$restored = $recoveryStore.Load()
+Assert ($restored.Project['Ld'] -eq 41) 'Corrupt project settings recover the latest valid revision backup'
 $other = [Activator]::CreateInstance($storeType,@($directory,'project-2'))
 Assert ($other.Load().Revision -eq 0) 'Project isolation'
 foreach ($json in @('null','{"SchemaVersion":99}','{"Project":{"x":-1}}','{"Project":{"x":1000001}}','{"Members":{"Beam":null}}','not json')) {
@@ -85,11 +97,10 @@ foreach ($name in @('RectangularColumn','CircularColumn','Foundation','Slab','Be
         if ($name -eq 'Beam') {
             $type.GetField('_configLd',$flags).GetValue($form).Value = 45
             $type.GetField('_configHookTail',$flags).GetValue($form).Value = 16
-            $type.GetField('_configSideThreshold',$flags).GetValue($form).Value = 800
             $input = $type.GetMethod('CreateGenerationInput',$flags).Invoke($form,@($null))
             Assert ($input.LdMultiplier -eq 45) 'Beam anchorage reaches generation input'
             Assert ($input.HookTailMultiplier -eq 16) 'Beam hook tail reaches generation input'
-            Assert ($input.SideBarThresholdMm -eq 800) 'Beam skin threshold reaches generation input'
+            Assert ($input.TopLeftExtraQty -eq 0 -and $input.TopRightExtraQty -eq 0 -and $input.BottomMidExtraQty -eq 0 -and -not $input.AutoSideBars) 'Unsupported Beam extras and hidden automatic side bars remain disabled'
             $type.GetField('_rbStirrupUniform',$flags).GetValue($form).Checked = $true
             $type.GetField('_txtStirrupA1Uniform',$flags).GetValue($form).Text = '125'
             $input = $type.GetMethod('CreateGenerationInput',$flags).Invoke($form,@($null))

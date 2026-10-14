@@ -64,12 +64,12 @@ namespace KhimTools.SlabStep.Services
             }
             try
             {
-                double expected = (SlabStepService.GetFloorTopElevation(high) - SlabStepService.GetFloorTopElevation(low)) * 304.8;
+                double expected = KhimTools.Core.Revit.RevitUnitService.FeetToMillimetres(SlabStepService.GetFloorTopElevation(high) - SlabStepService.GetFloorTopElevation(low));
                 if (expected <= 0) return "Cao độ hai sàn không còn đúng thứ tự cao/thấp.";
                 var parameter = step.LookupParameter(settings.HeightParameterName);
                 if (parameter == null || parameter.StorageType != StorageType.Double || parameter.Definition.GetDataType() != SpecTypeId.Length)
                     return "Không tìm thấy tham số chiều cao Length của instance: " + settings.HeightParameterName;
-                double actual = parameter.AsDouble() * 304.8;
+                double actual = KhimTools.Core.Revit.RevitUnitService.FeetToMillimetres(parameter.AsDouble());
                 string value = HeightMatches(actual, expected) ? "Giá trị đúng" : "SAI GIÁ TRỊ";
                 if (step.Location is LocationCurve currentCurve) midpoint = currentCurve.Curve.Evaluate(0.5, true);
                 if (midpoint == null)
@@ -85,9 +85,9 @@ namespace KhimTools.SlabStep.Services
                 }
                 var side = step.GetTransform().BasisY;
                 side = new XYZ(side.X, side.Y, 0).Normalize() * (settings.ReverseOrientation ? 1 : -1);
-                bool inside = SlabStepService.IsPointInsideFloor2D(low, midpoint + side * (50 / 304.8));
-                bool opposite = SlabStepService.IsPointInsideFloor2D(low, midpoint - side * (50 / 304.8));
-                bool highOpposite = SlabStepService.IsPointInsideFloor2D(high, midpoint - side * (50 / 304.8));
+                bool inside = SlabStepService.IsPointInsideFloor2D(low, midpoint + side * KhimTools.Core.Revit.RevitUnitService.MillimetresToFeet(50));
+                bool opposite = SlabStepService.IsPointInsideFloor2D(low, midpoint - side * KhimTools.Core.Revit.RevitUnitService.MillimetresToFeet(50));
+                bool highOpposite = SlabStepService.IsPointInsideFloor2D(high, midpoint - side * KhimTools.Core.Revit.RevitUnitService.MillimetresToFeet(50));
                 string orientation = inside == opposite || (inside && !highOpposite) ? "Chưa xác định chiều: Step không ở ranh giới hai sàn"
                     : inside ? "Chiều đúng" : "SAI CHIỀU";
                 return $"{value}: {actual:0.##} / chuẩn {expected:0.##} mm (±1 mm). {orientation}.";

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using Newtonsoft.Json;
+using KhimTools.Core.Settings;
 
 namespace KhimTools.OverrideTool.Services
 {
@@ -22,6 +23,7 @@ namespace KhimTools.OverrideTool.Services
 
     public class OverrideColorSettings
     {
+        public int SchemaVersion { get; set; }
         private static readonly string SettingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "KhimTools", "override_colors.json");
@@ -30,42 +32,46 @@ namespace KhimTools.OverrideTool.Services
 
         public static OverrideColorSettings Load()
         {
-            try
-            {
-                if (File.Exists(SettingsPath))
+            return JsonSettingsPersistence.Load(SettingsPath,
+                () => new OverrideColorSettings { SchemaVersion = 1 }, IsValid,
+                settings =>
                 {
-                    string json = File.ReadAllText(SettingsPath);
-                    var loaded = JsonConvert.DeserializeObject<OverrideColorSettings>(json);
-                    if (loaded?.Presets != null)
-                    {
-                        // Preserve custom slots while migrating older nine-color palettes.
-                        var normalized = DefaultPresets();
-                        for (int i = 0; i < Math.Min(16, loaded.Presets.Count); i++)
-                        {
-                            var preset = loaded.Presets[i];
-                            if (preset != null && preset.R >= 0 && preset.R <= 255 &&
-                                preset.G >= 0 && preset.G <= 255 && preset.B >= 0 && preset.B <= 255)
-                                normalized[i] = preset;
-                        }
-                        loaded.Presets = normalized;
-                        return loaded;
-                    }
-                }
-            }
-            catch { }
-            return new OverrideColorSettings();
+                    if (settings.SchemaVersion != 0 || settings.Presets == null) return false;
+                    Normalize(settings);
+                    settings.SchemaVersion = 1;
+                    return true;
+                });
         }
 
         public void Save()
         {
             try
             {
-                string dir = Path.GetDirectoryName(SettingsPath);
-                if (!string.IsNullOrEmpty(dir))
-                    Directory.CreateDirectory(dir);
-                File.WriteAllText(SettingsPath, JsonConvert.SerializeObject(this, Formatting.Indented));
+                SchemaVersion = 1;
+                Normalize(this);
+                JsonSettingsPersistence.Save(SettingsPath, this, IsValid);
             }
             catch { }
+        }
+
+        private static void Normalize(OverrideColorSettings settings)
+        {
+            var normalized = DefaultPresets();
+            for (int i = 0; i < Math.Min(16, settings.Presets.Count); i++)
+            {
+                var preset = settings.Presets[i];
+                if (preset != null && preset.R >= 0 && preset.R <= 255 &&
+                    preset.G >= 0 && preset.G <= 255 && preset.B >= 0 && preset.B <= 255)
+                    normalized[i] = preset;
+            }
+            settings.Presets = normalized;
+        }
+
+        private static bool IsValid(OverrideColorSettings settings)
+        {
+            if (settings == null || settings.SchemaVersion != 1 || settings.Presets == null || settings.Presets.Count != 16) return false;
+            return settings.Presets.TrueForAll(p => p != null && !string.IsNullOrWhiteSpace(p.Name) && p.Name.Length <= 100 &&
+                p.R >= 0 && p.R <= 255 && p.G >= 0 && p.G <= 255 && p.B >= 0 && p.B <= 255);
         }
 
         public static List<OverrideColorPreset> DefaultPresets()

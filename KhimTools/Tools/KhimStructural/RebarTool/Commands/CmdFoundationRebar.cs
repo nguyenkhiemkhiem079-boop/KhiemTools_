@@ -30,7 +30,7 @@ namespace KhimTools.RebarTool.Commands
                     foreach (ElementId id in selectedIds)
                     {
                         Element elem = doc.GetElement(id);
-                        if (elem is FamilyInstance fdn && elem.Category?.BuiltInCategory == BuiltInCategory.OST_StructuralFoundation)
+                        if (elem is FamilyInstance fdn && elem.Category?.GetBuiltInCategoryCompat() == BuiltInCategory.OST_StructuralFoundation)
                         {
                             foundations.Add(fdn);
                         }

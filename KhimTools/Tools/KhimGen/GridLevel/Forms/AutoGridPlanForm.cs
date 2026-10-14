@@ -1,6 +1,7 @@
 ﻿using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -513,50 +514,71 @@ namespace KhimTools.GridLevel.Forms
                 return;
             }
 
-            // 1. Thu thập dữ liệu Grids
-            GridsResult = new GridSettings
+            // Validate all user-entered values before closing the form or starting model work.
+            try
             {
-                CreateGrids = _chkCreateGrids.Checked,
-                XStartName = _txtXStartName.Text.Trim(),
-                XSpacingsString = _txtXSpacings.Text.Trim(),
-                XExtensionMm = (double)_numXExtension.Value,
-                XShowBubbleEnd0 = _chkXBubble0.Checked,
-                XShowBubbleEnd1 = _chkXBubble1.Checked,
-
-                YStartName = _txtYStartName.Text.Trim(),
-                YSpacingsString = _txtYSpacings.Text.Trim(),
-                YExtensionMm = (double)_numYExtension.Value,
-                YShowBubbleEnd0 = _chkYBubble0.Checked,
-                YShowBubbleEnd1 = _chkYBubble1.Checked,
-
-                Origin = new XYZ(
-                    UnitUtils.ConvertToInternalUnits((double)_numOriginX.Value, UnitTypeId.Millimeters),
-                    UnitUtils.ConvertToInternalUnits((double)_numOriginY.Value, UnitTypeId.Millimeters),
-                    0),
-                RotationDegrees = (double)_numRotation.Value,
-                CreateDimensions = _chkCreateDimensions.Checked
-            };
-
-            // 2. Thu thập dữ liệu Levels
-            LevelsResult.Clear();
-            foreach (DataGridViewRow row in _dgvLevels.Rows)
-            {
-                string name = row.Cells[0].Value?.ToString() ?? "";
-                double.TryParse(row.Cells[1].Value?.ToString(), out double elev);
-                double.TryParse(row.Cells[2].Value?.ToString(), out double height);
-                bool structPlan = (bool)(row.Cells[3].Value ?? true);
-                bool floorPlan = (bool)(row.Cells[4].Value ?? true);
-                bool ceilingPlan = (bool)(row.Cells[5].Value ?? false);
-
-                LevelsResult.Add(new LevelItem
+                if (_chkCreateGrids.Checked)
                 {
-                    LevelName = name,
-                    ElevationMm = elev,
-                    StoryHeightMm = height,
-                    CreateStructuralPlan = structPlan,
-                    CreateFloorPlan = floorPlan,
-                    CreateCeilingPlan = ceilingPlan
-                });
+                    if (string.IsNullOrWhiteSpace(_txtXStartName.Text) || string.IsNullOrWhiteSpace(_txtYStartName.Text))
+                        throw new FormatException("Grid starting names are required.");
+                    if (GridGeneratorService.ParseSpacings(_txtXSpacings.Text).Count == 0 ||
+                        GridGeneratorService.ParseSpacings(_txtYSpacings.Text).Count == 0)
+                        throw new FormatException("Enter at least one positive X and Y grid spacing in millimetres.");
+                }
+
+                var parsedLevels = new List<LevelItem>();
+                if (_chkCreateLevels.Checked)
+                {
+                    foreach (DataGridViewRow row in _dgvLevels.Rows)
+                    {
+                        if (row.IsNewRow) continue;
+                        string name = row.Cells[0].Value?.ToString()?.Trim() ?? "";
+                        if (!double.TryParse(row.Cells[1].Value?.ToString(), NumberStyles.Float, CultureInfo.CurrentCulture, out double elev) ||
+                            double.IsNaN(elev) || double.IsInfinity(elev))
+                            throw new FormatException("Every level elevation must be a finite number in millimetres.");
+                        if (!double.TryParse(row.Cells[2].Value?.ToString(), NumberStyles.Float, CultureInfo.CurrentCulture, out double height) ||
+                            double.IsNaN(height) || double.IsInfinity(height) || height <= 0)
+                            throw new FormatException("Every story height must be a positive finite number in millimetres.");
+                        if (string.IsNullOrWhiteSpace(name)) throw new FormatException("Every level requires a name.");
+
+                        parsedLevels.Add(new LevelItem
+                        {
+                            LevelName = name,
+                            ElevationMm = elev,
+                            StoryHeightMm = height,
+                            CreateStructuralPlan = (bool)(row.Cells[3].Value ?? true),
+                            CreateFloorPlan = (bool)(row.Cells[4].Value ?? true),
+                            CreateCeilingPlan = (bool)(row.Cells[5].Value ?? false)
+                        });
+                    }
+                    if (parsedLevels.Count == 0) throw new FormatException("Add at least one level before generating levels and plans.");
+                }
+
+                GridsResult = new GridSettings
+                {
+                    CreateGrids = _chkCreateGrids.Checked,
+                    XStartName = _txtXStartName.Text.Trim(),
+                    XSpacingsString = _txtXSpacings.Text.Trim(),
+                    XExtensionMm = (double)_numXExtension.Value,
+                    XShowBubbleEnd0 = _chkXBubble0.Checked,
+                    XShowBubbleEnd1 = _chkXBubble1.Checked,
+                    YStartName = _txtYStartName.Text.Trim(),
+                    YSpacingsString = _txtYSpacings.Text.Trim(),
+                    YExtensionMm = (double)_numYExtension.Value,
+                    YShowBubbleEnd0 = _chkYBubble0.Checked,
+                    YShowBubbleEnd1 = _chkYBubble1.Checked,
+                    Origin = new XYZ(
+                        UnitUtils.ConvertToInternalUnits((double)_numOriginX.Value, UnitTypeId.Millimeters),
+                        UnitUtils.ConvertToInternalUnits((double)_numOriginY.Value, UnitTypeId.Millimeters), 0),
+                    RotationDegrees = (double)_numRotation.Value,
+                    CreateDimensions = _chkCreateDimensions.Checked
+                };
+                LevelsResult = parsedLevels;
+            }
+            catch (Exception ex)
+            {
+                TaskDialog.Show("Khim Tools — Invalid Input", ex.Message);
+                return;
             }
 
             DialogResult = DialogResult.OK;

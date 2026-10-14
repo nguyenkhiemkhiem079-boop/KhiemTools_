@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json;
+using System.Linq;
+using System.Reflection;
+using KhimTools.Core.Settings;
 using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Models
@@ -11,6 +13,7 @@ namespace KhimTools.RebarTool.Models
     /// </summary>
     public class FoundationRebarSettings
     {
+        public int SchemaVersion { get; set; }
         public string TemplateName { get; set; } = "Mặc định Móng Đơn (800x800x600)";
 
         // ── 1. Lớp Thép Dưới (Bottom Mesh X & Y) ────────────────────────────
@@ -33,7 +36,8 @@ namespace KhimTools.RebarTool.Models
         public bool TopYHookDown { get; set; } = true;
 
         // ── 3. Thép Đai Mép Móng / Thép Chữ U Gia Cường (Side Ties & Perimeter Edge U-Bars) ────────
-        public bool EnableSideTies { get; set; } = true;
+        // Not generated until the engineering detail is defined; keep old template values readable but fail closed.
+        public bool EnableSideTies { get; set; } = false;
         public string SideTieDiaLabel { get; set; } = "d10";
         public double SideTieSpacingMm { get; set; } = 200;
 
@@ -53,7 +57,7 @@ namespace KhimTools.RebarTool.Models
 
         public bool EnableDowelStirrups { get; set; } = true;
         public string DowelStirrupDiaLabel { get; set; } = "d10";
-        public int DowelStirrupQty { get; set; } = 3; // Đai lồng cố định chân cột nằm trong lòng móng
+        public int DowelStirrupQty { get; set; } = 3; // At least two are required when enabled.
 
         // ── 5. Tiêu Chuẩn Thiết Kế & Vật Liệu ──────────────────────────────
         public string DesignCode { get; set; } = "TCVN 5574:2018"; // TCVN 5574:2018 hoặc Eurocode 2
@@ -86,9 +90,10 @@ namespace KhimTools.RebarTool.Models
             try
             {
                 settings.TemplateName = templateName.Trim();
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{settings.TemplateName}.json");
-                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
-                File.WriteAllText(filePath, json);
+                settings.SchemaVersion = 1;
+                if (!IsValid(settings)) return false;
+                string filePath = GetTemplatePath(templateName);
+                JsonSettingsPersistence.Save(filePath, settings, IsValid);
                 return true;
             }
             catch { return false; }
@@ -99,10 +104,10 @@ namespace KhimTools.RebarTool.Models
             if (string.IsNullOrWhiteSpace(templateName)) return null;
             try
             {
-                string filePath = Path.Combine(GetTemplateDirectory(), $"{templateName.Trim()}.json");
+                string filePath = GetTemplatePath(templateName);
                 if (!File.Exists(filePath)) return null;
-                string json = File.ReadAllText(filePath);
-                return JsonConvert.DeserializeObject<FoundationRebarSettings>(json);
+                return JsonSettingsPersistence.Load<FoundationRebarSettings>(filePath, () => null, IsValid,
+                    value => { if (value.SchemaVersion != 0) return false; value.SchemaVersion = 1; return true; });
             }
             catch { return null; }
         }
@@ -127,6 +132,33 @@ namespace KhimTools.RebarTool.Models
                 list.Add(defaultSetting.TemplateName);
             }
             return list;
+        }
+
+        private static string GetTemplatePath(string name)
+        {
+            string safe = string.Concat(name.Trim().Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+            if (string.IsNullOrWhiteSpace(safe) || safe == "." || safe == "..") throw new InvalidDataException("Invalid template name.");
+            return Path.Combine(GetTemplateDirectory(), safe + ".json");
+        }
+
+        private static bool IsValid(FoundationRebarSettings settings)
+        {
+            if (settings == null || settings.SchemaVersion != 1 || string.IsNullOrWhiteSpace(settings.TemplateName) ||
+                settings.TemplateName.Length > 100 || (settings.DesignCode != "TCVN 5574:2018" && settings.DesignCode != "Eurocode 2")) return false;
+            foreach (PropertyInfo property in settings.GetType().GetProperties())
+            {
+                if (property.PropertyType == typeof(double))
+                {
+                    double value = (double)property.GetValue(settings, null);
+                    if (double.IsNaN(value) || double.IsInfinity(value) || value < 0 || value > 1000000) return false;
+                }
+                if (property.PropertyType == typeof(int))
+                {
+                    int value = (int)property.GetValue(settings, null);
+                    if (value < 0 || value > 1000000) return false;
+                }
+            }
+            return true;
         }
     }
 }

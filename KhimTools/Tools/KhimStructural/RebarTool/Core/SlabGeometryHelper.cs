@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using KhimTools.Core;
@@ -16,6 +17,12 @@ namespace KhimTools.RebarTool.Core
         public static SlabProfile AnalyzeSlab(Document doc, Floor floor)
         {
             if (doc == null || floor == null) return null;
+            if (floor.Document != doc)
+                throw new InvalidOperationException("Slab host does not belong to the active document.");
+
+            Parameter structuralParameter = floor.get_Parameter(BuiltInParameter.FLOOR_PARAM_IS_STRUCTURAL);
+            if (structuralParameter == null || !structuralParameter.HasValue || structuralParameter.AsInteger() != 1)
+                throw new InvalidOperationException("Slab reinforcement requires a structural Floor host; non-structural floors are not supported.");
 
             var profile = new SlabProfile
             {
@@ -25,75 +32,54 @@ namespace KhimTools.RebarTool.Core
                 LevelName = doc.GetElement(floor.LevelId)?.Name ?? "?",
                 BoundingBox = floor.get_BoundingBox(null)
             };
+            if (profile.BoundingBox == null)
+                throw new InvalidOperationException("Slab model bounds are unavailable; reinforcement cannot be safely planned.");
 
-            // 1. Độ dày sàn
-            double thicknessFeet = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
+            // This generator places bars using the host's overall top/bottom bounds. Only accept
+            // floors where those bounds describe the structural core itself, not finish layers.
+            double physicalThickness = profile.BoundingBox.Max.Z - profile.BoundingBox.Min.Z;
+            double structuralCoreThickness = floor.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
                                   ?? floor.FloorType.get_Parameter(BuiltInParameter.STRUCTURAL_FLOOR_CORE_THICKNESS)?.AsDouble()
-                                  ?? 0.5;
-            profile.ThicknessFeet = thicknessFeet;
-            profile.ThicknessMm = UnitUtils.ConvertFromInternalUnits(thicknessFeet, UnitTypeId.Millimeters);
+                                  ?? 0.0;
+            double thicknessTolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (structuralCoreThickness <= 0 || Math.Abs(physicalThickness - structuralCoreThickness) > thicknessTolerance)
+                throw new InvalidOperationException("Slab reinforcement currently requires the overall host thickness to match its structural core; floors with finish layers need a core-specific detailing workflow.");
+            profile.ThicknessFeet = physicalThickness;
+            profile.ThicknessMm = UnitUtils.ConvertFromInternalUnits(physicalThickness, UnitTypeId.Millimeters);
 
             // 2. Lớp bê tông bảo vệ
             profile.CoverTopFeet = RebarCoverHelper.GetFloorCover(floor, RebarFace.Top);
             profile.CoverBottomFeet = RebarCoverHelper.GetFloorCover(floor, RebarFace.Bottom);
 
             // 3. Trích xuất Face trên cùng & ranh giới (Top Face Boundary)
-            PlanarFace topFace = GetTopPlanarFace(floor);
-            if (topFace != null)
+            PlanarFace topFace = GetTopPlanarFace(floor, profile.BoundingBox);
+            if (topFace == null || !topFace.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ, 1e-6))
+                throw new InvalidOperationException("Slab reinforcement currently supports horizontal planar floors only; sloped or non-planar hosts require a host-specific detailing workflow.");
+
+            profile.Normal = topFace.FaceNormal;
+            profile.Origin = topFace.Origin;
+            IList<CurveLoop> loops = topFace.GetEdgesAsCurveLoops();
+            if (loops == null || loops.Count == 0)
+                throw new InvalidOperationException("Slab top-face boundary geometry is unavailable; reinforcement cannot be safely clipped to the host.");
+            if (loops.Any(loop => !IsSupportedHorizontalLinearLoop(loop, topFace.Origin.Z)))
+                throw new InvalidOperationException("Slab reinforcement currently supports straight-edged horizontal boundaries and openings only.");
+
+            // Generation and opening clipping use global model X/Y and rectangular opening extents.
+            // Reject rotated edges and non-rectangular voids before a preview/create plan is produced.
+            if (loops.Any(loop => !IsAxisAlignedLoop(loop)))
+                throw new InvalidOperationException("Slab reinforcement currently supports global X/Y-aligned plan boundaries only; rotated slab edges are unsupported.");
+
+            // The largest actual top-face loop is the outer boundary. Remaining loops are the
+            // actual void boundaries; never synthesize a rectangular opening from its bounding box.
+            var sortedLoops = loops.OrderByDescending(GetLoopArea)
+                .ThenBy(GetLoopSortKey, StringComparer.Ordinal).ToList();
+            profile.OuterBoundary = sortedLoops[0];
+            for (int i = 1; i < sortedLoops.Count; i++)
             {
-                profile.Normal = topFace.FaceNormal;
-                profile.Origin = topFace.Origin;
-
-                IList<CurveLoop> loops = topFace.GetEdgesAsCurveLoops();
-                if (loops != null && loops.Count > 0)
-                {
-                    // Loop có diện tích lớn nhất là ranh giới ngoài
-                    var sortedLoops = loops.OrderByDescending(GetLoopArea).ToList();
-                    profile.OuterBoundary = sortedLoops[0];
-
-                    // Các loop còn lại trên Face là lỗ mở trong sàn
-                    for (int i = 1; i < sortedLoops.Count; i++)
-                    {
-                        profile.InnerOpenings.Add(sortedLoops[i]);
-                    }
-                }
+                if (!IsAxisAlignedRectangle(sortedLoops[i]))
+                    throw new InvalidOperationException("Slab mesh clipping currently supports axis-aligned rectangular openings only.");
+                profile.InnerOpenings.Add(sortedLoops[i]);
             }
-
-            // 4. Tìm thêm các Opening (Shaft Opening / Floor Opening) cắt qua Floor trong mô hình
-            try
-            {
-                var openings = new FilteredElementCollector(doc)
-                    .OfClass(typeof(Opening))
-                    .WherePasses(new ElementIntersectsElementFilter(floor))
-                    .Cast<Opening>()
-                    .ToList();
-
-                foreach (var op in openings)
-                {
-                    var bbOp = op.get_BoundingBox(null);
-                    if (bbOp != null)
-                    {
-                        double minX = bbOp.Min.X; double maxX = bbOp.Max.X;
-                        double minY = bbOp.Min.Y; double maxY = bbOp.Max.Y;
-                        double z = topFace?.Origin.Z ?? floor.get_BoundingBox(null)?.Max.Z ?? 0;
-
-                        var opLoop = new CurveLoop();
-                        opLoop.Append(Line.CreateBound(new XYZ(minX, minY, z), new XYZ(maxX, minY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(maxX, minY, z), new XYZ(maxX, maxY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(maxX, maxY, z), new XYZ(minX, maxY, z)));
-                        opLoop.Append(Line.CreateBound(new XYZ(minX, maxY, z), new XYZ(minX, minY, z)));
-                        
-                        // Kiểm tra không trùng với các loop đã có
-                        bool duplicate = profile.InnerOpenings.Any(existing => 
-                            GetLoopArea(existing) > 0 && Math.Abs(GetLoopArea(existing) - GetLoopArea(opLoop)) < 0.1);
-                        if (!duplicate)
-                        {
-                            profile.InnerOpenings.Add(opLoop);
-                        }
-                    }
-                }
-            }
-            catch { }
 
             // 5. Kích thước BoundingBox
             if (profile.BoundingBox != null)
@@ -186,7 +172,7 @@ namespace KhimTools.RebarTool.Core
         public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
             double fixedCoord, bool isXDirection,
             CurveLoop boundary, List<CurveLoop> openings,
-            double anchorFeet, double coverFeet)
+            double coverFeet)
         {
             var rawCrossings = new List<double>();
             if (boundary == null) return new List<(double, double)>();
@@ -245,6 +231,15 @@ namespace KhimTools.RebarTool.Core
             return finalIntervals;
         }
 
+        [Obsolete("anchorFeet is not applied by slab interval clipping. Use the overload without anchorFeet.")]
+        public static List<(double Start, double End)> GetSlabIntervalsAtCoord(
+            double fixedCoord, bool isXDirection,
+            CurveLoop boundary, List<CurveLoop> openings,
+            double anchorFeet, double coverFeet)
+        {
+            return GetSlabIntervalsAtCoord(fixedCoord, isXDirection, boundary, openings, coverFeet);
+        }
+
         /// <summary>
         /// Kiểm tra xem một tọa độ điểm (X, Y) có nằm trong khối bê tông của sàn và nằm ngoài các lỗ mở hay không.
         /// </summary>
@@ -282,14 +277,18 @@ namespace KhimTools.RebarTool.Core
             return inside;
         }
 
-        private static PlanarFace GetTopPlanarFace(Floor floor)
+        private static PlanarFace GetTopPlanarFace(Floor floor, BoundingBoxXYZ bounds)
         {
             var options = new Options { ComputeReferences = true, DetailLevel = ViewDetailLevel.Fine };
             GeometryElement geomElem = floor.get_Geometry(options);
             if (geomElem == null) return null;
 
-            PlanarFace topFace = null;
-            double maxZ = -double.MaxValue;
+            var positiveSolids = geomElem.OfType<Solid>().Where(solid => solid != null && solid.Volume > 1e-6).ToList();
+            if (positiveSolids.Count != 1 || geomElem.OfType<GeometryInstance>().Any())
+                throw new InvalidOperationException("Slab reinforcement requires one direct host solid; compound or transformed floor geometry is unsupported.");
+
+            var upwardFaces = new List<PlanarFace>();
+            var downwardFaces = new List<PlanarFace>();
 
             foreach (GeometryObject obj in geomElem)
             {
@@ -297,19 +296,55 @@ namespace KhimTools.RebarTool.Core
                 {
                     foreach (Face face in solid.Faces)
                     {
-                        if (face is PlanarFace pf && pf.FaceNormal.IsAlmostEqualTo(XYZ.BasisZ, 0.5))
+                        if (!(face is PlanarFace pf))
+                            throw new InvalidOperationException("Slab reinforcement requires planar host faces; curved or non-planar faces are unsupported.");
+                        else
                         {
-                            if (pf.Origin.Z > maxZ)
-                            {
-                                maxZ = pf.Origin.Z;
-                                topFace = pf;
-                            }
+                            double verticalNormal = pf.FaceNormal.DotProduct(XYZ.BasisZ);
+                            if (verticalNormal >= 1.0 - 1e-6) upwardFaces.Add(pf);
+                            else if (verticalNormal <= -1.0 + 1e-6) downwardFaces.Add(pf);
+                            else if (Math.Abs(verticalNormal) > 1e-6)
+                                throw new InvalidOperationException("Slab reinforcement requires vertical side faces; tapered or sloped side geometry is unsupported.");
                         }
                     }
                 }
             }
 
-            return topFace;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            if (upwardFaces.Count != 1 || downwardFaces.Count != 1 ||
+                Math.Abs(upwardFaces[0].Origin.Z - bounds.Max.Z) > tolerance ||
+                Math.Abs(downwardFaces[0].Origin.Z - bounds.Min.Z) > tolerance)
+                throw new InvalidOperationException("Slab reinforcement currently requires one horizontal top face and one horizontal bottom face at the model bounds; stepped, tapered, or multi-face floors require host-specific detailing.");
+            return upwardFaces[0];
+        }
+
+        private static bool IsAxisAlignedLoop(CurveLoop loop)
+        {
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            foreach (Curve curve in loop)
+            {
+                XYZ start = curve.GetEndPoint(0);
+                XYZ end = curve.GetEndPoint(1);
+                bool alongX = Math.Abs(start.Y - end.Y) <= tolerance && Math.Abs(start.X - end.X) > tolerance;
+                bool alongY = Math.Abs(start.X - end.X) <= tolerance && Math.Abs(start.Y - end.Y) > tolerance;
+                if (!alongX && !alongY) return false;
+            }
+            return true;
+        }
+
+        private static bool IsAxisAlignedRectangle(CurveLoop loop)
+        {
+            var points = loop.Select(curve => curve.GetEndPoint(0)).ToList();
+            if (points.Count != 4 || !IsAxisAlignedLoop(loop)) return false;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            double[] xs = points.Select(point => point.X).OrderBy(value => value).ToArray();
+            double[] ys = points.Select(point => point.Y).OrderBy(value => value).ToArray();
+            double width = xs[3] - xs[0];
+            double height = ys[3] - ys[0];
+            if (width <= tolerance || height <= tolerance ||
+                Math.Abs(xs[1] - xs[0]) > tolerance || Math.Abs(xs[3] - xs[2]) > tolerance ||
+                Math.Abs(ys[1] - ys[0]) > tolerance || Math.Abs(ys[3] - ys[2]) > tolerance) return false;
+            return Math.Abs(GetLoopArea(loop) - width * height) <= tolerance * (width + height);
         }
 
         /// <summary>
@@ -330,6 +365,30 @@ namespace KhimTools.RebarTool.Core
                 area += (p1.X * p2.Y - p2.X * p1.Y);
             }
             return Math.Abs(area) / 2.0;
+        }
+
+        private static string GetLoopSortKey(CurveLoop loop)
+        {
+            return string.Join("|", loop.SelectMany(curve => new[] { curve.GetEndPoint(0), curve.GetEndPoint(1) })
+                .GroupBy(point => point.X.ToString("R", CultureInfo.InvariantCulture) + "," + point.Y.ToString("R", CultureInfo.InvariantCulture))
+                .Select(group => group.Key).OrderBy(value => value, StringComparer.Ordinal));
+        }
+
+        private static bool IsSupportedHorizontalLinearLoop(CurveLoop loop, double z)
+        {
+            if (loop == null) return false;
+            double tolerance = UnitUtils.ConvertToInternalUnits(0.1, UnitTypeId.Millimeters);
+            int count = 0;
+            foreach (Curve curve in loop)
+            {
+                if (!(curve is Line)) return false;
+                XYZ start = curve.GetEndPoint(0);
+                XYZ end = curve.GetEndPoint(1);
+                if (Math.Abs(start.Z - z) > tolerance || Math.Abs(end.Z - z) > tolerance || start.DistanceTo(end) <= tolerance)
+                    return false;
+                count++;
+            }
+            return count >= 3;
         }
     }
 }

@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using KhimTools.Core.Revit;
 using KhimTools.RebarTool.Core;
 
 namespace KhimTools.RebarTool.Forms
@@ -317,16 +318,15 @@ namespace KhimTools.RebarTool.Forms
             int newlyLoaded = 0;
             int alreadyLoaded = 0;
             int failed = 0;
+            var newlyLoadedItems = new List<RebarShapeItemViewModel>();
 
             PrgProgress.Visibility = System.Windows.Visibility.Visible;
             TxtStatus.Text = "Đang nạp " + itemsToLoad.Count + " Rebar Shapes vào dự án...";
 
             try
             {
-                using (var tx = new Transaction(_doc, "K-TOOLS: Load Rebar Shapes"))
+                TransactionBoundary.Execute(_doc, "K-TOOLS: Load Rebar Shapes", () =>
                 {
-                    tx.Start();
-
                     foreach (var item in itemsToLoad)
                     {
                         if (item.IsLoaded)
@@ -339,16 +339,19 @@ namespace KhimTools.RebarTool.Forms
                         if (shape != null)
                         {
                             newlyLoaded++;
-                            item.IsLoaded = true;
-                            item.IsSelected = false;
+                            newlyLoadedItems.Add(item);
                         }
                         else
                         {
                             failed++;
                         }
                     }
+                });
 
-                    tx.Commit();
+                foreach (var item in newlyLoadedItems)
+                {
+                    item.IsLoaded = true;
+                    item.IsSelected = false;
                 }
 
                 UpdateSummary();

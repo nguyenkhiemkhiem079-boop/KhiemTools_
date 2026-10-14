@@ -1,5 +1,7 @@
+using KhimTools.Core;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
@@ -85,7 +87,8 @@ namespace KhimTools.RebarTool.Core
         private readonly Document _doc;
         public RectangularColumnRebarGenerator(Document doc) => _doc = doc;
 
-        public List<Rebar> Generate(RectangularColumnRebarInput input, RebarGenerationReport report = null)
+        public List<Rebar> Generate(RectangularColumnRebarInput input, RebarGenerationReport report = null,
+            IDictionary<string, string> roleByBarId = null)
         {
             var created = new List<Rebar>();
 
@@ -110,8 +113,10 @@ namespace KhimTools.RebarTool.Core
             var mainPoints = BuildPerimeterPoints(halfB_main, halfH_main, input.BarsAlongB, input.BarsAlongH);
 
             // Đã loại bỏ kiểm tra cảnh báo hàm lượng thép an toàn kết cấu theo yêu cầu
-            created.AddRange(CreateMainBars(input, profile, mainPoints, report));
-            created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup, report));
+            List<Rebar> mainBars = CreateMainBars(input, profile, mainPoints, report);
+            created.AddRange(mainBars);
+            RecordRoles(mainBars, "longitudinal", roleByBarId);
+            created.AddRange(CreateStirrups(input, profile, halfB_stirrup, halfH_stirrup, report, roleByBarId));
 
             report?.AddSuccess(created.Count);
             return created;
@@ -327,7 +332,7 @@ namespace KhimTools.RebarTool.Core
 
         private List<Rebar> CreateStirrups(RectangularColumnRebarInput input,
             RectangularColumnGeometryHelper.ColumnProfile profile, double halfB, double halfH,
-            RebarGenerationReport report = null)
+            RebarGenerationReport report = null, IDictionary<string, string> roleByBarId = null)
         {
             double maxBeamDepthFeet = FindMaxIntersectingBeamDepth(input.Column, profile.TopCenter.Z);
             double zBeamBot = Math.Max(profile.BaseCenter.Z,
@@ -370,10 +375,11 @@ namespace KhimTools.RebarTool.Core
                         foreach (Rebar tie in stationBars)
                         {
                             ApplyTieLayout(tie, zone);
+                            RecordRole(tie, GetTieRole(tie, stationBars, input), roleByBarId);
                             string failure;
                             if (!RebarShapeCreationHelper.TryValidateCreatedRebar(
                                 _doc, tie, input.Column, RebarStyle.StirrupTie, true,
-                                zone.ZoneType + " " + GetTieRole(tie, stationBars), out failure))
+                                zone.ZoneType + " " + GetTieRole(tie, stationBars, input), out failure))
                                 throw new InvalidOperationException(failure);
                         }
                         TransactionStatus status = stationTransaction.Commit();
@@ -384,7 +390,8 @@ namespace KhimTools.RebarTool.Core
                     catch (Exception ex)
                     {
                         report?.AddError(input.Column, zone.ZoneType + " Tie Set", ex);
-                        if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                        RebarShapeCreationHelper.RollbackCandidateOrThrow(
+                            stationTransaction, zone.ZoneType + " tie station", ex);
                         throw;
                     }
                 }
@@ -427,7 +434,8 @@ namespace KhimTools.RebarTool.Core
                 catch (Exception ex)
                 {
                     report?.AddError(input.Column, "Single Tie Station", ex);
-                    if (stationTransaction.HasStarted()) stationTransaction.RollBack();
+                    RebarShapeCreationHelper.RollbackCandidateOrThrow(
+                        stationTransaction, "single tie station", ex);
                     return new List<Rebar>();
                 }
             }
@@ -508,10 +516,25 @@ namespace KhimTools.RebarTool.Core
             _doc.Regenerate();
         }
 
-        private static string GetTieRole(Rebar tie, IList<Rebar> stationBars)
+        private static string GetTieRole(Rebar tie, IList<Rebar> stationBars, RectangularColumnRebarInput input)
         {
             int index = stationBars.IndexOf(tie);
-            return index == 0 ? "OuterTie" : index == 1 ? "InnerTieLeft" : "InnerTieRight";
+            if (index == 0) return "outer-tie";
+            if (input.TieLayout == ColumnTieLayoutType.MultiCellClosed) return index == 1 ? "inner-tie-left" : "inner-tie-right";
+            if (input.TieLayout == ColumnTieLayoutType.DiamondLegacy || input.HasInnerDiamondStirrup) return "diamond-tie";
+            return "cross-tie";
+        }
+
+        private static void RecordRoles(IEnumerable<Rebar> bars, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (roleByBarId == null) return;
+            foreach (Rebar bar in bars ?? Enumerable.Empty<Rebar>()) RecordRole(bar, role, roleByBarId);
+        }
+
+        private static void RecordRole(Rebar bar, string role, IDictionary<string, string> roleByBarId)
+        {
+            if (bar != null && roleByBarId != null)
+                roleByBarId[bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture)] = role;
         }
 
         private static List<double> BuildLongitudinalXLines(double halfB, int barsB)
@@ -561,7 +584,8 @@ namespace KhimTools.RebarTool.Core
             try
             {
                 BoundingBoxXYZ colBb = column.get_BoundingBox(null);
-                if (colBb == null) return 0;
+                if (colBb == null)
+                    throw new InvalidOperationException("Rectangular-column bounds are unavailable while resolving the beam-column joint zone.");
 
                 var beams = new FilteredElementCollector(_doc)
                     .OfCategory(BuiltInCategory.OST_StructuralFraming)
@@ -589,9 +613,10 @@ namespace KhimTools.RebarTool.Core
                 }
                 return maxDepth;
             }
-            catch
+            catch (Exception ex)
             {
-                return 0;
+                throw new InvalidOperationException(
+                    "Could not resolve intersecting beam depth for the rectangular-column joint zone; tie generation was aborted.", ex);
             }
         }
 

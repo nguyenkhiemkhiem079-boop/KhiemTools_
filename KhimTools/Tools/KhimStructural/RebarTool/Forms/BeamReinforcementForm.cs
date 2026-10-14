@@ -1,13 +1,16 @@
-﻿using KhimTools.Core.UI;
+using KhimTools.Core.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Globalization;
 using System.Linq;
 using System.Windows.Forms;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core;
+using KhimTools.Core.Revit;
+using KhimTools.Core.Preview;
 using KhimTools.RebarTool.Core;
 using Form = System.Windows.Forms.Form;
 using Panel = System.Windows.Forms.Panel;
@@ -43,11 +46,15 @@ namespace KhimTools.RebarTool.Forms
     /// </summary>
     public class BeamReinforcementForm : KTBaseForm
     {
+        // ILLUSTRATIVE_ONLY_NOT_SOLVED_GEOMETRY
+        private const string BeamSchematicDisclosure = "Sơ đồ minh họa đầu vào — không phải hình học Revit đã solve. Dùng Solve 3D preview để kiểm tra hình học thực.";
+
         private readonly Document _doc;
         private readonly List<FamilyInstance> _availableBeams;
         private readonly List<FamilyInstance> _selectedBeams;
         private FamilyInstance _currentBeam;
         private BeamGeometryHelper.BeamProfile _currentProfile;
+        private string _hostGeometryError;
 
         private List<RebarBarType> _barTypes = new List<RebarBarType>();
 
@@ -138,6 +145,8 @@ namespace KhimTools.RebarTool.Forms
         private TextBox _txtStirrupEnd1Len;
         private TextBox _txtStirrupEnd2Len;
         private TextBox _txtStirrupFirstDistance;
+        private NumericUpDown _numHangerStirrupQty;
+        private NumericUpDown _numHangerStirrupSpacing;
 
         // ── Anti Bulge (Side Bar) Controls ──
         private ComboBox _cmbAntiBulgeDia;
@@ -149,10 +158,14 @@ namespace KhimTools.RebarTool.Forms
         // ── Footer Buttons ──
         private Button _btnOk;
         private Button _btnClose;
+        private Button _btnPreview;
+        private Button _btnManualV1;
+        private Label _lblPreviewState;
+        private RebarPreviewSnapshot _lastPreview;
+        private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
         private RebarFormGuard _formGuard;
         private readonly NumericUpDown _configLd = new NumericUpDown { Minimum = 1, Maximum = 200, Value = 35 };
         private readonly NumericUpDown _configHookTail = new NumericUpDown { Minimum = 1, Maximum = 100, Value = 12 };
-        private readonly NumericUpDown _configSideThreshold = new NumericUpDown { Minimum = 100, Maximum = 3000, Value = 700 };
 
         // Dimensions (mm)
         private double _colWidthLeft = 600;
@@ -187,12 +200,16 @@ namespace KhimTools.RebarTool.Forms
             InitializeLayoutCustom();
             RebarLayout.EnableFullTypeNames(this);
             SwitchSettingTab(0);
+            AttachPreviewInvalidationHandlers(this);
             _formGuard = RebarFormGuard.Attach(this, _btnOk,
                 new RebarValidationRule(this, () => _currentBeam != null, "Chọn một dầm hợp lệ."),
                 RebarFormGuard.RequireCombo(_cmbMainTopDia, "Chọn loại thép chủ phía trên."),
                 RebarFormGuard.RequireCombo(_cmbMainBotDia, "Chọn loại thép chủ phía dưới."),
                 RebarFormGuard.RequireCombo(_cmbStirrupDia, "Chọn loại thép đai."),
-                RebarFormGuard.RequireNumericTextBoxes(this, "Các thông số chiều dài và khoảng cách phải là số không âm."));
+                RebarFormGuard.RequireNumericTextBoxes(this, "Các thông số chiều dài và khoảng cách phải là số không âm."),
+                new RebarValidationRule(_btnOk, HasCurrentAcceptedPreview,
+                    "Solve or refresh the beam preview for the current inputs before Create."));
+            UpdatePreviewStateUi();
         }
 
         private void LoadRebarTypes()
@@ -206,14 +223,20 @@ namespace KhimTools.RebarTool.Forms
 
         private void ExtractBeamDimensions()
         {
+            _currentProfile = null;
+            _hostGeometryError = null;
             if (_currentBeam != null)
             {
-                _currentProfile = BeamGeometryHelper.GetBeamProfile(_currentBeam);
-                if (_currentProfile != null)
+                try
                 {
+                    _currentProfile = BeamGeometryHelper.GetBeamProfile(_currentBeam);
                     _clearSpan = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.Length, UnitTypeId.Millimeters));
                     _beamWidth = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.B, UnitTypeId.Millimeters));
                     _beamHeight = Math.Round(UnitUtils.ConvertFromInternalUnits(_currentProfile.H, UnitTypeId.Millimeters));
+                }
+                catch (Exception ex)
+                {
+                    _hostGeometryError = ex.Message;
                 }
             }
             if (_clearSpan <= 0) _clearSpan = 7100;
@@ -223,7 +246,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void InitializeLayoutCustom()
         {
-            SetFormTitle("Rebar - Dầm", "Thép chủ, thép tăng cường, đai và neo đầu dầm");
+            SetFormTitle("Beam Reinforcement — Legacy Supported", "Existing supported Beam workflow. Choose Manual v1 for explicit station/position detailing; geometry validation only, no structural design/compliance verification.");
             Width = 1260;
             Height = 840;
             StartPosition = FormStartPosition.CenterScreen;
@@ -270,6 +293,7 @@ namespace KhimTools.RebarTool.Forms
             BuildViewAddBot();
             BuildViewStirrup();
             BuildViewAntiBulge();
+            DisableUnmappedLegacyInputs();
 
             pnlMiddle.Controls.Add(_pnlViewMainTop);
             pnlMiddle.Controls.Add(_pnlViewMainBot);
@@ -292,22 +316,61 @@ namespace KhimTools.RebarTool.Forms
             var footerBar = BuildFooterBar();
 
             var previewTabs = new TabControl { Dock = DockStyle.Fill };
-            var livePreview = new TabPage("Bố trí dầm");
+            var livePreview = new TabPage("Sơ đồ minh họa — không phải preview đã solve");
             livePreview.Controls.Add(RebarLayout.ScrollPreview(_pnlElevationCanvas, new Size(900, 280)));
             previewTabs.TabPages.Add(livePreview);
             previewTabs.TabPages.Add(RebarReferenceViews.CreatePage(RebarReferenceKind.Beam));
             previewTabs.TabPages.Add(RebarConfigurationPage.Create(this, _doc, RebarReferenceKind.Beam,
-                RebarConfigurationField.Number("Beam.LdMultiplier", "Hệ số neo (k × d)", _configLd),
-                RebarConfigurationField.Number("Beam.HookTailMultiplier", "Đuôi móc (k × d)", _configHookTail),
-                RebarConfigurationField.Number("Beam.SideThresholdMm", "Ngưỡng thép sườn (mm)", _configSideThreshold),
+                RebarConfigurationField.Number("Beam.LdMultiplier", "Hệ số chi tiết neo (không kiểm tra code)", _configLd),
+                RebarConfigurationField.Number("Beam.HookTailMultiplier", "Đuôi bẻ quy ước (không phải RebarHookType)", _configHookTail),
                 RebarConfigurationField.Length("Beam.StirrupUniform", "Đai đều (mm)", _txtStirrupA1Uniform),
                 RebarConfigurationField.Length("Beam.StirrupA1", "Đai vùng đầu (mm)", _txtStirrupA1Ends),
                 RebarConfigurationField.Length("Beam.StirrupA2", "Đai vùng giữa (mm)", _txtStirrupA2Ends)));
-            Disposed += (s, e) => { _configLd.Dispose(); _configHookTail.Dispose(); _configSideThreshold.Dispose(); };
+            Disposed += (s, e) => { _configLd.Dispose(); _configHookTail.Dispose(); };
             botPanel.Controls.Add(previewTabs);
             botPanel.Controls.Add(footerBar);
 
             Controls.Add(mainSplit);
+        }
+
+        private void DisableUnmappedLegacyInputs()
+        {
+            // Only the controls used by CreateGenerationInput remain editable.
+            // Legacy local lists and schematic dimensions never enter the solver request.
+            Control[] referenceOnlyInputs =
+            {
+                _cmbMainTopStartPoint, _cmbMainTopEndPoint,
+                _txtMainTopAnchorLeft, _txtMainTopAnchorRight, _txtMainTopAnchorXLeft, _txtMainTopAnchorXRight,
+                _cmbMainBotStartPoint, _cmbMainBotEndPoint,
+                _txtMainBotAnchorLeft, _txtMainBotAnchorRight, _txtMainBotAnchorXLeft, _txtMainBotAnchorXRight,
+                _cmbAddTopLayer, _cmbAddTopStartPoint, _cmbAddTopEndPoint, _cmbAddTopStartType, _cmbAddTopEndType,
+                _txtAddTopLeftRatio, _txtAddTopRightRatio, _txtAddTopLeftLen, _txtAddTopRightLen, _txtAddTopDLeft, _txtAddTopDRight,
+                _cmbAddBotLayer, _cmbAddBotStartPoint, _cmbAddBotEndPoint,
+                _txtAddBotLeftRatio, _txtAddBotRightRatio, _txtAddBotLeftLen, _txtAddBotRightLen,
+                _txtAddBotAnchorLeft, _txtAddBotAnchorRight, _txtAddBotTotal,
+                _cmbStirrupSpan, _txtStirrupEnd2Len, _txtStirrupFirstDistance,
+                _numAddTopQty, _cmbAddTopDia, _numAddBotQty, _cmbAddBotDia,
+                _txtAntiShrinkageH, _cmbAntiBulgeDia, _cmbAntiBulgeOffset, _cmbAntiBulgeTieDia, _txtAntiBulgeSpacing, _txtAntiBulgeAnchor
+            };
+            foreach (Control input in referenceOnlyInputs)
+                if (input != null) input.Enabled = false;
+
+            foreach (ListBox list in new[] { _lstMainTop, _lstMainBot, _lstAddTop, _lstAddBot })
+                if (list != null) list.Enabled = false;
+
+            foreach (Control view in new Control[] { _pnlViewMainTop, _pnlViewMainBot, _pnlViewAddTop, _pnlViewAddBot })
+                foreach (Button button in FindControls<Button>(view))
+                    if (button.Text == "Add" || button.Text == "Delete" || button.Text == "Delete All") button.Enabled = false;
+        }
+
+        private static IEnumerable<T> FindControls<T>(Control parent) where T : Control
+        {
+            if (parent == null) yield break;
+            foreach (Control child in parent.Controls)
+            {
+                if (child is T match) yield return match;
+                foreach (T descendant in FindControls<T>(child)) yield return descendant;
+            }
         }
 
         #region Sidebar Setting
@@ -487,14 +550,14 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstMainTop);
 
             // Middle: Rebar Information
-            var grpInfo = new GroupBox { Text = "Rebar Information", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; other fields are reference-only", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainTopDia = CreateDiameterComboBox();
             _cmbMainTopDia.Left = 120; _cmbMainTopDia.Top = 25; _cmbMainTopDia.Width = 90;
 
             var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numMainTopQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+            _numMainTopQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 2, Maximum = 20, Value = 2 };
 
             var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainTopStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -575,14 +638,14 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstMainBot);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Active: diameter / count; other fields are reference-only", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblDia = new Label { Text = "Diameter:", Left = 15, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainBotDia = CreateDiameterComboBox();
             _cmbMainBotDia.Left = 120; _cmbMainBotDia.Top = 25; _cmbMainBotDia.Width = 90;
 
             var lblNum = new Label { Text = "Number:", Left = 230, Top = 28, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numMainBotQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 1, Maximum = 20, Value = 2 };
+            _numMainBotQty = new NumericUpDown { Left = 310, Top = 26, Width = 70, Minimum = 2, Maximum = 20, Value = 2 };
 
             var lblStart = new Label { Text = "Start Point:", Left = 15, Top = 68, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbMainBotStartPoint = new ComboBox { Left = 120, Top = 65, Width = 90, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -661,7 +724,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstAddTop);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Additional bars unavailable: curtailment positions are not validated", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblLayer = new Label { Text = "Layer:", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbAddTopLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -706,7 +769,7 @@ namespace KhimTools.RebarTool.Forms
             _txtAddTopDRight = new TextBox { Text = "500", Left = 295, Top = 209, Width = 90 };
 
             var lblNum = new Label { Text = "Number:", Left = 15, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numAddTopQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 1, Maximum = 20, Value = 2 };
+            _numAddTopQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 0, Maximum = 20, Value = 0 };
 
             var lblPos = new Label { Text = "Position In Section:", Left = 220, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _txtAddTopPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
@@ -771,7 +834,7 @@ namespace KhimTools.RebarTool.Forms
             grpList.Controls.Add(_lstAddBot);
 
             // Middle: Rebar Info
-            var grpInfo = new GroupBox { Text = "Rebar Info", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+            var grpInfo = new GroupBox { Text = "Additional bars unavailable: curtailment positions are not validated", Left = 168, Top = 5, Width = 430, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
 
             var lblLayer = new Label { Text = "LAYER", Left = 15, Top = 25, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _cmbAddBotLayer = new ComboBox { Left = 110, Top = 22, Width = 95, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -811,7 +874,7 @@ namespace KhimTools.RebarTool.Forms
             _txtAddBotTotal = new TextBox { Text = "5100", Left = 110, Top = 209, Width = 95 };
 
             var lblNum = new Label { Text = "Number", Left = 15, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _numAddBotQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 1, Maximum = 20, Value = 2 };
+            _numAddBotQty = new NumericUpDown { Left = 110, Top = 248, Width = 95, Minimum = 0, Maximum = 20, Value = 0 };
 
             var lblPos = new Label { Text = "Position In section", Left = 220, Top = 250, AutoSize = true, Font = new Font("Segoe UI", 9F) };
             _txtAddBotPos = new TextBox { Text = "1, 2", Left = 335, Top = 248, Width = 50, ReadOnly = true, BackColor = Color.FromArgb(240, 240, 240) };
@@ -865,25 +928,28 @@ namespace KhimTools.RebarTool.Forms
         {
             _pnlViewStirrup = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
 
-            // Middle: TabControl with Stirrup Distribution, Additional Stirrup, etc.
+            // Only generated stirrup controls are exposed; unfinished panels are not shown as active workflows.
             var tabStirrup = new TabControl { Left = 5, Top = 5, Width = 590, Height = 390, Font = new Font("Segoe UI", 8.5F) };
 
             var tabDist = new TabPage { Text = "Stirrup Distribution", BackColor = Color.White, Padding = new Padding(8) };
             BuildStirrupDistributionTab(tabDist);
             tabStirrup.TabPages.Add(tabDist);
 
-            var tabAddStirrup = new TabPage { Text = "Additional Stirrup", BackColor = Color.White };
-            tabStirrup.TabPages.Add(tabAddStirrup);
-
-            var tabHanger = new TabPage { Text = "Hanger bar For 2nd Beam", BackColor = Color.White };
+            var tabHanger = new TabPage { Text = "Hanger Bars", BackColor = Color.White, Padding = new Padding(12) };
+            var hangerLayout = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(8) };
+            hangerLayout.Controls.Add(new Label { Text = "Hanger stirrup count (0 disables):", AutoSize = true, Margin = new Padding(4, 8, 4, 4) });
+            _numHangerStirrupQty = new NumericUpDown { Minimum = 0, Maximum = 20, Value = 3, Width = 70, Margin = new Padding(4) };
+            hangerLayout.Controls.Add(_numHangerStirrupQty);
+            hangerLayout.Controls.Add(new Label { Text = "Spacing (mm):", AutoSize = true, Margin = new Padding(16, 8, 4, 4) });
+            _numHangerStirrupSpacing = new NumericUpDown { Minimum = 25, Maximum = 1000, Value = 50, Increment = 5, Width = 80, Margin = new Padding(4) };
+            hangerLayout.Controls.Add(_numHangerStirrupSpacing);
+            hangerLayout.Controls.Add(new Label { Text = "Generated through the same BeamRebarGenerator preview and Create plan.", AutoSize = true, Margin = new Padding(4, 14, 4, 4) });
+            tabHanger.Controls.Add(hangerLayout);
             tabStirrup.TabPages.Add(tabHanger);
-
-            var tabShape = new TabPage { Text = "Stirrup Shape", BackColor = Color.White };
-            tabStirrup.TabPages.Add(tabShape);
 
             // Right: Section Group (3 Cross-sections 1-1, 2-2, 3-3)
             var grpSection = new GroupBox { Text = "Section", Left = 600, Top = 5, Width = 485, Height = 390, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
-            var cmbSectionSpan = new ComboBox { Left = 160, Top = 18, Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
+            var cmbSectionSpan = new ComboBox { Left = 160, Top = 18, Width = 150, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F), Enabled = false };
             cmbSectionSpan.Items.AddRange(new object[] { "0", "1" }); cmbSectionSpan.SelectedIndex = 0;
 
             var pnlSectionCanvas = new Panel { Left = 10, Top = 45, Width = 465, Height = 335, BackColor = Color.White };
@@ -936,7 +1002,7 @@ namespace KhimTools.RebarTool.Forms
             var lblMm1 = new Label { Text = "(mm)", Left = 335, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
 
             var lblEnd2 = new Label { Text = "End 2 :", Left = 380, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 9F) };
-            _txtStirrupEnd2Len = new TextBox { Text = "1800", Left = 430, Top = 145, Width = 60 };
+            _txtStirrupEnd2Len = new TextBox { Text = "1800", Left = 430, Top = 145, Width = 60, ReadOnly = true, Enabled = false };
             var lblMm2 = new Label { Text = "(mm)", Left = 495, Top = 148, AutoSize = true, Font = new Font("Segoe UI", 8.5F) };
 
             // 4. Distance of first stirrup to the column
@@ -1033,7 +1099,7 @@ namespace KhimTools.RebarTool.Forms
             _pnlViewAntiBulge.Controls.Add(_txtAntiBulgeAnchor);
             _pnlViewAntiBulge.Controls.Add(lblMmAnchor);
             _pnlViewAntiBulge.Controls.Add(pnlElevDiag);
-            var settings = new GroupBox { Text = "Thép sườn" };
+            var settings = new GroupBox { Text = "Thép sườn — tham khảo, chưa được tạo trong generator" };
             RebarLayout.Fields(settings,
                 RebarLayout.Field("Bố trí khi H > (mm)", _txtAntiShrinkageH),
                 RebarLayout.Field("Đường kính thép sườn", _cmbAntiBulgeDia),
@@ -1178,16 +1244,6 @@ namespace KhimTools.RebarTool.Forms
         {
             var pnl = new Panel { Dock = DockStyle.Bottom, Height = 60, BackColor = Color.White, Padding = new Padding(16, 11, 15, 11) };
 
-            pnl.Controls.Add(new Label
-            {
-                Text = "1  Chọn nhịp     2  Cấu hình thép     3  Kiểm tra neo và đai     4  Tạo thép",
-                AutoSize = true,
-                Left = 16,
-                Top = 22,
-                ForeColor = KhimUiStyle.TextSecondary,
-                Font = new Font("Segoe UI Semibold", 9F)
-            });
-
             _btnOk = new Button
             {
                 Text = "Tạo thép dầm",
@@ -1198,6 +1254,45 @@ namespace KhimTools.RebarTool.Forms
             };
             KhimUiStyle.ApplyPrimaryButton(_btnOk, KhimUiStyle.CreateButtonBg);
             _btnOk.Click += BtnOk_Click;
+
+            _btnPreview = new Button { Text = "Solve 3D preview", Width = 142, Height = 38 };
+            KhimUiStyle.ApplySecondaryButton(_btnPreview);
+            _btnPreview.Click += BtnPreview_Click;
+
+            _btnManualV1 = new Button { Text = "Manual v1…", Width = 112, Height = 38 };
+            KhimUiStyle.ApplySecondaryButton(_btnManualV1);
+            _btnManualV1.Click += (s, e) =>
+            {
+                if (_selectedBeams == null || _selectedBeams.Count == 0)
+                {
+                    KhimDialogHelper.ShowWarning("Manual v1", "Select at least one Beam / Chọn ít nhất một dầm. Each host requires its own explicitly reviewed plan; no automatic scaling or copy.");
+                    return;
+                }
+                if (_selectedBeams.Count == 1)
+                {
+                    using (var editor = new BeamManualDetailingFormV1(_doc, _selectedBeams[0])) editor.ShowDialog(this);
+                    MarkPreviewStale();
+                    return;
+                }
+                try
+                {
+                    var assignments = new List<BeamManualBatchAssignmentV1>();
+                    foreach (FamilyInstance host in _selectedBeams)
+                    {
+                        using (var editor = new BeamManualDetailingFormV1(_doc, host, assignmentOnly: true))
+                        {
+                            editor.Text += " — host " + host.Id.ToLongValue();
+                            if (editor.ShowDialog(this) != DialogResult.OK) return; // Cancel never creates any host.
+                            assignments.Add(new BeamManualBatchAssignmentV1(editor.AssignedPlan, editor.AssignedPreview));
+                        }
+                    }
+                    if (MessageBox.Show(this, "Create all " + assignments.Count + " independently reviewed Beam plans atomically? No plan is scaled or copied. Geometry only; structural compliance not verified.\nTạo toàn bộ plan đã duyệt?", "Manual v1 batch", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+                    IList<Rebar> bars = BeamManualBatchV1.Create(_doc, assignments);
+                    MarkPreviewStale();
+                    KhimDialogHelper.ShowWarning("Manual v1", "Committed " + bars.Count + " Rebar elements across " + assignments.Count + " hosts. Geometry only; host acceptance pending.");
+                }
+                catch (Exception ex) { KhimDialogHelper.ShowWarning("Manual v1 batch blocked / rolled back", ex.Message); }
+            };
 
             _btnClose = new Button { Text = "Đóng", Left = 1020, Top = 11, Width = 88, Height = 38 };
             KhimUiStyle.ApplySecondaryButton(_btnClose);
@@ -1212,9 +1307,97 @@ namespace KhimTools.RebarTool.Forms
                 _btnOk.Left = _btnClose.Left - _btnOk.Width - 10;
             };
 
-            var footer = RebarLayout.Footer(null, _btnOk, _btnClose);
+            var footer = RebarLayout.Footer(null, _btnPreview, _btnOk, _btnClose);
+            var footerLayout = footer.Controls.OfType<TableLayoutPanel>().First();
+            footerLayout.Controls.OfType<FlowLayoutPanel>().First().Controls.Add(_btnManualV1);
+            footer.Controls.Add(new Label
+            {
+                Text = "LEGACY SUPPORTED · Existing workflow; geometry/detailing only.",
+                AutoSize = true,
+                Left = 14,
+                Top = 3,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI", 8F)
+            });
+            _lblPreviewState = new Label
+            {
+                AutoSize = true,
+                Left = 14,
+                Top = 23,
+                ForeColor = KhimUiStyle.TextSecondary,
+                Font = new Font("Segoe UI Semibold", 8.5F),
+                AccessibleName = "Beam solver preview state"
+            };
+            footer.Controls.Add(_lblPreviewState);
             pnl.Dispose();
             return footer;
+        }
+
+        private void AttachPreviewInvalidationHandlers(Control root)
+        {
+            foreach (Control control in root.Controls)
+            {
+                if (control == _lblPreviewState || control == _btnPreview || control == _btnOk || control == _btnClose) continue;
+                if (control is NumericUpDown numeric) numeric.ValueChanged += (s, e) => MarkPreviewStale();
+                else if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => MarkPreviewStale();
+                else if (control is CheckBox check) check.CheckedChanged += (s, e) => MarkPreviewStale();
+                else if (control is RadioButton radio) radio.CheckedChanged += (s, e) => { if (radio.Checked) MarkPreviewStale(); };
+                else if (control is TextBox text) text.TextChanged += (s, e) => MarkPreviewStale();
+                if (control.HasChildren) AttachPreviewInvalidationHandlers(control);
+            }
+        }
+
+        private void MarkPreviewStale()
+        {
+            if (_previewLifecycle.State == PreviewLifecycleState.Valid)
+                _previewLifecycle.MarkStale();
+            UpdatePreviewStateUi();
+        }
+
+        private bool HasCurrentAcceptedPreview()
+        {
+            if (_doc == null || _lastPreview == null || _previewLifecycle.State != PreviewLifecycleState.Valid ||
+                _selectedBeams == null || _selectedBeams.Count == 0) return false;
+            try
+            {
+                BeamRebarInput[] inputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                string fingerprint = RebarPreviewService.FingerprintInputs(inputs.Select(RebarPreviewService.Fingerprint));
+                return _previewLifecycle.TryGetValid(fingerprint, out RebarPreviewSnapshot accepted) &&
+                    inputs.All(input => accepted.Find(RebarPreviewService.Fingerprint(input)) != null);
+            }
+            catch { return false; }
+        }
+
+        private void UpdatePreviewStateUi()
+        {
+            if (_lblPreviewState == null) return;
+            if (!string.IsNullOrWhiteSpace(_hostGeometryError))
+            {
+                _lblPreviewState.Text = "PREVIEW · Unsupported host geometry";
+                _lblPreviewState.AccessibleDescription = _hostGeometryError;
+                _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                return;
+            }
+            switch (_previewLifecycle.State)
+            {
+                case PreviewLifecycleState.Valid:
+                    _lblPreviewState.Text = "PREVIEW · Valid — current inputs solved";
+                    _lblPreviewState.ForeColor = Color.FromArgb(21, 128, 61);
+                    break;
+                case PreviewLifecycleState.Stale:
+                    _lblPreviewState.Text = "PREVIEW · Inputs changed — solve again";
+                    _lblPreviewState.ForeColor = Color.FromArgb(180, 83, 9);
+                    break;
+                case PreviewLifecycleState.Invalid:
+                    _lblPreviewState.Text = "PREVIEW · Solve failed — review inputs";
+                    _lblPreviewState.ForeColor = Color.FromArgb(185, 28, 28);
+                    break;
+                default:
+                    _lblPreviewState.Text = "PREVIEW · Not solved — solve before Create";
+                    _lblPreviewState.ForeColor = KhimUiStyle.TextSecondary;
+                    break;
+            }
+            _formGuard?.ValidateNow();
         }
         #endregion
 
@@ -1574,6 +1757,10 @@ namespace KhimTools.RebarTool.Forms
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.Clear(Color.White);
 
+            using (var disclosureFont = new Font("Segoe UI", 8.5F, FontStyle.Bold))
+            using (var disclosureBrush = new SolidBrush(Color.FromArgb(146, 64, 14)))
+                g.DrawString(BeamSchematicDisclosure, disclosureFont, disclosureBrush, 10, 8);
+
             int w = _pnlElevationCanvas.Width;
             int h = _pnlElevationCanvas.Height;
 
@@ -1759,36 +1946,52 @@ namespace KhimTools.RebarTool.Forms
         #endregion
 
         #region Helpers & Generation
+        private sealed class BeamBarTypeChoice
+        {
+            public BeamBarTypeChoice(RebarBarType barType)
+            {
+                BarType = barType;
+            }
+
+            public RebarBarType BarType { get; }
+
+            public override string ToString()
+            {
+                double diameterMm = UnitUtils.ConvertFromInternalUnits(
+                    BarType.BarNominalDiameter, UnitTypeId.Millimeters);
+                return $"D{diameterMm:0.##} — {BarType.Name} (Id {BarType.Id})";
+            }
+        }
+
         private ComboBox CreateDiameterComboBox()
         {
             var cmb = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9F) };
             if (_barTypes.Any())
             {
-                foreach (var bt in _barTypes)
+                foreach (var bt in _barTypes
+                    .OrderBy(type => type.BarNominalDiameter)
+                    .ThenBy(type => type.Name, StringComparer.Ordinal)
+                    .ThenBy(type => type.UniqueId, StringComparer.Ordinal))
                 {
-                    double dMm = Math.Round(UnitUtils.ConvertFromInternalUnits(bt.BarNominalDiameter, UnitTypeId.Millimeters));
-                    cmb.Items.Add($"D{dMm}");
+                    cmb.Items.Add(new BeamBarTypeChoice(bt));
                 }
+                cmb.SelectedIndex = Math.Min(5, cmb.Items.Count - 1);
             }
             else
             {
-                cmb.Items.AddRange(new object[] { "D8", "D10", "D12", "D14", "D16", "D18", "D20", "D22", "D25", "D28", "D32" });
+                cmb.Items.Add("No RebarBarType is loaded in this project.");
+                cmb.SelectedIndex = 0;
+                cmb.Enabled = false;
             }
-            cmb.SelectedIndex = Math.Min(5, cmb.Items.Count - 1);
             return cmb;
         }
 
         private RebarBarType GetSelectedBarType(ComboBox cmb)
         {
-            string txt = cmb?.SelectedItem?.ToString() ?? "";
-            if (string.IsNullOrEmpty(txt)) return _barTypes.FirstOrDefault();
-            return _barTypes.FirstOrDefault(b => btMatch(b, txt)) ?? _barTypes.FirstOrDefault();
-        }
-
-        private bool btMatch(RebarBarType bt, string txt)
-        {
-            double dMm = Math.Round(UnitUtils.ConvertFromInternalUnits(bt.BarNominalDiameter, UnitTypeId.Millimeters));
-            return txt.Contains(dMm.ToString()) || bt.Name.Contains(txt);
+            BeamBarTypeChoice choice = cmb?.SelectedItem as BeamBarTypeChoice;
+            if (choice?.BarType == null || !choice.BarType.IsValidObject || choice.BarType.Document != _doc)
+                return null;
+            return choice.BarType;
         }
 
         internal BeamRebarInput CreateGenerationInput(FamilyInstance beam)
@@ -1799,20 +2002,21 @@ namespace KhimTools.RebarTool.Forms
                 MainTopBarType = GetSelectedBarType(_cmbMainTopDia),
                 MainBottomBarType = GetSelectedBarType(_cmbMainBotDia),
                 StirrupBarType = GetSelectedBarType(_cmbStirrupDia),
-                SideBarType = GetSelectedBarType(_cmbAntiBulgeDia),
+                SideBarType = null,
                 TopContinuousQty = (int)_numMainTopQty.Value,
                 BottomContinuousQty = (int)_numMainBotQty.Value,
-                TopLeftExtraQty = (int)_numAddTopQty.Value,
-                TopLeftExtraBarType = GetSelectedBarType(_cmbAddTopDia),
-                TopRightExtraQty = (int)_numAddTopQty.Value,
-                TopRightExtraBarType = GetSelectedBarType(_cmbAddTopDia),
-                BottomMidExtraQty = (int)_numAddBotQty.Value,
-                BottomMidExtraBarType = GetSelectedBarType(_cmbAddBotDia),
-                SideBarQty = (int)_numAntiBulgeQty.Value,
-                AutoSideBars = true,
+                TopLeftExtraQty = 0,
+                TopLeftExtraBarType = null,
+                TopRightExtraQty = 0,
+                TopRightExtraBarType = null,
+                BottomMidExtraQty = 0,
+                BottomMidExtraBarType = null,
+                SideBarQty = 0,
+                HangerStirrupQty = (int)_numHangerStirrupQty.Value,
+                HangerStirrupSpacingMm = (double)_numHangerStirrupSpacing.Value,
+                AutoSideBars = false,
                 LdMultiplier = (double)_configLd.Value,
-                HookTailMultiplier = (double)_configHookTail.Value,
-                SideBarThresholdMm = (double)_configSideThreshold.Value
+                HookTailMultiplier = (double)_configHookTail.Value
             };
             double a1 = double.Parse(_rbStirrupUniform.Checked ? _txtStirrupA1Uniform.Text : _txtStirrupA1Ends.Text);
             double a2 = _rbStirrupUniform.Checked ? a1 : double.Parse(_txtStirrupA2Ends.Text);
@@ -1821,6 +2025,56 @@ namespace KhimTools.RebarTool.Forms
             input.StirrupSpacingA2 = UnitUtils.ConvertToInternalUnits(a2, UnitTypeId.Millimeters);
             input.ZoneA1Length = UnitUtils.ConvertToInternalUnits(double.Parse(_txtStirrupEnd1Len.Text), UnitTypeId.Millimeters);
             return input;
+        }
+
+        private void BtnPreview_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_selectedBeams == null || _selectedBeams.Count == 0)
+                    throw new InvalidOperationException("Select at least one beam before previewing.");
+                var generator = new BeamRebarGenerator(_doc);
+                BeamRebarInput[] inputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                RebarPreviewRequest[] requests = inputs.Select(input =>
+                {
+                    string fingerprint = RebarPreviewService.Fingerprint(input);
+                    var roleByBarId = new Dictionary<string, string>(StringComparer.Ordinal);
+                    return new RebarPreviewRequest(fingerprint, () =>
+                    {
+                        var report = new RebarGenerationReport();
+                        List<Rebar> generated = generator.Generate(input, report, roleByBarId);
+                        if (report.HasErrors)
+                            throw new InvalidOperationException("Beam preview generation reported an error: " + string.Join("; ", report.Errors.Select(error => error.ErrorReason)));
+                        return generated;
+                    },
+                        () => RebarPreviewService.Fingerprint(input), RebarPreviewService.Describe(input),
+                        bar =>
+                        {
+                            string role;
+                            return roleByBarId.TryGetValue(bar.Id.ToLongValue().ToString(CultureInfo.InvariantCulture), out role) ? role : string.Empty;
+                        });
+                }).ToArray();
+                _previewLifecycle.BeginGeneration();
+                UpdatePreviewStateUi();
+                RebarPreviewSnapshot snapshot = RebarPreviewService.Capture(_doc, requests);
+                using (var preview = new RebarSolverPreviewForm(snapshot))
+                {
+                    if (preview.ShowDialog(this) == DialogResult.OK)
+                    {
+                        _lastPreview = snapshot;
+                        _previewLifecycle.Complete(snapshot, snapshot.PlanFingerprint);
+                    }
+                    else { _lastPreview = null; _previewLifecycle.Invalidate(); }
+                }
+                UpdatePreviewStateUi();
+            }
+            catch (Exception ex)
+            {
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                KhimDialogHelper.ShowError("Unable to create solver-backed beam preview: " + ex.Message);
+            }
         }
 
         private void BtnOk_Click(object sender, EventArgs e)
@@ -1836,35 +2090,57 @@ namespace KhimTools.RebarTool.Forms
 
             try
             {
+                var generationInputs = _selectedBeams.Select(CreateGenerationInput).ToArray();
+                string currentFingerprint = RebarPreviewService.FingerprintInputs(generationInputs.Select(RebarPreviewService.Fingerprint));
+                RebarPreviewSnapshot acceptedPreview;
+                if (_lastPreview == null || !_previewLifecycle.TryGetValid(currentFingerprint, out acceptedPreview) || generationInputs.Any(input =>
+                    acceptedPreview.Find(RebarPreviewService.Fingerprint(input)) == null))
+                    throw new InvalidOperationException("Create or refresh the solver-backed preview for the current beam inputs before generating.");
+                for (int i = 0; i < generationInputs.Length; i++)
+                    if (RebarPreviewService.HasExistingDuplicateBar(_doc, generationInputs[i].Beam, acceptedPreview,
+                        RebarPreviewService.Fingerprint(generationInputs[i])))
+                        throw new InvalidOperationException("Equivalent reinforcement already exists on beam " + generationInputs[i].Beam.Id + ". Remove or edit the existing bars before generating to avoid duplicates.");
+
                 int successCount = 0;
-                using var transGroup = new TransactionGroup(_doc, "KHIM TOOLS — Generate Beam Rebars");
-                transGroup.Start();
-
-                foreach (var beam in _selectedBeams)
+                TransactionBoundary.ExecuteGroup(_doc, "KHIM TOOLS — Generate Beam Rebars", () =>
                 {
-                    using var tx = new Transaction(_doc, $"Create Rebar for Beam {beam.Id.ToLongValue()}");
-                    tx.Start();
-                    var failOpt = tx.GetFailureHandlingOptions();
-                    failOpt.SetFailuresPreprocessor(new KhimTools.SlabJoin.Utilities.SwallowWarningsPreprocessor());
-                    tx.SetFailureHandlingOptions(failOpt);
+                    foreach (var input in generationInputs)
+                    {
+                        var beam = input.Beam;
+                        List<Rebar> rebars = TransactionBoundary.Execute(_doc,
+                            $"Create Rebar for Beam {beam.Id.ToLongValue()}", () =>
+                            {
+                                var generator = new BeamRebarGenerator(_doc);
+                                var report = new RebarGenerationReport();
+                                List<Rebar> generated = generator.Generate(input, report);
+                                _doc.Regenerate();
+                                if (report.HasErrors || !RebarPreviewService.Matches(acceptedPreview, RebarPreviewService.Fingerprint(input), generated))
+                                    throw new InvalidOperationException("Generated beam centerlines differ from the accepted solver preview, or a generator error occurred; the beam transaction was rolled back.");
+                                return generated;
+                            }, configure: transaction =>
+                            {
+                                var failOpt = transaction.GetFailureHandlingOptions();
+                                failOpt.SetFailuresPreprocessor(new KhimTools.Core.Revit.Failures.KnownWarningFailurePreprocessor());
+                                transaction.SetFailureHandlingOptions(failOpt);
+                            });
 
-                    var input = CreateGenerationInput(beam);
-
-                    var generator = new BeamRebarGenerator(_doc);
-                    var rebars = generator.Generate(input);
-                    tx.Commit();
-
-                    if (rebars != null && rebars.Any()) successCount++;
-                }
-
-                transGroup.Assimilate();
+                        if (rebars != null && rebars.Any()) successCount++;
+                    }
+                    return true;
+                });
 
                 KhimDialogHelper.ShowSuccess("Hoàn Tất Bố Trí Thép Dầm", $"Đã tạo cốt thép thành công cho {successCount} dầm theo đúng cấu hình.");
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
                 Close();
             }
             catch (Exception ex)
             {
-                KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message, ex.StackTrace);
+                _lastPreview = null;
+                _previewLifecycle.Invalidate();
+                UpdatePreviewStateUi();
+                System.Diagnostics.Debug.WriteLine("Beam Rebar creation failed: " + ex);
+                KhimDialogHelper.ShowError("Lỗi Bố Trí Thép Dầm", ex.Message);
             }
             finally
             {

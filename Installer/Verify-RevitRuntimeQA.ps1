@@ -77,12 +77,12 @@ try {
     [xml]$pkgXml = Get-Content $pkgXmlPath -Raw
     $components = $pkgXml.ApplicationPackage.Components
 
-    if ($components.Count -lt 7) {
-        throw "Expected at least 7 component entries for Revit 2022-2028, found $($components.Count)"
+    if ($components.Count -ne 5) {
+        throw "Expected exactly 5 supported component entries for Revit 2022-2026; found $($components.Count)"
     }
 
     $legacySeries = @("R2022", "R2023", "R2024")
-    $modernSeries = @("R2025", "R2026", "R2027", "R2028")
+    $modernSeries = @("R2025", "R2026")
 
     foreach ($s in $legacySeries) {
         $found = $components | Where-Object { $_.RuntimeRequirements.SeriesMin -eq $s }
@@ -100,19 +100,20 @@ try {
         }
     }
 
-    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) components spanning Revit 2022-2028"
+    Report-Pass "Audit 02: PackageContents.xml Matrix" "$($components.Count) supported components spanning Revit 2022-2026; no unsupported years"
 } catch {
     Report-Fail "Audit 02: PackageContents.xml Matrix" $_.Exception.Message
 }
 
 # ---------------------------------------------------------------------
-# Audit 03: Ribbon Command Map Completeness (All 85 Commands)
+# Audit 03: Ribbon Command Map Completeness (all distinct active command types)
 # ---------------------------------------------------------------------
 try {
     $ribbonFile = Join-Path $khimToolsDir "Core\RibbonBuilder.cs"
     $ribbonContent = Get-Content $ribbonFile -Raw
-    $matches = [regex]::Matches($ribbonContent, '"(KhimTools\.[^"]+Commands\.([^"]+))"')
-    $classes = $matches | ForEach-Object { @{ FullName = $_.Groups[1].Value; ClassName = $_.Groups[2].Value } }
+    $matches = [regex]::Matches($ribbonContent, '"(KhimTools\.[\w.]+\.Cmd\w+)"')
+    $classes = $matches | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique |
+        ForEach-Object { @{ FullName = $_; ClassName = ($_ -split '\.')[-1] } }
 
     $csFiles = Get-ChildItem -Path $khimToolsDir -Filter "*.cs" -Recurse | Get-Content -Raw
     $allCs = [string]::Join("`n", $csFiles)
@@ -129,7 +130,7 @@ try {
         throw "$($missingCmds.Count) commands missing in source code: $($missingCmds -join ', ')"
     }
 
-    Report-Pass "Audit 03: Ribbon Command Map Completeness" "All $($classes.Count) commands verified in source code"
+    Report-Pass "Audit 03: Ribbon Command Map Completeness" "All $($classes.Count) distinct active ribbon command entrypoints verified in source code"
 } catch {
     Report-Fail "Audit 03: Ribbon Command Map Completeness" $_.Exception.Message
 }
