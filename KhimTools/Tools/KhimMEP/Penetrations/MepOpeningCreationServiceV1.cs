@@ -81,7 +81,9 @@ namespace KhimTools.MEP.Penetrations
                 WallNativeFrameV1.Feet(p.Plan.Y0),WallNativeFrameV1.Feet(p.Plan.Y1),0,p.Thickness);
             RejectReinforcement(doc,p);
             p.Fingerprint=WorkflowFingerprint.Compute(doc.ProjectInformation.UniqueId,doc.PathName,doc.Title,host.UniqueId,host.VersionGuid.ToString("D"),mep.UniqueId,mep.VersionGuid.ToString("D"),
-                string.Join(";",new[]{p.Plan.X0,p.Plan.X1,p.Plan.Y0,p.Plan.Y1,p.Plan.ClearanceMm,p.Plan.MinimumWidthMm,p.Plan.MinimumHeightMm,p.Plan.OffsetXMm,p.Plan.OffsetYMm,p.Thickness,p.Before.Volume}.Select(v=>v.ToString("R",CultureInfo.InvariantCulture))));
+                string.Join(";",new[]{p.Plan.X0,p.Plan.X1,p.Plan.Y0,p.Plan.Y1,p.Plan.ClearanceMm,p.Plan.MinimumWidthMm,p.Plan.MinimumHeightMm,p.Plan.OffsetXMm,p.Plan.OffsetYMm,p.Thickness,p.Before.Volume,mepSolid.Volume}
+                    .Concat(new[]{p.Origin,p.X,p.Y,p.Depth,axis.GetEndPoint(0),axis.GetEndPoint(1)}.SelectMany(v=>new[]{v.X,v.Y,v.Z}))
+                    .Select(v=>v.ToString("R",CultureInfo.InvariantCulture))));
             return p;
         }
         private static IEnumerable<XYZ> Bounds(BoundingBoxXYZ box)

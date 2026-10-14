@@ -29,6 +29,7 @@ namespace KhimTools.MEP.Penetrations
         public int HostCount { get; internal set; }
         public int HostGeometrySkipped { get; internal set; }
         public int HostGeometryFailed { get; internal set; }
+        public int LinkedInstancesExcluded { get; internal set; }
         public IList<MepOpeningClash> Clashes { get; } = new List<MepOpeningClash>();
     }
 
@@ -49,8 +50,13 @@ namespace KhimTools.MEP.Penetrations
             if (double.IsNaN(clearanceEachSideMm) || double.IsInfinity(clearanceEachSideMm) || clearanceEachSideMm < 0)
                 throw new ArgumentOutOfRangeException(nameof(clearanceEachSideMm));
 
-            var result = new MepOpeningAnalysisResult();
-            var curves = requestedCurves.Where(x => x != null).GroupBy(x => x.Id)
+            var input = requestedCurves.Where(x => x != null).ToArray();
+            if(input.Any(x=>x.Document!=doc || !x.IsValidObject))
+                throw new ArgumentException("Native document identities required; linked/foreign elements are unsupported, never compared using native ElementId.");
+            var result = new MepOpeningAnalysisResult {
+                LinkedInstancesExcluded=new FilteredElementCollector(doc).OfClass(typeof(RevitLinkInstance)).GetElementCount()
+            };
+            var curves = input.GroupBy(x => x.Id)
                 .Select(x => x.First()).OrderBy(x => x.Id.ToLongValue()).ToList();
             result.Requested = curves.Count;
             var hosts = new List<HostGeometry>();

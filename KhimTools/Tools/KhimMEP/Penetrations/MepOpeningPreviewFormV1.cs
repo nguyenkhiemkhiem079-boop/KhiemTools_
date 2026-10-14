@@ -10,7 +10,7 @@ namespace KhimTools.MEP.Penetrations
     {
         internal MepOpeningPreviewFormV1(MepOpeningPreviewGeometryV1 geometry,string summary)
         {
-            Text="Review exact opening proposal — no model mutation";Size=new Size(1000,680);MinimumSize=new Size(720,520);
+            Text="Review exact opening proposal — no model mutation";Size=new Size(1000,680);MinimumSize=new Size(720,480);
             StartPosition=FormStartPosition.CenterScreen;
             var pane=new PreviewCanvas(geometry){Dock=DockStyle.Fill,BackColor=Color.White};
             var information=new TextBox{Dock=DockStyle.Top,Height=155,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Vertical,Text=summary};
@@ -38,7 +38,11 @@ namespace KhimTools.MEP.Penetrations
                 void Box(System.Collections.Generic.IReadOnlyList<MepPreviewPointV1> box,Pen pen)
                 {var edges=MepOpeningPreviewGeometryV1.EdgePairs;for(int i=0;i<edges.Count;i+=2)e.Graphics.DrawLine(pen,Screen(box[edges[i]]),Screen(box[edges[i+1]]));}
                 using(var host=new Pen(Color.Gray,1))using(var cut=new Pen(Color.DarkOrange,2))using(var axis=new Pen(Color.Blue,2))
-                {Box(_geometry.Host,host);Box(_geometry.Cut,cut);e.Graphics.DrawLine(axis,Screen(_geometry.Penetrant[0]),Screen(_geometry.Penetrant[1]));}
+                {
+                    Box(_geometry.Host,host);Box(_geometry.Cut,cut);
+                    if(Isometric)e.Graphics.DrawLine(axis,Screen(_geometry.Penetrant[0]),Screen(_geometry.Penetrant[1]));
+                    else {var point=Screen(_geometry.Penetrant[0]);e.Graphics.DrawEllipse(axis,point.X-4,point.Y-4,8,8);}
+                }
                 e.Graphics.DrawString("Grey: physical host | Orange: approved full-depth cut | Blue: actual MEP centerline only",Font,Brushes.Black,5,5);
             }
         }

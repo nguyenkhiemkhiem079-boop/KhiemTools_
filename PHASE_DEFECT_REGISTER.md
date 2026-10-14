@@ -2,6 +2,8 @@
 
 ## Wave3 MEP graphical proposal checkpoint
 
+Consolidated Wave3 audit: P1 corrected foreign-document ElementId grouping/implicit native fallback for selected links, round-duct section omission, VersionGuid-only in-transaction stale fingerprint, and invisible perpendicular 2D centerline projection. Native fixture adds read-only/stale/duplicate proofs and reacquires objects after rollback; operator Cancel/Undo remain HOST_REQUIRED. Offline form regression is explicitly integrated (54 numerical bounds/pixel assertions/18 synthetic renders); no host PASS. Final evidence and exact unsupported boundaries: Docs/QA/MEP/CONFIRMED_OPENING_WAVE.md and TEST_RESULTS.md. P0 none confirmed in bounded code-side scope, not a certification of native model safety.
+
 P1 code gaps addressed: explicit minimum dimensions/offsets were missing; accepted fields now resolve one canonical rectangle and re-enter fresh pre-Create validation/fingerprint. Missing/negative/nonfinite/overflow/clearance-losing inputs reject. Graphic review was absent; required detached 2D/3D wireframe now shares this cut, with actual centerline explicitly distinguished from outer penetrant profile. Structural Floor eligibility is explicit. P0 none confirmed in the bounded source scope. P1 HOST_REQUIRED: actual Wall/Floor/duct/pipe/tray cut kernel, stale/duplicate/cancel/rollback/Undo and per-year loading. P2 linked/Beam/oblique/advanced host cuts remain unsupported, never transformed/rehosted implicitly. Next sub-wave strengthens source ownership diagnostics, native rollback scenario coverage and offline UI regression before consolidated validation.
 
 ## Revised Wave2 dual-host closure

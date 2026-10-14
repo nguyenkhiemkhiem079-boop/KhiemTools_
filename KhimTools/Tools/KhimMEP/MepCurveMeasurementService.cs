@@ -35,6 +35,11 @@ namespace KhimTools.MEP
             }
 
             bool tray = curve.Category.IsCategory(BuiltInCategory.OST_CableTray);
+            if(!tray && TryReadLength(curve.get_Parameter(BuiltInParameter.RBS_CURVE_DIAMETER_PARAM),out double ductDiameter))
+            {
+                double mm=UnitUtils.ConvertFromInternalUnits(ductDiameter,UnitTypeId.Millimeters);
+                return new MepCurveSection(mm,mm,true,"round duct diameter");
+            }
             BuiltInParameter widthId = tray ? BuiltInParameter.RBS_CABLETRAY_WIDTH_PARAM : BuiltInParameter.RBS_CURVE_WIDTH_PARAM;
             BuiltInParameter heightId = tray ? BuiltInParameter.RBS_CABLETRAY_HEIGHT_PARAM : BuiltInParameter.RBS_CURVE_HEIGHT_PARAM;
             if (!TryReadLength(curve.get_Parameter(widthId), out double internalWidth) ||

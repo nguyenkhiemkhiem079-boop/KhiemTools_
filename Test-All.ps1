@@ -205,7 +205,7 @@ $suites = @(
     @{
         Name = "K-MEP Production Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KMepAcceptance.ps1"
-        ExpectedCount = 31
+        ExpectedCount = 34
     },
     @{
         Name = "K-MEP Domain QA"
@@ -270,7 +270,12 @@ $suites = @(
     @{
         Name = "Confirmed Native MEP Opening Creation"
         Script = Join-Path $scriptDir "Tools\Verify-MepOpeningCreation.ps1"
-        ExpectedCount = 18
+        ExpectedCount = 20
+    },
+    @{
+        Name = "Detached MEP Opening Preview Geometry and Layout"
+        Script = Join-Path $scriptDir "Tools\Verify-MepOpeningPreview.ps1"
+        ExpectedCount = 54
     },
     @{
         Name = "Detached Solved Section Renderer Pixel Assertions"

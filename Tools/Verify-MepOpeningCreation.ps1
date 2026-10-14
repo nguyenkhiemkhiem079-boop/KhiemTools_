@@ -25,4 +25,6 @@ Check ($source.Contains('accepted.Plan.MinimumWidthMm,accepted.Plan.MinimumHeigh
 Check ($source.Contains('FLOOR_PARAM_IS_STRUCTURAL')) 'structural-floor-eligibility'
 Check ($command.Contains('MepOpeningPreviewFormV1') -and $command.Contains('values=new double[5]')) 'detached-graphical-review-required-before-confirm'
 Check ($preview.Contains('3D wireframe') -and $preview.Contains('2D host plane') -and !$preview.Contains('using Autodesk.Revit')) 'paint-detached-no-revit-api'
+Check ($source.Contains('axis.GetEndPoint(0),axis.GetEndPoint(1)') -and $source.Contains('p.Origin,p.X,p.Y,p.Depth')) 'physical-fingerprint-not-version-only'
+Check ($fixture.Contains('_STALE') -and $fixture.Contains('_READONLY') -and $fixture.Contains('_DUPLICATE')) 'native-host-stale-cancel-duplicate-coverage'
 Write-Host "MEP_OPENING_CREATION_STATIC=PASS ($checks checks); LIVE_HOST=NOT_EXECUTED"

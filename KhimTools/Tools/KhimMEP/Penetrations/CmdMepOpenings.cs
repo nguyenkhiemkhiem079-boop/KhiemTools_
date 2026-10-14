@@ -30,6 +30,11 @@ namespace KhimTools.MEP.Penetrations
                     message = "Open a model view before running MEP clash review.";
                     return Result.Failed;
                 }
+                if(uidoc.Selection.GetElementIds().Select(doc.GetElement).Any(x=>x is RevitLinkInstance))
+                {
+                    TaskDialog.Show("Unsupported linked-model selection","Linked MEP/hosts are not analyzed or cut by this native workflow. No link transform or host ownership is inferred. Select native MEP elements explicitly.");
+                    return Result.Cancelled;
+                }
                 var selected = uidoc.Selection.GetElementIds().OrderBy(x => x.ToLongValue())
                     .Select(doc.GetElement).OfType<MEPCurve>().ToList();
                 bool selectionWasMep = selected.Count > 0;
@@ -72,6 +77,7 @@ namespace KhimTools.MEP.Penetrations
                     : $"MEP шалгалт (зөвхөн унших, тал бүрд 50 мм зай)\nMEP хүссэн: {result.Requested}; тохирох: {result.Eligible}; боловсруулсан: {result.Processed}; алгассан: {result.Skipped}; алдаа: {result.Failed}\nБүтээцийн host: {result.HostCount}; геометргүй: {result.HostGeometrySkipped}; geometry алдаа: {result.HostGeometryFailed}\nБодит solid огтлолцол: {result.Clashes.Count}\n\n" +
                       string.Join("\n", lines) + (result.Clashes.Count > 10 ? "\n…" : string.Empty) +
                       "\n\nЗөвлөсөн хэмжээ нь coordination тооцоо; моделд нүх болон элемент үүсгээгүй.";
+                report += $"\nNative-model analysis only. Linked instances excluded: {result.LinkedInstancesExcluded} (whole document, not clash count). Linked transforms/cuts unsupported; no results are inferred.";
                 TaskDialog.Show("KhimMEP — Clash Review", report);
                 return result.Eligible == 0 || ((result.Failed + result.HostGeometryFailed) == result.Requested && result.Requested > 0)
                     ? Result.Failed : Result.Succeeded;
