@@ -232,7 +232,7 @@ namespace KhimTools.RebarTool.Forms
             }
         }
 
-        private static Color RoleColor(string role)
+        internal static Color RoleColor(string role)
         {
             switch (role)
             {

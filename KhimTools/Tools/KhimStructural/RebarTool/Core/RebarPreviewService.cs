@@ -535,12 +535,11 @@ namespace KhimTools.RebarTool.Core
                 for (int positionIndex = 0; positionIndex < positionCount; positionIndex++)
                 {
                     if (!bar.DoesBarExistAtPosition(positionIndex)) continue;
-                    IList<Curve> curves = bar.GetCenterlineCurves(false, false, false,
-                        MultiplanarOption.IncludeAllMultiplanarCurves, positionIndex);
+                    IList<Curve> curves = RebarSolvedCenterlineReaderV1.Read(bar, positionIndex);
                     foreach (Curve curve in curves)
                     {
                         IList<XYZ> points = curve.Tessellate();
-                        if (points.Count < 2) continue;
+                        if (points.Count < 2) throw new InvalidOperationException("A solved centerline has no valid segment; preview must not silently drop it.");
                         paths.Add(new RebarPreviewPath(points.Select(p => new RebarPreviewPoint(p.X, p.Y, p.Z)), role));
                     }
                 }

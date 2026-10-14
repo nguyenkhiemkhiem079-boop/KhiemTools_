@@ -14,6 +14,7 @@
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\RebarAnchorageCalculator.cs" Link="RebarAnchorageCalculator.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\RebarFingerprintMultiset.cs" Link="RebarFingerprintMultiset.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\SlabSectionGeometry.cs" Link="SlabSectionGeometry.cs" />
+    <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\DetachedSolvedViewV1.cs" Link="DetachedSolvedViewV1.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamStirrupLayout.cs" Link="BeamStirrupLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamLongitudinalLayout.cs" Link="BeamLongitudinalLayout.cs" />
     <Compile Include="..\..\KhimTools\Tools\KhimStructural\RebarTool\Core\BeamManualDetailingPlanV1.cs" Link="BeamManualDetailingPlanV1.cs" />

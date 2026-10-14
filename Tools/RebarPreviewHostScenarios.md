@@ -1,5 +1,9 @@
 # Phase 8 Rebar preview host scenarios
 
+## Final-world distributed/moved positions and inline2D
+
+REBAR-WORLD-POSITION-PREVIEW: REGISTERED/COMPILED, NOT_EXECUTED. Genuine dispersed set resources required; raw/base centerlines must not substitute native final positions. Run moved/varying/excluded resource cases separately, plus actual accepted2D/3D/Create type/shape/hooks/quantity/world paths and rollback/Undo. Exact supported mappings and consolidated matrix: Docs/QA/REBAR_PREVIEW_PARITY_WAVE.md. No automatic Revit mutation in this session.
+
 ## Wall continuation — host ownership confirmed
 
 `WALL-MANUAL-OWNERSHIP-ROLLBACK`: REGISTERED/COMPILED, NOT_EXECUTED. Every bar retains Wall host even when extended into verified selected boundary Columns. Missing resources BLOCKED. Detailed supported geometry and positive/negative stale, duplicate, six-cover, flip/rotation, cancel/rollback/Undo plan: Docs/QA/Wall/WALL_MANUAL_WAVE.md. Run only on a confirmed detached disposable model; offline PASS is not host acceptance.

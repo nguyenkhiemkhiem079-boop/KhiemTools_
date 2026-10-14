@@ -99,8 +99,7 @@ namespace KhimTools.RebarTool.Core
 
         private static double GetStirrupStationElevation(Rebar stirrup, int positionIndex)
         {
-            IList<Curve> curves = stirrup.GetCenterlineCurves(false, true, false,
-                MultiplanarOption.IncludeAllMultiplanarCurves, positionIndex);
+            IList<Curve> curves = RebarSolvedCenterlineReaderV1.Read(stirrup, positionIndex, suppressHooks:true);
             double[] elevations = curves.SelectMany(curve => curve.Tessellate())
                 .Select(point => point.Z).OrderBy(z => z).ToArray();
             if (elevations.Length == 0)

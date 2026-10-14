@@ -61,7 +61,7 @@ $suites = @(
     @{
         Name = "Phase 8 Rebar Preview Acceptance"
         Script = Join-Path $scriptDir "Tools\Verify-KRebar.ps1"
-        ExpectedCount = 170
+        ExpectedCount = 179
     },
     @{
         Name = "Rebar Configuration Persistence & Recovery"
@@ -99,7 +99,7 @@ $suites = @(
     @{
         Name = "Phase 15 Host Scenario Catalog & Registration"
         Script = Join-Path $scriptDir "Tools\Verify-Phase15ScenarioCatalog.ps1"
-        ExpectedCount = 257
+        ExpectedCount = 262
     },
     @{
         Name = "Phase 16 Reliability & Security Static Audit"
@@ -110,7 +110,7 @@ $suites = @(
         Name = "Phase 17 Domain Goldens, Edge Cases & Synthetic Stress"
         Script = Join-Path $scriptDir "Tools\Verify-Phase17GoldenPerformance.ps1"
         # Exact Manual/other golden total is asserted by Verify-Phase17GoldenPerformance.ps1.
-        ExpectedCount = 189
+        ExpectedCount = 204
     },
     @{
         Name = "Stage 3.1 Sheet Copy Structural Audit"
@@ -271,6 +271,16 @@ $suites = @(
         Name = "Confirmed Native MEP Opening Creation"
         Script = Join-Path $scriptDir "Tools\Verify-MepOpeningCreation.ps1"
         ExpectedCount = 13
+    },
+    @{
+        Name = "Detached Solved Section Renderer Pixel Assertions"
+        Script = Join-Path $scriptDir "Tools\Verify-SolvedPreviewRendering.ps1"
+        ExpectedCount = 12
+    },
+    @{
+        Name = "Production Final-World Rebar Position Adapter"
+        Script = Join-Path $scriptDir "Tools\Verify-RebarWorldPositions.ps1"
+        ExpectedCount = 8
     }
 )
 

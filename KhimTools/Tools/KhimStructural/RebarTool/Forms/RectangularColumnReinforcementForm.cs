@@ -112,6 +112,7 @@ namespace KhimTools.RebarTool.Forms
         private Button _btnClose;
         private RebarPreviewSnapshot _lastPreview;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
+        private DetachedSolvedViewV1 _solved2D;
 
         private ComboBox _cmbLanguage;
         private Label _lblColTitle;
@@ -663,6 +664,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void UpdatePreviewStateUi()
         {
+            _previewPanel?.Invalidate();
             if (_lblPreviewState == null) return;
             bool isEn = LanguageManager.IsEnglish;
             switch (_previewLifecycle.State)
@@ -990,7 +992,10 @@ namespace KhimTools.RebarTool.Forms
                 _lastPreview = RebarPreviewService.Capture(_doc, requests);
                 using (var preview = new RebarSolverPreviewForm(_lastPreview))
                 {
-                    if (preview.ShowDialog(this) == DialogResult.OK) _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
+                    if (preview.ShowDialog(this) == DialogResult.OK) {
+                        CacheSolved2D(selectedItems[0].Column);
+                        _previewLifecycle.Complete(_lastPreview, _lastPreview.PlanFingerprint);
+                    }
                     else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
                 UpdatePreviewStateUi();
@@ -1307,8 +1312,23 @@ namespace KhimTools.RebarTool.Forms
                 .Cast<RebarBarType>()
                 .FirstOrDefault(t => t.Name.Equals(label, StringComparison.OrdinalIgnoreCase));
 
+        private void CacheSolved2D(FamilyInstance column)
+        {
+            var frame=RectangularColumnGeometryHelper.GetRectangularProfile(column);
+            var x=new XYZ(Math.Cos(frame.RotationRad),Math.Sin(frame.RotationRad),0);
+            var y=new XYZ(-Math.Sin(frame.RotationRad),Math.Cos(frame.RotationRad),0);
+            var paths=_lastPreview.Components.Where(c=>c.HostId==column.UniqueId).SelectMany(c=>c.Paths).Select(path=>new SolvedLocalPathV1(path.Role,path.Points.Select(point=>{
+                var local=new XYZ(point.X,point.Y,point.Z)-frame.BaseCenter;
+                return new SlabSectionPoint(local.DotProduct(x),local.Z,local.DotProduct(y));
+            }))).ToArray();
+            if(paths.Length==0)throw new InvalidOperationException("Accepted snapshot has no paths for this exact Column.");
+            _solved2D=new DetachedSolvedViewV1(paths,frame.Height/2,elevationXY:true){SectionX0=-frame.B/2,SectionZ0=-frame.H/2,SectionWidth=frame.B,SectionHeight=frame.H,
+                ElevationX0=-frame.B/2,ElevationY0=0,ElevationWidth=frame.B,ElevationHeight=frame.Height,HostLabel="First selected Column "+column.Id.ToLongValue()};
+        }
+
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
+            if(_lastPreview!=null && _previewLifecycle.State==PreviewLifecycleState.Valid && _solved2D!=null){DetachedSolvedViewRendererV1.Paint(e.Graphics,_previewPanel.ClientRectangle,_solved2D);return;}
             var g = e.Graphics;
             g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             bool isEn = LanguageManager.IsEnglish;

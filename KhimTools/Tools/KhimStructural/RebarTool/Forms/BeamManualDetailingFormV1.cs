@@ -19,7 +19,7 @@ namespace KhimTools.RebarTool.Forms
 {
     /// <summary>
     /// Explicit Manual v1 editor. All generated quantities and geometry are user
-    /// specified; unsupported support extensions and code checks remain unavailable.
+    /// specified; bound verified support geometry is permitted, structural code checks remain unavailable.
     /// </summary>
     internal sealed class BeamManualDetailingFormV1 : Form
     {
@@ -60,6 +60,7 @@ namespace KhimTools.RebarTool.Forms
         private readonly List<RebarShape> _stirrupShapes;
         private BeamManualDetailingPlanV1 _plan;
         private RebarPreviewSnapshot _preview;
+        private DetachedSolvedViewV1 _solved2D;
         private readonly DataGridView _bars = new DataGridView();
         private readonly DataGridView _stirrups = new DataGridView();
         private readonly TextBox[] _covers = new TextBox[5];
@@ -785,6 +786,7 @@ namespace KhimTools.RebarTool.Forms
                     }
                 }
                 _plan = candidate;
+                CacheSolved2D(detached);
                 _preview = detached;
                 UpdateState("SOLVED · " + detached.Components[0].BarCount.ToString(CultureInfo.InvariantCulture) + " explicit bars · geometry validated only · CODE_VERIFIED=false.");
             }
@@ -845,6 +847,7 @@ namespace KhimTools.RebarTool.Forms
         private void InvalidatePreview()
         {
             if (_preview != null) _preview = null;
+            _solved2D=null;_sketch?.Invalidate();
             if (_create != null) _create.Enabled = false;
             if (_state != null && !IsDisposed) UpdateState("STALE / NOT SOLVED · solve the current inputs before Create.");
         }
@@ -853,6 +856,21 @@ namespace KhimTools.RebarTool.Forms
         {
             _state.Text = text;
             _create.Enabled = _preview != null;
+            _sketch?.Invalidate();
+        }
+
+        private void CacheSolved2D(RebarPreviewSnapshot snapshot)
+        {
+            var frame=BeamGeometryHelper.GetBeamProfile(_beam);
+            var paths=snapshot.Components.Where(c=>c.HostId==BeamHostId(_beam)).SelectMany(c=>c.Paths).Select(path=>
+                new SolvedLocalPathV1(path.Role,path.Points.Select(point=>{
+                    var local=new XYZ(point.X,point.Y,point.Z)-frame.StartPoint;
+                    return new SlabSectionPoint(local.DotProduct(frame.RightVector),local.DotProduct(frame.Direction),local.DotProduct(frame.UpVector));
+                }))).ToArray();
+            if(paths.Length==0)throw new InvalidOperationException("Accepted solver snapshot has no paths for this exact Beam.");
+            _solved2D=new DetachedSolvedViewV1(paths,frame.Length/2){SectionX0=-frame.B/2,SectionZ0=-frame.H/2,SectionWidth=frame.B,SectionHeight=frame.H,
+                ElevationX0=0,ElevationY0=-frame.H/2,ElevationWidth=frame.Length,ElevationHeight=frame.H,HostLabel="Beam "+_beam.Id.ToLongValue()};
+            _sketch.Invalidate();
         }
 
         private void RefreshSketchSnapshot()
@@ -892,6 +910,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void SketchPaint(object sender, PaintEventArgs e)
         {
+            if(_preview!=null && _solved2D!=null){DetachedSolvedViewRendererV1.Paint(e.Graphics,_sketch.ClientRectangle,_solved2D);return;}
             // Paint uses only a detached frame and copied millimetre coordinates; no Revit API access.
             Graphics g = e.Graphics;
             g.Clear(Color.White);

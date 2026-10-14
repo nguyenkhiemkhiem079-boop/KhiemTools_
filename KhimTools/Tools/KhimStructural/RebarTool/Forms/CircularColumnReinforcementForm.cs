@@ -105,6 +105,7 @@ namespace KhimTools.RebarTool.Forms
         private TabControl _workflowTabs;
         private readonly List<Button> _workflowNavigationButtons = new List<Button>();
         private RebarPreviewSnapshot _lastPreview;
+        private DetachedSolvedViewV1 _solved2D;
         private readonly PreviewLifecycleSession<RebarPreviewSnapshot> _previewLifecycle = new PreviewLifecycleSession<RebarPreviewSnapshot>();
 
         public CircularColumnReinforcementForm(Document doc, List<FamilyInstance> availableColumns, List<FamilyInstance> preSelectedColumns = null)
@@ -713,6 +714,7 @@ namespace KhimTools.RebarTool.Forms
 
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
+            if(_lastPreview!=null && _previewLifecycle.State==PreviewLifecycleState.Valid && _solved2D!=null){DetachedSolvedViewRendererV1.Paint(e.Graphics,_previewPanel.ClientRectangle,_solved2D);return;}
             var g = e.Graphics;
             string text = _previewLifecycle.State == PreviewLifecycleState.Valid
                 ? (LanguageManager.IsEnglish ? "Solver result is detached. Reopen Solve Rebar preview to inspect the accepted geometry." : "Kết quả solver đã tách khỏi Revit. Mở lại Solve Rebar Preview để xem hình học đã chấp nhận.")
@@ -721,6 +723,18 @@ namespace KhimTools.RebarTool.Forms
                     : (LanguageManager.IsEnglish ? "No solved geometry displayed. Use Solve Rebar preview for rollback-only 2D / 3D geometry." : "Chưa có hình học đã giải. Dùng Solve Rebar Preview để tạo hình học 2D / 3D chỉ trong rollback.");
             TextRenderer.DrawText(g, text, Font, _previewPanel.ClientRectangle,
                 Color.FromArgb(71, 85, 105), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+        }
+
+        private void CacheSolved2D(FamilyInstance column)
+        {
+            var frame=CircularColumnGeometryHelper.GetCircularProfile(column);
+            var paths=_lastPreview.Components.Where(c=>c.HostId==column.UniqueId).SelectMany(c=>c.Paths).Select(path=>new SolvedLocalPathV1(path.Role,path.Points.Select(point=>{
+                var local=new XYZ(point.X,point.Y,point.Z)-frame.BaseCenter;
+                return new SlabSectionPoint(local.X,local.Z,local.Y);
+            }))).ToArray();
+            if(paths.Length==0)throw new InvalidOperationException("Accepted snapshot has no paths for this exact circular Column.");
+            _solved2D=new DetachedSolvedViewV1(paths,frame.Height/2,elevationXY:true){SectionX0=-frame.Diameter/2,SectionZ0=-frame.Diameter/2,SectionWidth=frame.Diameter,SectionHeight=frame.Diameter,CircularSection=true,
+                ElevationX0=-frame.Diameter/2,ElevationY0=0,ElevationWidth=frame.Diameter,ElevationHeight=frame.Height,HostLabel="First selected circular Column "+column.Id.ToLongValue()};
         }
 
         private void AttachPreviewInvalidationHandlers(Control root)
@@ -833,8 +847,10 @@ namespace KhimTools.RebarTool.Forms
                 _lastPreview = RebarPreviewService.Capture(_doc, requests);
                 using (var preview = new RebarSolverPreviewForm(_lastPreview))
                 {
-                    if (preview.ShowDialog(this) == DialogResult.OK)
+                    if (preview.ShowDialog(this) == DialogResult.OK) {
+                        CacheSolved2D(selected[0].Column);
                         _previewLifecycle.Complete(_lastPreview, RebarPreviewService.FingerprintInputs(inputs.Select(RebarPreviewService.Fingerprint)));
+                    }
                     else { _lastPreview = null; _previewLifecycle.Invalidate(); }
                 }
             }

@@ -1,5 +1,7 @@
 # PR #3 development continuation checkpoint
 
+LATEST USER POLICY: dual host contracts A Wall and B actual Column are required; prior option1-only restriction is historical. Preserve current source/feature commits. Existing A, bounded MEP opening and solved preview/world-position audit are retained; implement B independently and explicit multiple-host review/atomicity. Do not silently map Column to Wall or infer engineering values. Read latest PHASE_HANDOFF.md. No native QA without exact disposable model confirmation.
+
 Wave3 continuation: reviewed native MEP Wall/Floor cuts implemented for the explicitly bounded unjoined/perpendicular/local geometry slice; conservative proposals and no silent reinforcement redesign. Docs/QA/MEP/CONFIRMED_OPENING_WAVE.md is current, older MEP-not-implemented notes are historical. Next source wave: solved preview parity; use verified latest feature SHA/PR head, not prior checkpoint. Live host and installer lifecycle/signing remain pending, no merge or release.
 
 ## Current Wave2 handoff — supersedes historical remaining-work statements

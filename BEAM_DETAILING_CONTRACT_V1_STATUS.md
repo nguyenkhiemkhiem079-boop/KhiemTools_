@@ -1,5 +1,7 @@
 # Beam Manual Detailing Contract v1 status — 2026-10-13
 
+Preserved consolidated preview audit adds actual accepted inline solver views/final-world distributed/moved positions and native curved collision guard, not new engineering design. Support/multi-Beam source retained. Native geometry/cover/bends/Undo and full contract/release remain uncertified. New user Column-host Wall-related contract is independent work, not an automatic reuse of Beam ownership.
+
 Wave3 is separate MEP coordination code. No Beam Manual/Slab generator behavior or approved engineering inputs are altered by native opening creation. Beam opening cuts are explicitly unsupported; MEP selection cannot silently route to Beam family geometry. The full Beam/live host contract remains uncertified.
 
 Wave2 preservation: Beam Manual/support generation behavior is unchanged; Wall independently verifies its native host and only reuses the exact transient envelope engine and controls-only support binding UI. The legacy Beam tooltip no longer claims TCVN/EC compliance or inferred fractions. Full supported source regression covers previous Beam/Slab as well as new Wall input tests. Actual host acceptance remains NOT_EXECUTED.

@@ -1,5 +1,9 @@
 # Cumulative Phase Defect Register — Slab Reinforcement
 
+## Consolidated assigned Wave1–4 audit (2026-10-14)
+
+Current authoritative audit: Docs/QA/REBAR_PREVIEW_PARITY_WAVE.md. P0 none confirmed code-side. P1 source defects resolved as a coordinated batch: final distributed/moved Rebar position reader (raw base curves were wrong for sets); actual accepted inline2D/true polyline cuts/exact host filtering; native curved Beam envelope collision guard; previously corrected Wall input/layout/strict JSON and MEP join/cut/reinforcement safety. Missing final curves/segments fail closed. P1 HOST_REQUIRED remains actual geometry/cover/hooks/clearance, stale/duplicates, whole rollback/model integrity and Undo on confirmed disposable models; no live acceptance claim. P2 resolved verifier regex/antialiased pixel accounting; deferred conservative MEP rectangle/system limits, tessellation/symbolic marker precision, richer Wall input UI, native large-batch CSG performance and support-solid rendering. Signing/lifecycle/loading pending; no release readiness inferred.
+
 ## Next implementation Wave3 — MEP opening
 
 Bounded local Wall/Floor native opening implementation: Docs/QA/MEP/CONFIRMED_OPENING_WAVE.md. No P0 confirmed in supported code-side slice. P1 native cut/clash/rollback/Undo/UI and safety matrix remains HOST_REQUIRED, fixture registered NOT_EXECUTED; do not treat code builds as closeout. P2 conservative geometry may enlarge rotated-Wall cuts and system/fabric resources block globally; deliberately disclosed limitations pending reviewed exact profile/system adapter expansion. Beam/link/oblique/advanced hosts not supported; engineering/fire approval not inferred.

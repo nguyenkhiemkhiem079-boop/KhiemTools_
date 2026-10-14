@@ -154,14 +154,8 @@ namespace KhimTools.RebarTool.Core
                 if(curves.Count!=1 || !(curves[0] is Line actual) || !((actual.GetEndPoint(0).DistanceTo(a)<WallNativeFrameV1.Feet(0.01) && actual.GetEndPoint(1).DistanceTo(b)<WallNativeFrameV1.Feet(0.01)) ||
                     (actual.GetEndPoint(0).DistanceTo(b)<WallNativeFrameV1.Feet(0.01) && actual.GetEndPoint(1).DistanceTo(a)<WallNativeFrameV1.Feet(0.01))))throw new InvalidOperationException("Solver altered the explicit Wall straight path.");
                 envelope.ValidateCurves(curves,type.BarModelDiameter/2);
+                RebarSolvedEnvelopeCollisionV1.Verify(bar,neighbors);
                 foreach(var old in neighbors){var oldType=_doc.GetElement(old.GetTypeId()) as RebarBarType ?? throw new InvalidOperationException("Neighbor exact type unavailable.");
-                    for(int position=0;position<Math.Max(1,old.NumberOfBarPositions);position++)
-                    {
-                        if(!old.DoesBarExistAtPosition(position))continue;
-                        var neighborCurves=old.GetCenterlineCurves(false,false,false,MultiplanarOption.IncludeAllMultiplanarCurves,position);
-                        if(neighborCurves.Count==0 || neighborCurves.Any(curve=>!(curve is Line)))
-                            throw new InvalidOperationException("Curved/unknown neighboring reinforcement needs exact collision validation; Wall creation blocked rather than approximating clearance.");
-                    }
                     double radius=(type.BarModelDiameter+oldType.BarModelDiameter)/2-WallNativeFrameV1.Feet(0.01);
                     foreach(var path in RebarPreviewService.ReadPaths(new List<Rebar>{old}))for(int i=0;i+1<path.Points.Count;i++) {
                         var p=path.Points[i];var q=path.Points[i+1];

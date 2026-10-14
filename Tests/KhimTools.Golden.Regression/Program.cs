@@ -43,6 +43,7 @@ static class Program
         RunBeamSupportCases();
         RunWallManualCases();
         RunMepCutCases();
+        RunSolvedViewCases();
         RunComparatorContract();
         RunEdgeCases();
         RunSyntheticStress();
@@ -54,6 +55,37 @@ static class Program
         Console.WriteLine("PERFORMANCE_ACCEPTANCE=PASS (pure planning/calculation only)");
         Console.WriteLine("STRESS_ACCEPTANCE=PASS (100, 1,000, 10,000 synthetic records)");
         Console.WriteLine("REBAR_HOST_GEOMETRY_GOLDEN=HOST_REQUIRED / NOT_EXECUTED");
+    }
+
+    private static void RunSolvedViewCases()
+    {
+        SolvedLocalPathV1 Path(string role,params SlabSectionPoint[] points)=>new SolvedLocalPathV1(role,points);
+        var p=Path("QA_COPLANAR",new SlabSectionPoint(1,0,2),new SlabSectionPoint(3,0,4));
+        var view=new DetachedSolvedViewV1(new[]{p},0);
+        Check(view.Section.Count==1&&view.Section[0].Kind==SlabSectionPrimitiveKind.CoplanarSegment,"Solved coplanar actual segment visible");
+        Check(view.Section[0].StartAlong==1&&view.Section[0].EndElevation==4,"Solved section retains actual coordinates");
+        p=Path("QA_OFFSET",new SlabSectionPoint(1,1,2),new SlabSectionPoint(3,1,4));view=new DetachedSolvedViewV1(new[]{p},0);
+        Check(view.Section.Count==0&&view.Elevation.Count==1,"Off-plane hidden in true cut, visible in disclosed elevation");
+        p=Path("QA_CROSS",new SlabSectionPoint(2,-1,3),new SlabSectionPoint(4,1,5));view=new DetachedSolvedViewV1(new[]{p},0);
+        Check(view.Section.Count==1&&view.Section[0].Kind==SlabSectionPrimitiveKind.IntersectionMarker,"Perpendicular crossing is a symbolic intersection, not an artificial bar");
+        Check(view.Section[0].StartAlong==3&&view.Section[0].StartElevation==4,"Crossing interpolation numerically correct");
+        var other=Path("QA_OTHER",new SlabSectionPoint(8,-1,9),new SlabSectionPoint(8,1,9));view=new DetachedSolvedViewV1(new[]{p,other},0);
+        Check(view.Section.Count==2&&view.Section.All(s=>s.Kind==SlabSectionPrimitiveKind.IntersectionMarker),"Unrelated intersections never joined");
+        Check(view.Section[0].Role=="QA_CROSS"&&view.Section[1].Role=="QA_OTHER","Actual roles retained per primitive");
+        p=Path("INVALID",new SlabSectionPoint(double.NaN,0,0),new SlabSectionPoint(1,0,0));view=new DetachedSolvedViewV1(new[]{p},0);
+        Check(view.Section.Count==0&&view.Elevation.Count==0,"Invalid solved paths produce safe empty geometry");
+        Check(new DetachedSolvedViewV1(null,0).Elevation.Count==0,"Missing paths are safe, no fabricated bars");
+        p=Path("COLUMN",new SlabSectionPoint(2,3,4),new SlabSectionPoint(5,6,7));view=new DetachedSolvedViewV1(new[]{p},4,elevationXY:true);
+        Check(view.Elevation[0].StartAlong==2&&view.Elevation[0].StartElevation==3&&view.Elevation[0].EndElevation==6,"Column remapped elevation retains x/height, not section depth");
+        var mutable=new[]{new SlabSectionPoint(1,0,2),new SlabSectionPoint(3,0,4)};p=Path("COPY",mutable);mutable[0]=new SlabSectionPoint(99,99,99);
+        Check(p.Points[0].X==1,"Solved cache defensively copies point storage");
+        p=Path("TOL",new SlabSectionPoint(1,SlabSectionGeometry.PlaneToleranceFeet/2,2),new SlabSectionPoint(3,SlabSectionGeometry.PlaneToleranceFeet/2,4));
+        Check(new DetachedSolvedViewV1(new[]{p},0).Section.Count==1,"Documented coplanarity tolerance retained");
+        p=Path("OFFSET",new SlabSectionPoint(1,SlabSectionGeometry.PlaneToleranceFeet*2,2),new SlabSectionPoint(3,SlabSectionGeometry.PlaneToleranceFeet*2,4));
+        Check(new DetachedSolvedViewV1(new[]{p},0).Section.Count==0,"Outside tolerance stays off-plane");
+        bool invalidCut=false;try{new DetachedSolvedViewV1(new[]{p},double.NaN);}catch(ArgumentException){invalidCut=true;}Check(invalidCut,"Nonfinite cut cannot silently render");
+        p=Path("REPEAT",new SlabSectionPoint(0,-1,0),new SlabSectionPoint(0,1,0),new SlabSectionPoint(0,-1,0));
+        Check(new DetachedSolvedViewV1(new[]{p},0).Section.Count==1,"Shared crossing marker deduplicated only within same path");
     }
 
     private static void RunMepCutCases()

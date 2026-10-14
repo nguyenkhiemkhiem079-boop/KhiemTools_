@@ -37,13 +37,13 @@ namespace KhimTools.RebarTool.Forms
         private readonly WallRebarGeneratorV1 _generator;
         private WallNativeFrameV1 _frame;
         private RebarPreviewSnapshot _preview;
+        private DetachedSolvedViewV1 _solved2D;
         private readonly TextBox _json=new TextBox{Multiline=true,ScrollBars=ScrollBars.Both,WordWrap=false,Dock=DockStyle.Fill,MaxLength=2*1024*1024};
         private readonly ComboBox _type=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=220};
         private readonly ComboBox _role=new ComboBox{DropDownStyle=ComboBoxStyle.DropDownList,Width=160};
         private readonly Button _create=new Button{Text="Create / Tạo",AutoSize=true,Enabled=false};
         private readonly Label _state=new Label{Text="NOT SOLVED / Chưa giải",AutoSize=true};
         private readonly Panel _canvas=new Panel{Dock=DockStyle.Fill,BackColor=Color.White};
-        private double[][] _paths=Array.Empty<double[]>();
         private double _widthMm,_heightMm;
         internal WallReinforcementForm(Document doc,Wall wall)
         {
@@ -86,7 +86,7 @@ namespace KhimTools.RebarTool.Forms
             actions.Controls.Add(Action("Load plan / Đọc",(s,e)=>Run(LoadPlan)));
             actions.Controls.Add(Action("Solve 2D/3D / Giải",(s,e)=>Run(Solve)));
             _create.Click+=(s,e)=>Run(Create);actions.Controls.Add(_create);root.Controls.Add(actions);root.Controls.Add(_state);Controls.Add(root);
-            _json.TextChanged+=(s,e)=>{_preview=null;_paths=Array.Empty<double[]>();_create.Enabled=false;_state.Text="STALE / NOT SOLVED — geometry only";_canvas.Invalidate();};
+            _json.TextChanged+=(s,e)=>{_preview=null;_solved2D=null;_create.Enabled=false;_state.Text="STALE / NOT SOLVED — geometry only";_canvas.Invalidate();};
             _canvas.Paint+=(s,e)=>PaintSolved(e.Graphics);
             _state.MaximumSize=new Size(Math.Max(100,ClientSize.Width-32),0);
             Resize+=(s,e)=>{header.MaximumSize=new Size(Math.Max(100,ClientSize.Width-32),0);_state.MaximumSize=header.MaximumSize;};
@@ -98,7 +98,7 @@ namespace KhimTools.RebarTool.Forms
             return JsonConvert.DeserializeObject<WallManualPlanV1>(_json.Text,new JsonSerializerSettings{TypeNameHandling=TypeNameHandling.None,MissingMemberHandling=MissingMemberHandling.Error,MaxDepth=32}) ?? throw new InvalidOperationException("Plan is empty.");
         }
         private void Write(WallManualPlanV1 plan)=>_json.Text=JsonConvert.SerializeObject(plan,Formatting.Indented);
-        private void Run(Action action){try{action();}catch(Exception ex){_preview=null;_create.Enabled=false;_paths=Array.Empty<double[]>();_canvas.Invalidate();_state.Text="BLOCKED / ROLLED BACK: "+ex.Message;}}
+        private void Run(Action action){try{action();}catch(Exception ex){_preview=null;_solved2D=null;_create.Enabled=false;_canvas.Invalidate();_state.Text="BLOCKED / ROLLED BACK: "+ex.Message;}}
         private void Bind(bool left)
         {
             var plan=Read();
@@ -119,16 +119,18 @@ namespace KhimTools.RebarTool.Forms
         }
         private void Solve()
         {
+            _preview=null;_solved2D=null;_create.Enabled=false;_canvas.Invalidate();
             var plan=Read();string fingerprint=_generator.Fingerprint(_wall,plan);var roles=new Dictionary<string,string>();
             var snapshot=RebarPreviewService.Capture(_doc,new[]{new RebarPreviewRequest(fingerprint,()=>_generator.Generate(_wall,plan,roles),
                 ()=>_generator.Fingerprint(_wall,Read()),new Dictionary<string,string>{{"HostId",_wall.UniqueId},{"HostGeometry",plan.FrameSignature}},bar=>roles.TryGetValue(bar.UniqueId,out string role)?role:"")});
             using(var viewer=new RebarSolverPreviewForm(snapshot))if(viewer.ShowDialog(this)!=DialogResult.OK){_preview=null;_create.Enabled=false;_state.Text="PREVIEW CANCELLED — rollback; no creation";return;}
-            _paths=snapshot.Components.SelectMany(c=>c.Paths).SelectMany(path=>path.Points.Zip(path.Points.Skip(1),(a,b)=>{
-                // Native API/unit conversion only here, NEVER during Paint.
-                XYZ p=new XYZ(a.X,a.Y,a.Z)-_frame.Origin,q=new XYZ(b.X,b.Y,b.Z)-_frame.Origin;
-                return new[]{WallNativeFrameV1.Mm(p.DotProduct(_frame.X)),WallNativeFrameV1.Mm(p.DotProduct(_frame.Up)),WallNativeFrameV1.Mm(q.DotProduct(_frame.X)),WallNativeFrameV1.Mm(q.DotProduct(_frame.Up)),path.Role=="VERTICAL"?0d:path.Role=="HORIZONTAL"?1d:2d};
-            })).ToArray();
-            _preview=snapshot;_create.Enabled=true;_state.Text="SOLVED — actual orthographic elevation, all depth layers projected (NOT a section). CODE_VERIFIED=false.";_canvas.Invalidate();
+            var localPaths=snapshot.Components.Where(c=>c.HostId==_wall.UniqueId).SelectMany(c=>c.Paths).Select(path=>new SolvedLocalPathV1(path.Role,path.Points.Select(point=>{
+                var local=new XYZ(point.X,point.Y,point.Z)-_frame.Origin;
+                return new SlabSectionPoint(local.DotProduct(_frame.Depth),local.DotProduct(_frame.X),local.DotProduct(_frame.Up));
+            }))).ToArray();
+            _solved2D=new DetachedSolvedViewV1(localPaths,_frame.Length/2){SectionX0=0,SectionZ0=0,SectionWidth=_frame.Thickness,SectionHeight=_frame.Height,
+                ElevationX0=0,ElevationY0=0,ElevationWidth=_frame.Length,ElevationHeight=_frame.Height,HostLabel="Wall "+_wall.Id.ToLongValue()};
+            _preview=snapshot;_create.Enabled=true;_state.Text="SOLVED — true centerline cut at Wall mid-length; elevation is all layers projected, NOT a section. CODE_VERIFIED=false.";_canvas.Invalidate();
         }
         private void SavePlan()
         {
@@ -169,14 +171,8 @@ namespace KhimTools.RebarTool.Forms
         }
         private void PaintSolved(Graphics g)
         {
-            // Detached cached numbers only. This is elevation, never an unfiltered fake section.
-            g.Clear(Color.White);if(_paths.Length==0 || _widthMm<=0 || _heightMm<=0)return;
-            double xMin=Math.Min(0,_paths.Min(p=>Math.Min(p[0],p[2]))),xMax=Math.Max(_widthMm,_paths.Max(p=>Math.Max(p[0],p[2])));
-            double yMin=Math.Min(0,_paths.Min(p=>Math.Min(p[1],p[3]))),yMax=Math.Max(_heightMm,_paths.Max(p=>Math.Max(p[1],p[3])));
-            double scale=Math.Min(Math.Max(1,_canvas.Width-36)/(xMax-xMin),Math.Max(1,_canvas.Height-36)/(yMax-yMin));
-            PointF P(double x,double y)=>new PointF((float)(18+(x-xMin)*scale),(float)(_canvas.Height-18-(y-yMin)*scale));
-            using(var outline=new Pen(Color.Gray)) {var a=P(0,0);var b=P(_widthMm,_heightMm);g.DrawRectangle(outline,a.X,b.Y,b.X-a.X,a.Y-b.Y);}
-            foreach(var p in _paths)using(var pen=new Pen(p[4]==0?Color.DarkGreen:p[4]==1?Color.DarkBlue:Color.Purple,1.5f))g.DrawLine(pen,P(p[0],p[1]),P(p[2],p[3]));
+            if(_preview!=null && _solved2D!=null){DetachedSolvedViewRendererV1.Paint(g,_canvas.ClientRectangle,_solved2D);return;}
+            g.Clear(Color.White); // No accepted data means no bars; never fall back to an old solved path.
         }
     }
 }

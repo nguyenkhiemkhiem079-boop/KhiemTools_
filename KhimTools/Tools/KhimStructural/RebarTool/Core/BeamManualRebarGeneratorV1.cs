@@ -236,6 +236,8 @@ namespace KhimTools.RebarTool.Core
 
         private void ValidateCreatedAgainstExisting(Rebar candidate, RebarBarType requestedType, IEnumerable<Rebar> existingBars)
         {
+            existingBars=existingBars.ToArray();
+            RebarSolvedEnvelopeCollisionV1.Verify(candidate,existingBars);
             IReadOnlyList<RebarPreviewPath> candidatePaths = RebarPreviewService.ReadPaths(new List<Rebar> { candidate });
             double radius = requestedType.BarModelDiameter * 0.5;
             double tolerance = UnitUtils.ConvertToInternalUnits(0.01, UnitTypeId.Millimeters);

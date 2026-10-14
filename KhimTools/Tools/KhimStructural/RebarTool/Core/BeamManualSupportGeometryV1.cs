@@ -83,14 +83,7 @@ namespace KhimTools.RebarTool.Core
                 if (!(curve is Line || curve is Arc) || !curve.IsBound)
                     throw new InvalidOperationException("Support envelope currently supports exact bound Line/Arc centerlines only.");
                 XYZ origin = curve.GetEndPoint(0);
-                XYZ tangent = curve.ComputeDerivatives(curve.GetEndParameter(0), false).BasisX.Normalize();
-                XYZ x = tangent.CrossProduct(Math.Abs(tangent.Z) < 0.9 ? XYZ.BasisZ : XYZ.BasisX).Normalize();
-                XYZ y = tangent.CrossProduct(x).Normalize();
-                var circle = new CurveLoop();
-                circle.Append(Arc.Create(origin, radius, 0, Math.PI, x, y));
-                circle.Append(Arc.Create(origin, radius, Math.PI, 2*Math.PI, x, y));
-                var path = new CurveLoop(); path.Append(curve);
-                CheckEnvelope(GeometryCreationUtilities.CreateSweptGeometry(path, 0, curve.GetEndParameter(0), new List<CurveLoop>{circle}));
+                CheckEnvelope(Sweep(curve,radius));
                 // Conservative spherical endpoint envelope preserves the existing physical end-radius rule.
                 CheckEnvelope(Sphere(origin, radius));
                 CheckEnvelope(Sphere(curve.GetEndPoint(1), radius));
@@ -105,6 +98,17 @@ namespace KhimTools.RebarTool.Core
             foreach (Solid shell in _coverShells)
                 if (Boolean(envelope, shell, BooleanOperationsType.Intersect).Volume > tolerance)
                     throw new InvalidOperationException("Physical Rebar envelope violates explicit cover on an exposed Beam/support face.");
+        }
+
+        internal static Solid Sweep(Curve curve,double radius)
+        {
+            if(!(curve is Line || curve is Arc) || !curve.IsBound || !(radius>0) || double.IsNaN(radius) || double.IsInfinity(radius))
+                throw new InvalidOperationException("Exact bound Line/Arc and finite physical radius required for collision proof.");
+            var origin=curve.GetEndPoint(0);var tangent=curve.ComputeDerivatives(curve.GetEndParameter(0),false).BasisX.Normalize();
+            var x=tangent.CrossProduct(Math.Abs(tangent.Z)<0.9?XYZ.BasisZ:XYZ.BasisX).Normalize();var y=tangent.CrossProduct(x).Normalize();
+            var circle=new CurveLoop();circle.Append(Arc.Create(origin,radius,0,Math.PI,x,y));circle.Append(Arc.Create(origin,radius,Math.PI,2*Math.PI,x,y));
+            var path=new CurveLoop();path.Append(curve);
+            return GeometryCreationUtilities.CreateSweptGeometry(path,0,curve.GetEndParameter(0),new List<CurveLoop>{circle});
         }
 
         private static FamilyInstance Resolve(Document document, FamilyInstance beam, BeamManualSupportEndV1 end, bool requireSignature,
