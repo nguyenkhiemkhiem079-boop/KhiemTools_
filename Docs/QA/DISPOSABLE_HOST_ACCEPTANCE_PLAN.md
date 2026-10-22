@@ -2,6 +2,12 @@
 
 STATUS = NOT_EXECUTED. A running Revit process is not permission to mutate its model. Revit2025/2026 were observed; neither model has been confirmed disposable. User confirmation is requested. No model has been changed in this continuation.
 
+## Current user safety gate — 2026-10-23
+
+**Do not run or trigger any Revit test while KHIM (JAYK) is working in Revit.** This applies to read-only smoke commands as well as model-changing fixtures. Wait until the user is not working, then require the detached disposable-model entry gate below before any host acceptance that reads or changes a model. Several `.rvt` project files exist in Downloads, but none is designated as a QA fixture; their presence does not authorize opening or copying them.
+
+The Beam multi-host batch, dual-host Wall A/B, and bounded native MEP opening paths have code-side implementation records in `Docs/QA/Beam/PHASE_04C_ACCEPTANCE_MATRIX.md`, `Docs/QA/Wall/DUAL_HOST_CONTRACTS_WAVE.md`, and `Docs/QA/MEP/WAVE3_HANDOFF.md` / `CONFIRMED_OPENING_WAVE.md`. Older statements below that call multi-Beam, Wall reinforcement, or MEP creation unavailable are historical and are superseded only for those documented supported slices. Their live Revit acceptance is still `NOT_EXECUTED`.
+
 ## Entry gate
 
 User must explicitly identify a detached disposable QA project path/name, Revit year and authorization to create/rollback/Undo. Record model identity, backup, worksharing/detachment state, active document and initial element identities/observable state fingerprint. Reject production/project models and uncertainty. Load only the candidate for the intended host year after closing any DLL-locking host; don't overwrite a running host installation. Runtime harness safety guard must approve before fixtures. Preserve logs and never report BLOCKED as PASS.

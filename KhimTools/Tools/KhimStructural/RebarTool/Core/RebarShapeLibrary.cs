@@ -310,8 +310,7 @@ namespace KhimTools.RebarTool.Core
             var missing = new List<string>();
             foreach (var shapeName in AllStandardShapes)
             {
-                bool found = loaded.Any(l => l.Equals(shapeName, StringComparison.OrdinalIgnoreCase) ||
-                                             l.StartsWith(shapeName + "_", StringComparison.OrdinalIgnoreCase));
+                bool found = loaded.Any(l => l.Equals(shapeName, StringComparison.OrdinalIgnoreCase));
                 if (!found) missing.Add(shapeName);
             }
             return missing;
@@ -375,13 +374,20 @@ namespace KhimTools.RebarTool.Core
 
         private static RebarShape FindLoadedShape(Document doc, string name)
         {
-            return new FilteredElementCollector(doc)
+            if (doc == null || string.IsNullOrWhiteSpace(name)) return null;
+
+            // The catalog contains distinct names such as JP_T11 and JP_T11a.
+            // Prefix matching can silently resolve the wrong geometry, so the
+            // catalog name is an exact lookup key only. Return the exact element
+            // instance; callers pass that identity onward to Revit creation.
+            RebarShape[] matches = new FilteredElementCollector(doc)
                 .OfClass(typeof(RebarShape))
                 .Cast<RebarShape>()
-                .FirstOrDefault(s =>
-                    s.Name.Equals(name, StringComparison.OrdinalIgnoreCase) ||
-                    s.Name.StartsWith(name + "_", StringComparison.OrdinalIgnoreCase) ||
-                    s.Name.StartsWith(name, StringComparison.OrdinalIgnoreCase));
+                .Where(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToArray();
+
+            return matches.Length == 1 ? matches[0] : null;
         }
 
         /// <summary>
@@ -391,28 +397,26 @@ namespace KhimTools.RebarTool.Core
         public static RebarShape FindCompatibleShape(Document doc, string preferredName, RebarStyle expectedStyle)
         {
             if (doc == null || string.IsNullOrWhiteSpace(preferredName)) return null;
-            var shapes = new FilteredElementCollector(doc)
+            RebarShape[] shapes = new FilteredElementCollector(doc)
                 .OfClass(typeof(RebarShape))
                 .Cast<RebarShape>()
                 .Where(s => s.RebarStyle == expectedStyle)
-                .OrderBy(s => string.Equals(s.Name, preferredName, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-                .ThenBy(s => s.Name, StringComparer.OrdinalIgnoreCase);
+                .Where(s => s.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase))
+                .Take(2)
+                .ToArray();
 
-            foreach (RebarShape shape in shapes)
+            if (shapes.Length != 1) return null;
+
+            RebarShape shape = shapes[0];
+            try
             {
-                if (!shape.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase) &&
-                    !shape.Name.StartsWith(preferredName + "_", StringComparison.OrdinalIgnoreCase))
-                    continue;
-                try
-                {
-                    RebarShapeDefinition definition = shape.GetRebarShapeDefinition();
-                    if (definition != null && definition.IsPlanar && definition.Complete)
-                        return shape;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("[K-TOOLS][RebarShape] Ignoring invalid shape " + shape.Name + ": " + ex.Message);
-                }
+                RebarShapeDefinition definition = shape.GetRebarShapeDefinition();
+                if (definition != null && definition.IsPlanar && definition.Complete)
+                    return shape;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("[K-TOOLS][RebarShape] Ignoring invalid shape " + shape.Name + ": " + ex.Message);
             }
             return null;
         }
