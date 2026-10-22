@@ -53,7 +53,7 @@ Current code/evidence changes in this branch:
 - Rebaseline current RB-01 source and acceptance gaps without rerunning historical tests; see `Docs/QA/REA_RB01_SOURCE_REBASELINE.md`. Existing implementations are retained and not relabeled as host-accepted.
 - Record PHM hash separation, the Inno 6.7.0 extraction blocker, EnergyExtractor package hashes and static audit, RA-02's verified Pilot inventory, ten QA checkpoint semantics, and the user's Revit-use safety gate.
 
-Latest compile-only evidence is recorded in `REA_ROADMAP_10_CHECKPOINTS.md`: the smoke DLL builds with 0 warnings and 0 errors; product DLL builds with 10 warnings and 0 errors. No test suite, Revit command, installer, deployment, or model mutation has been run in this continuation.
+Latest compile-only evidence is recorded in `Docs/QA/REA_RB01_COMPILE_MATRIX.md`: the product DLL builds against Revit 2022–2026 API references with 0 errors. The separate read-only smoke DLL also has compile evidence, but has not been loaded or invoked in Revit. No test suite, Revit command, installer, deployment, or model mutation was run for this matrix.
 
 CORE-00 remains open: RA-01 lacks the baseline `571A…` binary; RA-02 has no verified REA runner or REA Pilot assignment (see `Docs/Research/RA-02-REA-Engine-and-Pilot-Inventory.md`); BL-058 cannot run while the user is working in Revit and lacks a designated disposable model; BL-059 has a technically compatible extractor candidate but lacks accepted provenance, a disposable isolated analysis environment, signing authority, and a disposable installer VM; BL-055 must remain frozen until those gates and the accepted source subset are reviewed.
 
@@ -74,4 +74,4 @@ Compile-only evidence for source SHA `4bfbda0c7671e52836e27dcf722fb659343ee91c`:
 | Revit 2025 (`net8.0-windows`) | Exit 0; 10 warnings; 0 errors | Compile only; warnings remain in unrelated `ColumnWallRelatedFormV1` and `SheetGenService` code. |
 | Revit 2024 (`net48`) | Exit 0; 12 warnings; 0 errors | Compile only; warnings remain in unrelated `ColumnWallRelatedFormV1`, `ElementTagsForm`, and `SheetGenService` code. |
 
-The Rebar Shape runtime behavior, Extensible Storage persistence, transaction rollback, MSI build/install, and Revit 2022/2023 targets have not been verified. Wave RB-01 is not host-accepted and Wave 3 remains gated on RB-01 exit evidence.
+Compile-only compatibility now passes for Revit 2022–2026; see `Docs/QA/REA_RB01_COMPILE_MATRIX.md`. Rebar Shape runtime behavior, Extensible Storage persistence, transaction rollback, MSI build/install, and host acceptance remain unverified. Wave RB-01 is not host-accepted and Wave 3 remains gated on RB-01 exit evidence.
