@@ -134,3 +134,15 @@ Evidence on source checkpoint `5da3765`:
 Status: `BLOCKED` for QA-02. Source SHA: `f0dd21c24818f0d8143128b7f91af46c0e178b74`. Scope: RA-01 PHM hash recovery, RA-02 REA runner/Pilot inventory, and RA-05 Inno Setup 6.7.0 parser candidates. Evidence is recorded in `Docs/Research/RA-01-PHM-Hash-Reconciliation.md`, `Docs/Research/RA-02-REA-Engine-and-Pilot-Inventory.md`, and `Docs/Research/RA-05-PHM-Observed-Binary-Extraction-Blocker.md`.
 
 The exact `571A5A14…` baseline installer remains unavailable; no verified REA worker or Pilot assignment exists; and the newly pinned parser is only a compatibility candidate with unsigned source, unresolved component licensing, and no PHM-specific result. A process ownership snapshot found Claude, CodeBuddy, Gemini, and Codex processes under the current Windows user, but none is linked to a REA task or Pilot assignment; see RA-02. No Revit test, Revit host command, or model operation occurred during this research-only recheck. QA-08 and QA-10 remain `BLOCKED`; these source checks do not change CORE-00 or RB-01 host acceptance.
+
+## Runtime QA bypass closure — 2026-10-23
+
+Source SHA: `8f68f44`. A source review found the ribbon command `CmdRebarFixtureQa` could create temporary model elements without the dashboard safety attestations or a full-model post-rollback comparison. The command now collects both explicit safety confirmations, runs shared document preflight and captures its baseline before the transaction group, tracks the fixture IDs, and reports success only after confirmed group rollback and complete fingerprint restoration. The harness verifier includes this command path.
+
+| Check | Result | Scope / limitation |
+|---|---|---|
+| `Tools/Verify-RuntimeQaHarness.ps1` | Exit 0; 65/65 static assertions | Source-order/contract audit only; no Revit fixture ran. |
+| Revit 2025 product build | Exit 0; 10 warnings; 0 errors | Compile only; existing `ColumnWallRelatedFormV1.Load()` and `ElementId(int)` warnings. |
+| Revit host | NOT RUN | No Revit process, command, model, or fixture was opened or run. |
+
+This closes a test-harness bypass in source. It does not pass QA-08/QA-10 or close CORE-00/RB-01; native acceptance still requires the operator safety conditions and a designated detached disposable model.

@@ -98,3 +98,9 @@ This is harness hardening, not runtime acceptance. No Revit process, command, mo
 ## Research gate recheck — 2026-10-23
 
 The continued evidence review leaves the wave gates unchanged: RA-01/BL-059 remain blocked because the exact `571A5A14…` baseline installer is unavailable; RA-02 remains blocked because there is no verified REA worker runtime or approved Pilot assignment; and RA-05 remains blocked because the Inno Setup 6.7.0 parser candidates have not passed provenance, licensing, isolation, or PHM-specific acceptance. Updated evidence is in the three RA research records and the QA-02 research-only run record. No Revit command, test, or model operation was performed. CORE-00 and RB-01 remain open.
+
+## Runtime QA bypass closure — 2026-10-23
+
+Source checkpoint `8f68f44` closes a direct Rebar fixture path that bypassed the Runtime QA dashboard. `CmdRebarFixtureQa` now requires separate default-No confirmations for the safe Revit window and a detached disposable copy, uses the shared document preflight and baseline fingerprint before opening a transaction group, tracks temporary Floor/Rebar IDs, and requires both transaction-group rollback and exact post-run fingerprint restoration before it can report PASS. Group setup/disposal errors fail the fixture and still proceed to rollback comparison/reporting. The static harness audit now guards this legacy path too.
+
+Evidence at `8f68f44`: `Tools/Verify-RuntimeQaHarness.ps1` passed 65/65 static assertions; the Revit 2025 `net8.0-windows` compile-only build exited 0 with 10 existing warnings and 0 errors. No Revit process, command, model, or fixture was opened or run. This removes a harness bypass; QA-08/QA-10 and CORE-00/RB-01 host acceptance remain blocked pending the safe user window and designated disposable model.
