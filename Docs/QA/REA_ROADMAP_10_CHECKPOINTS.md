@@ -79,7 +79,7 @@ RA-07 baseline SHA đã được ghi nhận; RA-08 checkpoint này đã được
 
 ## CORE-00 implementation update — 2026-10-23
 
-Các thay đổi sau được thực hiện trong working tree cô lập `codex/rea-core00-20261023`; `HEAD` vẫn là baseline `18c2cc27350808390b0e7e5a383dafb38b945b40`, chưa có commit mới. Checkout chính và draft của người dùng không bị sửa.
+Các thay đổi sau được thực hiện trong working tree cô lập `codex/rea-core00-20261023`, bắt đầu từ baseline `18c2cc27350808390b0e7e5a383dafb38b945b40`. Code được compile trong trạng thái nội dung tương ứng với source SHA `7a5705153c471744704424be36d910755902d04c` (sau đó được commit và push lên nhánh này). Checkout chính, `master`, và draft PR của người dùng không bị sửa.
 
 - `KToolsLogger` hiện ghi file UTF-8 theo ngày trong `%LOCALAPPDATA%\K-TOOLS\Logs`, giới hạn 4 MiB/file và giữ tối đa ba file xoay vòng. Lỗi ghi log rơi về `Debug` và không chặn Revit.
 - `App` ghi nhận startup, Revit version, shutdown, lỗi startup và lỗi đăng ký workspace pane.
@@ -93,6 +93,6 @@ Compile-only evidence trên working tree hiện tại:
 | Smoke DLL / Revit 2025 | `dotnet build Diagnostics/KhimTools.RevitSmoke/KhimTools.RevitSmoke.csproj --configuration Release -p:RevitVersionForReference=2025 -p:RevitRequestedVersion=2025 --no-restore --verbosity minimal -t:Rebuild` | Exit 0; 0 warnings; 0 errors | Chưa load bằng Add-in Manager/Revit. |
 | Product DLL / Revit 2025 | `dotnet build KhimTools/KhimTools.csproj --configuration Release --framework net8.0-windows -p:RevitVersionForReference=2025 -p:RevitRequestedVersion=2025 -p:DeployKhimToolsBundle=false --no-restore --verbosity minimal -t:Rebuild` | Exit 0; 10 warnings; 0 errors | Compile-only; 2 CS0108 and 8 CS0618 ElementId constructor warnings. No test suite or Revit command was run. |
 
-QA-04 vẫn BLOCKED vì chưa kiểm tra từng API callsite và runtime. QA-09 vẫn NOT TESTED vì không chạy automated regression suite; compile-only chỉ được ghi nhận như bằng chứng build. QA-10 và QA-08 vẫn BLOCKED vì chưa có model disposable được xác nhận. Installer/signing lifecycle chưa chạy. Không có deployment, cài đặt, commit hoặc push nào được thực hiện tính đến snapshot build này.
+QA-04 vẫn BLOCKED vì chưa kiểm tra từng API callsite và runtime. QA-09 vẫn NOT TESTED vì không chạy automated regression suite; compile-only chỉ được ghi nhận như bằng chứng build. QA-10 và QA-08 vẫn BLOCKED vì chưa có model disposable được xác nhận. Installer/signing lifecycle chưa chạy. Không deployment/cài đặt/model mutation nào được thực hiện. Code/docs đã được commit thành checkpoint `7a57051` và push lên nhánh feature riêng; chưa có merge hoặc production release.
 
 Không chạy bất cứ Revit test nào khi KHIM (JAYK) đang làm việc trong Revit, kể cả smoke command chỉ đọc. PHM executable chưa được chạy; signature hiện `NotSigned` và Inno extraction bị hoãn vì chưa xác minh parser hỗ trợ setup format 6.7.0.
