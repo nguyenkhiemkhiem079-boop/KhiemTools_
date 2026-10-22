@@ -146,3 +146,9 @@ Source SHA: `8f68f44`. A source review found the ribbon command `CmdRebarFixture
 | Revit host | NOT RUN | No Revit process, command, model, or fixture was opened or run. |
 
 This closes a test-harness bypass in source. It does not pass QA-08/QA-10 or close CORE-00/RB-01; native acceptance still requires the operator safety conditions and a designated detached disposable model.
+
+## Installer lifecycle Revit-process guard — 2026-10-23
+
+Source change: `Installer/Test-RealMsiRuntime.ps1` now checks for all local `Revit.exe` processes before creating the Windows Installer COM object or performing installer/build actions. If any Revit process is present, it stops and reports the process IDs; if process inspection fails, it also stops. This reduces the risk of replacing the K-TOOLS bundle while Revit is using it. It does not establish that the machine is disposable, authorize removal of an existing installation, or provide installer lifecycle acceptance.
+
+No test suite, installer lifecycle, Revit process, command, model, or fixture was run for this change. QA-08/QA-10 and the installer acceptance gate remain open; CORE-00 and RB-01 are not closed.

@@ -19,6 +19,19 @@ if ([string]::IsNullOrWhiteSpace($ConfirmedDisposableMachineName) -or
     ![string]::Equals($ConfirmedDisposableMachineName, $env:COMPUTERNAME, [StringComparison]::OrdinalIgnoreCase)) {
     throw "BLOCKED: explicit confirmation of this disposable VM machine name is required before any installer mutation. Never run on a production workstation."
 }
+$runningRevit = @()
+try {
+    $runningRevit = [Diagnostics.Process]::GetProcessesByName("Revit")
+    $runningRevitIds = @($runningRevit | ForEach-Object { $_.Id })
+} catch {
+    throw "BLOCKED: unable to confirm that Revit is closed; refusing installer lifecycle validation. $($_.Exception.Message)"
+} finally {
+    foreach ($process in $runningRevit) { $process.Dispose() }
+}
+if ($runningRevitIds.Count -gt 0) {
+    $processList = $runningRevitIds -join ", "
+    throw "BLOCKED: Revit is running (PID(s): $processList). Close every Revit session before installer lifecycle validation because this script replaces the installed K-TOOLS bundle."
+}
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Resolve-Path "$scriptDir\.."
 $outputDir = Join-Path $scriptDir "Output"
