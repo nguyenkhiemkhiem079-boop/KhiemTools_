@@ -96,3 +96,7 @@ Compile-only evidence trên working tree hiện tại:
 QA-04 vẫn BLOCKED vì chưa kiểm tra từng API callsite và runtime. QA-09 vẫn NOT TESTED vì không chạy automated regression suite; compile-only chỉ được ghi nhận như bằng chứng build. QA-10 và QA-08 vẫn BLOCKED vì chưa có model disposable được xác nhận. Installer/signing lifecycle chưa chạy. Không deployment/cài đặt/model mutation nào được thực hiện. Code/docs đã được commit thành checkpoint `7a57051` và push lên nhánh feature riêng; chưa có merge hoặc production release.
 
 Không chạy bất cứ Revit test nào khi KHIM (JAYK) đang làm việc trong Revit, kể cả smoke command chỉ đọc. PHM executable chưa được chạy; signature hiện `NotSigned` và Inno extraction bị hoãn vì chưa xác minh parser hỗ trợ setup format 6.7.0.
+
+## RA-05 follow-up — 2026-10-23
+
+Đã tìm thấy ứng viên parser có upstream CI chạy thành công trên fixture Inno Setup 6.7.3 (setup-data version 6.7.0): `scgm0/InnoUnpack.NET`, commit `b221a08e7b60a6507067e246de1879ef5cf2df4b`, CI run `31750293620` (80 passed, 0 failed, 0 skipped). Đây là bằng chứng tương thích kỹ thuật trên fixture chuẩn, không phải xác nhận PHM 87DF… có thể giải nén hay xác minh độ tin cậy của parser. Static source review có giới hạn; không chạy test/build/parser hay Revit. Ứng viên chưa được chấp nhận do commit unsigned, không có release, và chưa có môi trường phân tích cô lập được thiết lập. Vì vậy RA-05/BL-059 vẫn `BLOCKED`; PHM chưa được extract hoặc execute. Chi tiết và giới hạn được ghi trong `Docs/Research/RA-05-PHM-Observed-Binary-Extraction-Blocker.md`.
