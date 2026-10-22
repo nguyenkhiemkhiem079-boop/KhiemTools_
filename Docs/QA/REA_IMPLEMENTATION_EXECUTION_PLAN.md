@@ -6,7 +6,7 @@
 
 **Starting baseline:** source commit `18c2cc27350808390b0e7e5a383dafb38b945b40`, isolated branch `codex/rea-core00-20261023`. Keep the main checkout and user draft unchanged. Do not merge to `master` or release a production build during these waves.
 
-**Current branch snapshot — 2026-10-23:** branch tip `81738fbe9a3e8a5f87d5136d00c956f40c36da3a`; the remote branch matches and the worktree is clean. The last product/package source revision is `fa13ee570bb4e10e7481167978d57d245dcc51c6`; a name-only diff confirms all later branch changes are documentation. Do not confuse the current documentation tip with the source commit recorded in the installer payload evidence.
+**Previous branch snapshot — 2026-10-23:** branch tip `81738fbe9a3e8a5f87d5136d00c956f40c36da3a`; the remote branch matched and the worktree was clean at that checkpoint. This has since been superseded by the source and evidence updates below. The installer payload remains tied to source revision `fa13ee570bb4e10e7481167978d57d245dcc51c6`; do not confuse that package source with later branch commits.
 
 ## Operating gates
 
@@ -81,3 +81,16 @@ Compile-only compatibility now passes for Revit 2022–2026; see `Docs/QA/REA_RB
 ## Installer build follow-up — 2026-10-23
 
 The canonical `Installer/Build-Installer.ps1` completed against source commit `fa13ee570bb4e10e7481167978d57d245dcc51c6`, product version `2.7.2`, with no uncommitted source changes. It produced unsigned MSI and bootstrapper artifacts; their SHA-256 hashes and read-only MSI database manifest-row inspection are recorded in `Docs/QA/REA_MSI_BUILD_EVIDENCE.md`. No install, signing, deployment, Revit host invocation, or model mutation occurred. The artifacts prove packaging/build integrity only; installer lifecycle and RB-01 native acceptance remain open.
+
+## Runtime QA safety-preflight update — 2026-10-23
+
+Source checkpoint `5da3765` defers the full model fingerprint until a selected run passes preflight. Fixture actions stay disabled until the operator confirms both that KHIM (JAYK) is not working in any Revit session for the whole run and that the active project is a detached disposable QA copy. The runner enforces the same gate independently, records blocked fixtures when it fails, and reports model rollback as `NOT RUN` when no baseline snapshot exists. The dashboard opening no longer fingerprints or scans the model.
+
+Validation at source checkpoint `5da3765`:
+
+| Check | Result | Scope / limitation |
+|---|---|---|
+| `Tools/Verify-RuntimeQaHarness.ps1` | Exit 0; 60/60 static assertions passed | Source-contract audit only; no Revit fixture was executed. |
+| Revit 2025 product build | Exit 0; 10 warnings; 0 errors | `dotnet build KhimTools/KhimTools.csproj --configuration Release --framework net8.0-windows -p:RevitVersionForReference=2025 -p:RevitRequestedVersion=2025 -p:DeployKhimToolsBundle=false --no-restore --verbosity minimal -t:Rebuild`; warnings are existing `ColumnWallRelatedFormV1.Load()` hiding and `ElementId(int)` obsolescence warnings. |
+
+This is harness hardening, not runtime acceptance. No Revit process, command, model, or fixture was opened or run. QA-08/QA-10 remain blocked on an identified detached disposable model and a safe user work window; compile and static audit evidence do not close them. CORE-00 and RB-01 remain open.
