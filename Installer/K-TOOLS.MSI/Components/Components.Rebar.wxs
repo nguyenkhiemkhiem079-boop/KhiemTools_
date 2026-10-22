@@ -94,6 +94,14 @@
         <File Id="F_Mod_Rebar_JP_T75_rfa" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\JP_T75.rfa" />
         <File Id="F_Mod_Rebar_JP_T80_rfa" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\JP_T80.rfa" />
       </Component>
+
+      <!-- Versioned shape identity manifests are separate components so MSI component identity for the existing RFA payload remains stable. -->
+      <Component Id="C_RebarShapeManifestLegacy" Directory="LEGACYREBARFOLDER" Guid="{3A0E5545-704A-4A51-9307-0A5E88B5AD11}">
+        <File Id="F_Leg_RebarShapeManifest_v1" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\rebar-shape-assets.v1.sha256" />
+      </Component>
+      <Component Id="C_RebarShapeManifestModern" Directory="MODERNREBARFOLDER" Guid="{3A0E5545-704A-4A51-9307-0A5E88B5AD12}">
+        <File Id="F_Mod_RebarShapeManifest_v1" Source="..\..\KhimTools\Tools\KhimStructural\RebarTool\RebarShapes\rebar-shape-assets.v1.sha256" />
+      </Component>
     </ComponentGroup>
   </Fragment>
 </Wix>

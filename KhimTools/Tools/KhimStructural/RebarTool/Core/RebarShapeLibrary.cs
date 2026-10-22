@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.Structure;
 using KhimTools.Core.Family;
@@ -17,6 +16,8 @@ namespace KhimTools.RebarTool.Core
         AlreadyLoaded,
         NewlyLoaded,
         MissingFile,
+        InvalidAsset,
+        IdentityUnverified,
         Failed
     }
 
@@ -45,12 +46,14 @@ namespace KhimTools.RebarTool.Core
         public int NewlyLoadedCount { get; set; }
         public int AlreadyLoadedCount { get; set; }
         public int MissingFileCount { get; set; }
+        public int InvalidAssetCount { get; set; }
+        public int IdentityUnverifiedCount { get; set; }
         public int FailedCount { get; set; }
         public List<RebarShapeLoadDetail> Details { get; set; }
 
         public int TotalProcessed
         {
-            get { return NewlyLoadedCount + AlreadyLoadedCount + MissingFileCount + FailedCount; }
+            get { return NewlyLoadedCount + AlreadyLoadedCount + MissingFileCount + InvalidAssetCount + IdentityUnverifiedCount + FailedCount; }
         }
 
         public RebarShapeLoadSummary()
@@ -86,40 +89,96 @@ namespace KhimTools.RebarTool.Core
         };
 
         /// <summary>
-        /// Lấy RebarShape đã nạp trong project, hoặc nạp mới từ .rfa nếu chưa có.
-        /// PHẢI gọi trong Transaction đang mở (doc.LoadFamily yêu cầu transaction).
-        /// Trả về null nếu không tìm thấy .rfa hoặc nạp thất bại.
+        /// Returns a loaded RebarShape only when its persistent identity matches the
+        /// packaged asset manifest. Loading a new shape requires an open transaction.
+        /// Returns null for missing, mismatched, legacy-unverified, or ambiguous shapes.
         /// </summary>
         public static RebarShape GetOrLoadShape(Document doc, string shapeFamilyName)
         {
             if (doc == null || string.IsNullOrEmpty(shapeFamilyName)) return null;
 
-            // 1. Đã có sẵn trong project -> dùng luôn
-            RebarShape existing = FindLoadedShape(doc, shapeFamilyName);
-            if (existing != null) return existing;
-
-            // 2. Tìm file .rfa theo cơ chế dò tìm đa tầng tự động
-            string rfaPath = ResolveRfaPath(shapeFamilyName);
-            if (rfaPath == null) return null;
-
-            // 3. Nạp family vào project bằng KhimFamilyLoadOptions chuẩn Revit
-            try
+            RebarShapeIdentityInspection inspection = RebarShapeAssetIdentity.Inspect(doc, shapeFamilyName);
+            if (inspection.Status == RebarShapeIdentityStatus.Verified) return inspection.Shape;
+            if (inspection.Status != RebarShapeIdentityStatus.NotLoaded)
             {
-                var loadOptions = new KhimFamilyLoadOptions(true, true);
-                Family family;
-                bool loaded = doc.LoadFamily(rfaPath, loadOptions, out family);
-                if (!loaded && family == null)
-                {
-                    // Fallback thử overload cũ nếu Revit phiên bản đặc thù yêu cầu
-                    doc.LoadFamily(rfaPath, out family);
-                }
-            }
-            catch
-            {
+                System.Diagnostics.Debug.WriteLine("[RebarShapeLibrary] Refused " + shapeFamilyName + ": " + inspection.Message);
                 return null;
             }
 
-            return FindLoadedShape(doc, shapeFamilyName);
+            if (doc.IsReadOnly || !doc.IsModifiable)
+            {
+                System.Diagnostics.Debug.WriteLine("[RebarShapeLibrary] Loading " + shapeFamilyName + " requires an open modifiable transaction.");
+                return null;
+            }
+
+            RebarShape loadedShape = null;
+            using (var loadTransaction = new SubTransaction(doc))
+            {
+                if (loadTransaction.Start() != TransactionStatus.Started) return null;
+                try
+                {
+                    var loadOptions = new KhimFamilyLoadOptions(true, true);
+                    Family family;
+                    bool loaded = doc.LoadFamily(inspection.AssetPath, loadOptions, out family);
+                    if (!loaded && family == null)
+                    {
+                        // Fallback thử overload cũ nếu Revit phiên bản đặc thù yêu cầu
+                        doc.LoadFamily(inspection.AssetPath, out family);
+                    }
+
+                    string postLoadAssetHash;
+                    string postLoadManifestHash;
+                    string postLoadValidationError;
+                    if (!RebarShapeAssetIdentity.TryVerifyResource(shapeFamilyName, inspection.AssetPath,
+                            out postLoadAssetHash, out postLoadManifestHash, out postLoadValidationError) ||
+                        !postLoadAssetHash.Equals(inspection.AssetSha256, StringComparison.OrdinalIgnoreCase) ||
+                        !postLoadManifestHash.Equals(inspection.ManifestSha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new InvalidOperationException(postLoadValidationError ??
+                            "The Rebar Shape asset changed while Revit was loading it.");
+                    }
+
+                    RebarShape[] matches = FindLoadedShapes(doc, shapeFamilyName);
+                    if (matches.Length != 1)
+                        throw new InvalidOperationException("Revit did not create exactly one Rebar Shape named " + shapeFamilyName + ".");
+
+                    loadedShape = matches[0];
+                    string stampError;
+                    if (!RebarShapeAssetIdentity.Stamp(loadedShape, inspection, out stampError))
+                        throw new InvalidOperationException(stampError ?? "Could not persist the Rebar Shape asset identity.");
+
+                    if (loadTransaction.Commit() != TransactionStatus.Committed)
+                        throw new InvalidOperationException("Revit did not commit the Rebar Shape load transaction.");
+                }
+                catch (Exception ex)
+                {
+                    if (loadTransaction.GetStatus() == TransactionStatus.Started)
+                    {
+                        try { loadTransaction.RollBack(); }
+                        catch (Exception rollbackException)
+                        {
+                            System.Diagnostics.Debug.WriteLine("[RebarShapeLibrary] Rollback failed for " + shapeFamilyName + ": " + rollbackException);
+                        }
+                    }
+
+                    System.Diagnostics.Debug.WriteLine("[RebarShapeLibrary] Could not load " + shapeFamilyName + ": " + ex);
+                    return null;
+                }
+            }
+
+            // Re-read the document state after commit. The returned object must be
+            // the exact element carrying the matching persistent asset identity.
+            RebarShapeIdentityInspection committed = RebarShapeAssetIdentity.Inspect(doc, shapeFamilyName);
+            if (committed.Status != RebarShapeIdentityStatus.Verified)
+            {
+                System.Diagnostics.Debug.WriteLine("[RebarShapeLibrary] Post-load identity check failed for " + shapeFamilyName + ": " + committed.Message);
+                return null;
+            }
+
+            return loadedShape != null && loadedShape.IsValidObject &&
+                loadedShape.UniqueId.Equals(committed.Shape.UniqueId, StringComparison.Ordinal)
+                ? committed.Shape
+                : null;
         }
 
         /// <summary>
@@ -147,7 +206,10 @@ namespace KhimTools.RebarTool.Core
             RebarShape shape = GetOrLoadShape(doc, "JP_T51");
             if (shape == null)
             {
-                failureReason = "Compatible rectangular tie shape JP_T51 is not loaded and could not be loaded from the K-TOOLS library.";
+                RebarShapeIdentityInspection inspection = RebarShapeAssetIdentity.Inspect(doc, "JP_T51");
+                failureReason = inspection.Status == RebarShapeIdentityStatus.NotLoaded && !doc.IsModifiable
+                    ? "Loading JP_T51 requires an open modifiable transaction."
+                    : inspection.Message;
                 return null;
             }
 
@@ -199,6 +261,7 @@ namespace KhimTools.RebarTool.Core
         public static string ResolveRfaPath(string shapeFamilyName)
         {
             if (string.IsNullOrEmpty(shapeFamilyName)) return null;
+            if (!AllStandardShapes.Contains(shapeFamilyName, StringComparer.OrdinalIgnoreCase)) return null;
 
             // 1. Dò tìm qua FamilyPathResolver chính thức trong subfolder RebarShapes
             string resolved = FamilyPathResolver.ResolveRebarShapePath(shapeFamilyName);
@@ -247,19 +310,34 @@ namespace KhimTools.RebarTool.Core
 
             foreach (var shapeName in AllStandardShapes)
             {
-                var existing = FindLoadedShape(doc, shapeName);
-                if (existing != null)
+                RebarShapeIdentityInspection inspection = RebarShapeAssetIdentity.Inspect(doc, shapeName);
+                if (inspection.Status == RebarShapeIdentityStatus.Verified)
                 {
                     summary.AlreadyLoadedCount++;
-                    summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.AlreadyLoaded, "Đã có sẵn trong dự án"));
+                    summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.AlreadyLoaded, inspection.Message));
                     continue;
                 }
 
-                string path = ResolveRfaPath(shapeName);
-                if (path == null)
+                if (inspection.Status == RebarShapeIdentityStatus.Unverified ||
+                    inspection.Status == RebarShapeIdentityStatus.Ambiguous)
                 {
-                    summary.MissingFileCount++;
-                    summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.MissingFile, "Không tìm thấy file .rfa"));
+                    summary.IdentityUnverifiedCount++;
+                    summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.IdentityUnverified, inspection.Message));
+                    continue;
+                }
+
+                if (inspection.Status == RebarShapeIdentityStatus.AssetUnavailable)
+                {
+                    if (inspection.AssetPath == null)
+                    {
+                        summary.MissingFileCount++;
+                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.MissingFile, inspection.Message));
+                    }
+                    else
+                    {
+                        summary.InvalidAssetCount++;
+                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.InvalidAsset, inspection.Message));
+                    }
                     continue;
                 }
 
@@ -269,12 +347,14 @@ namespace KhimTools.RebarTool.Core
                     if (shape != null)
                     {
                         summary.NewlyLoadedCount++;
-                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.NewlyLoaded, "Nạp thành công (" + Path.GetFileName(path) + ")"));
+                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.NewlyLoaded,
+                            "Loaded and identity-stamped (" + Path.GetFileName(inspection.AssetPath) + ")"));
                     }
                     else
                     {
                         summary.FailedCount++;
-                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.Failed, "Revit không nạp được family"));
+                        RebarShapeIdentityInspection afterAttempt = RebarShapeAssetIdentity.Inspect(doc, shapeName);
+                        summary.Details.Add(new RebarShapeLoadDetail(shapeName, RebarShapeLoadStatus.Failed, afterAttempt.Message));
                     }
                 }
                 catch (Exception ex)
@@ -302,16 +382,15 @@ namespace KhimTools.RebarTool.Core
         }
 
         /// <summary>
-        /// Lấy danh sách các shape chuẩn chưa được nạp vào Document.
+        /// Lấy danh sách các shape chuẩn chưa được nạp hoặc chưa xác minh identity.
         /// </summary>
         public static List<string> GetMissingShapeNames(Document doc)
         {
-            var loaded = GetLoadedShapeNames(doc);
             var missing = new List<string>();
             foreach (var shapeName in AllStandardShapes)
             {
-                bool found = loaded.Any(l => l.Equals(shapeName, StringComparison.OrdinalIgnoreCase));
-                if (!found) missing.Add(shapeName);
+                if (RebarShapeAssetIdentity.Inspect(doc, shapeName).Status != RebarShapeIdentityStatus.Verified)
+                    missing.Add(shapeName);
             }
             return missing;
         }
@@ -372,22 +451,16 @@ namespace KhimTools.RebarTool.Core
 
         // ─── Private helpers ────────────────────────────────────────────────────
 
-        private static RebarShape FindLoadedShape(Document doc, string name)
+        private static RebarShape[] FindLoadedShapes(Document doc, string name)
         {
-            if (doc == null || string.IsNullOrWhiteSpace(name)) return null;
+            if (doc == null || string.IsNullOrWhiteSpace(name)) return new RebarShape[0];
 
-            // The catalog contains distinct names such as JP_T11 and JP_T11a.
-            // Prefix matching can silently resolve the wrong geometry, so the
-            // catalog name is an exact lookup key only. Return the exact element
-            // instance; callers pass that identity onward to Revit creation.
-            RebarShape[] matches = new FilteredElementCollector(doc)
+            return new FilteredElementCollector(doc)
                 .OfClass(typeof(RebarShape))
                 .Cast<RebarShape>()
                 .Where(s => s.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
                 .Take(2)
                 .ToArray();
-
-            return matches.Length == 1 ? matches[0] : null;
         }
 
         /// <summary>
@@ -397,17 +470,11 @@ namespace KhimTools.RebarTool.Core
         public static RebarShape FindCompatibleShape(Document doc, string preferredName, RebarStyle expectedStyle)
         {
             if (doc == null || string.IsNullOrWhiteSpace(preferredName)) return null;
-            RebarShape[] shapes = new FilteredElementCollector(doc)
-                .OfClass(typeof(RebarShape))
-                .Cast<RebarShape>()
-                .Where(s => s.RebarStyle == expectedStyle)
-                .Where(s => s.Name.Equals(preferredName, StringComparison.OrdinalIgnoreCase))
-                .Take(2)
-                .ToArray();
+            RebarShapeIdentityInspection inspection = RebarShapeAssetIdentity.Inspect(doc, preferredName);
+            if (inspection.Status != RebarShapeIdentityStatus.Verified || inspection.Shape.RebarStyle != expectedStyle)
+                return null;
 
-            if (shapes.Length != 1) return null;
-
-            RebarShape shape = shapes[0];
+            RebarShape shape = inspection.Shape;
             try
             {
                 RebarShapeDefinition definition = shape.GetRebarShapeDefinition();

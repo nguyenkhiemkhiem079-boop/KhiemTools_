@@ -101,6 +101,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>RebarShapes\%(Filename)%(Extension)</TargetPath>
     </None>
+    <None Include="Tools\KhimStructural\RebarTool\RebarShapes\rebar-shape-assets.v1.sha256">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>RebarShapes\rebar-shape-assets.v1.sha256</TargetPath>
+    </None>
     <None Include="Family\*.rfa">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>Families\%(Filename)%(Extension)</TargetPath>
@@ -119,6 +123,7 @@
     <ItemGroup>
       <BundleDlls Include="$(OutDir)*.dll" />
       <BundleRfas Include="$(OutDir)RebarShapes\*.rfa" />
+      <BundleRebarShapeManifest Include="$(OutDir)RebarShapes\rebar-shape-assets.v1.sha256" />
       <BundleStandardFamilies Include="$(OutDir)Families\*.rfa" />
       <AddinManifest Include="Deploy\$(VersionFolder)\KhimTools.addin" />
       <PackageManifest Include="Deploy\PackageContents.xml" />
@@ -138,6 +143,12 @@
 
     <MakeDir Directories="$(BundleVersionDir)\RebarShapes" />
     <Copy SourceFiles="@(BundleRfas)"
+          DestinationFolder="$(BundleVersionDir)\RebarShapes"
+          SkipUnchangedFiles="true"
+          Retries="5"
+          RetryDelayMilliseconds="1000"
+          ContinueOnError="WarnAndContinue" />
+    <Copy SourceFiles="@(BundleRebarShapeManifest)"
           DestinationFolder="$(BundleVersionDir)\RebarShapes"
           SkipUnchangedFiles="true"
           Retries="5"

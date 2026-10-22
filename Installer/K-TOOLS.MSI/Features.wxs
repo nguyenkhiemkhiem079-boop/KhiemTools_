@@ -26,6 +26,8 @@
       <Feature Id="RebarEngineering" Title="Rebar Engineering Engine" Description="Standard rebar shapes and rebar calculation engine data" Level="1">
         <ComponentRef Id="C_RebarShapesLegacy" />
         <ComponentRef Id="C_RebarShapesModern" />
+        <ComponentRef Id="C_RebarShapeManifestLegacy" />
+        <ComponentRef Id="C_RebarShapeManifestModern" />
       </Feature>
 
       <!-- Standard Family Library Feature -->

@@ -20,7 +20,10 @@ namespace KhimTools.RebarTool.Forms
     {
         private bool _isSelected;
         private bool _isLoaded;
+        private bool _isIdentityBlocked;
+        private bool _isAssetVerified;
         private string _filePath;
+        private string _identityMessage;
         private string _statusText;
         private Brush _statusBgColor;
         private Brush _statusFgColor;
@@ -33,6 +36,7 @@ namespace KhimTools.RebarTool.Forms
             get { return _isSelected; }
             set
             {
+                if (value && !IsSelectable) value = false;
                 if (_isSelected != value)
                 {
                     _isSelected = value;
@@ -50,7 +54,56 @@ namespace KhimTools.RebarTool.Forms
                 {
                     _isLoaded = value;
                     OnPropertyChanged("IsLoaded");
+                    OnPropertyChanged("IsSelectable");
                     UpdateStatusDisplay();
+                }
+            }
+        }
+
+        public bool IsIdentityBlocked
+        {
+            get { return _isIdentityBlocked; }
+            set
+            {
+                if (_isIdentityBlocked != value)
+                {
+                    _isIdentityBlocked = value;
+                    OnPropertyChanged("IsIdentityBlocked");
+                    OnPropertyChanged("IsSelectable");
+                    UpdateStatusDisplay();
+                }
+            }
+        }
+
+        public bool IsAssetVerified
+        {
+            get { return _isAssetVerified; }
+            set
+            {
+                if (_isAssetVerified != value)
+                {
+                    _isAssetVerified = value;
+                    OnPropertyChanged("IsAssetVerified");
+                    OnPropertyChanged("IsSelectable");
+                    UpdateStatusDisplay();
+                }
+            }
+        }
+
+        public bool IsSelectable
+        {
+            get { return !_isLoaded && !_isIdentityBlocked && _isAssetVerified; }
+        }
+
+        public string IdentityMessage
+        {
+            get { return _identityMessage; }
+            set
+            {
+                if (_identityMessage != value)
+                {
+                    _identityMessage = value;
+                    OnPropertyChanged("IdentityMessage");
                 }
             }
         }
@@ -112,9 +165,21 @@ namespace KhimTools.RebarTool.Forms
         {
             if (_isLoaded)
             {
-                StatusText = "Đã có trong Project";
+                StatusText = "Đã xác minh trong Project";
                 StatusBgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(27, 56, 43));
                 StatusFgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(46, 204, 113));
+            }
+            else if (_isIdentityBlocked)
+            {
+                StatusText = "Shape hiện có chưa xác minh";
+                StatusBgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(73, 55, 26));
+                StatusFgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 193, 7));
+            }
+            else if (!_isAssetVerified)
+            {
+                StatusText = "Không xác minh được asset";
+                StatusBgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(61, 27, 34));
+                StatusFgColor = new SolidColorBrush(System.Windows.Media.Color.FromRgb(231, 76, 60));
             }
             else if (!string.IsNullOrEmpty(_filePath) && File.Exists(_filePath))
             {
@@ -205,8 +270,6 @@ namespace KhimTools.RebarTool.Forms
         {
             try
             {
-                var loadedNames = RebarShapeLibrary.GetLoadedShapeNames(_doc);
-
                 _allShapes.Clear();
                 foreach (var shapeName in RebarShapeLibrary.AllStandardShapes)
                 {
@@ -216,17 +279,23 @@ namespace KhimTools.RebarTool.Forms
                         desc = "Rebar Shape tiêu chuẩn BS 8666 / JIS";
                     }
 
-                    string rfaPath = RebarShapeLibrary.ResolveRfaPath(shapeName);
-                    bool isLoaded = loadedNames.Any(n => n.Equals(shapeName, StringComparison.OrdinalIgnoreCase) ||
-                                                         n.StartsWith(shapeName + "_", StringComparison.OrdinalIgnoreCase));
+                    RebarShapeIdentityInspection inspection = RebarShapeAssetIdentity.Inspect(_doc, shapeName);
+                    bool isLoaded = inspection.Status == RebarShapeIdentityStatus.Verified;
+                    bool identityBlocked = inspection.Status == RebarShapeIdentityStatus.Unverified ||
+                        inspection.Status == RebarShapeIdentityStatus.Ambiguous;
+                    bool assetVerified = inspection.Status == RebarShapeIdentityStatus.Verified ||
+                        inspection.Status == RebarShapeIdentityStatus.NotLoaded;
 
                     var item = new RebarShapeItemViewModel
                     {
                         Name = shapeName,
                         Description = desc,
                         IsLoaded = isLoaded,
-                        FilePath = rfaPath ?? "Chưa định vị được file",
-                        IsSelected = !isLoaded // Mặc định tích chọn những shape chưa nạp
+                        IsIdentityBlocked = identityBlocked,
+                        IsAssetVerified = assetVerified,
+                        IdentityMessage = inspection.Message,
+                        FilePath = inspection.AssetPath ?? "Chưa định vị được file",
+                        IsSelected = inspection.Status == RebarShapeIdentityStatus.NotLoaded
                     };
                     item.UpdateStatusDisplay();
                     _allShapes.Add(item);
@@ -259,8 +328,9 @@ namespace KhimTools.RebarTool.Forms
         private void UpdateSummary()
         {
             int loadedCount = _allShapes.Count(s => s.IsLoaded);
+            int unverifiedCount = _allShapes.Count(s => s.IsIdentityBlocked);
             int total = _allShapes.Count;
-            TxtCountSummary.Text = string.Format("Đã nạp: {0} / {1} Shapes", loadedCount, total);
+            TxtCountSummary.Text = string.Format("Đã xác minh: {0} / {1} | Chưa xác minh: {2}", loadedCount, total, unverifiedCount);
         }
 
         private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
@@ -275,17 +345,23 @@ namespace KhimTools.RebarTool.Forms
 
         private void BtnSelectAll_Click(object sender, RoutedEventArgs e)
         {
-            bool select = _allShapes.Any(s => !s.IsSelected);
+            bool select = _allShapes.Any(s => s.IsSelectable && !s.IsSelected);
             foreach (var s in _allShapes)
             {
-                s.IsSelected = select;
+                if (s.IsSelectable) s.IsSelected = select;
             }
             BtnSelectAll.Content = select ? "Bỏ chọn tất cả" : "Chọn tất cả";
         }
 
         private void BtnLoadAll_Click(object sender, RoutedEventArgs e)
         {
-            ExecuteLoadShapes(_allShapes);
+            var available = _allShapes.Where(s => s.IsSelectable).ToList();
+            if (available.Count == 0)
+            {
+                TaskDialog.Show("Rebar Shape Library", "Không có asset nào sẵn sàng nạp. Kiểm tra tooltip của từng trạng thái để biết lý do.");
+                return;
+            }
+            ExecuteLoadShapes(available);
         }
 
         private void BtnLoadSelected_Click(object sender, RoutedEventArgs e)
@@ -303,7 +379,12 @@ namespace KhimTools.RebarTool.Forms
         private void BtnPreloadCommon_Click(object sender, RoutedEventArgs e)
         {
             string[] common = { "JP_T00", "JP_T02", "JP_T11", "JP_T12", "JP_T21", "JP_T27", "JP_T51", "JP_T68", "JP_T75", "JP_T80" };
-            var targets = _allShapes.Where(s => common.Contains(s.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+            var targets = _allShapes.Where(s => s.IsSelectable && common.Contains(s.Name, StringComparer.OrdinalIgnoreCase)).ToList();
+            if (targets.Count == 0)
+            {
+                TaskDialog.Show("Rebar Shape Library", "Không có common shape nào sẵn sàng nạp. Kiểm tra tooltip của từng trạng thái để biết lý do.");
+                return;
+            }
             ExecuteLoadShapes(targets);
         }
 
@@ -318,7 +399,7 @@ namespace KhimTools.RebarTool.Forms
             int newlyLoaded = 0;
             int alreadyLoaded = 0;
             int failed = 0;
-            var newlyLoadedItems = new List<RebarShapeItemViewModel>();
+            var failureDetails = new List<string>();
 
             PrgProgress.Visibility = System.Windows.Visibility.Visible;
             TxtStatus.Text = "Đang nạp " + itemsToLoad.Count + " Rebar Shapes vào dự án...";
@@ -329,36 +410,43 @@ namespace KhimTools.RebarTool.Forms
                 {
                     foreach (var item in itemsToLoad)
                     {
-                        if (item.IsLoaded)
+                        RebarShapeIdentityInspection before = RebarShapeAssetIdentity.Inspect(_doc, item.Name);
+                        if (before.Status == RebarShapeIdentityStatus.Verified)
                         {
                             alreadyLoaded++;
                             continue;
                         }
 
+                        if (before.Status != RebarShapeIdentityStatus.NotLoaded)
+                        {
+                            failed++;
+                            failureDetails.Add(item.Name + ": " + before.Message);
+                            continue;
+                        }
+
                         var shape = RebarShapeLibrary.GetOrLoadShape(_doc, item.Name);
-                        if (shape != null)
+                        RebarShapeIdentityInspection after = RebarShapeAssetIdentity.Inspect(_doc, item.Name);
+                        if (shape != null && after.Status == RebarShapeIdentityStatus.Verified)
                         {
                             newlyLoaded++;
-                            newlyLoadedItems.Add(item);
                         }
                         else
                         {
                             failed++;
+                            failureDetails.Add(item.Name + ": " + after.Message);
                         }
                     }
                 });
 
-                foreach (var item in newlyLoadedItems)
-                {
-                    item.IsLoaded = true;
-                    item.IsSelected = false;
-                }
-
+                LoadData();
                 UpdateSummary();
                 TxtStatus.Text = string.Format("Hoàn tất: Nạp mới {0}, Đã có sẵn {1}, Thất bại {2}.", newlyLoaded, alreadyLoaded, failed);
+                string details = failureDetails.Count == 0
+                    ? string.Empty
+                    : "\n\nChi tiết (tối đa 8):\n" + string.Join("\n", failureDetails.Take(8));
                 TaskDialog.Show("K-TOOLS Rebar Shape Loader",
-                    string.Format("Đã nạp thành công các Rebar Shape vào dự án:\n- Nạp mới: {0}\n- Đã có sẵn: {1}\n- Thất bại: {2}",
-                        newlyLoaded, alreadyLoaded, failed));
+                    string.Format("Nạp mới đã xác minh: {0}\nĐã có sẵn đã xác minh: {1}\nBị từ chối / thất bại: {2}{3}",
+                        newlyLoaded, alreadyLoaded, failed, details));
             }
             catch (Exception ex)
             {
