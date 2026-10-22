@@ -23,3 +23,12 @@ No installer extraction, command execution, or installation was performed for th
 2. Record its full SHA-256 and size before extraction.
 3. Extract each binary independently and keep the output tied to its input hash.
 4. Compare manifests, DLLs, frameworks, and commands only within each artifact ledger.
+
+## Local recovery search — 2026-10-23
+
+Read-only recovery search covered `C:\Users\khiem.nguyen\Downloads`, `Desktop`, `Documents\Codex`, and `C:\KTOOL`:
+
+- Search for `*PHM*Setup*.exe` found only the already recorded `87DF…` candidate at `Downloads\app\PHM-RevitTools-Setup.exe`.
+- Hashed 27 `.exe` files of at least 50 MB in those roots; none matched the baseline prefix `571A5A14`.
+
+This search is scope-limited; it does not prove the baseline binary is absent from every drive, archive, or differently sized/containerized file. RA-01 remains `BLOCKED`; keep EV-01 and EV-02 separate until the exact baseline artifact is recovered.
