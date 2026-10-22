@@ -10,7 +10,11 @@ Final handoff branch tip: read with `git rev-parse origin/fix/preview-hardening`
 
 Master baseline: `601d1feb8731356f3ac2f509aa5aabeecbd8fd3a`.
 
-This Beam handoff is separate from the prior Slab handoff in repository-root `PHASE_HANDOFF.md`; that existing Slab section and its register were preserved. Continue Phase 04 only. Do not start Column, Foundation, K-Architectural, K-MEP, K-QS or a later roadmap phase.
+This Beam handoff is separate from the prior Slab handoff in repository-root `PHASE_HANDOFF.md`; that existing Slab section and its register were preserved. Its original instruction to work only on Phase 04 and defer Column, Foundation, K-Architectural, K-MEP, K-QS and later phases was specific to the 2026-10-12 handoff and has since been superseded by the approved 16-wave REA roadmap.
+
+## Current-source correction — 2026-10-23
+
+The 2026-10-12 handoff scope above is historical and is superseded by the approved 16-wave REA roadmap. The later bounded same-document rectangular support-extension path and independently authored multi-Beam assignment are implemented code-side; see `SUPPORT_EXTENSION_WAVE.md` and `PHASE_04C_ACCEPTANCE_MATRIX.md`. Their native Revit acceptance remains `NOT_EXECUTED`. Automatic detailing/design values and unsupported Beam/support geometry remain out of scope and fail closed.
 
 ## Implemented and pushed code-side checkpoint
 

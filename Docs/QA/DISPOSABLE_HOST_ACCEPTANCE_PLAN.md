@@ -1,10 +1,10 @@
-# Disposable host and installer acceptance — PR #3 continuation
+# Disposable host and installer acceptance — REA execution plan
 
-STATUS = NOT_EXECUTED. A running Revit process is not permission to mutate its model. Revit2025/2026 were observed; neither model has been confirmed disposable. User confirmation is requested. No model has been changed in this continuation.
+STATUS = NOT_EXECUTED. A running Revit process is not permission to read or mutate its model. Revit2025/2026 were observed; neither active model has been confirmed disposable. User confirmation is requested. No model has been changed in this continuation.
 
 ## Current user safety gate — 2026-10-23
 
-**Do not run or trigger any Revit test while KHIM (JAYK) is working in Revit.** This applies to read-only smoke commands as well as model-changing fixtures. Wait until the user is not working, then require the detached disposable-model entry gate below before any host acceptance that reads or changes a model. Several `.rvt` project files exist in Downloads, but none is designated as a QA fixture; their presence does not authorize opening or copying them.
+**Do not run or trigger any Revit test while KHIM (JAYK) is working in Revit.** This applies to read-only smoke commands as well as model-changing fixtures. Wait until the user is not working, then require the detached disposable-model entry gate below before any host acceptance that reads or changes a model. Several `.rvt` project files exist in Downloads, including construction and architectural project names, but none is designated as a QA fixture; their presence does not authorize opening or copying them.
 
 The Beam multi-host batch, dual-host Wall A/B, and bounded native MEP opening paths have code-side implementation records in `Docs/QA/Beam/PHASE_04C_ACCEPTANCE_MATRIX.md`, `Docs/QA/Wall/DUAL_HOST_CONTRACTS_WAVE.md`, and `Docs/QA/MEP/WAVE3_HANDOFF.md` / `CONFIRMED_OPENING_WAVE.md`. Older statements below that call multi-Beam, Wall reinforcement, or MEP creation unavailable are historical and are superseded only for those documented supported slices. Their live Revit acceptance is still `NOT_EXECUTED`.
 
@@ -18,13 +18,13 @@ Use two physically verified straight rectangular Beams, including unequal dimens
 
 Before batch creation change host A and separately host B geometry/type/existing Rebar: reject stale acceptance before any mutation. Attempt repeated host identity, foreign-document plan, empty plan and missing preview: blocked. Complete duplicate on either host blocks all; partial duplicate is not classified as complete but physical interference still blocks. Trigger a real unsupported shape/API failure in second host, using QA-only test setup, then verify identities/state/host IDs and temporary elements prove whole group rollback including host A. Never add failure injection to production generator. Until executed, transaction-group source inspection is code-side evidence only.
 
-## Remaining feature acceptance
+## Current code-side slices and remaining host acceptance
 
-Support extension: explicitly select actual support at each end, explicit covers/intent/coordinates, prove real solid and physical bar-radius containment through junction, direction reversal and changed support stale acceptance, missing/wrong/ambiguous support fails. Do not execute unsupported current output as though implemented.
+The following describes source-level availability, not host acceptance. Keep scenarios `NOT_EXECUTED` until a designated detached fixture is opened in a confirmed safe Revit session and evidence is recorded against the tested source SHA.
 
-Wall reinforcement: confirmed structural wall host, actual local frame and thickness, explicit face covers/positions/stations/types, openings/joins/curvature rejection or correctly bounded implementation; horizontal/vertical roles and both faces, rotated/flipped wall, no substituted types. The feature is currently not implemented; this is a future execution matrix, not registration or PASS.
-
-MEP opening creation: verify exact MEP/host solid clash, explicit clearance and reviewed cut geometry, supported local or linked host identity, orientation/oblique/round/rectangular cases, boundary containment, pre-existing openings and repeat selectivity. Confirm actual host cut and resulting clearance; failure rolls back all. Current command is read-only, so creation acceptance remains NOT_IMPLEMENTED.
+- **Beam support extension:** the bounded same-document rectangular Beam/Column support path is implemented with explicit support identity, cover and continuation intent. Execute the physical CSG/swept-bar containment, start/finish and reversal matrix, stale-support checks, rollback and Undo from `Beam/SUPPORT_EXTENSION_WAVE.md`. Unsupported support solids and unapproved detailing/anchorage remain fail-closed; no engineering adequacy is inferred.
+- **Wall reinforcement:** code-side contracts `WALL_MANUAL_V1` (actual structural Wall primary host) and `COLUMN_HOST_WALL_RELATED_V1` (actual Column primary host) are implemented as separate workflows. Execute Wall-only, Column-only, boundary intersection, rotation/mirror, exact ownership, cover/detail, stale-input, duplicate/interference, whole-batch rollback and Undo scenarios from `Wall/DUAL_HOST_CONTRACTS_WAVE.md`. The contracts must not be treated as equivalent; compilation and offline fixtures are not host results.
+- **MEP opening creation:** `CmdMepOpenings` remains the read-only coordination review; `CmdMepOpeningCreateV1` is a separate bounded native-creation command for supported local Wall/Floor hosts and straight perpendicular penetrants. Execute actual Wall and Floor cuts separately, with duct/pipe/tray, measured clash and removed-volume checks, stale/repeat rejection, rollback, unrelated-state preservation and Undo from `MEP/CONFIRMED_OPENING_WAVE.md`. Unsupported geometry remains fail-closed; source and registered fixtures are not native acceptance.
 
 ## Preview parity matrix
 

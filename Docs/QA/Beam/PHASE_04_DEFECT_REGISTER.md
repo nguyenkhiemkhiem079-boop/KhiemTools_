@@ -8,6 +8,10 @@ Implementation checkpoint: `19fca67cda2cdcd004bff91f042b1af0724a01e7`
 
 Status: Phase 04B findings below are historical; the latest Phase 04C disposition is appended at EOF. Host acceptance remains `HOST_REQUIRED / NOT_EXECUTED`.
 
+## Current-source correction — 2026-10-23
+
+The Phase 04C checkpoint and P2 statements dated 2026-10-12 below are historical. The later bounded same-document rectangular support-extension path and independently authored multi-Beam assignment are implemented code-side; see `SUPPORT_EXTENSION_WAVE.md` and `PHASE_04C_ACCEPTANCE_MATRIX.md`. Native host acceptance remains `NOT_EXECUTED`. The old one-Beam editor limit and unavailable-support wording do not describe the current supported code slice. Inferred detailing values, unsupported host/support geometry, and structural-code approval remain unsupported.
+
 This Beam-specific register supplements, and does not replace, the cumulative Slab history in the repository-root `PHASE_DEFECT_REGISTER.md`.
 
 ## Capability matrix
@@ -141,10 +145,10 @@ Starting SHA: `843d99218e5f85ef2a97ab3b0d56e59a911f4c13`. Pushed implementation 
 
 This is the latest Phase 04C disposition and supersedes the earlier checkpoint statements above about hooks, returns, stirrups and the supported code-side boundary.
 
-- **P0:** None confirmed in the narrowed supported code-side scope. Exact user input and exact loaded Revit identity are required; unsupported support extension and multi-Beam plan assignment remain rejected.
+- **P0:** None confirmed in the narrowed supported code-side scope at this 2026-10-12 checkpoint. Exact user input and exact loaded Revit identity are required; support extension and multi-Beam plan assignment were not yet implemented at that checkpoint.
 - **P1 code-side defects resolved:** exact loaded hook identity/orientation and explicit curve-return polylines flow UI → typed plan → persistence/fingerprint → production generator → rollback solver preview → parity-guarded Create. Explicit stirrup/hanger role, exact type/shape, section path, stations and collision/cover checks use the same path. Self-intersecting and zero-area closed contours are rejected. The Manual form layout has an offline matrix fix.
 - **P1 host acceptance remains open:** `BR-MANUAL-V1-ROLLBACK` exercises straight-bar host behavior only. `BEAM_MANUAL_V1_EXTENDED_DETAILS` records host verification for hooks, returns and closed/open stirrups/hangers. Both remain `REGISTERED_NOT_EXECUTED`; shape compatibility, actual Revit bends, parity, cancel, rollback, duplicates, staleness and Undo are not host-proven.
-- **P2/narrowed boundary:** verified support extension, multi-Beam plans, inferred engineering values, unsupported host profiles and structural-code checks remain visibly unavailable and fail closed. The supported editor accepts one supported rectangular Beam at a time.
+- **P2/narrowed boundary at this checkpoint:** verified support extension, multi-Beam plans, inferred engineering values, unsupported host profiles and structural-code checks remained unavailable and fail closed. The editor accepted one supported rectangular Beam at a time; the later support wave supersedes the first two limitations only for its documented bounded slice.
 - Final current evidence: Golden Regression `124` assertions PASS; K-Rebar `157/157` PASS; Rebar configuration `37/37` PASS; focused Manual layout `720` checks / `18` renders PASS; full Rebar layout `17,959` controls / `360` renders PASS; canonical `Test-All.ps1` `2804/2804` PASS; Revit 2024/2025 Release builds `0` errors (210/208 repository-wide warnings). Offline layout simulation is not OS DPI or host QA.
 - `HOST_ACCEPTANCE=NO`; `PRODUCTION_READY=NO`. Build/static results are not live Revit acceptance.
 
