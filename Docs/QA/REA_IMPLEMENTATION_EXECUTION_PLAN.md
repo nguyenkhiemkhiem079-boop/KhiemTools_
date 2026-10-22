@@ -49,6 +49,7 @@ Current code/evidence changes in this branch:
 - Add a rotating UTF-8 file sink for `KToolsLogger` and log add-in startup, shutdown, startup exceptions, and workspace-pane registration warnings.
 - Add a minimal Revit 2025 read-only smoke-command project and solution entry. Its assembly has been compiled; it has not been loaded or invoked in Revit.
 - Correct Rebar Shape name resolution to require an exact unique catalog name, avoiding prefix collisions such as `JP_T11` and `JP_T11a`. This closes that lookup defect only; BL-012 still needs verified resource identity/version, bend/hook mapping, and native acceptance.
+- Rebaseline current RB-01 source and acceptance gaps without rerunning historical tests; see `Docs/QA/REA_RB01_SOURCE_REBASELINE.md`. Existing implementations are retained and not relabeled as host-accepted.
 - Record PHM hash separation, the Inno 6.7.0 extraction blocker, EnergyExtractor package hashes and static audit, RA-02's verified Pilot inventory, ten QA checkpoint semantics, and the user's Revit-use safety gate.
 
 Latest compile-only evidence is recorded in `REA_ROADMAP_10_CHECKPOINTS.md`: the smoke DLL builds with 0 warnings and 0 errors; product DLL builds with 10 warnings and 0 errors. No test suite, Revit command, installer, deployment, or model mutation has been run in this continuation.

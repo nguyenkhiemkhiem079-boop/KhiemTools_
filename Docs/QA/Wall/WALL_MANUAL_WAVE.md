@@ -14,7 +14,7 @@ Ribbon → Wall-only selection → explicit versioned JSON editor / exact-type p
 
 Saved plans retain exact document/host/frame/type/support bindings. Unknown JSON properties, foreign/stale resources, absent explicit values and invalid geometry reject; unsupported engineering settings are never silently accepted. Input is bounded to 2MiB/depth32 and up to10000 physical bars for software safety, not design quantities. Save uses a uniquely owned temporary file and atomic replacement after explicit overwrite confirmation.
 
-2D is an actual solved orthographic **elevation**, with all depth layers projected and disclosure that it is NOT a section. Paint uses only detached numeric arrays; it does not access Revit. 3D uses the existing solver snapshot viewer. Section cuts, advanced detailing and richer grid editing remain outside this slice; preview-parity consolidation is still a later assigned wave.
+2D is an actual solved orthographic **elevation**, with all depth layers projected and disclosure that it is NOT a section. Paint uses only detached numeric arrays; it does not access Revit. 3D uses the existing solver snapshot viewer. The later preview-parity consolidation is recorded in [`REBAR_PREVIEW_PARITY_WAVE.md`](../REBAR_PREVIEW_PARITY_WAVE.md); its code-side work does not replace live host acceptance. Advanced detailing and richer grid editing remain outside this slice.
 
 ## Audit corrections
 
