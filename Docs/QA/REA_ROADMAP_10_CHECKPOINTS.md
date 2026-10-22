@@ -119,6 +119,10 @@ From source commit `fa13ee570bb4e10e7481167978d57d245dcc51c6`, the canonical ins
 
 Pinned the current feature-branch snapshot at `81738fbe9a3e8a5f87d5136d00c956f40c36da3a`. `git status` was clean and `git ls-remote origin refs/heads/codex/rea-core00-20261023` returned the same SHA. Comparing `fa13ee570bb4e10e7481167978d57d245dcc51c6..81738fbe9a3e8a5f87d5136d00c956f40c36da3a` shows only documentation paths changed; therefore the installer payload's product-source fingerprint and hashes remain tied to its recorded source revision. This branch pin does not approve integration or release.
 
+## RA-07 branch checkpoint after CORE-00 safeguards — 2026-10-23
+
+At this checkpoint, `codex/rea-core00-20261023` was at `ff44066b8a8cf60da8557f256c9286c15b840d11`, the worktree was clean, and `git ls-remote origin refs/heads/codex/rea-core00-20261023` returned the same SHA. The branch now includes later Runtime QA harness and Rebar fixture source changes plus the installer Revit-process guard. The existing MSI/build evidence remains tied to earlier product source SHA `fa13ee570bb4e10e7481167978d57d245dcc51c6`; it is not evidence for a package rebuilt from this branch tip. This checkpoint does not approve integration or release.
+
 ## Runtime QA safety-preflight update — 2026-10-23
 
 Source checkpoint `5da3765` requires two explicit operator attestations before any Runtime QA fixture can start: KHIM (JAYK) is not working in Revit for the full QA run, and the active model is a detached disposable QA copy. The dashboard no longer captures a model fingerprint when it opens. A selected run captures a complete baseline only after preflight; failed preflight creates `BLOCKED` fixture rows and no baseline is reported as `NOT RUN`, not as a failed rollback.
