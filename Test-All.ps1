@@ -29,7 +29,7 @@ $suites = @(
         ExpectedCount = 14
     },
     @{
-        Name = "MSI Lifecycle Install/Upgrade/Repair/Uninstall Audit (Phase 3)"
+        Name = "MSI Lifecycle Structural Audit (Phase 3; read-only MSI database)"
         Script = Join-Path $scriptDir "Installer\Test-MsiLifecycle.ps1"
         ExpectedCount = 13
     },

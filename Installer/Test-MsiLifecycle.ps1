@@ -1,6 +1,7 @@
 # ==============================================================================
-# K-TOOLS MSI LIFECYCLE AUDIT SUITE (Phase 3)
-# Validates Install, Upgrade, Repair, and Uninstall Architecture on Compiled MSI
+# K-TOOLS MSI LIFECYCLE STRUCTURAL AUDIT (Phase 3)
+# Reads MSI tables to validate lifecycle architecture; does not install or uninstall.
+# If the target MSI is absent, this script may invoke Build-Installer.ps1.
 # ==============================================================================
 param(
     [string]$MsiPath = "Installer\Output\K-TOOLS.msi"
@@ -12,7 +13,7 @@ $repoRoot = Resolve-Path "$scriptDir\.."
 $resolvedMsi = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($repoRoot, $MsiPath))
 
 Write-Host "=================================================================" -ForegroundColor Cyan
-Write-Host " PHASE 3: MSI LIFECYCLE (INSTALL / UPGRADE / REPAIR / UNINSTALL) " -ForegroundColor Cyan
+Write-Host " PHASE 3: MSI LIFECYCLE STRUCTURAL AUDIT (READ-ONLY TABLE INSPECTION) " -ForegroundColor Cyan
 Write-Host "=================================================================" -ForegroundColor Cyan
 Write-Host "Target MSI: $resolvedMsi" -ForegroundColor Yellow
 
