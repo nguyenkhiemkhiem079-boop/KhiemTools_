@@ -37,6 +37,16 @@ The candidate is not yet accepted for use on the PHM artifact:
 
 Therefore RA-05 remains `BLOCKED`. Do not report the PHM manifest, DLL inventory, or command count based on this candidate until the parser is accepted and extraction is performed under the isolation conditions above. Keep the `87DF…` artifact separate from the missing `571A…` baseline artifact in [RA-01](RA-01-PHM-Hash-Reconciliation.md).
 
+## Alternate parser review — 2026-10-23
+
+A second candidate was reviewed from its primary GitHub source: [`Peiratooo/innoextract-go`](https://github.com/Peiratooo/innoextract-go), main commit `a9620314070af84f730cc988903c8d7a707ed70b` (2026-08-28; GitHub reports the commit as unverified). Its README states that the metadata parser accepts Inno Setup data versions 6.0–6.7 inclusive and includes a 6.6.1 sample integration test; it does not provide a 6.7.0/PHM fixture. The README also documents a 64 MiB header limit, a default 1 GiB extraction/decompression memory limit, and an in-memory API that does not write output files. Encrypted 6.5+ data is explicitly unsupported; the encryption state of the observed PHM binary has not been established by this review.
+
+Static inspection of `internal/pathutil/path.go` found normalization of Windows separators, root/drive prefixes, traversal components, and invalid path characters. The library returns file data and paths to its caller, so an eventual extraction wrapper would still need to enforce output-root containment, Windows device-name/collision rules, and total resource limits before any disk write. No code was built or run, and no installer was supplied to this candidate.
+
+This source is young (created 2026-08-20; 2 stars and 1 fork when checked), has no GitHub release or Actions workflow, and its latest commit is unsigned/unverified. Its Go module declares Go 1.26.5 and external `xz` and `x/crypto` modules. These facts, the lack of a 6.7.0 fixture, and the absence of an independent build/review are insufficient for acceptance. The candidate is recorded for comparison only and was not used to inspect or extract either PHM artifact.
+
+The two current candidates provide different partial evidence: `InnoUnpack.NET` has the upstream 6.7.3 installer fixture exercising setup-data 6.7.0, while `innoextract-go` documents a memory-only API and a 6.0–6.7 parser boundary but tests only a 6.6.1 sample. Neither has accepted provenance or independent PHM compatibility evidence. RA-05 remains `BLOCKED`; no extraction or execution occurred.
+
 ## Next evidence needed
 
 1. Pin and independently verify the extractor source/package identity and provenance; review or replace it with an organization-approved parser.
