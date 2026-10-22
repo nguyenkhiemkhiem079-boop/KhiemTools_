@@ -152,3 +152,5 @@ This closes a test-harness bypass in source. It does not pass QA-08/QA-10 or clo
 Source change: `Installer/Test-RealMsiRuntime.ps1` now checks for all local `Revit.exe` processes before creating the Windows Installer COM object or performing installer/build actions. If any Revit process is present, it stops and reports the process IDs; if process inspection fails, it also stops. This reduces the risk of replacing the K-TOOLS bundle while Revit is using it. It does not establish that the machine is disposable, authorize removal of an existing installation, or provide installer lifecycle acceptance.
 
 No test suite, installer lifecycle, Revit process, command, model, or fixture was run for this change. QA-08/QA-10 and the installer acceptance gate remain open; CORE-00 and RB-01 are not closed.
+
+The `Test-All.ps1` dashboard and script header also now identify `Verify-RevitRuntimeQA.ps1` as a source/packaging static audit with no host execution. Its existing machine-readable result line is unchanged. No audit was run; this is a reporting-label correction only and does not add runtime evidence.

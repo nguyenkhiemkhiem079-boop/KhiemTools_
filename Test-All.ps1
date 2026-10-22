@@ -44,7 +44,7 @@ $suites = @(
         ExpectedCount = 134
     },
     @{
-        Name = "Revit Runtime QA & Manifest Verification Suite (Phase 9)"
+        Name = "Revit Source & Packaging Static Audit (Phase 9; no host execution)"
         Script = Join-Path $scriptDir "Installer\Verify-RevitRuntimeQA.ps1"
         ExpectedCount = 9
     },

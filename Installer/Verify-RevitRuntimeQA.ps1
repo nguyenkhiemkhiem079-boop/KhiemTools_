@@ -1,5 +1,5 @@
 # =====================================================================
-# K-TOOLS (KhimTools) - Phase 9: Revit Runtime QA Audit Suite
+# K-TOOLS (KhimTools) - Phase 9: Revit Source & Packaging Static Audit
 # Validates Addin Manifests, Ribbon Command Mappings, Icon Assets,
 # Safety Boundaries, and Multi-Year Revit Compatibility Matrix
 # =====================================================================
