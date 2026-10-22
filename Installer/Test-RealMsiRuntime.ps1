@@ -19,19 +19,22 @@ if ([string]::IsNullOrWhiteSpace($ConfirmedDisposableMachineName) -or
     ![string]::Equals($ConfirmedDisposableMachineName, $env:COMPUTERNAME, [StringComparison]::OrdinalIgnoreCase)) {
     throw "BLOCKED: explicit confirmation of this disposable VM machine name is required before any installer mutation. Never run on a production workstation."
 }
-$runningRevit = @()
-try {
-    $runningRevit = [Diagnostics.Process]::GetProcessesByName("Revit")
-    $runningRevitIds = @($runningRevit | ForEach-Object { $_.Id })
-} catch {
-    throw "BLOCKED: unable to confirm that Revit is closed; refusing installer lifecycle validation. $($_.Exception.Message)"
-} finally {
-    foreach ($process in $runningRevit) { $process.Dispose() }
+function Assert-RevitClosed {
+    $runningRevit = @()
+    try {
+        $runningRevit = [Diagnostics.Process]::GetProcessesByName("Revit")
+        $runningRevitIds = @($runningRevit | ForEach-Object { $_.Id })
+    } catch {
+        throw "BLOCKED: unable to confirm that Revit is closed; refusing installer lifecycle validation. $($_.Exception.Message)"
+    } finally {
+        foreach ($process in $runningRevit) { $process.Dispose() }
+    }
+    if ($runningRevitIds.Count -gt 0) {
+        $processList = $runningRevitIds -join ", "
+        throw "BLOCKED: Revit is running (PID(s): $processList). Close every Revit session before installer lifecycle validation because this script replaces the installed K-TOOLS bundle."
+    }
 }
-if ($runningRevitIds.Count -gt 0) {
-    $processList = $runningRevitIds -join ", "
-    throw "BLOCKED: Revit is running (PID(s): $processList). Close every Revit session before installer lifecycle validation because this script replaces the installed K-TOOLS bundle."
-}
+Assert-RevitClosed
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Resolve-Path "$scriptDir\.."
 $outputDir = Join-Path $scriptDir "Output"
@@ -102,6 +105,7 @@ Write-Host "`n[Runtime 01/10] Establishing Clean Baseline Environment..." -Foreg
 $existing = @($wi.RelatedProducts($upgradeCode))
 foreach ($pCode in $existing) {
     Write-Host "  Removing existing registration: $pCode..."
+    Assert-RevitClosed
     Start-Process msiexec.exe -ArgumentList @(
         "/x", "$pCode",
         "MSIRESTARTMANAGERCONTROL=Disable",
@@ -114,6 +118,7 @@ Write-Host "  Baseline Cleaned: $baselineClean" -ForegroundColor $(if ($baseline
 
 # --- STEP 2: BUILD FRESH v2.7.1 & v2.7.0 MSIs ---
 Write-Host "`n[Runtime 02/10] Building Target MSIs from Current Source..." -ForegroundColor Cyan
+Assert-RevitClosed
 $pkgWxsPath = Join-Path $scriptDir "K-TOOLS.MSI\Package.wxs"
 $origWxs = Get-Content $pkgWxsPath -Raw
 
@@ -137,6 +142,7 @@ Write-Host "  K-TOOLS-Setup.exe Built: $bootExists" -ForegroundColor Green
 # --- STEP 3: REAL INSTALL OF PREVIOUS VERSION (v2.7.0) ---
 Write-Host "`n[Runtime 03/10] Executing REAL INSTALL of Previous Version (v2.7.0)..." -ForegroundColor Cyan
 $logInstall269 = Join-Path $env:TEMP "ktools_real_install_269.log"
+Assert-RevitClosed
 $pInstall269 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPrevPath`"",
     "MSIRESTARTMANAGERCONTROL=Disable",
@@ -155,6 +161,7 @@ Write-Host "  v2.7.0 Live Installation: $(if ($initialInstallSuccess) {'PASS'} e
 
 # --- STEP 4: SEED USER DATA & CUSTOM FAMILY SOURCE DIRECTORY ---
 Write-Host "`n[Runtime 04/10] Seeding User-Managed Data & Custom Family Source Folders..." -ForegroundColor Cyan
+Assert-RevitClosed
 $userSettingsFile = Join-Path $bundleDir "UserData_CustomSettings.json"
 Set-Content -Path $userSettingsFile -Value '{"custom_template": "Metric_Concrete", "user_override": 42}'
 $customFamilyDir = Join-Path $bundleDir "Contents\Families\CustomRebar"
@@ -168,6 +175,7 @@ Write-Host "  Seeded: $customFamilyFile"
 # --- STEP 5: REAL UPGRADE TO v2.7.1 ---
 Write-Host "`n[Runtime 05/10] Executing REAL UPGRADE from v2.7.0 to v2.7.1..." -ForegroundColor Cyan
 $logUpgrade270 = Join-Path $env:TEMP "ktools_real_upgrade_270.log"
+Assert-RevitClosed
 $pUpgrade270 = Start-Process msiexec.exe -ArgumentList @(
     "/i", "`"$msiPath`"",
     "MSIRESTARTMANAGERCONTROL=Disable",
@@ -215,11 +223,13 @@ if ($pkgXmlExists) {
 
 # --- STEP 7: REAL REPAIR (msiexec /fa) ---
 Write-Host "`n[Runtime 07/10] Executing REAL REPAIR (msiexec /fa) After Tampering..." -ForegroundColor Cyan
+Assert-RevitClosed
 Write-Host "  Intentionally deleting: $pkgXmlPath"
 Remove-Item -Path $pkgXmlPath -Force
 Write-Host "  PackageContents.xml exists before repair: $(Test-Path $pkgXmlPath)"
 
 $logRepair = Join-Path $env:TEMP "ktools_real_repair.log"
+Assert-RevitClosed
 $pRepair = Start-Process msiexec.exe -ArgumentList @(
     "/fa", "`"$msiPath`"",
     "MSIRESTARTMANAGERCONTROL=Disable",
@@ -241,6 +251,7 @@ if ($pRepair.ExitCode -eq 0 -and $pkgXmlRestored) {
 # --- STEP 8: REAL UNINSTALL (msiexec /x) & DATA PRESERVATION ---
 Write-Host "`n[Runtime 08/10] Executing REAL UNINSTALL (msiexec /x)..." -ForegroundColor Cyan
 $logUninstall = Join-Path $env:TEMP "ktools_real_uninstall.log"
+Assert-RevitClosed
 $pUninstall = Start-Process msiexec.exe -ArgumentList @(
     "/x", "`"$msiPath`"",
     "MSIRESTARTMANAGERCONTROL=Disable",
@@ -276,6 +287,7 @@ if ($userDataPreserved -and $customFamilyPreserved) {
 }
 
 # Cleanup test seeded user data
+Assert-RevitClosed
 if (Test-Path $userSettingsFile) { Remove-Item $userSettingsFile -Force }
 if (Test-Path $customFamilyDir) { Remove-Item $customFamilyDir -Recurse -Force }
 
@@ -283,8 +295,10 @@ if (Test-Path $customFamilyDir) { Remove-Item $customFamilyDir -Recurse -Force }
 Write-Host "`n[Runtime 09/10] Verifying Bootstrapper Execution & Package Hashing..." -ForegroundColor Cyan
 $logBoot = Join-Path $env:TEMP "ktools_bootstrapper_layout.log"
 $layoutDir = Join-Path $env:TEMP "KTools_BootLayout"
+Assert-RevitClosed
 if (Test-Path $layoutDir) { Remove-Item $layoutDir -Recurse -Force }
 
+Assert-RevitClosed
 $pBoot = Start-Process $bootstrapperPath -ArgumentList @(
     "/layout", "`"$layoutDir`"",
     "/quiet", "/log", "`"$logBoot`""
