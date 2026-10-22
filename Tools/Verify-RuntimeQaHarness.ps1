@@ -27,6 +27,10 @@ Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SettingsRecoveryRuntime
 Require-File "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "Slab multi-panel atomicity host fixture exists" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SettingsRecoveryRuntimeFixture()" "Settings recovery fixture is registered" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SlabMultiPanelAtomicityRuntimeFixture()" "Slab multi-panel atomicity fixture is registered" | Out-Null
+Require-Token "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "I confirm KHIM (JAYK) is not working in any Revit session for the full duration of this QA run." "Legacy Rebar fixture requires the full-run safe-window attestation" | Out-Null
+Require-Token "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "I confirm the active project is a detached disposable QA copy" "Legacy Rebar fixture requires detached disposable-model consent" | Out-Null
+Require-Token "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "qaContext.TryPrepareForRun(out string safetyReason)" "Legacy Rebar fixture runs common document preflight and captures a baseline" | Out-Null
+Require-Token "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs" "RuntimeQaSafetyGuard.VerifyRollback(doc, qaContext.InitialFingerprint" "Legacy Rebar fixture verifies complete post-rollback model state" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new RectangularSlabPreviewRuntimeFixture()" "Existing rectangular slab preview fixture remains registered" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRegistry.cs" "new SlabOpeningPreviewRuntimeFixture()" "Existing slab opening preview fixture remains registered" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Fixtures\SlabMultiPanelAtomicityRuntimeFixture.cs" "RebarPreviewService.Capture" "Atomicity fixture captures production-generator previews before create" | Out-Null
@@ -79,6 +83,18 @@ $metadataPosition = $runnerText.IndexOf("RevitVersion = !prepared", [StringCompa
 if ($preflightPosition -ge 0 -and $blockedPosition -gt $preflightPosition -and $fixturePosition -gt $blockedPosition -and $metadataPosition -gt $preflightPosition) {
     Pass "Runner preflight precedes metadata reads and fixture execution is behind the blocked gate"
 } else { Fail "Runner safety-preflight order" "Expected preflight before metadata and fixture execution only in the prepared branch" }
+
+$legacyText = Get-Content (Join-Path $Root "KhimTools\Tools\KhimStructural\RebarTool\Commands\CmdRebarFixtureQa.cs") -Raw
+$legacyConsentPosition = $legacyText.IndexOf("if (!ConfirmSafetyAttestations())", [StringComparison]::Ordinal)
+$legacyPreflightPosition = $legacyText.IndexOf("qaContext.TryPrepareForRun(out string safetyReason)", [StringComparison]::Ordinal)
+$legacyTransactionPosition = $legacyText.IndexOf("new TransactionGroup(doc,", [StringComparison]::Ordinal)
+$legacyRollbackPosition = $legacyText.IndexOf("RuntimeQaSafetyGuard.VerifyRollback(doc, qaContext.InitialFingerprint", [StringComparison]::Ordinal)
+$legacyReportPosition = $legacyText.IndexOf("reportPath = WriteReport(doc, checks)", [StringComparison]::Ordinal)
+if ($legacyConsentPosition -ge 0 -and $legacyPreflightPosition -gt $legacyConsentPosition -and
+    $legacyTransactionPosition -gt $legacyPreflightPosition -and $legacyRollbackPosition -gt $legacyTransactionPosition -and
+    $legacyReportPosition -gt $legacyRollbackPosition) {
+    Pass "Legacy Rebar fixture confirms safety, captures baseline, mutates only inside rollback group, verifies restoration and reports afterward"
+} else { Fail "Legacy Rebar fixture safety order" "Expected consent, common preflight, transaction group, exact rollback verification, then final report" }
 
 $reportText = Get-Content (Join-Path $qaRoot "Core\RuntimeQaReportWriter.cs") -Raw
 if ($reportText -match 'run\.ModelRollbackVerified\s*==\s*null\s*\?\s*"NOT RUN"') { Pass "Report keeps unexecuted rollback verification distinct from failed verification" } else { Fail "Rollback NOT RUN reporting" "A missing baseline must not be reported as rollback failure" }
