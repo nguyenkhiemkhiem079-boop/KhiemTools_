@@ -28,3 +28,9 @@ RA-02 can move out of `BLOCKED` only after the host supplies a verifiable REA ru
 ## Current Pilot recheck — 2026-10-23
 
 The connected Pilot tools were re-read during continuation. The latest `control_snapshot` reports source `CONTROLLER_SQLITE`, `last_verified_at=2026-10-22T19:11:15.625696+00:00`, and zero REA missions, waves, revisions, contracts, and assignments. `status` still lists only `ANTI02-MANAGED-FLOW-20261022`, a separate ANTI-02 documentation task. `control_status` remains `NORMAL`, 0 frozen locks, `physical_windows_processes=NOT_VERIFIED`, and `advisory_registry_only=true`; `real_antigravity_sessions=UNKNOWN`. No REA work was dispatched. The registry remains unverified evidence of actual IDE execution, and RA-02 remains `BLOCKED`.
+
+## Local package and Pilot recheck — 2026-10-23
+
+A read-only inspection found an `rea-agents` package cache at `C:\Users\khiem.nguyen\AppData\Local\npm-cache\_npx\ad9a3fdbcad992c6\node_modules\rea-agents`, package version `6.5.0`. Its package metadata describes a Reverse Engineer Anything CLI/MCP package. It does not establish a live K-Tool worker process, Antigravity IDE control, or a verified Pilot assignment. Neither `rea-agents` nor `rea` resolves as a command in this session; the cached package was not launched or configured.
+
+The latest Pilot recheck still has no REA mission, revision, contract, delivery, or assignment. The only task is the separate ANTI-02 documentation task. No REA task was dispatched, and no managed Evidence ID or independently verified worker activity was produced. RA-02 remains `BLOCKED`.

@@ -94,3 +94,7 @@ Validation at source checkpoint `5da3765`:
 | Revit 2025 product build | Exit 0; 10 warnings; 0 errors | `dotnet build KhimTools/KhimTools.csproj --configuration Release --framework net8.0-windows -p:RevitVersionForReference=2025 -p:RevitRequestedVersion=2025 -p:DeployKhimToolsBundle=false --no-restore --verbosity minimal -t:Rebuild`; warnings are existing `ColumnWallRelatedFormV1.Load()` hiding and `ElementId(int)` obsolescence warnings. |
 
 This is harness hardening, not runtime acceptance. No Revit process, command, model, or fixture was opened or run. QA-08/QA-10 remain blocked on an identified detached disposable model and a safe user work window; compile and static audit evidence do not close them. CORE-00 and RB-01 remain open.
+
+## Research gate recheck — 2026-10-23
+
+The continued evidence review leaves the wave gates unchanged: RA-01/BL-059 remain blocked because the exact `571A5A14…` baseline installer is unavailable; RA-02 remains blocked because there is no verified REA worker runtime or approved Pilot assignment; and RA-05 remains blocked because the Inno Setup 6.7.0 parser candidates have not passed provenance, licensing, isolation, or PHM-specific acceptance. Updated evidence is in the three RA research records and the QA-02 research-only run record. No Revit command, test, or model operation was performed. CORE-00 and RB-01 remain open.

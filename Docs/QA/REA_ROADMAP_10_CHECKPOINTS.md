@@ -128,3 +128,9 @@ Evidence on source checkpoint `5da3765`:
 - `Tools/Verify-RuntimeQaHarness.ps1`: exit 0, 60/60 static contract assertions.
 - Revit 2025 compile-only product build: exit 0, 0 errors, 10 existing warnings (`ColumnWallRelatedFormV1.Load()` hiding and `ElementId(int)` obsolescence).
 - No Revit process, command, model, or fixture was opened or run. QA-08 and QA-10 remain `BLOCKED` until a disposable model and safe user work window are available; no host acceptance is claimed.
+
+## Research-only recheck — 2026-10-23
+
+Status: `BLOCKED` for QA-02. Source SHA: `f0dd21c24818f0d8143128b7f91af46c0e178b74`. Scope: RA-01 PHM hash recovery, RA-02 REA runner/Pilot inventory, and RA-05 Inno Setup 6.7.0 parser candidates. Evidence is recorded in `Docs/Research/RA-01-PHM-Hash-Reconciliation.md`, `Docs/Research/RA-02-REA-Engine-and-Pilot-Inventory.md`, and `Docs/Research/RA-05-PHM-Observed-Binary-Extraction-Blocker.md`.
+
+The exact `571A5A14…` baseline installer remains unavailable; no verified REA worker or Pilot assignment exists; and the newly pinned parser is only a compatibility candidate with unsigned source, unresolved component licensing, and no PHM-specific result. No Revit test, Revit host command, or model operation occurred during this research-only recheck. QA-08 and QA-10 remain `BLOCKED`; these source checks do not change CORE-00 or RB-01 host acceptance.

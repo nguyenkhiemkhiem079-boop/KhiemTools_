@@ -1,6 +1,6 @@
 # RA-05 — PHM observed binary extraction status
 
-**Status:** BLOCKED — a technical Inno Setup 6.7.0 candidate has been identified and statically reviewed, but it has not been accepted for local extraction. The PHM installer has not been extracted, launched, or installed. This is not a DLL/command inventory.
+**Status:** BLOCKED — three technical Inno Setup 6.7.0 parser candidates have been identified, but none is accepted for local extraction. The PHM installer has not been extracted, launched, or installed. This is not a DLL/command inventory.
 
 ## Observed artifact
 
@@ -45,7 +45,15 @@ Static inspection of `internal/pathutil/path.go` found normalization of Windows 
 
 This source is young (created 2026-08-20; 2 stars and 1 fork when checked), has no GitHub release or Actions workflow, and its latest commit is unsigned/unverified. Its Go module declares Go 1.26.5 and external `xz` and `x/crypto` modules. These facts, the lack of a 6.7.0 fixture, and the absence of an independent build/review are insufficient for acceptance. The candidate is recorded for comparison only and was not used to inspect or extract either PHM artifact.
 
-The two current candidates provide different partial evidence: `InnoUnpack.NET` has the upstream 6.7.3 installer fixture exercising setup-data 6.7.0, while `innoextract-go` documents a memory-only API and a 6.0–6.7 parser boundary but tests only a 6.6.1 sample. Neither has accepted provenance or independent PHM compatibility evidence. RA-05 remains `BLOCKED`; no extraction or execution occurred.
+The first two candidates provide different partial evidence: `InnoUnpack.NET` has the upstream 6.7.3 installer fixture exercising setup-data 6.7.0, while `innoextract-go` documents a memory-only API and a 6.0–6.7 parser boundary but tests only a 6.6.1 sample. Neither has accepted provenance or independent PHM compatibility evidence. RA-05 remains `BLOCKED`; no extraction or execution occurred.
+
+## Release candidate check — 2026-10-23
+
+A third technical candidate was checked against the exact GitHub release tag [`ui_2_2_13`](https://github.com/jrathlev/InnoUnpacker-Windows-GUI/releases/tag/ui_2_2_13), which resolves to commit `b94b34935ff4b1019359462c154509de9fd951b9`. The release notes identify console `innounp` 2.71.2 and claim support through Inno Setup 7.1.0. At that pinned commit, `innounp-2/sources/Struct6700u.pas` has blob `648b865cc93a1db4082aa2e908364e1400bdff81` and explicitly defines setup-data version `6.7.0`. This is source-level format evidence for the observed marker, not a PHM parse result.
+
+GitHub release metadata lists `innounp-2.zip` at 618,221 bytes with digest `sha256:10fce27b6344b7674d5625cc34afca1c88c12183d957c6d93e401097fa2556cd`. The archive was not downloaded or run. The pinned commit is unsigned (`verification.verified=false`, reason `unsigned`); the asset digest is an integrity value reported by GitHub, not a publisher signature or independent provenance proof. The repository root has an MIT license, while the pinned tree also contains `innounp-2/sources/licenses/gpl.txt`; licensing of the console source and bundled components requires review before any redistribution or adoption.
+
+This candidate improves the format-compatibility evidence and provides a pinned source and release asset identity. It still has no independent build/reproduction, no approved isolated extraction environment, and no PHM-specific result. It is not accepted for use. RA-05 and BL-059 remain `BLOCKED`; no installer or extractor binary was downloaded, extracted, installed, or executed.
 
 ## Next evidence needed
 

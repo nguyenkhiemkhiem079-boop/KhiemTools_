@@ -32,3 +32,13 @@ Read-only recovery search covered `C:\Users\khiem.nguyen\Downloads`, `Desktop`, 
 - Hashed 27 `.exe` files of at least 50 MB in those roots; none matched the baseline prefix `571A5A14`.
 
 This search is scope-limited; it does not prove the baseline binary is absent from every drive, archive, or differently sized/containerized file. RA-01 remains `BLOCKED`; keep EV-01 and EV-02 separate until the exact baseline artifact is recovered.
+
+## Expanded recovery inventory — 2026-10-23
+
+Additional read-only searches extended the recovery scope without changing the artifact decision:
+
+- Google Drive metadata searches for `571A5A14` and `PHM-RevitTools-Setup` returned no installer. A broader `PHM` metadata search returned a historical crosswalk document, not the baseline executable. No Drive file content was downloaded.
+- A local `%TEMP%` inventory hashed 35 `.exe`, `.msi`, `.bin`, and `.dat` files at least 20 MB (about 5.2 GB total); none matched the `571A5A14` prefix.
+- A profile-wide metadata inventory, excluding reparse points, identified 111 large local file candidates totaling about 50.8 GB. Those candidates were not all hashed. OneDrive placeholders were not hydrated.
+
+These checks do not establish that the baseline is absent from all storage or containers. No candidate beyond EV-01 was verified, and RA-01 remains `BLOCKED` until the exact baseline bytes and complete SHA-256 are available.
