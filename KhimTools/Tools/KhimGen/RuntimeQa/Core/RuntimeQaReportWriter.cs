@@ -49,13 +49,23 @@ namespace KhimTools.RuntimeQa.Core
             sb.AppendLine("SKIPPED:  " + run.Skipped);
             sb.AppendLine("NOT_RUN:  " + run.NotRun);
             sb.AppendLine("CERTIFICATION: " + (run.CertificationStatus ?? "INCOMPLETE"));
-            sb.AppendLine("MODEL CLEAN AFTER QA: " + (run.ModelRollbackVerified ? "YES" : "NO"));
+            sb.AppendLine("OPERATOR ATTESTATION - KHIM/JAYK NOT WORKING IN REVIT: " + Attestation(run.KhimNotWorkingInRevitAttested));
+            sb.AppendLine("OPERATOR ATTESTATION - DETACHED DISPOSABLE QA COPY: " + Attestation(run.DisposableQaCopyAttested));
+            sb.AppendLine("RUNTIME QA PREFLIGHT: " + (run.RuntimeQaPreflightPassed == null ? "NOT RUN" : run.RuntimeQaPreflightPassed.Value ? "PASS" : "BLOCKED"));
+            if (!string.IsNullOrWhiteSpace(run.RuntimeQaPreflightMessage))
+                sb.AppendLine("RUNTIME QA PREFLIGHT DETAILS: " + run.RuntimeQaPreflightMessage);
+            sb.AppendLine("MODEL CLEAN AFTER QA: " + (run.ModelRollbackVerified == null ? "NOT RUN" : run.ModelRollbackVerified.Value ? "YES" : "NO"));
             if (!string.IsNullOrWhiteSpace(run.ModelRollbackMessage))
                 sb.AppendLine("MODEL ROLLBACK DETAILS: " + run.ModelRollbackMessage);
             sb.AppendLine();
             foreach (QaFixtureResult fixture in run.Fixtures)
                 sb.AppendLine(string.Format("{0,-10} {1,-36} {2,-8} {3}ms", fixture.Status, fixture.Name, fixture.FixtureId, (long)fixture.Duration.TotalMilliseconds));
             return sb.ToString();
+        }
+
+        private static string Attestation(bool? value)
+        {
+            return value == null ? "NOT AVAILABLE" : value.Value ? "YES" : "NO";
         }
 
         public sealed class RuntimeQaReportPaths

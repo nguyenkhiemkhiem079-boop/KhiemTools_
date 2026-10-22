@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -16,6 +17,7 @@ namespace KhimTools.RuntimeQa.Forms
         private readonly RuntimeQaRunner _runner;
         private readonly DataGridView _grid;
         private readonly Label _status;
+        private readonly List<Button> _runButtons = new List<Button>();
         private QaRunResult _lastRun;
 
         public RuntimeQaForm(RuntimeQaContext context, RuntimeQaRegistry registry)
@@ -25,13 +27,14 @@ namespace KhimTools.RuntimeQa.Forms
             _runner = new RuntimeQaRunner(_registry);
             Text = "K-TOOLS RUNTIME QA";
             Width = 980;
-            Height = 620;
+            Height = 660;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.Sizable;
 
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, Padding = new Padding(12) };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, Padding = new Padding(12) };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
@@ -39,8 +42,21 @@ namespace KhimTools.RuntimeQa.Forms
 
             var header = new Label { Dock = DockStyle.Fill, Text = "K-TOOLS RUNTIME QA\nRevit: " + (context?.Document?.Application?.VersionNumber ?? "unknown") + "    Document: " + (context?.Document?.Title ?? "<none>"), Font = new Font(Font, FontStyle.Bold), AutoEllipsis = true };
             root.Controls.Add(header, 0, 0);
-            var warning = new Label { Dock = DockStyle.Fill, Text = "Host QA writes temporary model data before rollback. Only a detached disposable QA copy is supported; workshared/read-only models are blocked.", ForeColor = Color.DarkOrange, AutoEllipsis = true };
+            var warning = new Label { Dock = DockStyle.Fill, Text = "Do not run fixtures while KHIM (JAYK) is working in Revit. Host QA writes temporary model data before rollback. Only a detached disposable QA copy is supported.", ForeColor = Color.DarkOrange, AutoEllipsis = true };
             root.Controls.Add(warning, 0, 1);
+
+            var safeWindow = new CheckBox
+            {
+                Dock = DockStyle.Fill,
+                Text = "I confirm KHIM (JAYK) is not working in any Revit session during this QA run.",
+                AutoEllipsis = true
+            };
+            safeWindow.CheckedChanged += (s, e) =>
+            {
+                _context?.ConfirmSafeRevitWindow(safeWindow.Checked);
+                UpdateRunButtons();
+            };
+            root.Controls.Add(safeWindow, 0, 2);
 
             var consent = new CheckBox
             {
@@ -48,8 +64,12 @@ namespace KhimTools.RuntimeQa.Forms
                 Text = "I confirm this is a detached disposable QA copy; its current state can be discarded after testing.",
                 AutoEllipsis = true
             };
-            consent.CheckedChanged += (s, e) => _context?.ConfirmDisposableQaCopy(consent.Checked);
-            root.Controls.Add(consent, 0, 2);
+            consent.CheckedChanged += (s, e) =>
+            {
+                _context?.ConfirmDisposableQaCopy(consent.Checked);
+                UpdateRunButtons();
+            };
+            root.Controls.Add(consent, 0, 3);
 
             _grid = new DataGridView { Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false, AutoGenerateColumns = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect };
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = "Status", Width = 90 });
@@ -57,21 +77,22 @@ namespace KhimTools.RuntimeQa.Forms
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ID", DataPropertyName = "FixtureId", Width = 120 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Checks", DataPropertyName = "CheckCount", Width = 70 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Duration", DataPropertyName = "DurationText", Width = 90 });
-            root.Controls.Add(_grid, 0, 3);
+            root.Controls.Add(_grid, 0, 4);
 
             var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight };
-            AddButton(footer, "Run All", (s, e) => Run(() => _runner.RunAll(_context)));
-            AddButton(footer, "Documentation", (s, e) => Run(() => _runner.RunSuite(_context, "DOCUMENTATION")));
-            AddButton(footer, "Rebar", (s, e) => Run(() => _runner.RunSuite(_context, "REBAR")));
-            AddButton(footer, "Run Selected", (s, e) => RunSelected());
+            AddRunButton(footer, "Run All", (s, e) => Run(() => _runner.RunAll(_context)));
+            AddRunButton(footer, "Documentation", (s, e) => Run(() => _runner.RunSuite(_context, "DOCUMENTATION")));
+            AddRunButton(footer, "Rebar", (s, e) => Run(() => _runner.RunSuite(_context, "REBAR")));
+            AddRunButton(footer, "Run Selected", (s, e) => RunSelected());
             AddButton(footer, "Failed", (s, e) => Filter(QaStatus.FAIL));
             AddButton(footer, "Blocked", (s, e) => Filter(QaStatus.BLOCKED));
             AddButton(footer, "Open Report", (s, e) => OpenReportFolder());
             AddButton(footer, "Copy Summary", (s, e) => CopySummary());
             AddButton(footer, "Close", (s, e) => Close());
-            _status = new Label { AutoSize = true, Padding = new Padding(12, 8, 0, 0), Text = "Ready. Choose a suite to begin." };
+            _status = new Label { AutoSize = true, Padding = new Padding(12, 8, 0, 0), Text = "Blocked until both safety confirmations are checked." };
             footer.Controls.Add(_status);
-            root.Controls.Add(footer, 0, 4);
+            root.Controls.Add(footer, 0, 5);
+            UpdateRunButtons();
         }
 
         private void AddButton(Control parent, string text, EventHandler handler)
@@ -81,11 +102,29 @@ namespace KhimTools.RuntimeQa.Forms
             parent.Controls.Add(button);
         }
 
+        private void AddRunButton(Control parent, string text, EventHandler handler)
+        {
+            var button = new Button { Text = text, AutoSize = true, Height = 30, Enabled = false };
+            button.Click += handler;
+            _runButtons.Add(button);
+            parent.Controls.Add(button);
+        }
+
+        private void UpdateRunButtons()
+        {
+            bool allowed = _context != null && _context.IsSafeRevitWindowConfirmed && _context.IsDisposableQaCopyConfirmed;
+            foreach (Button button in _runButtons) button.Enabled = allowed;
+            if (_status != null && !allowed)
+                _status.Text = "Blocked until both safety confirmations are checked.";
+            else if (_status != null && allowed && _lastRun == null)
+                _status.Text = "Ready. Choose a fixture after confirming the safe Revit window and disposable copy.";
+        }
+
         private void Run(Func<QaRunResult> action)
         {
-            if (_context == null || !_context.IsDisposableQaCopyConfirmed)
+            if (_context == null || !_context.IsSafeRevitWindowConfirmed || !_context.IsDisposableQaCopyConfirmed)
             {
-                _status.Text = "BLOCKED: confirm a detached disposable QA copy before running any fixture.";
+                _status.Text = "BLOCKED: confirm KHIM is not working in Revit and this is a detached disposable QA copy before running any fixture.";
                 return;
             }
             try

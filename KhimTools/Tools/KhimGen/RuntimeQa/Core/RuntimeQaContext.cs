@@ -15,6 +15,7 @@ namespace KhimTools.RuntimeQa.Core
         public string OutputDirectory { get; private set; }
         public bool PreserveArtifacts { get; set; }
         public bool StopOnCriticalFailure { get; set; }
+        public bool IsSafeRevitWindowConfirmed { get; private set; }
         public bool IsDisposableQaCopyConfirmed { get; private set; }
         public Func<bool> IsCancellationRequested { get; set; }
         public ElementId OriginalActiveViewId { get; private set; }
@@ -30,7 +31,6 @@ namespace KhimTools.RuntimeQa.Core
                 ? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "KhimTools", "RuntimeQA", RunId)
                 : outputDirectory;
             CaptureUiState();
-            InitialFingerprint = RuntimeQaSafetyGuard.CaptureFingerprint(Document);
         }
 
         public void TrackCreated(ElementId id)
@@ -38,9 +38,36 @@ namespace KhimTools.RuntimeQa.Core
             if (id != null && id != ElementId.InvalidElementId && !CreatedElementIds.Contains(id)) CreatedElementIds.Add(id);
         }
 
+        public void ConfirmSafeRevitWindow(bool confirmed)
+        {
+            IsSafeRevitWindowConfirmed = confirmed;
+        }
+
         public void ConfirmDisposableQaCopy(bool confirmed)
         {
             IsDisposableQaCopyConfirmed = confirmed;
+        }
+
+        internal bool TryPrepareForRun(out string reason)
+        {
+            InitialFingerprint = null;
+            if (!RuntimeQaSafetyGuard.CanRun(this, out reason)) return false;
+            try
+            {
+                InitialFingerprint = RuntimeQaSafetyGuard.CaptureFingerprint(Document);
+                reason = string.Empty;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "BLOCKED_UNSAFE_DOCUMENT: could not capture a complete model fingerprint before fixtures (" + ex.GetType().Name + ").";
+                return false;
+            }
+        }
+
+        internal void ResetRunFingerprint()
+        {
+            InitialFingerprint = null;
         }
 
         internal void RestoreUiState()

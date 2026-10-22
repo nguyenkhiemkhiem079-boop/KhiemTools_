@@ -14,6 +14,11 @@ namespace KhimTools.RuntimeQa.Core
         public static bool CanRun(RuntimeQaContext context, out string reason)
         {
             if (context == null) { reason = "No runtime QA context."; return false; }
+            if (!context.IsSafeRevitWindowConfirmed)
+            {
+                reason = "BLOCKED_UNSAFE_WINDOW: confirm KHIM (JAYK) is not working in any Revit session during this QA run.";
+                return false;
+            }
             if (!context.IsDisposableQaCopyConfirmed)
             {
                 reason = "BLOCKED_UNSAFE_DOCUMENT: confirm that this is a disposable detached QA copy before running fixtures.";

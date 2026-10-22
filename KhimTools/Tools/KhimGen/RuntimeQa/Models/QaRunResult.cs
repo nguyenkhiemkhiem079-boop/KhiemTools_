@@ -11,6 +11,10 @@ namespace KhimTools.RuntimeQa.Models
         public string GitCommit { get; set; }
         public string RevitVersion { get; set; }
         public string DocumentTitle { get; set; }
+        public bool? KhimNotWorkingInRevitAttested { get; set; }
+        public bool? DisposableQaCopyAttested { get; set; }
+        public bool? RuntimeQaPreflightPassed { get; set; }
+        public string RuntimeQaPreflightMessage { get; set; }
         public DateTime Timestamp { get; set; }
         public string MachineNeutralEnvironment { get; set; }
         public List<QaSuiteDefinition> Suites { get; set; } = new List<QaSuiteDefinition>();
@@ -22,7 +26,7 @@ namespace KhimTools.RuntimeQa.Models
         public int NotRun { get { return Fixtures.Count(f => f.Status == QaStatus.NOT_RUN); } }
         public int Total { get { return Fixtures.Count; } }
         public TimeSpan Duration { get; set; }
-        public bool ModelRollbackVerified { get; set; }
+        public bool? ModelRollbackVerified { get; set; }
         public string ModelRollbackMessage { get; set; }
         public string CertificationStatus { get; set; }
         public string ReportDirectory { get; set; }

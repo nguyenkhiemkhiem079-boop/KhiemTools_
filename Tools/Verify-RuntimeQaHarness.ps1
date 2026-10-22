@@ -52,10 +52,36 @@ Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRunner.cs" "Certi
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRunner.cs" 'if (modelRollbackVerified == false) return "FAIL";' "Failed final rollback can never certify PASS" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaReportWriter.cs" "MODEL ROLLBACK DETAILS:" "Whole-run integrity diagnostics are written to the report" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsDisposableQaCopyConfirmed" "Runtime context records disposable QA-copy confirmation" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaContext.cs" "IsSafeRevitWindowConfirmed" "Runtime context records the operator's Revit-use safety attestation" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm that this is a disposable detached QA copy" "Safety guard blocks unconfirmed models" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaSafetyGuard.cs" "confirm KHIM (JAYK) is not working in any Revit session during this QA run" "Safety guard blocks QA during the user's Revit work" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaFixtureBase.cs" "RuntimeQaSafetyGuard.CanRun(context, out reason)" "Every fixture checks model consent before transaction start" | Out-Null
 Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "I confirm this is a detached disposable QA copy" "Dashboard presents explicit disposable-model consent" | Out-Null
-Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "confirm a detached disposable QA copy before running any fixture" "Dashboard blocks fixture launch without consent" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "I confirm KHIM (JAYK) is not working in any Revit session during this QA run." "Dashboard presents explicit Revit-use safety attestation" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "bool allowed = _context != null && _context.IsSafeRevitWindowConfirmed && _context.IsDisposableQaCopyConfirmed" "Dashboard enables fixture actions only after both confirmations" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Forms\RuntimeQaForm.cs" "BLOCKED: confirm KHIM is not working in Revit and this is a detached disposable QA copy" "Dashboard blocks fixture launch without both confirmations" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaRunner.cs" "CreateBlocked(fixture, preflightMessage)" "Runner records blocked fixture results when safety preflight fails" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Models\QaRunResult.cs" "public bool? ModelRollbackVerified" "Run result distinguishes unverified rollback from failure" | Out-Null
+Require-Token "KhimTools\Tools\KhimGen\RuntimeQa\Core\RuntimeQaReportWriter.cs" 'run.ModelRollbackVerified == null ? "NOT RUN"' "Report labels unexecuted rollback verification as NOT RUN" | Out-Null
+
+$contextText = Get-Content (Join-Path $qaRoot "Core\RuntimeQaContext.cs") -Raw
+$constructorStart = $contextText.IndexOf("public RuntimeQaContext(", [StringComparison]::Ordinal)
+$prepareStart = $contextText.IndexOf("internal bool TryPrepareForRun(", [StringComparison]::Ordinal)
+if ($constructorStart -ge 0 -and $prepareStart -gt $constructorStart -and $contextText.Substring($constructorStart, $prepareStart - $constructorStart) -notmatch "CaptureFingerprint") {
+    Pass "Opening the dashboard does not scan or fingerprint the active model"
+} else { Fail "Deferred model fingerprint" "The constructor must not scan the model; snapshot only after safety preflight" }
+
+$runnerText = Get-Content (Join-Path $qaRoot "Core\RuntimeQaRunner.cs") -Raw
+$preflightPosition = $runnerText.IndexOf("prepared = context.TryPrepareForRun(out preflightMessage);", [StringComparison]::Ordinal)
+$blockedPosition = $runnerText.IndexOf("if (!prepared && selectedFixtures.Count > 0)", [StringComparison]::Ordinal)
+$fixturePosition = $runnerText.IndexOf("QaFixtureResult result = fixture.Run(context);", [StringComparison]::Ordinal)
+$metadataPosition = $runnerText.IndexOf("RevitVersion = !prepared", [StringComparison]::Ordinal)
+if ($preflightPosition -ge 0 -and $blockedPosition -gt $preflightPosition -and $fixturePosition -gt $blockedPosition -and $metadataPosition -gt $preflightPosition) {
+    Pass "Runner preflight precedes metadata reads and fixture execution is behind the blocked gate"
+} else { Fail "Runner safety-preflight order" "Expected preflight before metadata and fixture execution only in the prepared branch" }
+
+$reportText = Get-Content (Join-Path $qaRoot "Core\RuntimeQaReportWriter.cs") -Raw
+if ($reportText -match 'run\.ModelRollbackVerified\s*==\s*null\s*\?\s*"NOT RUN"') { Pass "Report keeps unexecuted rollback verification distinct from failed verification" } else { Fail "Rollback NOT RUN reporting" "A missing baseline must not be reported as rollback failure" }
 
 $status = Get-Content (Join-Path $Root "KhimTools\Tools\KhimGen\RuntimeQa\Models\QaStatus.cs") -Raw
 if ($status -match "PASS" -and $status -match "FAIL" -and $status -match "BLOCKED" -and $status -match "SKIPPED" -and $status -match "NOT_RUN") { Pass "Status enum contains PASS/FAIL/BLOCKED/SKIPPED/NOT_RUN" } else { Fail "Status enum" "Required statuses are incomplete" }
