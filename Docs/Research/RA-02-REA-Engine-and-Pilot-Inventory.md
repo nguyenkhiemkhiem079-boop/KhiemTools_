@@ -34,3 +34,7 @@ The connected Pilot tools were re-read during continuation. The latest `control_
 A read-only inspection found an `rea-agents` package cache at `C:\Users\khiem.nguyen\AppData\Local\npm-cache\_npx\ad9a3fdbcad992c6\node_modules\rea-agents`, package version `6.5.0`. Its package metadata describes a Reverse Engineer Anything CLI/MCP package. It does not establish a live K-Tool worker process, Antigravity IDE control, or a verified Pilot assignment. Neither `rea-agents` nor `rea` resolves as a command in this session; the cached package was not launched or configured.
 
 The latest Pilot recheck still has no REA mission, revision, contract, delivery, or assignment. The only task is the separate ANTI-02 documentation task. No REA task was dispatched, and no managed Evidence ID or independently verified worker activity was produced. RA-02 remains `BLOCKED`.
+
+## Host process ownership snapshot — 2026-10-23
+
+Read-only `Get-Process -IncludeUserName` inspection found 8 processes named `claude`, 12 named `CodeBuddy`, 6 named `Gemini`, and 3 named `codex`; the returned process owners were the current Windows user. No processes named exactly `Antigravity`, `AntigravityIDE`, or `orca` were found. Process name and owner establish only that these processes exist under this Windows account. They do not prove a live agent task, process-level isolation, a REA runner, or a link to a K-Tool Pilot assignment. Pilot still contains no REA assignment, so no worker was contacted or dispatched.
