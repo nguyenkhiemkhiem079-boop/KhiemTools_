@@ -4,7 +4,9 @@
 
 **Source:** `KTOOL_REA_REVIEW_ROADMAP_2026-10-22 (1).xlsx`, sheets `Ke hoach 16 Wave`, `Cong viec 68 muc`, and `Thay doi baseline`. Workbook rows marked `PLANNED` are planned work, not source status or acceptance evidence.
 
-**Implementation baseline:** source commit `18c2cc27350808390b0e7e5a383dafb38b945b40`, isolated branch `codex/rea-core00-20261023`. Keep the main checkout and user draft unchanged. Do not merge to `master` or release a production build during these waves.
+**Starting baseline:** source commit `18c2cc27350808390b0e7e5a383dafb38b945b40`, isolated branch `codex/rea-core00-20261023`. Keep the main checkout and user draft unchanged. Do not merge to `master` or release a production build during these waves.
+
+**Current branch snapshot — 2026-10-23:** branch tip `81738fbe9a3e8a5f87d5136d00c956f40c36da3a`; the remote branch matches and the worktree is clean. The last product/package source revision is `fa13ee570bb4e10e7481167978d57d245dcc51c6`; a name-only diff confirms all later branch changes are documentation. Do not confuse the current documentation tip with the source commit recorded in the installer payload evidence.
 
 ## Operating gates
 

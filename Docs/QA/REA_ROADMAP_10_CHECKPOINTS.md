@@ -114,3 +114,7 @@ Static review of `Peiratooo/innoextract-go` commit `a9620314070af84f730cc988903c
 ## Installer package build follow-up — 2026-10-23
 
 From source commit `fa13ee570bb4e10e7481167978d57d245dcc51c6`, the canonical installer script built Revit 2024 and Revit 2025 targets, the version `2.7.2` MSI, and its bootstrapper with 0 errors. A read-only MSI database review confirmed the two Rebar Shape manifest entries route to the legacy and modern Rebar folders. The packages are unsigned, were not installed, and were not opened in Revit. This is package/build evidence only; QA-09 automated regression remains NOT TESTED, QA-10 remains BLOCKED on the disposable model/user availability gate, and MSI lifecycle acceptance remains open. Exact artifact hashes and limits are in `Docs/QA/REA_MSI_BUILD_EVIDENCE.md`.
+
+## RA-07 current branch pin — 2026-10-23
+
+Pinned the current feature-branch snapshot at `81738fbe9a3e8a5f87d5136d00c956f40c36da3a`. `git status` was clean and `git ls-remote origin refs/heads/codex/rea-core00-20261023` returned the same SHA. Comparing `fa13ee570bb4e10e7481167978d57d245dcc51c6..81738fbe9a3e8a5f87d5136d00c956f40c36da3a` shows only documentation paths changed; therefore the installer payload's product-source fingerprint and hashes remain tied to its recorded source revision. This branch pin does not approve integration or release.
