@@ -100,3 +100,9 @@ Không chạy bất cứ Revit test nào khi KHIM (JAYK) đang làm việc trong
 ## RA-05 follow-up — 2026-10-23
 
 Đã tìm thấy ứng viên parser có upstream CI chạy thành công trên fixture Inno Setup 6.7.3 (setup-data version 6.7.0): `scgm0/InnoUnpack.NET`, commit `b221a08e7b60a6507067e246de1879ef5cf2df4b`, CI run `31750293620` (80 passed, 0 failed, 0 skipped). Đây là bằng chứng tương thích kỹ thuật trên fixture chuẩn, không phải xác nhận PHM 87DF… có thể giải nén hay xác minh độ tin cậy của parser. Static source review có giới hạn; không chạy test/build/parser hay Revit. Ứng viên chưa được chấp nhận do commit unsigned, không có release, và chưa có môi trường phân tích cô lập được thiết lập. Vì vậy RA-05/BL-059 vẫn `BLOCKED`; PHM chưa được extract hoặc execute. Chi tiết và giới hạn được ghi trong `Docs/Research/RA-05-PHM-Observed-Binary-Extraction-Blocker.md`.
+
+## BL-012 compile-only update — 2026-10-23
+
+Source commit `4bfbda0c7671e52836e27dcf722fb659343ee91c` adds a versioned SHA-256 manifest and persistent identity stamp for the 43 packaged Rebar Shape files. The source manifest matches all 43 source `.rfa` files and the manifests copied to both Revit 2024 and Revit 2025 build outputs. The loader and shape lookup reject legacy unstamped or mismatched elements; no automatic re-stamp or overwrite is performed. The hash manifest is not a digital signature and does not prove the engineering geometry is correct.
+
+Compile-only results: Revit 2025 `net8.0-windows` exit 0, 10 warnings, 0 errors; Revit 2024 `net48` exit 0, 12 warnings, 0 errors. The warnings are existing and outside the changed slice. No test suite, MSI build/install, Revit process, model, or Revit command was run. Runtime Extensible Storage persistence, hook/bend compatibility, shape creation, parity, rollback/Undo, legacy-shape migration, and Revit 2022/2023 compilation remain unverified. QA-04, QA-05, QA-08, and QA-10 remain gated; RB-01 has not passed its host-acceptance exit criteria.

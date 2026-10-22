@@ -1,6 +1,6 @@
 # K-TOOL REA roadmap — implementation and handoff plan
 
-**Current stage:** CORE-00 code and evidence preparation. Roadmap acceptance is not complete.
+**Current stage:** CORE-00 gates remain open; RB-01 code-side work is in progress. Roadmap acceptance is not complete.
 
 **Source:** `KTOOL_REA_REVIEW_ROADMAP_2026-10-22 (1).xlsx`, sheets `Ke hoach 16 Wave`, `Cong viec 68 muc`, and `Thay doi baseline`. Workbook rows marked `PLANNED` are planned work, not source status or acceptance evidence.
 
@@ -48,7 +48,8 @@ Current code/evidence changes in this branch:
 
 - Add a rotating UTF-8 file sink for `KToolsLogger` and log add-in startup, shutdown, startup exceptions, and workspace-pane registration warnings.
 - Add a minimal Revit 2025 read-only smoke-command project and solution entry. Its assembly has been compiled; it has not been loaded or invoked in Revit.
-- Correct Rebar Shape name resolution to require an exact unique catalog name, avoiding prefix collisions such as `JP_T11` and `JP_T11a`. This closes that lookup defect only; BL-012 still needs verified resource identity/version, bend/hook mapping, and native acceptance.
+- Correct Rebar Shape name resolution to require an exact unique catalog name, avoiding prefix collisions such as `JP_T11` and `JP_T11a`. This closes that lookup defect only; manifest/identity code was added at `4bfbda0`, while native identity, bend/hook mapping, and shape-creation acceptance remain open.
+- BL-012 code-side update at `4bfbda0c7671e52836e27dcf722fb659343ee91c`: add a versioned SHA-256 manifest for all 43 packaged Rebar Shape families; verify exact asset bytes before and after load; persist manifest/asset hashes plus the loaded shape's `UniqueId` in Extensible Storage; refuse to reuse unverified, mismatched, duplicate, or legacy-unstamped shapes. Bundle and WiX source are configured to stage the manifest in both MSI Rebar payload variants; no MSI was built or installed. Compile-only evidence is recorded below; native geometry, persistence, rollback, and compatibility remain unaccepted.
 - Rebaseline current RB-01 source and acceptance gaps without rerunning historical tests; see `Docs/QA/REA_RB01_SOURCE_REBASELINE.md`. Existing implementations are retained and not relabeled as host-accepted.
 - Record PHM hash separation, the Inno 6.7.0 extraction blocker, EnergyExtractor package hashes and static audit, RA-02's verified Pilot inventory, ten QA checkpoint semantics, and the user's Revit-use safety gate.
 
@@ -59,3 +60,18 @@ CORE-00 remains open: RA-01 lacks the baseline `571A…` binary; RA-02 has no ve
 ## RA-05 research update — 2026-10-23
 
 Static review of `scgm0/InnoUnpack.NET` commit `b221a08e7b60a6507067e246de1879ef5cf2df4b` found an upstream fixture for Inno Setup 6.7.3 / setup-data version 6.7.0 and a successful CI run on that exact commit (80 passed, 0 failed, 0 skipped). This establishes a plausible technical candidate, not accepted provenance or PHM compatibility. A targeted source review found no obvious process launch, network client, native library load, or dynamic assembly load calls in the core library and CLI; it is not a full security review. The candidate remains unapproved for extraction because the commit is unsigned, the repository has no release, and no isolated analysis environment is established. The `87DF…` PHM artifact remains unextracted and unexecuted; the `571A…` baseline remains a separate missing artifact. See the RA-05 report for evidence and limitations.
+
+## RB-01 / BL-012 code update — 2026-10-23
+
+Source commit `4bfbda0c7671e52836e27dcf722fb659343ee91c` adds `rebar-shape-assets.v1.sha256` for all 43 packaged `.rfa` files. The asset manifest was checked against each source file and both `net48` and `net8.0-windows` build outputs. Loading validates the file hash before and after `Document.LoadFamily`, writes a versioned Extensible Storage record on the exact `RebarShape` element, and returns the shape only when its saved `UniqueId`, asset hash, and manifest hash still match. The loader UI distinguishes verified shapes from legacy/ambiguous identities and prevents selecting unverified assets. The manifest is wired into the bundle and both MSI Rebar payloads.
+
+This is code-side provenance and byte-integrity checking, not a signature or validation of the shape's engineering geometry. Existing models with legacy unstamped shapes will show those shapes as unverified and K-TOOLS shape-driven calls will fail closed; no automatic overwrite or re-stamp is attempted. A safe migration path and host acceptance still need review in a detached disposable model. BL-012 remains incomplete for bend/hook mapping, native shape creation, and geometry parity. No Revit command or test suite was run.
+
+Compile-only evidence for source SHA `4bfbda0c7671e52836e27dcf722fb659343ee91c`:
+
+| Target | Command result | Scope / limitation |
+|---|---|---|
+| Revit 2025 (`net8.0-windows`) | Exit 0; 10 warnings; 0 errors | Compile only; warnings remain in unrelated `ColumnWallRelatedFormV1` and `SheetGenService` code. |
+| Revit 2024 (`net48`) | Exit 0; 12 warnings; 0 errors | Compile only; warnings remain in unrelated `ColumnWallRelatedFormV1`, `ElementTagsForm`, and `SheetGenService` code. |
+
+The Rebar Shape runtime behavior, Extensible Storage persistence, transaction rollback, MSI build/install, and Revit 2022/2023 targets have not been verified. Wave RB-01 is not host-accepted and Wave 3 remains gated on RB-01 exit evidence.
