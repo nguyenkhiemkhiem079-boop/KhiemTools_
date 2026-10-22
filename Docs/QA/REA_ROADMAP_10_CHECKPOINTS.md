@@ -157,4 +157,6 @@ Source change: `Installer/Test-RealMsiRuntime.ps1` checks for all local `Revit.e
 
 No test suite, installer lifecycle, Revit process, command, model, or fixture was run for this change. QA-08/QA-10 and the installer acceptance gate remain open; CORE-00 and RB-01 are not closed.
 
+PowerShell parser validation at source checkpoint `4e38aa3549543ac7577639d7d1ea35ec83155dc1` reported syntax OK for `Installer/Test-RealMsiRuntime.ps1`, `Installer/Test-MsiLifecycle.ps1`, `Installer/Verify-RevitRuntimeQA.ps1`, and `Test-All.ps1`. This checks syntax only; none of these scripts or their suites was executed.
+
 The `Test-All.ps1` dashboard and script header also now identify `Verify-RevitRuntimeQA.ps1` as a source/packaging static audit with no host execution. The Phase 3 MSI lifecycle script is identified as a read-only MSI-table audit; it may build an absent MSI but does not install or uninstall. Existing machine-readable result lines are unchanged. No audit or build was run; these are reporting-label corrections only and do not add runtime evidence.
