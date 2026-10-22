@@ -110,3 +110,7 @@ Compile-only results now pass for Revit 2022–2026; the exact matrix, warning c
 ## RA-05 alternate parser review — 2026-10-23
 
 Static review of `Peiratooo/innoextract-go` commit `a9620314070af84f730cc988903c8d7a707ed70b` found an in-memory extraction API and a documented metadata-parser range through Inno data version 6.7, but its only sample integration fixture is 6.6.1. The repository has no release or Actions workflow, and the checked commit is unverified. It also documents 6.5+ encrypted data as unsupported. No build, test, PHM parse, extraction, or execution was performed. This does not change RA-05: neither this candidate nor `InnoUnpack.NET` is accepted for the unsigned PHM artifact. Details are recorded in `Docs/Research/RA-05-PHM-Observed-Binary-Extraction-Blocker.md`.
+
+## Installer package build follow-up — 2026-10-23
+
+From source commit `fa13ee570bb4e10e7481167978d57d245dcc51c6`, the canonical installer script built Revit 2024 and Revit 2025 targets, the version `2.7.2` MSI, and its bootstrapper with 0 errors. A read-only MSI database review confirmed the two Rebar Shape manifest entries route to the legacy and modern Rebar folders. The packages are unsigned, were not installed, and were not opened in Revit. This is package/build evidence only; QA-09 automated regression remains NOT TESTED, QA-10 remains BLOCKED on the disposable model/user availability gate, and MSI lifecycle acceptance remains open. Exact artifact hashes and limits are in `Docs/QA/REA_MSI_BUILD_EVIDENCE.md`.
