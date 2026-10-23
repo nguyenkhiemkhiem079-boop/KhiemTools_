@@ -13,6 +13,7 @@ namespace KhimTools.QuantityTakeoff.Models
         public string Material { get; set; } = "";
         public string FamilyName { get; set; } = "";
         public string TypeName { get; set; } = "";
+        public string TypeMark { get; set; } = "";
         public string TypeUniqueId { get; set; } = "";
         public string Level { get; set; } = "";
         public string LevelUniqueId { get; set; } = "";
@@ -92,6 +93,7 @@ namespace KhimTools.QuantityTakeoff.Models
         public int CategoryId { get; set; }
         public string Material { get; set; } = "";
         public string FamilyName { get; set; } = "";
+        public string TypeMark { get; set; } = "";
         public string TypeUniqueId { get; set; } = "";
         public string Level { get; set; } = "";
         public string LevelUniqueId { get; set; } = "";

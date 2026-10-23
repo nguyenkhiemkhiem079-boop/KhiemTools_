@@ -1,6 +1,6 @@
 # K-TOOL REA roadmap — implementation and handoff plan
 
-**Current stage:** CORE-00 gates remain open; RB-01 code-side work is in progress. Roadmap acceptance is not complete.
+**Current stage:** ARCH-01 source implementation is in progress per the user's direction to defer QA; CORE-00 and RB-01 host acceptance remain open. Roadmap acceptance is not complete.
 
 **Source:** `KTOOL_REA_REVIEW_ROADMAP_2026-10-22 (1).xlsx`, sheets `Ke hoach 16 Wave`, `Cong viec 68 muc`, and `Thay doi baseline`. Workbook rows marked `PLANNED` are planned work, not source status or acceptance evidence.
 
@@ -105,3 +105,15 @@ The continued evidence review leaves the wave gates unchanged: RA-01/BL-059 rema
 Source checkpoint `8f68f44` closes a direct Rebar fixture path that bypassed the Runtime QA dashboard. `CmdRebarFixtureQa` now requires separate default-No confirmations for the safe Revit window and a detached disposable copy, uses the shared document preflight and baseline fingerprint before opening a transaction group, tracks temporary Floor/Rebar IDs, and requires both transaction-group rollback and exact post-run fingerprint restoration before it can report PASS. Group setup/disposal errors fail the fixture and still proceed to rollback comparison/reporting. The static harness audit now guards this legacy path too.
 
 Evidence at `8f68f44`: `Tools/Verify-RuntimeQaHarness.ps1` passed 65/65 static assertions; the Revit 2025 `net8.0-windows` compile-only build exited 0 with 10 existing warnings and 0 errors. No Revit process, command, model, or fixture was opened or run. This removes a harness bypass; QA-08/QA-10 and CORE-00/RB-01 host acceptance remain blocked pending the safe user window and designated disposable model.
+
+## ARCH-01 code-side implementation — 2026-10-23
+
+Per the user's instruction to continue source work without QA, ARCH-01 has started while CORE-00/RB-01 native acceptance remains open. This does not close or pass earlier wave gates.
+
+- BL-018: integrated the user-supplied Door/Window Schedule 1.0.1 **source** as a separate Revit 2025 project and exposed its command from the Architecture ribbon only for Revit 2025. The source tree's 13 files match the corresponding members in `K-TOOL-DoorSchedule-Revit2025 (1).zip` (SHA-256 `AEF7D90C9D0DE10F4F0227A59582E63314AE1F83BAEDE446C7B6A169A54969F0`). The archive's precompiled DLL (SHA-256 `A7C212F6DEFC5454850173A79ED6AB5161ACE75E600BAA19CB79B735D5D677B2`) was not copied or loaded. The modern bundle copy target will include the separate project's DLL when deployment packaging runs; the Modern MSI component now declares that payload. No bundle deployment or MSI build was run.
+- BL-019: door Assembly names now carry Family, Type, Type Mark, and instance Mark/ElementId, preserving the type identity in generated detail views when instance marks are duplicated or absent.
+- BL-020: QTO now reports native `HOST_AREA_COMPUTED` for Basic Walls grouped by the **declared** `WallType.Function` (Exterior/Interior). It labels those values `NATIVE_UNRECONCILED`; this is not a verified physical exposure classification or a gross/net area claim. Missing, explicit zero, invalid, and unsupported wall-function measurements are separate Data Check findings.
+- BL-021: curtain panels and mullions have separate count/area/length codes. Panel area uses native `HOST_AREA_COMPUTED`; mullion length uses native `CURVE_ELEM_LENGTH`. Missing, explicit zero, and invalid measurements remain separate findings and are included in the exported Data Check. Panel, mullion, and wall quantities are not combined, and opening deductions are not inferred.
+- Type Mark is now visible/searchable in K-QS and is included in QTO export and snapshots. This supplies a readable type identifier; it does not certify parity against the standalone schedule on a Revit model.
+
+The Door/Window source archive documents that its package targets Revit 2025 only and uses community-distributed, Autodesk-signed reference binaries for compilation. No downloaded DLL was reused. The package's live Revit behavior, schedule quantities, phase/filter results, worksharing, sheet placement, and Add-in Manager load remain `NOT TESTED`. The existing RA-06 EnergyExtractor audit is package-hash-specific; model reconciliation and EnergyExtractor integration remain open. No Revit QA, test suite, installer lifecycle, or model operation was run for this update.

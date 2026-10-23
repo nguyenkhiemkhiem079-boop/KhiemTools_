@@ -160,3 +160,12 @@ No test suite, installer lifecycle, Revit process, command, model, or fixture wa
 PowerShell parser validation at source checkpoint `4e38aa3549543ac7577639d7d1ea35ec83155dc1` reported syntax OK for `Installer/Test-RealMsiRuntime.ps1`, `Installer/Test-MsiLifecycle.ps1`, `Installer/Verify-RevitRuntimeQA.ps1`, and `Test-All.ps1`. This checks syntax only; none of these scripts or their suites was executed.
 
 The `Test-All.ps1` dashboard and script header also now identify `Verify-RevitRuntimeQA.ps1` as a source/packaging static audit with no host execution. The Phase 3 MSI lifecycle script is identified as a read-only MSI-table audit; it may build an absent MSI but does not install or uninstall. Existing machine-readable result lines are unchanged. No audit or build was run; these are reporting-label corrections only and do not add runtime evidence.
+
+## ARCH-01 source implementation — 2026-10-23
+
+The user asked to continue the next wave without QA. Source work therefore began on ARCH-01 while CORE-00 and RB-01 host gates remain open; no earlier gate is marked passed.
+
+- Door/Window Schedule 1.0.1 source was copied from the user-provided archive after comparing all 13 source files with ZIP members. Archive SHA-256: `AEF7D90C9D0DE10F4F0227A59582E63314AE1F83BAEDE446C7B6A169A54969F0`. Integration builds a separate Revit 2025 assembly; the downloaded precompiled DLL was not reused. Ribbon exposure is limited to Revit 2025. The modern bundle copy target and Modern MSI component are configured to include the build output; no deployment or MSI build was run.
+- K-QS now includes visible Type Mark, Basic Wall area grouped by declared Exterior/Interior wall type function, and separate curtain panel counts/areas and mullion counts/lengths. Missing, explicit zero, invalid, and unclassified measurements are reported distinctly in Data Check and export. These are code-side measurements marked `NATIVE_UNRECONCILED`; actual exposure, gross/net semantics, schedule parity, openings, and native model quantities remain unverified.
+- Door Assembly names include Family/Type/Type Mark/instance Mark or ElementId to retain identity through detail view generation.
+- Compile-only Revit 2025 result is recorded after the changes. No test suite, Revit host, installer lifecycle, or model operation was run.

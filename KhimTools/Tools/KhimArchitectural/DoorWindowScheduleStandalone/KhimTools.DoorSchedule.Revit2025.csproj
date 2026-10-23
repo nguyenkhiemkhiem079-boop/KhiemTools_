@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <OutputType>Library</OutputType>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <AssemblyName>KhimTools.DoorSchedule.Revit2025</AssemblyName>
+    <RootNamespace>KhimTools.DoorSchedule</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildProjectDirectory)=/_/src</PathMap>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <Description>Standalone native door and window schedules for Autodesk Revit 2025</Description>
+    <RevitApiDirectory Condition="'$(RevitApiDirectory)' == '' And Exists('$(ProgramW6432)\Autodesk\Revit 2025\RevitAPI.dll')">$(ProgramW6432)\Autodesk\Revit 2025</RevitApiDirectory>
+    <RevitAPIReferencePath Condition="'$(RevitApiDirectory)' != ''">$(RevitApiDirectory)\RevitAPI.dll</RevitAPIReferencePath>
+    <RevitAPIUIReferencePath Condition="'$(RevitApiDirectory)' != ''">$(RevitApiDirectory)\RevitAPIUI.dll</RevitAPIUIReferencePath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RevitApiDirectory)' == ''">
+    <!-- Community-distributed original Autodesk-signed reference binaries; never runtime replacements. -->
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPI" Version="2025.0.2" GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="Nice3point.Revit.Api.RevitAPIUI" Version="2025.0.2" GeneratePathProperty="true" ExcludeAssets="all" PrivateAssets="all" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(RevitApiDirectory)' == ''">
+    <RevitAPIReferencePath>$(PkgNice3point_Revit_Api_RevitAPI)\ref\net8.0\RevitAPI.dll</RevitAPIReferencePath>
+    <RevitAPIUIReferencePath>$(PkgNice3point_Revit_Api_RevitAPIUI)\ref\net8.0\RevitAPIUI.dll</RevitAPIUIReferencePath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Using Include="System.IO" />
+    <Reference Include="RevitAPI"><HintPath>$(RevitAPIReferencePath)</HintPath><Private>false</Private></Reference>
+    <Reference Include="RevitAPIUI"><HintPath>$(RevitAPIUIReferencePath)</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="ValidateRevitReferencePaths" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="!Exists('$(RevitAPIReferencePath)')" Text="Genuine Revit 2025 RevitAPI.dll reference missing: $(RevitAPIReferencePath)" />
+    <Error Condition="!Exists('$(RevitAPIUIReferencePath)')" Text="Genuine Revit 2025 RevitAPIUI.dll reference missing: $(RevitAPIUIReferencePath)" />
+  </Target>
+</Project>

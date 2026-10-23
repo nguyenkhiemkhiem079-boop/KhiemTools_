@@ -96,6 +96,12 @@ namespace KhimTools.QuantityTakeoff.Services
             yield return Rule("QS-CABLETRAY", "Máng cáp", 2);
             yield return Rule("QS-CONDUIT", "Ống luồn dây", 2);
             yield return Rule("QS-ROOM", "Diện tích phòng", 2);
+            yield return Rule("QS-WALL-EXT-AREA", "Exterior wall area (declared type function)", 2);
+            yield return Rule("QS-WALL-INT-AREA", "Interior wall area (declared type function)", 2);
+            yield return Rule("QS-CURTAIN-PANEL-COUNT", "Curtain panel count", 0);
+            yield return Rule("QS-CURTAIN-PANEL-AREA", "Curtain panel area", 2);
+            yield return Rule("QS-CURTAIN-MULLION-COUNT", "Curtain mullion count", 0);
+            yield return Rule("QS-CURTAIN-MULLION-LENGTH", "Curtain mullion length", 2);
         }
 
         private static QtoMeasurementRule Rule(string code, string description, int digits) =>

@@ -32,6 +32,9 @@
     <RevitVersionForReference Condition="'$(RevitVersionForReference)'==''">2025</RevitVersionForReference>
     <VersionFolder>Modern</VersionFolder>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)'=='net8.0-windows' and '$(RevitVersionForReference)'=='2025'">
+    <DefineConstants>$(DefineConstants);KTOOL_REVIT2025</DefineConstants>
+  </PropertyGroup>
   <PropertyGroup>
     <RevitRequestedVersion Condition="'$(RevitRequestedVersion)'==''">$(RevitVersionForReference)</RevitRequestedVersion>
   </PropertyGroup>
@@ -74,6 +77,8 @@
     <Compile Remove="Tools\IconGen\**" />
     <Page Remove="Tools\IconGen\**" />
     <None Remove="Tools\IconGen\**" />
+    <Compile Remove="Tools\KhimArchitectural\DoorWindowScheduleStandalone\**\*.cs" />
+    <Page Remove="Tools\KhimArchitectural\DoorWindowScheduleStandalone\**\*.xaml" />
     <Compile Remove="Tests\**\*.cs" />
   </ItemGroup>
 
@@ -169,5 +174,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\src\KhimTools.Domain\KhimTools.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)'=='net8.0-windows' and '$(RevitVersionForReference)'=='2025'">
+    <ProjectReference Include="Tools\KhimArchitectural\DoorWindowScheduleStandalone\KhimTools.DoorSchedule.Revit2025.csproj" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Media.Imaging;
@@ -601,7 +602,7 @@ namespace KhimTools.Core
 
             var doorTools = panel.AddItem(new PulldownButtonData("ArchDoorDetailsPulldown", "Triển khai" + Environment.NewLine + "cửa")
             {
-                ToolTip = "Tạo view triển khai cửa theo Assembly hoặc Legend.",
+                ToolTip = "Tạo Assembly cửa và lập bảng cửa / cửa sổ.",
                 LargeImage = LoadImage("icon_detail_32.png"),
                 Image = LoadImage("icon_detail_16.png")
             }) as PulldownButton;
@@ -609,6 +610,17 @@ namespace KhimTools.Core
             {
                 AddPulldownItem(doorTools, "CmdCreateDoorAssemblies", "Assembly",
                     "KhimTools.Architectural.DoorDetails.CmdCreateDoorAssemblies", assemblyPath, "icon_detail_16.png");
+#if KTOOL_REVIT2025
+                if (string.Equals(application.ControlledApplication.VersionNumber, "2025", StringComparison.Ordinal))
+                {
+                    string doorScheduleAssembly = Path.Combine(
+                        Path.GetDirectoryName(assemblyPath) ?? string.Empty,
+                        "KhimTools.DoorSchedule.Revit2025.dll");
+                    AddPulldownItem(doorTools, "CmdCreateDoorWindowSchedule", "Door / Window Schedule",
+                        "KhimTools.DoorSchedule.Commands.CmdCreateDoorWindowSchedule",
+                        doorScheduleAssembly, "icon_detail_16.png");
+                }
+#endif
             }
         }
 

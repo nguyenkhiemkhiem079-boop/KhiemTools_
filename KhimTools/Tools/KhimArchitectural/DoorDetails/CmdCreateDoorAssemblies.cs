@@ -121,14 +121,28 @@ namespace KhimTools.Architectural.DoorDetails
 
         private static string AllocateUniqueName(HashSet<string> existing, FamilyInstance door)
         {
-            string mark = door.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
-            string baseName = string.IsNullOrWhiteSpace(mark)
-                ? $"DOOR-{door.Symbol?.Name ?? door.Id.ToString()}"
-                : $"DOOR-{mark}";
+            FamilySymbol symbol = door.Symbol;
+            string familyName = symbol?.FamilyName;
+            string typeName = symbol?.Name;
+            string typeMark = symbol?.get_Parameter(BuiltInParameter.ALL_MODEL_TYPE_MARK)?.AsString();
+            string instanceMark = door.get_Parameter(BuiltInParameter.ALL_MODEL_MARK)?.AsString();
+            string baseName = string.Join("-", new[]
+            {
+                "DOOR",
+                CleanNamePart(string.IsNullOrWhiteSpace(familyName) ? "UnknownFamily" : familyName),
+                CleanNamePart(string.IsNullOrWhiteSpace(typeName) ? "UnknownType" : typeName),
+                CleanNamePart(string.IsNullOrWhiteSpace(typeMark) ? "NoTypeMark" : "TM-" + typeMark),
+                CleanNamePart(string.IsNullOrWhiteSpace(instanceMark) ? "ID-" + door.Id : "M-" + instanceMark)
+            });
             if (existing.Add(baseName)) return baseName;
             int number = 2;
             while (!existing.Add($"{baseName}-{number}")) number++;
             return $"{baseName}-{number}";
+        }
+
+        private static string CleanNamePart(string value)
+        {
+            return (value ?? string.Empty).Trim().Replace("/", "-").Replace("\\", "-").Replace(":", "-");
         }
 
         private static List<FamilyInstance> GetDoors(UIDocument uidoc)

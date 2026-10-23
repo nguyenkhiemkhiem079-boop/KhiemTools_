@@ -112,7 +112,7 @@ namespace KhimTools.QuantityTakeoff.Services
         {
             Key = BuildKey(line), Code = line.Code, Description = line.Description,
             Category = line.Category, CategoryId = line.CategoryId, Material = line.Material,
-            FamilyName = line.FamilyName, TypeUniqueId = line.TypeUniqueId,
+            FamilyName = line.FamilyName, TypeMark = line.TypeMark, TypeUniqueId = line.TypeUniqueId,
             Level = line.Level, LevelUniqueId = line.LevelUniqueId, Unit = line.Unit,
             Quantity = line.PayQuantity, ElementUniqueIds = line.ElementUniqueIds.ToList()
         };

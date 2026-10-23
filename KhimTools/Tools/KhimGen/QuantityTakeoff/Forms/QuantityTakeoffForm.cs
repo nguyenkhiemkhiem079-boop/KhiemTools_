@@ -186,10 +186,10 @@ namespace KhimTools.QuantityTakeoff.Forms
             string code = _codeFilter.SelectedItem?.ToString() ?? "(Tất cả nhóm)"; string query = (_search.Text ?? "").Trim();
             IEnumerable<QtoLine> rows = _revit.Lines.Where(x => x.IsIncluded);
             if (!code.StartsWith("(")) rows = rows.Where(x => x.Code == code);
-            if (query.Length > 0) rows = rows.Where(x => Contains(x.Code, query) || Contains(x.Description, query) || Contains(x.Material, query) || Contains(x.TypeName, query) || Contains(x.Level, query));
+            if (query.Length > 0) rows = rows.Where(x => Contains(x.Code, query) || Contains(x.Description, query) || Contains(x.Material, query) || Contains(x.TypeName, query) || Contains(x.TypeMark, query) || Contains(x.Level, query));
                 _visibleRevit = rows.ToList(); _revitGrid.Rows.Clear();
             foreach (QtoLine line in _visibleRevit)
-                _revitGrid.Rows.Add(line.Code, line.Description, line.Category, line.Material, line.FamilyName, line.TypeName, line.Level, line.Unit,
+                _revitGrid.Rows.Add(line.Code, line.Description, line.Category, line.Material, line.FamilyName, line.TypeName, line.TypeMark, line.Level, line.Unit,
                     line.RawQuantity.ToString("N3"), line.WastePercent.ToString("N1"), line.PayQuantity.ToString("N" + line.RoundingDigits), line.ElementCount, line.Confidence);
             ShowTrace();
         }
@@ -259,8 +259,13 @@ namespace KhimTools.QuantityTakeoff.Forms
                 writer.AddRow("K-QS SOURCE COMPARISON", _doc.Title, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
                 writer.AddRow("COMPARE", "Revit Code", "Unit", "QS Revit", "QS Cubicost", "Difference (Revit-Cubicost)", "Difference %");
                 foreach (QtoSourceComparison x in _comparison) writer.AddRow(x.Status, x.RevitCode, x.Unit, N(x.RevitQuantity), N(x.CubicostQuantity), N(x.Difference), x.DifferencePercent.HasValue ? N(x.DifferencePercent.Value, "0.###") : "");
-                writer.AddEmptyRow(); writer.AddRow("QS REVIT", "Description", "Material", "Family", "Type", "Level", "Unit", "Raw", "Waste %", "Pay", "Source", "Formula", "UniqueIds");
-                foreach (QtoLine x in _revit.Lines.Where(x => x.IsIncluded)) writer.AddRow(x.Code, x.Description, x.Material, x.FamilyName, x.TypeName, x.Level, x.Unit, N(x.RawQuantity), N(x.WastePercent, "0.###"), N(x.PayQuantity), x.Source, x.FormulaTrace, string.Join(";", x.ElementUniqueIds));
+                writer.AddEmptyRow(); writer.AddRow("QS REVIT", "Description", "Material", "Family", "Type", "Type Mark", "Level", "Unit", "Raw", "Waste %", "Pay", "Source", "Formula", "UniqueIds");
+                foreach (QtoLine x in _revit.Lines.Where(x => x.IsIncluded)) writer.AddRow(x.Code, x.Description, x.Material, x.FamilyName, x.TypeName, x.TypeMark, x.Level, x.Unit, N(x.RawQuantity), N(x.WastePercent, "0.###"), N(x.PayQuantity), x.Source, x.FormulaTrace, string.Join(";", x.ElementUniqueIds));
+                writer.AddEmptyRow(); writer.AddRow("DATA CHECK", "Severity", "Check", "Message", "Count", "ElementUniqueIds");
+                foreach (QtoFinding finding in _revit.Findings)
+                    writer.AddRow("Finding", finding.Severity, finding.Check, finding.Message,
+                        finding.Count.ToString(CultureInfo.InvariantCulture),
+                        string.Join(";", finding.ElementIds.Select(id => _doc.GetElement(id)?.UniqueId ?? "").Where(id => !string.IsNullOrWhiteSpace(id))));
                 writer.AddEmptyRow(); writer.AddRow("QS CUBICOST", "Cubicost Code", "Map Revit Code", "Description", "Location", "Unit", "Quantity", "Source Row");
                 if (_cubicost != null) foreach (CubicostQtoLine x in _cubicost.Lines) writer.AddRow("Cubicost", x.CubicostCode, x.RevitCode, x.Description, x.Location, x.Unit, N(x.Quantity), x.SourceRow.ToString(CultureInfo.InvariantCulture));
                 writer.Save(temporaryPath);
@@ -273,7 +278,7 @@ namespace KhimTools.QuantityTakeoff.Forms
             catch (Exception ex) { TaskDialog.Show("K-QS — Export", ex.Message); }
         }
 
-        private void BuildRevitColumns() { Add(_revitGrid, "Code", "Mô tả", "Category", "Material", "Family", "Type", "Level", "Đơn vị", "Raw", "Hao hụt %", "Pay", "Elements", "Confidence"); }
+        private void BuildRevitColumns() { Add(_revitGrid, "Code", "Mô tả", "Category", "Material", "Family", "Type", "Type Mark", "Level", "Đơn vị", "Raw", "Hao hụt %", "Pay", "Elements", "Confidence"); }
         private void BuildCubicostColumns()
         {
             Add(_cubicostGrid, "Source Row", "Cubicost Code", "Map Revit Code", "Description", "Location", "Unit", "Quantity");
